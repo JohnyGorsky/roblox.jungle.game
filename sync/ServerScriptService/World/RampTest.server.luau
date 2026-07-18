@@ -24,9 +24,9 @@ local WATER_Y = RiverData.WATER_Y
 local LAUNCH_BASE = 40 -- upward launch off any ramp (studs/s)
 local LAUNCH_PER_DEG = 1.6 -- extra upward per degree of ramp angle
 local LAUNCH_MAX = 95 -- cap (studs/s) — ~95 ≈ a ~23-stud peak
-local FLIP_RATE = 1.6 -- angular nose-over (rad/s) through the arc
+local FLIP_RATE = 0.5 -- gentle angular nose-UP off the ramp (rad/s); NOT a somersault
 local MIN_SPEED = 6 -- need this forward speed to trigger a launch
-local ARC_TIME = 1.3 -- seconds BoatServer keeps buoyancy/leveling off after a launch
+local ARC_TIME = 0.6 -- seconds BoatServer keeps leveling off; then it re-levels to catch the landing
 local DEBOUNCE = 2.5 -- seconds before the same ramp can launch again
 
 if not Workspace:GetAttribute("RiverReady") then
@@ -115,8 +115,8 @@ RunService.Heartbeat:Connect(function()
 			local launchUp = math.min(LAUNCH_BASE + r.angle * LAUNCH_PER_DEG, LAUNCH_MAX)
 			-- LINEAR: keep the boat's horizontal velocity, set a strong upward launch
 			hull.AssemblyLinearVelocity = Vector3.new(vel.X, launchUp, vel.Z)
-			-- ANGULAR: a nose-over pitch through the arc (about the boat's right axis)
-			hull.AssemblyAngularVelocity = hull.CFrame.RightVector * FLIP_RATE
+			-- ANGULAR: a gentle nose-UP off the ramp (negative right axis), NOT a somersault
+			hull.AssemblyAngularVelocity = -hull.CFrame.RightVector * FLIP_RATE
 			-- tell BoatServer to stop fighting the arc for a moment
 			boat:SetAttribute("LaunchUntil", os.clock() + ARC_TIME)
 			print(("[RampTest] LAUNCH %d° pad: fwdSpeed=%.1f → launchUp=%.1f, flip=%.1f rad/s")

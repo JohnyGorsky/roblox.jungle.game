@@ -8,9 +8,12 @@
 
 Small task. (1) Lower the boat a bit: the hull is too TALL — hard to see the boat's front/end while driving. Reduce HULL_SIZE height in BoatServer (keep it floating/drivable). (2) Prove an unproven POC assumption: can the boat JUMP off ramps? Spawn a few greybox angled RAMPS (~10, 20, 35 degrees) in the river channel ahead of the start so the user can drive into them and see if the boat launches. Dev/test ramps (flagged, removable) — if jumping feels good, ramps become a real obstacle feature later. Greybox. Decided with user 2026-07-19.
 
+> **Correction during work (2026-07-19):** goal (1) is the boat's **LENGTH**, not height — the hull
+> was too LONG for the driver to see the stern. Trimmed length, not height.
+
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created & agreed (small task — inline)
+- [x] Implementation completed — length trimmed 28→22; ramp jump proven in Studio (telemetry logs)
+- [x] Final summary + changelog written
