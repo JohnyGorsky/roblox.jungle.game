@@ -43,9 +43,11 @@ local function buildRamp(z: number, angleDeg: number, color: Color3)
 	ramp.Size = Vector3.new(WIDTH, HEIGHT, RUN)
 	ramp.Color = color
 	ramp.Material = Enum.Material.Metal
-	-- base sits ~2 below the waterline so the thin leading edge is under the hull → hull rides up the slope
+	-- base sits ~2 below the waterline so the thin leading edge is under the hull → hull rides up the slope.
+	-- Orientation: the boat travels +Z (downstream) and must enter the THIN edge and rise to the lip. Which
+	-- Y-rotation puts the thin edge upstream is verified at runtime below (raycast the surface), not guessed.
 	local baseY = WATER_Y - 2
-	ramp.CFrame = CFrame.new(cx, baseY + HEIGHT / 2, z) * CFrame.Angles(0, math.rad(180), 0)
+	ramp.CFrame = CFrame.new(cx, baseY + HEIGHT / 2, z)
 	ramp.Parent = root
 
 	-- a small label so you can tell which angle is which
