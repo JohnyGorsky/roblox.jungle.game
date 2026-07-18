@@ -110,7 +110,7 @@ local function setupCharacter(player: Player, char: Model)
 
 		bleedThread = task.delay(BLEEDOUT, function()
 			if char:GetAttribute("Downed") then
-				hum.Health = 0 -- bled out → real death → respawn
+				hum.Health = 0 -- bled out → death. During a run RunServer disables respawn → PERMADEATH + spectate (Job 018)
 			end
 		end)
 	end
