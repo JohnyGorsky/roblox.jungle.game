@@ -1,9 +1,9 @@
 # Final Summary — Job #017: Lobby place + launch-pad party + reserved teleport
 
 **Project**: `roblox.jungle` (repo `roblox.jungle.game`)
-**Completed (code)**: 2026-07-19
-**Status**: ✅ Code-complete & lobby verified live in Studio. **Live teleport needs a published playtest**
-(reserved-server teleport can't run in Studio) + the human publish/save steps below.
+**Completed**: 2026-07-19
+**Status**: ✅ DONE — **live-verified**: both places published; joining lands in the lobby, and a pad
+leader's Start teleports the party into the reserved Game server (crash-site staging). Full front-end works.
 
 ## What was implemented — the two-place front end (first P6 slice)
 
