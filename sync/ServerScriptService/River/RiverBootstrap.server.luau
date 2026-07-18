@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local RiverGenerator = require(ServerScriptService:WaitForChild("River"):WaitForChild("RiverGenerator"))
@@ -22,9 +23,27 @@ local TICK = 0.15        -- streaming update period (s)
 local CHUNK_LEN = RiverGenerator.CHUNK_LEN
 local MAX_CHUNK = math.floor(RiverData.END_DISTANCE / CHUNK_LEN)
 
--- seed: a Workspace attribute if set (daily/shared seed later), else a stable dev default
+-- seed priority: explicit Workspace attribute > lobby TELEPORT DATA (party shares one river) > dev default.
+-- On a reserved server the lobby passes { seed } via TeleportData; every party member carries the same
+-- value, so we read it off the first arriving player (briefly waiting for them). In Studio / direct joins
+-- there's no teleport data → falls back to the default. (Job 017)
 local seed = Workspace:GetAttribute("RiverSeed") :: number?
-RiverData.setSeed(if seed then seed else 2026)
+if not seed then
+	local deadline = os.clock() + 5
+	while not Players:GetPlayers()[1] and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	local first = Players:GetPlayers()[1]
+	if first then
+		local ok, data = pcall(function()
+			return first:GetJoinData().TeleportData
+		end)
+		if ok and typeof(data) == "table" and typeof(data.seed) == "number" then
+			seed = data.seed
+		end
+	end
+end
+RiverData.setSeed(seed or 2026)
 
 local generated: { [number]: boolean } = {}
 

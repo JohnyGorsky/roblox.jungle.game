@@ -1,11 +1,35 @@
 # Implementation Plan — Job #017: Lobby place + launch-pad party + reserved teleport
 
-**Project**: `roblox.jungle`
+**Project**: `roblox.jungle` (repo now `roblox.jungle.game`)
 **Created**: 2026-07-18
-**Status**: Planning (awaiting go-ahead)
+**Status**: In progress — lobby built & verified in Studio; teleport + arrival hook remain.
 
 The two-place front end (first slice of P6): a **Lobby** place where players form parties on **launch
 pads** and the leader teleports the group into a private **reserved gameplay server**.
+
+## Progress & remaining (2026-07-19)
+
+**Structure (final, corrected):** Roblox can't reassign the start place, so **root place = LOBBY**
+("Last River COOP", ★) and a **new place = GAMEPLAY** ("Last River COOP Game"). **One repo**
+(`roblox.jungle.game`), **two folders**: `sync/` → Game place, `lobby/sync/` → Lobby place (each with its
+own `default.project.json`).
+
+**DONE & verified live (Studio):**
+- `lobby/` tree: `LobbyConfig`, `LobbyServer` (greybox airfield + 3 pads + signs + pad-party with leader
+  handoff + 3s countdown + reserved-teleport call), `LobbyClient` (hint). Analyzer-clean.
+- Lobby place synced from `lobby/`, old gameplay scripts removed, **leftover terrain/water cleared**.
+- Verified: pads build, occupancy/leader signs update (★), Start prompt enables for the leader, airfield is
+  dry and walkable.
+
+**REMAINING:**
+1. **Gameplay arrival-seed hook** (Game repo `sync/`): read `GetJoinData().TeleportData.seed` on arrival and
+   feed the river seed so the party shares one river; fall back to default if joined directly.
+2. **Wire the real Game Place ID** into `LobbyConfig.GAMEPLAY_PLACE_ID` (currently `0` placeholder →
+   Start logs a warning instead of teleporting). **Needs the ID from the human.**
+3. **Human:** SAVE/publish the Lobby place (so the cleared terrain persists) + publish both places.
+4. **Live-only test:** actual reserved-server teleport of the pad group into the Game place (can't run in
+   Studio).
+5. Final summary + changelog.
 
 ## Decisions locked (via wizard + chat, 2026-07-18)
 

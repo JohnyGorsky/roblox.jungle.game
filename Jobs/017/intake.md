@@ -10,7 +10,8 @@ P6 (first slice): the two-place front end. **CORRECTED STRUCTURE (Path A, 2026-0
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created & agreed
+- [x] Implementation completed (code) — lobby built + verified in Studio, arrival-seed hook added, Game
+      Place ID wired. Only the LIVE teleport test + human publish/save steps remain (can't run in Studio).
+- [x] Final summary + changelog written
