@@ -34,7 +34,7 @@ local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("
 
 -- ── tunables ─────────────────────────────────────────────────────────────
 local WATER_Y = RiverData.WATER_Y  -- water surface (spring target for hull CENTER), from the shared river data
-local HULL_SIZE = Vector3.new(14, 3, 28)
+local HULL_SIZE = Vector3.new(14, 3, 22) -- length trimmed 28→22 (Job 019) so the driver can see the boat's ends
 local DENSITY = 0.7
 -- Speed knobs. Top speed ≈ THRUST/DRAG, idle downstream drift ≈ CURRENT/DRAG. THRUST is the natural
 -- target for a future "boat speed upgrade" (multiply it — e.g. THRUST * speedTier — for a faster engine).
@@ -50,6 +50,12 @@ local LEVEL_TORQUE = 4e6     -- orientation torque cap (also the anti-capsize au
 local LEVEL_RESP = 22        -- orientation responsiveness (5..200) — lower = softer sway
 local MAX_BANK = math.rad(11)  -- max roll INTO a turn at full steer + speed
 local MAX_PITCH = math.rad(7)  -- max bow-up (throttle) / bow-down (brake) trim
+-- ramp jump assist (Job 019): Roblox gravity (~196) is high, so a natural ramp launch barely lifts the
+-- boat — amplify forward-speed-up-an-incline into upward velocity for a satisfying jump.
+local RAMP_LIFT = 5          -- forward speed up a ramp → upward launch velocity (high, since Roblox gravity
+--                             ~196 eats jumps: v studs/s only clears v²/392 studs, so we launch hard)
+local RAMP_MIN_SPEED = 8     -- need at least this forward speed to launch
+local MAX_LAUNCH = 95        -- cap on launch velocity (studs/s) — ~95 ≈ a ~23-stud peak off the steep ramp
 
 -- Spawn point — set AFTER RiverReady (once RiverBootstrap has applied the seed), so it matches the
 -- generated river. Placeholder until then.
@@ -204,13 +210,35 @@ RunService.Heartbeat:Connect(function(dt: number)
 	local vel = hull.AssemblyLinearVelocity
 	local mass = hull.AssemblyMass
 	local g = Workspace.Gravity
+	local look = hull.CFrame.LookVector
+	local fwd = vel:Dot(look) -- forward speed
 
-	-- buoyancy: damped spring holding the hull at the water line. The spring (up-only, water can't pull
-	-- down) and the DAMPING are separate: damping is applied on its own so it ALWAYS removes vertical
-	-- energy. The old version folded damping into a max(...,0) clamp and cut the whole force off at
-	-- WATER_Y+5 — right at the bob's peak — so a moving boat limit-cycled (~3-stud never-ending bounce).
-	-- Cutoff raised well above the normal bob so damping keeps acting; equilibrium is the water line.
-	if pos.Y < WATER_Y + 12 then
+	-- probe for a solid surface just under the hull. IgnoreWater → over open (deep) water this misses.
+	local rp = RaycastParams.new()
+	rp.FilterType = Enum.RaycastFilterType.Exclude
+	rp.FilterDescendantsInstances = { boat }
+	rp.IgnoreWater = true
+	local hit = Workspace:Raycast(pos, Vector3.new(0, -(HULL_SIZE.Y / 2 + 2.5), 0), rp)
+	local incline = if hit then math.acos(math.clamp(hit.Normal.Y, -1, 1)) else 0 -- 0 = flat, bigger = ramp
+	local onRamp = hit ~= nil and incline > math.rad(8) -- an INCLINED surface under us (not flat bed)
+	local airborne = hit == nil and pos.Y > WATER_Y + 3 -- launched / over a gap, clear of the water
+
+	-- RAMP LAUNCH ASSIST (Job 019): forward speed up an inclined surface → UPWARD velocity so the boat
+	-- actually launches (Roblox gravity is high). Gated on the ramp UNDER the hull (not height), so it
+	-- assists the whole climb. One-shot velocity set = the impulse tool (roblox-physics).
+	if onRamp and fwd > RAMP_MIN_SPEED then
+		local up = math.min(fwd * math.sin(incline) * RAMP_LIFT, MAX_LAUNCH)
+		if vel.Y < up then
+			hull.AssemblyLinearVelocity = Vector3.new(vel.X, up, vel.Z)
+			vel = hull.AssemblyLinearVelocity
+		end
+	end
+
+	-- buoyancy: damped spring to the water line (damping separate from the up-only spring — bob fix).
+	-- OFF while on a ramp (the ramp supports it) or airborne (free-projectile arc), so neither is fought.
+	if onRamp or airborne then
+		buoy.Force = Vector3.zero
+	elseif pos.Y < WATER_Y + 12 then
 		local spring = math.max(mass * (g + (WATER_Y - pos.Y) * FLOAT_K), 0)
 		local damp = -vel.Y * FLOAT_D * mass
 		buoy.Force = Vector3.new(0, spring + damp, 0)
@@ -226,8 +254,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 
-	-- drive
-	local look = hull.CFrame.LookVector
+	-- drive (look/fwd computed above)
 	local t = seat.Throttle -- 1 (W) / -1 (S) / 0
 	local s = seat.Steer    -- 1 (D) / -1 (A) / 0
 
