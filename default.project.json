@@ -1,0 +1,34 @@
+{
+  "name": "roblox.jungle",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedFirst": {
+      "$path": "sync/ReplicatedFirst"
+    },
+
+    "ReplicatedStorage": {
+      "$path": "sync/ReplicatedStorage"
+    },
+
+    "ServerScriptService": {
+      "$path": "sync/ServerScriptService"
+    },
+
+    "ServerStorage": {
+      "$path": "sync/ServerStorage"
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "sync/StarterPlayer/StarterPlayerScripts"
+      },
+      "StarterCharacterScripts": {
+        "$className": "StarterCharacterScripts",
+        "$path": "sync/StarterPlayer/StarterCharacterScripts"
+      }
+    }
+  }
+}

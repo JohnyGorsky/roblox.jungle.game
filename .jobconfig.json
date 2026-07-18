@@ -1,0 +1,16 @@
+{
+  "_comment": "Jungle syncs all scripts under a top-level `sync/` folder on disk (differs from Defender, which mirrors services at the repo root). Auto-sync services confirmed from the live Studio Explorer ⇄ icons 2026-07-17. Used by ../roblox.workspace/tools/job.py for the final-summary sync table; order matters (synced_paths win over non_synced_paths).",
+  "synced_paths": [
+    "sync/ReplicatedFirst/",
+    "sync/ReplicatedStorage/",
+    "sync/ServerScriptService/",
+    "sync/ServerStorage/",
+    "sync/StarterPlayer/StarterCharacterScripts/",
+    "sync/StarterPlayer/StarterPlayerScripts/"
+  ],
+  "non_synced_paths": [
+    "sync/StarterGui/",
+    "sync/StarterPack/",
+    "sync/Workspace/"
+  ]
+}
