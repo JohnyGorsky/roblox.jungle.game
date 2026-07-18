@@ -50,13 +50,10 @@ local LEVEL_TORQUE = 4e6     -- orientation torque cap (also the anti-capsize au
 local LEVEL_RESP = 22        -- orientation responsiveness (5..200) — lower = softer sway
 local MAX_BANK = math.rad(11)  -- max roll INTO a turn at full steer + speed
 local MAX_PITCH = math.rad(7)  -- max bow-up (throttle) / bow-down (brake) trim
--- ramp jumps (Job 019, approach A + lip pop): the boat CONFORMS to a ramp (see the drive loop) so it climbs
--- the slope cleanly; then, the moment it LEAVES the lip, we add an upward velocity so it actually jumps
--- (Roblox gravity ~196 is too high for momentum alone). Launch scales with the ramp's steepness.
-local LAUNCH_BASE = 28         -- base upward launch off any ramp lip (studs/s)
-local LAUNCH_PER_DEG = 1.6     -- extra launch per degree of ramp steepness
-local LAUNCH_MAX = 85          -- cap (studs/s); ~85 ≈ an ~18-stud peak
-local LAUNCH_MIN_SPEED = 5     -- need at least this forward speed leaving the lip to launch
+-- ramp jumps (Job 019): ramps are NON-COLLIDING triggers (RampTest) — driving over one applies the launch
+-- (linear up + angular flip) directly to the boat and sets boat.LaunchUntil; while that window is open this
+-- loop suspends buoyancy + leveling so the boat arcs/flips freely. (A heavy buoyant boat can't physically
+-- climb a solid ramp — it jams — so we drive over a trigger and apply the velocities instead.)
 
 -- Spawn point — set AFTER RiverReady (once RiverBootstrap has applied the seed), so it matches the
 -- generated river. Placeholder until then.
@@ -190,8 +187,7 @@ end
 claimServerOwnership()
 seat:GetPropertyChangedSignal("Occupant"):Connect(claimServerOwnership)
 
-local prevOnRamp = false -- for detecting the frame the boat LEAVES a ramp lip (→ launch)
-local prevIncline = 0 -- incline (rad) of the ramp we were last on
+local logAccum = 0 -- throttle for the debug state log
 RunService.Heartbeat:Connect(function(dt: number)
 	-- KEEP SERVER OWNERSHIP even while driven. The VehicleSeat hands the boat to the driver's client on
 	-- sit, but the buoyancy force is computed HERE (server-side) — a client-owned boat + server-computed
@@ -215,21 +211,13 @@ RunService.Heartbeat:Connect(function(dt: number)
 	local g = Workspace.Gravity
 	local look = hull.CFrame.LookVector
 
-	-- surface probe (Job 019, approach A): an inclined solid surface just under the hull = a ramp. We CONFORM
-	-- the boat to it (pitch to follow the slope; roll stays locked) so thrust points UP the slope and the
-	-- boat climbs + launches off the lip on its own momentum — a hard-levelled boat only jams into a ramp.
-	local rp = RaycastParams.new()
-	rp.FilterType = Enum.RaycastFilterType.Exclude
-	rp.FilterDescendantsInstances = { boat }
-	rp.IgnoreWater = true
-	local hit = Workspace:Raycast(pos, Vector3.new(0, -(HULL_SIZE.Y / 2 + 3), 0), rp)
-	local rampNormal = if hit then hit.Normal else nil
-	local onRamp = rampNormal ~= nil and math.acos(math.clamp(rampNormal.Y, -1, 1)) > math.rad(8)
-	local airborne = hit == nil and pos.Y > WATER_Y + 3
+	-- LAUNCHED: a ramp trigger (RampTest) set boat.LaunchUntil + applied the launch velocity. While that
+	-- window is open we suspend buoyancy + leveling so the boat arcs/flips freely as a projectile.
+	local launched = os.clock() < ((boat:GetAttribute("LaunchUntil") :: number?) or 0)
 
-	-- buoyancy: OFF on a ramp (the ramp carries it) / airborne (free-projectile arc); else damped spring
-	-- to the water line (damping separate from the up-only spring — bob fix).
-	if onRamp or airborne then
+	-- buoyancy: OFF while launched (free arc); else a damped spring to the water line (damping separate
+	-- from the up-only spring — bob fix).
+	if launched then
 		buoy.Force = Vector3.zero
 	elseif pos.Y < WATER_Y + 12 then
 		local spring = math.max(mass * (g + (WATER_Y - pos.Y) * FLOAT_K), 0)
@@ -267,33 +255,23 @@ RunService.Heartbeat:Connect(function(dt: number)
 	local authority = math.clamp(fwdSpeed / TURN_FULL_SPEED, -1, 1)
 	desiredYaw -= s * TURN * authority * dt
 
-	-- attitude. ON A RAMP: CONFORM to the surface — boat up = ramp normal, forward = heading projected onto
-	-- the slope — so it pitches up the ramp and thrust drives it up (roll still controlled → no capsize).
-	-- ON WATER/AIR: keep level + bank(into turn) + trim(throttle).
-	if onRamp and rampNormal then
-		local f = Vector3.new(-math.sin(desiredYaw), 0, -math.cos(desiredYaw)) -- heading, horizontal
-		local fOnRamp = f - rampNormal * f:Dot(rampNormal) -- project heading onto the ramp plane
-		if fOnRamp.Magnitude > 0.05 then
-			level.CFrame = CFrame.lookAt(Vector3.zero, fOnRamp.Unit, rampNormal)
-		end
+	-- attitude. While LAUNCHED (airborne off a ramp) DON'T fight the arc/flip (leveling off). Otherwise keep
+	-- level + bank(into turn) + trim(throttle) and hold the heading.
+	if launched then
+		level.MaxTorque = 0
 	else
+		level.MaxTorque = LEVEL_TORQUE
 		local bank = -s * math.abs(authority) * MAX_BANK
 		local pitch = t * MAX_PITCH
 		level.CFrame = CFrame.Angles(0, desiredYaw, 0) * CFrame.Angles(pitch, 0, bank)
 	end
 
-	-- LAUNCH off the lip: the frame the boat leaves a ramp while moving forward, add upward velocity so it
-	-- actually jumps (it climbed the ramp conformed, but momentum alone can't beat Roblox gravity). Scales
-	-- with the steepness of the ramp just left.
-	if prevOnRamp and not onRamp and fwdSpeed > LAUNCH_MIN_SPEED then
-		local launchY = math.min(LAUNCH_BASE + math.deg(prevIncline) * LAUNCH_PER_DEG, LAUNCH_MAX)
-		if vel.Y < launchY then
-			hull.AssemblyLinearVelocity = Vector3.new(vel.X, launchY, vel.Z)
-		end
-	end
-	prevOnRamp = onRamp
-	if onRamp and rampNormal then
-		prevIncline = math.acos(math.clamp(rampNormal.Y, -1, 1))
+	-- state log (throttled) so we can see speed / height / launched while testing (Job 019)
+	logAccum += dt
+	if logAccum >= 0.25 and Workspace:GetAttribute("RunStarted") then
+		logAccum = 0
+		print(("[BoatDBG] spd=%.1f fwd=%.1f Y=%.1f (water %d) velY=%.1f launched=%s thr=%.0f")
+			:format(vel.Magnitude, fwdSpeed, pos.Y, WATER_Y, vel.Y, tostring(launched), t))
 	end
 end)
 
