@@ -26,8 +26,9 @@ Survivors, Sea of Thieves, Slay the Spire, plus Roblox monetization/leaderboard 
 5. **Gold IS sold for Robux** (full Dead Rails model — *your decision, 2026-07-19*). This makes the game
    pay-to-win by the strict definition; we counter the "greedy" perception with a generous free earn
    rate, no *exclusive* power behind Robux, and cosmetics kept as the headline sell (see §6 guardrails).
-6. **Robux otherwise = cosmetics + convenience + consumable safety-nets.** The "armored boat" is a
-   **cosmetic skin, identical stats**. Launch lean, expand after 2 weeks of data.
+6. **Robux otherwise = cosmetics + convenience + consumable safety-nets** — *plus* the one power
+   exception: the **Armored Boat** (Robux-only premium vehicle, +20% hull HP & +20% weapon damage, §6.3
+   #4). Launch lean, expand after 2 weeks of data.
 7. **Rank = a lifetime, non-decaying "River Score"** shown on an overhead lobby tag (10 named tiers
    mirroring the skill tree, Castaway → River Legend, then Legend ★ prestige). A *separate* resettable
    season/daily score serves competitors without ever knocking down someone's visible reputation.
@@ -216,8 +217,11 @@ the model earns at scale. The job now is to keep it feeling *fair, not greedy* v
 
 1. **Everything is earnable free, generously.** Gold drops every run (even losses); the free faucet must
    stay satisfying so buying is a *shortcut*, not a *requirement*. Never balance the game around purchased Gold.
-2. **No EXCLUSIVE power.** Nothing bought with Robux is unobtainable free — Robux only buys *time*
-   (skip the grind) plus cosmetics/convenience. This is the line the community actually polices.
+2. **Almost no EXCLUSIVE power.** Robux mostly buys *time* (skip the grind) + cosmetics/convenience.
+   The **one deliberate exception is the Armored Boat** (Robux-only premium vehicle, +20% — see §6.3
+   #4), exactly like Dead Rails' premium trains. Keep it the *only* exclusive-power item, keep the edge
+   modest (+20%, not +100%), and tune difficulty so the base boat clearly still wins — so it reads as a
+   "premium option," not a "pay-to-not-lose" wall.
 3. **Cosmetics stay the headline sell.** Lead the store with skins/the armored boat, not Gold packs.
 4. **No aggressive pop-ups / no randomized paid crates** (see Compliance in §6.3). Sell directly.
 5. **Tune difficulty against a free ~L5–L7 player**, so a payer isn't *required* and a free player can finish.
@@ -242,7 +246,7 @@ that Gold is sold anyway.)
 | 1 | Self-Revive Token (single) | Dev product | **35** | Consumable safety-net; keep in-run bandage revives strong so it's never required |
 | 2 | Self-Revive 5-pack | Dev product | **149** | ~15% volume discount → lifts ARPPU without raising per-use price |
 | 3 | +Cargo Slots (permanent) | Game pass | **99** | Convenience; mirrors Dead Rails "+5 Storage" (79). Also earnable via the Cargo Trailer module, so not exclusive |
-| 4 | **Armored Boat Skin** | Game pass | **199** | Your ask — **cosmetic metal-plated hull, identical stats**. Premium skin tier. Sell the *look*, never armor value |
+| 4 | **Armored Boat** (premium vehicle) | Game pass | **499** | *Your call — a power boat, Robux-only.* **+20% hull HP and +20% mounted-weapon damage** vs the base boat (does NOT touch speed/handling). Skills + modules still stack on top. Dead Rails-style premium vehicle; the one exclusive-power item (guardrail §6.1 #2). Priced as premium power, not a cosmetic |
 | 5 | Boat Paint pack (3–5 colorways) | Game pass | **99** | Entry cosmetic, the "gold standard" fair sell |
 | 6 | Cosmetic bundle (trails + wake FX + searchlight color + emote) | Game pass | **249** | Mid-tier bundle lifts value/buyer |
 | 7 | Starter Pack (cosmetic hull + 3 revives + captain outfit + first-run Salvage head start) | Dev product, first-purchase | **149** | New-player conversion; cosmetic + convenience only |
@@ -250,8 +254,8 @@ that Gold is sold anyway.)
 | 9 | Captain's Pass VIP (lobby cosmetics + name tag + 1 free daily self-revive) | Game pass | **399** | Whale-friendly permanent tier; recurring value via daily revive (convenience) |
 | 10 | Season / Battle Pass (free + premium; premium = cosmetics, emotes, Salvage/Gold, titles) | Game pass/season | **799** | Industry-standard price. **Build now, ship after D1/D7 healthy** (your call). Premium track may include Gold + cosmetics |
 
-**Launch lean:** ship a Gold pack (§6.2 — 99 R$), the Armored Boat Skin (#4, 199), and a cheap Boat
-Paint (#5, 99) first; measure conversion ~2 weeks, then expand. Lead the store with the *skin*, not Gold.
+**Launch lean:** ship a Gold pack (§6.2 — 99 R$), the **Armored Boat** (#4, 499 — the hero premium
+item), and a cheap Boat Paint (#5, 99) first; measure conversion ~2 weeks, then expand.
 
 **Compliance:** **no randomized paid crates** — Roblox now requires per-item odds disclosure globally
 (Korea loot-box law). Sell cosmetics directly; it's cleaner legally and reputationally.

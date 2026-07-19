@@ -17,7 +17,8 @@ retention), all grounded in the locked GAME.md economy and the real in-code run 
   onto the rare-gold line.
 - **Visible boat modules** (~1,000 Gold) as one-time capability unlocks, separate from graded skills.
 - **Robux:** cosmetics/convenience/revives **+ Gold packs** (locked decision — full Dead Rails model,
-  Gold is buyable; P2W accepted, with fairness guardrails in §6.1). Armored boat = cosmetic skin (199).
+  Gold is buyable; P2W accepted, with fairness guardrails in §6.1). **Armored Boat = Robux-only premium
+  vehicle (499), +20% hull HP & +20% weapon damage** — the one exclusive-power item.
 - **Lifetime non-decaying "River Score" rank** (10 tiers Castaway→River Legend + prestige stars) shown on
   a lobby overhead tag; separate resettable season/daily score for competitors.
 - **Server-authoritative scoring**, ProfileStore persistence, OrderedDataStore boards, daily-seeded runs.
