@@ -10,6 +10,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+
+-- real river obstacles (Job 036): built on "obstacle" hooks; tagged "Obstacle" with Slow/Damage attributes
+-- that ObstacleServer reads on boat contact. Non-colliding triggers (physical collision would blow up the
+-- boat assembly) — the hit applies a velocity cut + hull damage instead.
+local OBSTACLES = {
+	{ name = "Rock", size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
+	{ name = "Log", size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
+	{ name = "Sandbar", size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+}
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local RiverGenerator = require(ServerScriptService:WaitForChild("River"):WaitForChild("RiverGenerator"))
@@ -60,18 +70,36 @@ local function placeHooks(index: number)
 	folder.Name = "Chunk_" .. index
 	local zMin = RiverData.Z_START + index * CHUNK_LEN
 	for _, h in ipairs(RiverData.hooksBetween(zMin, zMin + CHUNK_LEN - 1)) do
-		local isRamp = h.kind == "ramp"
-		local p = Instance.new("Part")
-		p.Name = "Hook_" .. h.kind
-		p.Anchored = true
-		p.CanCollide = false
-		p.Material = Enum.Material.Neon
-		p.Transparency = 0.4
-		p.Size = if isRamp then Vector3.new(30, 6, 22) else Vector3.new(12, 12, 12)
-		p.Position = Vector3.new(h.x, RiverData.WATER_Y + (if isRamp then 1 else 4), h.z)
-		p.Color = if isRamp then Color3.fromRGB(90, 220, 120) else Color3.fromRGB(225, 80, 70)
-		p:SetAttribute("HookKind", h.kind)
-		p.Parent = folder
+		if h.kind == "ramp" then
+			-- ramp hooks stay greybox markers for now (ramp jumps are prototyped separately, Job 019)
+			local p = Instance.new("Part")
+			p.Name = "Hook_ramp"
+			p.Anchored = true
+			p.CanCollide = false
+			p.Material = Enum.Material.Neon
+			p.Transparency = 0.4
+			p.Size = Vector3.new(30, 6, 22)
+			p.Position = Vector3.new(h.x, RiverData.WATER_Y + 1, h.z)
+			p.Color = Color3.fromRGB(90, 220, 120)
+			p:SetAttribute("HookKind", "ramp")
+			p.Parent = folder
+		else
+			-- REAL obstacle (Job 036): pick a type deterministically by z; slow + damage on contact
+			local pick = OBSTACLES[(math.floor(math.abs(math.noise(h.z * 0.11, 7.7)) * 97) % #OBSTACLES) + 1]
+			local p = Instance.new("Part")
+			p.Name = pick.name
+			p.Anchored = true
+			p.CanCollide = false -- trigger; ObstacleServer applies the hit (physical collision = boat blowup)
+			p.Material = pick.mat
+			p.Size = pick.size
+			p.Position = Vector3.new(h.x, RiverData.WATER_Y + pick.size.Y / 2 - 0.6, h.z)
+			p.Color = pick.color
+			p:SetAttribute("HookKind", "obstacle")
+			p:SetAttribute("Slow", pick.slow)
+			p:SetAttribute("Damage", pick.damage)
+			CollectionService:AddTag(p, "Obstacle")
+			p.Parent = folder
+		end
 	end
 	folder.Parent = hooksRoot
 end
