@@ -95,6 +95,7 @@ function Profiles._publish(player: Player)
 	end
 	local gold = entry.data.gold or 0
 	player:SetAttribute(ProfileConfig.GOLD_ATTRIBUTE, gold)
+	player:SetAttribute("RiverScore", entry.data.riverScore or 0) -- rank source (Job 026)
 	local ls = player:FindFirstChild("leaderstats")
 	if ls then
 		local g = ls:FindFirstChild("Gold")
@@ -207,6 +208,22 @@ function Profiles.addGold(player: Player, amount: number): number
 	end
 	Profiles._publish(player)
 	return e.data.gold
+end
+
+function Profiles.getRiverScore(player: Player): number
+	local e = cache[player]
+	return (e and e.data.riverScore) or 0
+end
+
+-- Add to the lifetime River Score (rank). Never decreases. Returns the new total.
+function Profiles.addRiverScore(player: Player, amount: number): number
+	local e = cache[player]
+	if not e then
+		return 0
+	end
+	e.data.riverScore = math.max(0, (e.data.riverScore or 0) + math.max(0, amount))
+	Profiles._publish(player)
+	return e.data.riverScore
 end
 
 -- Spend gold only if affordable. Returns true on success.

@@ -12,8 +12,24 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local DataStoreService = game:GetService("DataStoreService")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+local RankDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("RankDefs")) :: any
+
+-- global leaderboards (Job 026): lifetime River Score + best distance. Integer values only.
+local scoreBoard = DataStoreService:GetOrderedDataStore(RankDefs.BOARD_RIVERSCORE)
+local distBoard = DataStoreService:GetOrderedDataStore(RankDefs.BOARD_DISTANCE)
+local function writeBoards(userId: number, riverScore: number, bestDist: number)
+	task.spawn(function()
+		pcall(function()
+			scoreBoard:SetAsync(tostring(userId), math.floor(riverScore))
+		end)
+		pcall(function()
+			distBoard:SetAsync(tostring(userId), math.floor(bestDist))
+		end)
+	end)
+end
 
 local LOBBY_PLACE_ID = 114309626266505 -- "Last River COOP lobby" (players return here after a run)
 local RETURN_TIMEOUT = 30 -- seconds on the results screen before auto-return to the lobby
@@ -164,10 +180,14 @@ local function endRun(won: boolean)
 	local zone = zoneReached(distance, endDist)
 	local survivors = alivePlayers()
 
-	-- credit every crew member (incl. the dead who are spectating) + fold in run stats
+	-- lifetime River Score for this run (Job 026 §8 POC subset: distance + depth + finish)
+	local runScore = math.floor(distance / 100) + zone * 50 + (won and 300 or 0)
+
+	-- credit every crew member (incl. the dead who are spectating) + fold in run stats + rank + boards
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if Profiles.isReady(plr) then
 			Profiles.addGold(plr, goldEarned)
+			local newScore = Profiles.addRiverScore(plr, runScore)
 			local prof = Profiles.get(plr)
 			if prof then
 				local s = prof.stats
@@ -182,6 +202,7 @@ local function endRun(won: boolean)
 				if zone > (s.farthestZone or 0) then
 					s.farthestZone = zone
 				end
+				writeBoards(plr.UserId, newScore, s.bestDistance)
 			end
 		end
 	end
