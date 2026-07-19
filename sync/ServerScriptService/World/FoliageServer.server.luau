@@ -13,9 +13,10 @@ local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("
 local AHEAD = 800
 local BEHIND = 220
 local SEG = 40 -- studs of river per foliage segment
-local PER_BANK = 8 -- trees per bank per segment (dense band)
+local PER_BANK = 16 -- trees per bank per segment (a THICK jungle wall — off-path is dense, Job 051)
 local MAX_TREE_Y = 27 -- keep trees on the grassy banks, not up on the rock/snow
-local BAND = 130 -- how far inland from the water edge trees can go (up to where mountains start)
+local BAND = 150 -- how far inland from the water edge trees can go (up to where mountains start)
+local DOCK_CLEAR = 30 -- leave a clearing this wide around a landing dock so you can disembark (Job 051)
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -59,16 +60,41 @@ local function buildSeg(idx: number)
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { root }
 	params.IgnoreWater = true
+
+	-- landing docks in this segment get a clearing so players can disembark (Job 051)
+	local landings = {}
+	for _, d in RiverData.docksBetween(idx * SEG, idx * SEG + SEG) do
+		if d.landing then
+			table.insert(landings, d)
+		end
+	end
+	local function nearLanding(x: number, z: number): boolean
+		for _, d in landings do
+			if (Vector2.new(x, z) - Vector2.new(d.x, d.z)).Magnitude < DOCK_CLEAR then
+				return true
+			end
+		end
+		return false
+	end
+
 	local terrainFound = false
 	for _, side in ipairs({ -1, 1 }) do
 		for _ = 1, PER_BANK do
 			local z = idx * SEG + rng:NextNumber(0, SEG)
-			local halfW = RiverData.widthAt(z) * 0.5
-			local x = RiverData.centerlineX(z) + side * (halfW + rng:NextNumber(4, BAND)) -- across the grassy bank to the mountains
+			-- fork-aware: plant beyond the OUTERMOST branch edge on this side (never in a fork channel / island)
+			local rightEdge, leftEdge = -math.huge, math.huge
+			for _, b in RiverData.branchesAt(z) do
+				rightEdge = math.max(rightEdge, b.c + b.halfW)
+				leftEdge = math.min(leftEdge, b.c - b.halfW)
+			end
+			local baseEdge = if side == 1 then rightEdge else leftEdge
+			-- inland-biased (u^0.6 favours the far band → a THICK back-forest, lighter right at the shore)
+			local inland = 4 + (BAND - 4) * (rng:NextNumber() ^ 0.6)
+			local x = baseEdge + side * inland
 			local hit = Workspace:Raycast(Vector3.new(x, 90, z), Vector3.new(0, -200, 0), params)
 			if hit and hit.Instance == Workspace.Terrain then
 				terrainFound = true
-				if hit.Material == Enum.Material.Grass and hit.Position.Y < MAX_TREE_Y then
+				if hit.Material == Enum.Material.Grass and hit.Position.Y < MAX_TREE_Y and not nearLanding(x, z) then
 					tree(hit.Position, model)
 				end
 			end

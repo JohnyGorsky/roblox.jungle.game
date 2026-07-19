@@ -17,14 +17,14 @@ local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild
 
 -- ── config ─────────────────────────────────────────────────────────────────
 local BASE_SEA_CAP, MAX_SEA_CAP = 4, 9 -- concurrent sea enemies: grows with distance (+2 at night)
-local BASE_LAND_CAP, MAX_LAND_CAP = 2, 5
+local BASE_LAND_CAP, MAX_LAND_CAP = 3, 7 -- banks are dangerous — more land ambushers (Job 051)
 local SEA_AHEAD_MIN, SEA_AHEAD_MAX = 180, 320 -- spawn well ahead → time to react at speed
 local FLANK_DIST = 12 -- crocs attack from ~this far off the boat centre (its side), not underneath
 local LAND_AHEAD_MIN, LAND_AHEAD_MAX = 60, 130
 local LAND_LEASH = 65 -- how far a panther will lunge from its bank anchor
 local CULL_BEHIND = 260
 local LEAD_TIME = 0.8
-local BASE_SEA_INTERVAL, BASE_LAND_INTERVAL = 4.0, 6.0
+local BASE_SEA_INTERVAL, BASE_LAND_INTERVAL = 4.0, 4.5 -- land shorter → banks feel alive with threats (Job 051)
 local ESCALATE_DISTANCE = 12000
 -- ───────────────────────────────────────────────────────────────────────────
 
@@ -320,7 +320,14 @@ task.spawn(function()
 			local def = pickType(LAND_POOL)
 			local z = hull.Position.Z + rng:NextNumber(LAND_AHEAD_MIN, LAND_AHEAD_MAX)
 			local side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1
-			local edge = RiverData.centerlineX(z) + side * (RiverData.widthAt(z) * 0.5 + 8)
+			-- fork-aware bank edge, then a bit INTO the treeline so they emerge from the dense forest (Job 051)
+			local rightEdge, leftEdge = -math.huge, math.huge
+			for _, b in RiverData.branchesAt(z) do
+				rightEdge = math.max(rightEdge, b.c + b.halfW)
+				leftEdge = math.min(leftEdge, b.c - b.halfW)
+			end
+			local baseEdge = if side == 1 then rightEdge else leftEdge
+			local edge = baseEdge + side * rng:NextNumber(8, 20)
 			local anchor = Vector3.new(edge, WATER_Y, z)
 			spawnEnemy(def, anchor, anchor)
 		end

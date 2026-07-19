@@ -33,8 +33,9 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
 3. **[Job 050 — done]** Forks + small islands — `RiverData.branchesAt`/`forkOffsetAt` (split→island→merge in
    wide zones) + `RiverGenerator` two-branch carve with a low island between; hooks/docks suppressed in forks.
    Verified: Delta channel splits around an island into two branches.
-4. **Off-path = dense & dangerous** — `FoliageServer` (thicken trees on steep/off-path ground, keep intended
-   routes clearer) + `EnemyServer` (higher spawn frequency in dense off-path bands) so wandering off is punished.
+4. **[Job 051 — done]** Off-path = dense & dangerous — `FoliageServer` thick inland-biased fork-aware bank
+   forest (clearing at landings) + `EnemyServer` higher land caps (3/7) & faster spawns emerging from the
+   treeline. River = safe corridor, banks = hostile jungle.
 5. **Excursion/camp rework** — `ExcursionServer`: a clear tree-free **path** from the disembark point to the
    camp; **predefined, non-respawning** rosters per camp that **escalate per successive landing** (track a
    per-run camp counter), replacing/curbing any respawn.
