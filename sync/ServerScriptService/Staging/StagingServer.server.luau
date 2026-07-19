@@ -16,6 +16,12 @@ local Players = game:GetService("Players")
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 
+-- shared "untie from the driver seat" remote (Job 030) — created here (StagingServer runs first); DockServer
+-- WaitForChilds + also listens. Lets a seated driver untie via a GUI button when the prompt is out of reach.
+local untieRemote = Instance.new("RemoteEvent")
+untieRemote.Name = "RequestUntie"
+untieRemote.Parent = ReplicatedStorage
+
 local WATER_Y = RiverData.WATER_Y
 local HUB_Z = RiverData.Z_START + 40 -- level with the boat spawn (BoatServer: positionAt(Z_START+40))
 local HUB_SIDE = 1 -- which bank the hub sits on (+X)
@@ -259,6 +265,19 @@ local function startRun()
 end
 
 prompt.Triggered:Connect(function()
+	if not docked then
+		reel()
+	else
+		startRun()
+	end
+end)
+
+-- GUI untie button (Job 030): a seated driver can reel/start without reaching the winch prompt.
+-- Same progression as the prompt (pull to dock → untie to start). Staging only acts before the run starts.
+untieRemote.OnServerEvent:Connect(function()
+	if started then
+		return
+	end
 	if not docked then
 		reel()
 	else

@@ -28,6 +28,16 @@ docksRoot.Parent = Workspace
 
 local placed: { [number]: Model } = {}
 
+-- GUI untie from the driver seat (Job 030): the currently-tied dock registers its untie here; the shared
+-- RequestUntie remote (created by StagingServer) calls it. Only one dock is tied at a time.
+local activeUntie: (() -> ())? = nil
+local untieRemote = ReplicatedStorage:WaitForChild("RequestUntie") :: RemoteEvent
+untieRemote.OnServerEvent:Connect(function()
+	if boat:GetAttribute("Tied") and activeUntie then
+		activeUntie()
+	end
+end)
+
 local function dockIndex(z: number): number
 	return math.floor((z - RiverData.Z_START) / RiverData.DOCK_SPACING + 0.5)
 end
@@ -69,19 +79,23 @@ local function buildDock(dock: RiverData.Dock, index: number)
 
 	local rope: RopeConstraint? = nil
 	local ropeAtts: { Attachment } = {}
+	local function doUntie()
+		hull.Anchored = false
+		boat:SetAttribute("Tied", false)
+		tie.ActionText = "Tie Boat"
+		if rope then
+			rope:Destroy()
+			rope = nil
+		end
+		for _, a in ropeAtts do
+			a:Destroy()
+		end
+		ropeAtts = {}
+		activeUntie = nil
+	end
 	tie.Triggered:Connect(function()
 		if boat:GetAttribute("Tied") then
-			hull.Anchored = false
-			boat:SetAttribute("Tied", false)
-			tie.ActionText = "Tie Boat"
-			if rope then
-				rope:Destroy()
-				rope = nil
-			end
-			for _, a in ropeAtts do
-				a:Destroy()
-			end
-			ropeAtts = {}
+			doUntie()
 		elseif (hull.Position - pos).Magnitude <= REFUEL_RANGE then
 			hull.Anchored = true -- greybox hold
 			boat:SetAttribute("Tied", true)
@@ -101,6 +115,7 @@ local function buildDock(dock: RiverData.Dock, index: number)
 			newRope.Color = BrickColor.new("Brown")
 			newRope.Parent = hull
 			rope = newRope
+			activeUntie = doUntie -- so the GUI untie button can release this dock
 		end
 	end)
 
