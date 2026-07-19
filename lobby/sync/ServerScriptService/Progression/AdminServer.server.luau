@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 local AdminDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("AdminDefs")) :: any
@@ -60,6 +61,21 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 			return { error = "bad-kind" }
 		end
 		print(("[Admin] %s → %s: %s %s"):format(plr.Name, target.Name, tostring(kind), tostring(amount)))
+		return { ok = true }
+	elseif action == "tpFirstCamp" then
+		-- self-teleport to the first landing's camp (game-only; the lobby has no ForceFirstCamp → no-op). Job 054
+		local forceCamp = ServerStorage:FindFirstChild("ForceFirstCamp")
+		local pos = forceCamp and (forceCamp :: BindableFunction):Invoke()
+		if typeof(pos) ~= "Vector3" then
+			return { error = "no-camp" }
+		end
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return { error = "no-char" }
+		end
+		root.CFrame = CFrame.new((pos :: Vector3) + Vector3.new(0, 3, 0))
+		print(("[Admin] %s → teleported to first camp"):format(plr.Name))
 		return { ok = true }
 	end
 	return { error = "bad-action" }

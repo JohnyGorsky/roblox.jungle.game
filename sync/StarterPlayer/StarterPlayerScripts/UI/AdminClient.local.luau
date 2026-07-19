@@ -130,12 +130,14 @@ targetBtn.Activated:Connect(function()
 end)
 
 -- action buttons
-local actions = {
+type AdminAction = { label: string, kind: string?, amount: number?, action: string? }
+local actions: { AdminAction } = {
 	{ label = "+1000 Gold", kind = "gold", amount = 1000 },
 	{ label = "+10000 River Score", kind = "score", amount = 10000 },
 	{ label = "+1000 Salvage (in-run)", kind = "salvage", amount = 1000 },
 	{ label = "Unlock ALL Modules", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", kind = "maxSkills", amount = 0 },
+	{ label = "TP to First Camp", action = "tpFirstCamp" }, -- self-teleport (no target); Job 054
 }
 
 local list = Instance.new("Frame")
@@ -165,6 +167,16 @@ for i, a in ipairs(actions) do
 	btsc.Parent = b
 	b.Parent = list
 	b.Activated:Connect(function()
+		-- self-actions (e.g. teleport) take no target and close the panel so you see the result
+		if a.action then
+			b.Text = "…"
+			pcall(function()
+				rf:InvokeServer(a.action)
+			end)
+			b.Text = a.label
+			dim.Visible = false
+			return
+		end
 		local tgt = targets[targetIdx]
 		if not tgt then
 			return

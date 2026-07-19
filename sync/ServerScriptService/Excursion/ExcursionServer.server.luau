@@ -347,12 +347,12 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local pathAx, pathAz = waterEdge + dock.side * 8, dock.z
 	local pathBx, pathBz = deepPos.X, deepPos.Z
 
-	-- visible dirt path along that lane
-	local aV = Vector3.new(pathAx, CLEAR_Y + 0.1, pathAz)
-	local bV = Vector3.new(pathBx, CLEAR_Y + 0.1, pathBz)
-	local pathLen = (bV - aV).Magnitude
-	local pathPart = block("CampPath", Vector3.new(PATH_HALF * 1.4, 0.2, pathLen), Color3.fromRGB(120, 95, 60), CFrame.lookAt((aV + bV) / 2, bV), model, Enum.Material.Ground)
-	pathPart.CanCollide = false
+	-- paint a dirt PATH into the TERRAIN along the lane. Ground material grows no grass blades, so it reads as
+	-- a clear walkway through the leafy basin (a thin Part just gets buried by the grass decoration).
+	local pathLen = (Vector3.new(pathBx, 0, pathBz) - Vector3.new(pathAx, 0, pathAz)).Magnitude
+	local pathMid = Vector3.new((pathAx + pathBx) / 2, CLEAR_Y - 3, (pathAz + pathBz) / 2)
+	local pathCF = CFrame.lookAt(pathMid, Vector3.new(pathBx, CLEAR_Y - 3, pathBz))
+	Terrain:FillBlock(pathCF, Vector3.new(PATH_HALF * 1.2, 6, pathLen), Enum.Material.Ground)
 
 	for _ = 1, TREE_COUNT do
 		local rx = basinCenterX + rng:NextNumber(-1, 1) * (BASIN_SIZE / 2 - 15)
@@ -451,6 +451,28 @@ end)
 
 local function dockIndex(z: number): number
 	return math.floor((z - RiverData.Z_START) / RiverData.DOCK_SPACING + 0.5)
+end
+
+-- admin helper (Job 054): force-build the FIRST landing site and return its near-camp spawn position, so an
+-- admin can teleport straight to a camp without sailing there. Invoked by AdminServer.
+local forceCamp = Instance.new("BindableFunction")
+forceCamp.Name = "ForceFirstCamp"
+forceCamp.Parent = ServerStorage
+forceCamp.OnInvoke = function(): Vector3?
+	local first: RiverData.Dock? = nil
+	for _, dock in RiverData.docksBetween(RiverData.Z_START, RiverData.Z_START + RiverData.END_DISTANCE) do
+		if dock.landing then
+			first = dock
+			break
+		end
+	end
+	if not first then
+		return nil
+	end
+	buildLandingSite(first, dockIndex(first.z))
+	local halfW = RiverData.widthAt(first.z) * 0.5
+	local waterEdge = RiverData.centerlineX(first.z) + first.side * halfW
+	return Vector3.new(waterEdge + first.side * 120, CLEAR_Y + 3, first.z) -- the near camp
 end
 
 while true do
