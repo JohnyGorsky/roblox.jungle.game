@@ -1,7 +1,7 @@
 # TODO 0007: Fancy teleport loading screen (lobby -> game)
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-07-19) — fixed in Job 056 — themed in-transit teleport screen (SetTeleportGui); concept already delivered by the game-intro-sequence
 **Created:** 2026-07-19 16:32:24
 
 CONCEPT NOW LOCKED IN — see **Planned/game-intro-sequence.md** (plane-crash cold-open). The loading screen
