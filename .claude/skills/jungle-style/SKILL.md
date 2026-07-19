@@ -65,10 +65,18 @@ other panel is **closable (`X` + tap-outside) AND collapsible**; heavy panels (d
 **default collapsed** during play; one primary panel open at a time; a panel never covers the core
 HUD; notifications auto-dismiss. Keep the screen uncluttered — no noise while playing.
 
+**Juice — audio + VFX on every action (hard principle).** This is an **audio-rich, VFX-rich** game.
+*Every meaningful action has a sound* (shoot/reload/empty/melee/hit/enemy attack/engine/dock/pickup/
+UI/level-up) and matching **particles/emitters** — boat engine smoke, bow wake & side waves, **water
+splash when shots hit water**, muzzle flash + tracer, impact bursts (water/wood/metal/flesh), dust,
+fireflies, upgrade bursts. Build effects as **pooled, palette-tinted, distance-LOD'd, off-screen-
+culled, budget-capped** templates; 3D-positioned sound with rolloff, mixed so key cues cut through.
+Juice, not noise. (Full VFX + SFX vocabulary in §8/§9.)
+
 **Lighting/materials** — warm cinematic late-afternoon; play area brighter than jungle; night = warm
 pools of light (lanterns/torches), never evenly lit. Materials weathered & readable (Wood/Metal/
 CorrodedMetal/Sand/Rock/Grass + MaterialVariants), not high-frequency PBR. Respect the mobile-perf
-budget (cap dynamic lights, cull particles, sensible tri/texture budget).
+budget (cap dynamic lights + concurrent particles/sounds, cull, sensible tri/texture budget).
 
 **Never** — sci-fi/glass UI, clean/glossy/modern/symmetrical builds, photoreal **or** flat-cartoon
 assets, neon everywhere, random props, tiny unreadable objects, pixel-fixed UI, or a crowded/covered
