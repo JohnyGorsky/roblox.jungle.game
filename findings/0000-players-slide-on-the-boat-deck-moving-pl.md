@@ -1,7 +1,7 @@
 # FINDING 0000: Players slide on the boat deck (moving-platform slip)
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-07-19) — fixed in Job 040 (client-side rider carry: BoatRideClient.local.luau)
 **Severity:** med
 **Created:** 2026-07-19 17:49:27
 

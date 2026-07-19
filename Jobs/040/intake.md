@@ -10,7 +10,7 @@ Fix FINDING 0000. Standing (unseated) players slide on the boat because a client
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan (inline)
+- [x] Implementation completed — client-side rider carry; verified (boat drifted 2.4 studs, rider slid 0.00); analyzer-clean
+- [x] Final summary + changelog written
