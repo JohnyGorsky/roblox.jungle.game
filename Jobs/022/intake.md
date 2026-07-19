@@ -10,7 +10,8 @@ POC. Replace floor(distance/10) placeholder with zone-stepped Gold reward (4 zon
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan (inline — small job; design fully specced in Job 020 §2)
+- [x] Implementation completed — WIN credits +10 Gold verified live (attr + leaderstats + HUD + results
+      screen); reward curve matches Job 020 §2; analyzer-clean. Nuggets construction-verified.
+- [x] Final summary + changelog written
