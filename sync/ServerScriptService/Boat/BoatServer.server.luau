@@ -246,7 +246,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 	else
 		t = 0
 	end
-	thrust.Force = look * (t * ((t >= 0) and THRUST or REVERSE))
+	-- ThrustMul lets modules (2nd motor, Job 025) / skills (later) tune engine power; default 1
+	local thrustMul = (boat:GetAttribute("ThrustMul") :: number?) or 1
+	thrust.Force = look * (t * ((t >= 0) and THRUST or REVERSE) * thrustMul)
 	current.Force = downstream(pos.Z) * CURRENT
 	drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG) -- horizontal only; Y left to buoyancy
 

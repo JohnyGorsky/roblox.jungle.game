@@ -21,6 +21,7 @@ function ProfileConfig.default(): any
 		dataVersion = ProfileConfig.DATA_VERSION,
 		gold = 0,
 		riverScore = 0, -- lifetime rank accumulator (filled by #026)
+		modules = {}, -- owned boat modules: { [moduleId] = true } (Job 025)
 		stats = {
 			totalRuns = 0,
 			runsFinished = 0,
@@ -48,6 +49,9 @@ function ProfileConfig.migrate(data: any): any
 	end
 	if data.riverScore == nil then
 		data.riverScore = def.riverScore
+	end
+	if data.modules == nil then
+		data.modules = {}
 	end
 	data.stats = data.stats or {}
 	for k, v in pairs(def.stats) do

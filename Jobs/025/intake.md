@@ -10,7 +10,7 @@ POC. One-time Gold unlocks that enable visible boat parts (2nd motor, reinforced
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — purchase (lobby) + apply (game) + persistence verified live; analyzer-clean
+- [x] Final summary + changelog written
