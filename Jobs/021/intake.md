@@ -10,7 +10,8 @@ POC. Session-locked DataStore player profile (ProfileStore-style) storing spenda
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — persistence verified live in Studio (gold=100 persisted across reload;
+      session lock acquire/release/reacquire; Gold HUD renders; analyzer-clean both trees)
+- [x] Final summary + changelog written
