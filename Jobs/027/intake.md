@@ -15,4 +15,6 @@ POC lean launch. Developer product Gold packs (ProcessReceipt idempotency) at Bo
 - [x] Implementation completed — armored-boat effect + receipt-mapping/idempotency + shop UI verified in
       Studio; real Robux prompts pending a published place; analyzer-clean
 - [x] Final summary + changelog written (incl. Creator Hub product checklist)
-- [ ] **Human step:** create the products on Creator Hub, paste IDs into `MonetizationDefs`, publish, live-test
+- [x] **Human step:** products created on Creator Hub + IDs pasted into `MonetizationDefs` (both trees)
+      — Gold packs 3610663250/288/341/385; passes Armored 1919001295, Paint 1919355255, Cosmetic 1918077339
+- [ ] **Remaining:** publish the places + live-test a real purchase (Studio can't complete transactions)

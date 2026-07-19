@@ -16,9 +16,9 @@ MonetizationDefs.GoldPacks = {
 
 -- ── Game passes (one-time). gamePassId ← Creator Hub ───────────────────────────────────────────────
 MonetizationDefs.GamePasses = {
-	{ key = "armoredBoat", gamePassId = 0, robux = 499, name = "Armored Boat", power = true, blurb = "+20% hull HP & +20% weapon damage" },
-	{ key = "boatPaint", gamePassId = 0, robux = 99, name = "Boat Paint Pack", power = false, blurb = "Hull colour skins (cosmetic)" },
-	{ key = "cosmeticBundle", gamePassId = 0, robux = 249, name = "Cosmetic Bundle", power = false, blurb = "Trails, wake FX, emote (cosmetic)" },
+	{ key = "armoredBoat", gamePassId = 1919001295, robux = 499, name = "Armored Boat", power = true, blurb = "+20% hull HP & +20% weapon damage" },
+	{ key = "boatPaint", gamePassId = 1919355255, robux = 99, name = "Boat Paint Pack", power = false, blurb = "Hull colour skins (cosmetic)" },
+	{ key = "cosmeticBundle", gamePassId = 1918077339, robux = 249, name = "Cosmetic Bundle", power = false, blurb = "Trails, wake FX, emote (cosmetic)" },
 }
 
 -- gold amount for a purchased developer product (or nil if not one of ours)
