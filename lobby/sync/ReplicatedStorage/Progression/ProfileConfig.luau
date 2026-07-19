@@ -23,6 +23,13 @@ function ProfileConfig.default(): any
 		riverScore = 0, -- lifetime rank accumulator (filled by #026)
 		modules = {}, -- owned boat modules: { [moduleId] = true } (Job 025)
 		skills = {}, -- skill levels: { [skillId] = level 1..10 } (Job 024)
+		-- retention (Job 028)
+		lastLoginDay = 0, -- integer UTC day number of last daily-reward grant
+		loginStreak = 0,
+		weekId = 0, -- integer UTC week number the weekly objectives belong to
+		weekly = { finish = 0, travel = 0, zone = 0 }, -- weekly objective progress
+		weeklyClaimed = {}, -- { [objId] = true }
+		purchaseIds = {}, -- granted developer-product PurchaseIds (idempotency) (Job 027)
 		stats = {
 			totalRuns = 0,
 			runsFinished = 0,
@@ -56,6 +63,24 @@ function ProfileConfig.migrate(data: any): any
 	end
 	if data.skills == nil then
 		data.skills = {}
+	end
+	if data.lastLoginDay == nil then
+		data.lastLoginDay = 0
+	end
+	if data.loginStreak == nil then
+		data.loginStreak = 0
+	end
+	if data.weekId == nil then
+		data.weekId = 0
+	end
+	if type(data.weekly) ~= "table" then
+		data.weekly = { finish = 0, travel = 0, zone = 0 }
+	end
+	if data.weeklyClaimed == nil then
+		data.weeklyClaimed = {}
+	end
+	if data.purchaseIds == nil then
+		data.purchaseIds = {}
 	end
 	data.stats = data.stats or {}
 	for k, v in pairs(def.stats) do

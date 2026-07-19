@@ -144,7 +144,25 @@ local function apply()
 		plr:SetAttribute("SkillScavenge", (sk.scavenge :: number?) or 0)
 	end
 
-	print("[BoatModules] applied: " .. (#on > 0 and table.concat(on, ", ") or "none") .. " | skills applied")
+	-- ── Armored Boat (Robux game pass, Job 027): the one power item — +20% HP & +20% weapon damage ──
+	local armored = false
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr:GetAttribute("Owns_armoredBoat") == true then
+			armored = true
+			break
+		end
+	end
+	if armored then
+		local hp = math.floor(((theBoat:GetAttribute("MaxHP") :: number?) or 100) * 1.2)
+		theBoat:SetAttribute("MaxHP", hp)
+		theBoat:SetAttribute("HP", hp)
+		theBoat:SetAttribute("GunDamageMul", 1.2) -- mounted-gun damage; combat reads later
+		addPart("ArmoredHullL", Vector3.new(0.8, 2.4, 22), Color3.fromRGB(70, 72, 80), CFrame.new(-7.4, 0.3, 0), Enum.Material.DiamondPlate)
+		addPart("ArmoredHullR", Vector3.new(0.8, 2.4, 22), Color3.fromRGB(70, 72, 80), CFrame.new(7.4, 0.3, 0), Enum.Material.DiamondPlate)
+		addPart("ArmoredProw", Vector3.new(14, 2, 3), Color3.fromRGB(70, 72, 80), CFrame.new(0, 0.3, -11), Enum.Material.DiamondPlate)
+	end
+
+	print(("[BoatModules] applied: %s | skills applied%s"):format(#on > 0 and table.concat(on, ", ") or "none", armored and " | ARMORED" or ""))
 end
 
 if Workspace:GetAttribute("RunStarted") == true then

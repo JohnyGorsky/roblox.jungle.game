@@ -10,7 +10,9 @@ POC lean launch. Developer product Gold packs (ProcessReceipt idempotency) at Bo
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — armored-boat effect + receipt-mapping/idempotency + shop UI verified in
+      Studio; real Robux prompts pending a published place; analyzer-clean
+- [x] Final summary + changelog written (incl. Creator Hub product checklist)
+- [ ] **Human step:** create the products on Creator Hub, paste IDs into `MonetizationDefs`, publish, live-test

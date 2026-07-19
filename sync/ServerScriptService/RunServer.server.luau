@@ -202,6 +202,19 @@ local function endRun(won: boolean)
 				if zone > (s.farthestZone or 0) then
 					s.farthestZone = zone
 				end
+				-- weekly objective progress (Job 028): finish / travel / zone
+				local w = prof.weekly
+				if type(w) ~= "table" then
+					w = { finish = 0, travel = 0, zone = 0 }
+					prof.weekly = w
+				end
+				if won then
+					w.finish = (w.finish or 0) + 1
+				end
+				w.travel = (w.travel or 0) + distance
+				if zone > (w.zone or 0) then
+					w.zone = zone
+				end
 				writeBoards(plr.UserId, newScore, s.bestDistance)
 			end
 		end

@@ -10,7 +10,7 @@ POC. Daily login Gold rewards (escalating, 1-day grace), login streak tracking, 
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — daily reward + streak + weekly claim verified live; analyzer-clean
+- [x] Final summary + changelog written
