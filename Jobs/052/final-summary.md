@@ -12,16 +12,27 @@ to see the path.
   surroundings** are lit, not just the forward cone. Both tagged `NightLight` (night-only).
 - Searchlight **module** (the upgrade) boosted to `Range 130 / Brightness 11`.
 
-## Bug 2 — leaving the driver seat on a moving boat → slide off
-Leaving a `VehicleSeat` launches the character with the seat's velocity. On a moving boat that inherited speed
-stacked with the per-frame rider-carry (Job 040), so the player slid forward faster than the boat and off the
-deck.
+## Bug 2 — sliding on the boat (and, after the first fix, broken jumping) → root cause found, manual carry removed
+Reported as sliding faster than the boat when leaving the driver seat while moving. First attempts (zero
+horizontal velocity, then absolute "pin") reduced the slide but **broke jumping** (the pin locked the CFrame).
 
-**Fix — `sync/StarterPlayer/StarterPlayerScripts/Boat/BoatRideClient.local.luau`:**
-- While on the boat and **not actively walking** (`Humanoid.MoveDirection.Magnitude < 0.1`), zero the
-  character's **horizontal** velocity each frame (keep Y for gravity/jump). The carry then becomes the only
-  horizontal mover, so residual/inherited launch velocity can't slide you off. Walking still works (velocity
-  allowed when there's input).
+**Investigation (physics skill + Roblox docs + devforum, at the user's request — no guessing):**
+- Client logs while *standing still* on the moving boat showed the player moving ~**2× the hull** — a
+  **double-carry**: Roblox's *native* moving-platform carry was already working, and the manual per-frame
+  delta-carry (Job 040) stacked on top.
+- [Network-ownership docs](https://create.roblox.com/docs/physics/network-ownership) + the
+  [2021 moving-platforms best-practices thread](https://devforum.roblox.com/t/2021-moving-platforms-are-there-any-new-best-practices/1095984):
+  a **physics-driven, server-owned** platform carries riders natively ("stick like glue"); jump-momentum loss
+  on moving platforms is a known engine limitation. Our boat already moves via VectorForces + AlignOrientation
+  and is server-owned — the exact recommended setup.
+
+**Fix — deleted `BoatRideClient.local.luau` (the manual carry). Native carry handles it.** Verified in Studio:
+- Standing on a **moving** boat (hullVel 5.9): drift **0.00 / 0.00** studs (server + client view).
+- Standing on a **docked** boat (FINDING 0000's case): drift **0.00 / 0.00** studs (server + client view).
+- **Jumping** on the boat: rose **7.3 studs** — works natively again.
+
+FINDING 0000 (deck slide) is now handled by native carry rather than the removed manual script; re-open only if
+a slide reappears in a native edge case (e.g. very fast rapids / multiple riders).
 
 ## Verified (live in Studio — Play at night)
 - [x] Analyzer-clean.
