@@ -30,9 +30,9 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
    narrows/twists/dense, Delta wide, Headwaters calm. Verified continuous + drivable.
 2. **[Job 048 — done]** Per-zone current — `BoatServer` current force `* RiverData.currentMulAt(z)`. Rapids
    ×1.5 (18000), Delta ×0.8 (9600), others ×1.0. Verified end-to-end.
-3. **Forks + small islands** — `RiverData` (a second offset centerline + island mask) + `RiverGenerator`
-   (carve two channels, fill the island) + culling both branches; boat just drives whichever side. Concentrated
-   in the Delta, occasional set-pieces elsewhere. Heaviest piece.
+3. **[Job 050 — done]** Forks + small islands — `RiverData.branchesAt`/`forkOffsetAt` (split→island→merge in
+   wide zones) + `RiverGenerator` two-branch carve with a low island between; hooks/docks suppressed in forks.
+   Verified: Delta channel splits around an island into two branches.
 4. **Off-path = dense & dangerous** — `FoliageServer` (thicken trees on steep/off-path ground, keep intended
    routes clearer) + `EnemyServer` (higher spawn frequency in dense off-path bands) so wandering off is punished.
 5. **Excursion/camp rework** — `ExcursionServer`: a clear tree-free **path** from the disembark point to the

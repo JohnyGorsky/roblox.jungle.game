@@ -55,26 +55,30 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 	local nz = math.floor(size.Z / RES + 0.5)
 	local base = region.CFrame.Position - size / 2 -- min corner
 
-	-- per-z: centerline + half width
-	local cxk, halfWk = table.create(nz), table.create(nz)
+	-- per-z: the channel(s) at this slice — one normally, two (around an island) inside a fork
+	local brk = table.create(nz)
 	for k = 1, nz do
 		local wz = base.Z + (k - 0.5) * RES
-		cxk[k] = RiverData.centerlineX(wz)
-		halfWk[k] = RiverData.widthAt(wz) * 0.5
+		brk[k] = RiverData.branchesAt(wz)
 	end
 
-	-- per-(x,z) column: land surface height, or -1 to mark the water channel
+	-- per-(x,z) column: land surface height, or -1 to mark the water channel. "edge" = distance PAST the
+	-- nearest branch's bank; <0 means inside a channel. Land between two branches becomes a low island.
 	local surf = table.create(nx)
 	for i = 1, nx do
 		local wx = base.X + (i - 0.5) * RES
 		local col = table.create(nz)
 		for k = 1, nz do
-			local d = math.abs(wx - cxk[k])
-			local halfW = halfWk[k]
-			if d < halfW then
-				col[k] = -1 -- channel
+			local edge = math.huge
+			for _, b in brk[k] do
+				local e = math.abs(wx - b.c) - b.halfW
+				if e < edge then
+					edge = e
+				end
+			end
+			if edge < 0 then
+				col[k] = -1 -- channel (within some branch)
 			else
-				local edge = d - halfW
 				local lip = math.min(edge * 0.6, BANK_LIP)
 				-- keep a grassy jungle flat near the water; hills only rise well back from the bank
 				local far = math.clamp((edge - 70) / 170, 0, 1)

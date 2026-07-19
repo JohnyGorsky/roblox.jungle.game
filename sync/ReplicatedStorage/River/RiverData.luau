@@ -208,7 +208,8 @@ function RiverData.hooksBetween(z0: number, z1: number): { Hook }
 			-- per-zone density: keep this candidate with a deterministic probability (obs 1.0 ≈ old ~220 spacing)
 			local keep = math.clamp(0.55 * RiverData.profileAt(z).obs, 0, 1)
 			local roll = math.noise(z * 0.017 + offW, 31.7) * 0.5 + 0.5 -- deterministic [0, 1]
-			if roll <= keep then
+			-- no obstacles inside a fork (keep the braided island stretch clean)
+			if roll <= keep and RiverData.forkOffsetAt(z) <= 0 then
 				-- favour obstacles (dodge, common) over ramps (jump, special) ~2:1
 				local kind = if math.noise(z * 0.05 + offW, 12.3) > -0.15 then "obstacle" else "ramp"
 				local x = RiverData.centerlineX(z)
@@ -233,7 +234,8 @@ function RiverData.docksBetween(z0: number, z1: number): { Dock }
 	local last = math.floor((z1 - RiverData.Z_START) / spacing)
 	for i = first, last do
 		local z = RiverData.Z_START + i * spacing
-		if RiverData.ENDLESS or z <= endZ then
+		-- no dock inside a fork (its "bank" would land on the island); skip to the next candidate
+		if (RiverData.ENDLESS or z <= endZ) and RiverData.forkOffsetAt(z) <= 0 then
 			local side = if math.noise(z * 0.013 + offW, 7.7) >= 0 then 1 else -1
 			local x = RiverData.centerlineX(z) + side * (RiverData.widthAt(z) * 0.5 - 4) -- at the water's edge
 			-- only SOME docks are landing sites (open a big jungle zone); others are quick refuel/tie stops
