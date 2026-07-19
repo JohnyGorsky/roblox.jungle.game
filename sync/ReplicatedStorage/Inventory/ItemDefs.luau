@@ -7,8 +7,11 @@
 
 export type ItemDef = {
 	name: string,
-	kind: "Melee" | "Gun",
+	kind: "Melee" | "Gun" | "Light",
 	color: Color3, -- greybox held-item colour
+	-- light-only fields (Job 037):
+	lightRange: number?,
+	lightBrightness: number?,
 	-- gun-only fields:
 	ammoAttr: string?, -- Player attribute holding this gun's ammo (per-player)
 	damage: number?,
@@ -35,6 +38,13 @@ ItemDefs.Items = {
 		damage = 15,
 		meleeRange = 9, -- short range only — pure fallback
 		swingInterval = 0.6,
+	},
+	Torch = {
+		name = "Torch",
+		kind = "Light",
+		color = Color3.fromRGB(255, 175, 80),
+		lightRange = 30, -- studs the torch lights around you
+		lightBrightness = 3,
 	},
 	Pistol = {
 		name = "Pistol",

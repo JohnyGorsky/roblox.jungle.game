@@ -8,6 +8,7 @@
 local Workspace = game:GetService("Workspace")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 
@@ -88,6 +89,8 @@ local function apply()
 		light.Angle = 70
 		light.Range = 90
 		light.Brightness = 4
+		light.Enabled = false -- night-only; LightController turns it on at night (Job 038)
+		CollectionService:AddTag(light, "NightLight")
 		light.Parent = head
 		theBoat:SetAttribute("HasSearchlight", true)
 		table.insert(on, "searchlight")

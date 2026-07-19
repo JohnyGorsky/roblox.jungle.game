@@ -11,6 +11,7 @@
 --   <ammoAttr>   : per-gun ammo (e.g. AmmoPistol, AmmoShotgun)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 
@@ -52,6 +53,19 @@ local function updateHeldVisual(player: Player)
 	if def.kind == "Melee" then
 		part.Size = Vector3.new(0.25, 4, 0.25) -- blade
 		part.CFrame = hand.CFrame * CFrame.new(0, -2, 0)
+	elseif def.kind == "Light" then
+		-- a torch/lamp: a glowing tip + a PointLight so it lights the dark jungle at night (Job 037)
+		part.Size = Vector3.new(0.6, 1.2, 0.6)
+		part.Material = Enum.Material.Neon
+		part.CFrame = hand.CFrame * CFrame.new(0, 0.6, 0)
+		local light = Instance.new("PointLight")
+		light.Range = def.lightRange or 26
+		light.Brightness = def.lightBrightness or 3
+		light.Color = Color3.fromRGB(255, 190, 120)
+		light.Shadows = true
+		light.Enabled = false -- night-only; LightController turns it on at night (Job 038)
+		CollectionService:AddTag(light, "NightLight")
+		light.Parent = part
 	else
 		part.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 2.4 else 1.2) -- barrel
 		part.CFrame = hand.CFrame * CFrame.new(0, 0, -0.6)
@@ -78,7 +92,8 @@ function InventoryService.seed(player: Player)
 	end
 	player:SetAttribute("InvSeeded", true)
 	for i = 1, SLOTS do
-		player:SetAttribute(slotAttr(i), if i == 1 then "Sword" else "")
+		-- start with the Sword (slot 1) + a Torch (slot 2) for night visibility (Job 037; lootable later)
+		player:SetAttribute(slotAttr(i), if i == 1 then "Sword" elseif i == 2 then "Torch" else "")
 	end
 	player:SetAttribute("ActiveSlot", 1)
 	for _, def in pairs(ItemDefs.Items) do
@@ -97,7 +112,11 @@ function InventoryService.equip(player: Player, slot: number)
 	if slot < 1 or slot > SLOTS then
 		return
 	end
-	player:SetAttribute("ActiveSlot", slot)
+	if player:GetAttribute("ActiveSlot") == slot then
+		player:SetAttribute("ActiveSlot", 0) -- re-click the active slot → deselect (empty hands / holster)
+	else
+		player:SetAttribute("ActiveSlot", slot)
+	end
 	InventoryService.refreshActive(player)
 end
 
