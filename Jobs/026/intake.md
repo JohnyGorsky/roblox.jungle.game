@@ -10,7 +10,7 @@ POC. Compute River Score server-side per run (formula in Job 020 section 8), per
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — River Score earning + overhead tag + global board verified live; analyzer-clean
+- [x] Final summary + changelog written
