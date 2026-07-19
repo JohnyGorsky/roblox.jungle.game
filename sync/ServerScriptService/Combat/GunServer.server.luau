@@ -125,9 +125,9 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 	if seat.Occupant ~= humOf(player) then
 		return
 	end
-	-- Gun Discipline (Job 029): the gunner's skill speeds the turret's fire rate
+	-- Gun Discipline skill (Job 029) + a manned Gun-seat station bonus (Job 034) both speed the turret
 	local gunSkill = (player:GetAttribute("SkillGun") :: number?) or 0
-	local interval = FIRE_INTERVAL * (0.965 ^ gunSkill)
+	local interval = FIRE_INTERVAL * (0.965 ^ gunSkill) * ((boat:GetAttribute("StationGunMul") :: number?) or 1)
 	local now = time()
 	if now - lastFire < interval then
 		return

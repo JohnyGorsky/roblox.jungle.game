@@ -10,7 +10,8 @@ GAME.md P2 pillar: manning a station gives an efficiency bonus so dividing the c
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan (inline)
+- [x] Implementation completed — presence-based station bonuses (driver/engineer/repairer/gunner) verified
+      live (StationTurnMul 1.15, StationFuelMul 0.7, +2.5 HP/s regen); analyzer-clean
+- [x] Final summary + changelog written

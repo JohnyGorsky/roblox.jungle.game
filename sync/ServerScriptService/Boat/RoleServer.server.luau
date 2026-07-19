@@ -43,7 +43,10 @@ end
 
 local function seatOccupied(name: string): boolean
 	local s = theBoat:FindFirstChild(name)
-	if s and (s:IsA("Seat") or s:IsA("VehicleSeat")) then
+	if s and s:IsA("Seat") then
+		return s.Occupant ~= nil
+	end
+	if s and s:IsA("VehicleSeat") then
 		return s.Occupant ~= nil
 	end
 	return false

@@ -255,8 +255,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 	drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG) -- horizontal only; Y left to buoyancy
 
 	-- rudder heading: turn rate ∝ signed forward speed (0 when stopped; reverse flips it)
-	-- TurnMul lets Rudder Tuning (skill, Job 024) sharpen turning; default 1
-	local turnMul = (boat:GetAttribute("TurnMul") :: number?) or 1
+	-- TurnMul = Rudder Tuning skill (Job 024); StationTurnMul = a seated Driver's handling bonus (Job 034)
+	local turnMul = ((boat:GetAttribute("TurnMul") :: number?) or 1) * ((boat:GetAttribute("StationTurnMul") :: number?) or 1)
 	local fwdSpeed = vel:Dot(look)
 	local authority = math.clamp(fwdSpeed / TURN_FULL_SPEED, -1, 1)
 	desiredYaw -= s * TURN * turnMul * authority * dt
