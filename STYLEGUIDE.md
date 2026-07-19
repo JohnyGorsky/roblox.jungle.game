@@ -55,6 +55,12 @@ The identity in words. Every decision is checked against these.
    is closable/collapsible (§6.11).
 7. **One coherent world.** Lobby (jungle airfield) and gameplay (jungle river) read as the same
    expedition. Consistency over novelty.
+8. **Juicy — every action gives feedback.** This is an **audio-rich, VFX-rich** game. **Every
+   meaningful action has a sound** (shoot, reload, melee, hit, enemy attack, engine, docking, UI) and
+   the world is alive with **particles/emitters** (water splash when shots hit water, boat wake &
+   side waves, engine smoke, muzzle flash, impacts, dust). Feedback is immediate, layered, and
+   satisfying — but always within the mobile-perf budget (§8/§10): pooled, capped, distance-LOD'd,
+   and culled off-screen. Juice, not noise.
 
 ## 3. Art direction
 
@@ -257,19 +263,12 @@ The screen must stay **clean and uncluttered while playing.** The player fights 
 - **Defined vocabulary:** Gear = Engine · Shield = Hull · Fuel pump = Fuel · Crate = Storage ·
   Crossed tools = Equipment · Star = Major (Gold) skill · Wrench = Utility (small) skill ·
   Player group = Party.
-- **Sourcing:** Flaticon (per `GROUND-RULES §4`) → user uploads → record `rbxassetid://` here.
-- **Icon asset table** _(fill as icons are uploaded):_
-
-| Icon | Meaning | Asset ID |
-|---|---|---|
-| Gear | Engine | `_TBD_` |
-| Shield | Hull | `_TBD_` |
-| Fuel pump | Fuel | `_TBD_` |
-| Crate | Storage | `_TBD_` |
-| Crossed tools | Equipment | `_TBD_` |
-| Star | Gold skill | `_TBD_` |
-| Wrench | Utility skill | `_TBD_` |
-| Player group | Party | `_TBD_` |
+- **Concrete icon assets are OUT of scope for this guide.** This section defines the icon *style and
+  vocabulary* only. The actual **asset IDs** (and what we need / how many / sourcing) are handled in a
+  **separate assets job** and recorded in the asset registry (per `roblox-assets`) — not here.
+- **Sourcing (when the assets job runs):** Flaticon (per `GROUND-RULES §4`) → upload → record IDs in
+  the registry; or Creator Store search; or Meshy text-to-image. Whatever the source, every icon must
+  match the style above and one consistent set.
 
 ## 8. Lighting & VFX
 
@@ -287,22 +286,58 @@ The screen must stay **clean and uncluttered while playing.** The player fights 
 - Lanterns warm amber; torches warm orange; mechanical equipment small blue/green indicator lights;
   shops warm internal glow. **Small pools of light — do NOT light the whole jungle evenly.**
 
-**VFX vocabulary:** water spray/wake off the boat, muzzle flash + tracer, impact hits, engine smoke,
-dust, fireflies/ambient motes, lantern flicker. Stylized shapes, warm/earthy tints, readable.
+### VFX — the world is alive (particles & emitters everywhere)
+
+Last River is **VFX-rich**: `ParticleEmitter`, `Beam`, and `Trail` bring the river, boat, and combat
+to life. Every impactful action emits something. Stylized shapes, warm/earthy tints, readable — never
+a muddy screen of soup.
+
+**Starter emitter vocabulary** _(build these as reusable, pooled templates):_
+- **Boat:** engine **smoke/exhaust** (scales with speed & engine tier), **bow wake + side waves**
+  (Beam/Trail foam along the hull), **water spray** off the bow in rapids, damage smoke/**fire** when
+  the hull is low, sparks on metal hits.
+- **Water interaction:** **splash particles when shots (or anything) hit water**, ripples/rings,
+  wake trails behind swimming animals, waterfall mist, dock-water lapping.
+- **Combat:** muzzle flash + **tracer beam**, bullet **impact** bursts (water / wood / metal / flesh
+  variants), shell casings, melee swing arc (Trail), hit sparks, enemy hit/blood puff, death poof.
+- **Ambient:** fireflies/motes, drifting fog wisps, dust on land paths, lantern/torch flicker, embers
+  from campfires, falling leaves.
+- **UI/feedback:** pickup sparkle, upgrade/level-up burst, coin/loot shimmer.
+
+**VFX rules:** one consistent stylized look; tint to the §4 palette; **pool and reuse** emitters
+(never `Instance.new` per shot in a loop); `Rate`/`Lifetime` tuned so it reads without flooding;
+**LOD by distance** and **cull off-screen**; heaviest effects (fire, big splashes) are budget-capped.
 
 **Mobile perf budget (hard):** prefer baked/static lighting where possible; cap simultaneous dynamic
-`PointLight`/`SpotLight` count; keep particle rates modest and cull off-screen; test `Future`
-lighting on a mid phone before committing (see `roblox-optimization`).
+`PointLight`/`SpotLight` count; cap total concurrent particles and per-effect rates; pool + cull;
+test `Future` lighting and a busy combat scene on a **mid phone** before committing (see
+`roblox-optimization` and `roblox-vfx`).
 
 ## 9. Audio direction
+
+**Principle — every action has a sound.** This is an **audio-rich** game: nothing meaningful happens
+silently. Shooting, reloading, empty clip, melee swing & hit, enemy attack/bite/hiss, taking damage,
+engine start/idle/throttle, docking, refuel/repair, pickups, purchases, UI taps, level-up — each
+fires a sound. Sound is the primary feedback layer paired with the VFX in §8.
 
 - **Tone:** adventurous, tense-but-fun jungle expedition. Diesel/engine grit, jungle ambience,
   animal calls, gunfire, mechanical clanks.
 - **Existing assets** (`assets/Objects/…`): boat engine loop / start / on-fire / destroyed, metal
   hits; gun shot / reload / empty clip; alligator hiss, monster bite.
-- **3D/spatial:** engine, animal growls, gunfire as positioned `AudioEmitter`/`Sound` in the world
-  (see `roblox-audio`). Music: adventurous, layered/adaptive (calm travel → tense combat/night).
-- **Sourcing:** Pixabay (per `GROUND-RULES §4`); record new SFX in the asset registry.
+- **Starter SFX map** _(what needs a sound — sourced/recorded in the assets job):_
+  - **Weapons:** shot, reload, empty clip, melee swing, melee hit, bullet impact (water/wood/metal/flesh).
+  - **Enemies:** aggro/hiss/growl, attack/bite, hurt, death; water thrash for river animals.
+  - **Boat:** engine start / idle loop / throttle-up, collision/hit, hull damage groan, on-fire,
+    destroyed, horn; **water splash/spray**, docking bump, rope tie/untie.
+  - **Resources/UI:** pickup (fuel/ammo/metal/loot), refuel pour, repair, purchase/confirm, error,
+    button tap, panel open/close, quest/objective, level-up, revive.
+  - **Ambient:** jungle day/night beds, water/river flow, waterfall, wind, campfire, insects/birds.
+- **3D/spatial:** engine, animal growls, gunfire, splashes as positioned `AudioEmitter`/`Sound` in
+  the world with rolloff (see `roblox-audio`). Mix so nearby/important cues cut through; avoid an
+  overlapping wall of sound (cap concurrent one-shots, prioritize).
+- **Music:** adventurous, layered/adaptive — calm travel → tense combat → night dread; crossfade.
+- **Sourcing:** Pixabay (per `GROUND-RULES §4`); record every SFX/music track in the asset registry
+  (handled in the assets job).
 
 ## 10. Materials & textures
 
@@ -343,6 +378,8 @@ lighting on a mid phone before committing (see `roblox-optimization`).
 - Keep the in-game HUD to mandatory items only (health/coins/fuel/ammo); every other panel is
   closable **and** collapsible, and heavy panels (e.g. daily tasks) default collapsed during play.
 - Give every panel an obvious close (`X` + tap-outside); one primary panel open at a time.
+- **Give every meaningful action a sound** (shoot/reload/melee/hit/enemy/engine/dock/pickup/UI) and
+  matching VFX; use pooled, palette-tinted, distance-LOD'd, budget-capped emitters.
 - **World test:** *"Could this exist in a lost jungle expedition outpost?"* — if no, redesign.
 
 **Never do**
@@ -382,5 +419,7 @@ lighting on a mid phone before committing (see `roblox-optimization`).
 - [ ] Every panel is closable (`X` + tap-outside) and collapsible; heavy panels default collapsed in play; never covers core HUD.
 - [ ] Materials from §10 (+ MaterialVariants for repeats); readable, not high-frequency PBR.
 - [ ] Lighting warm/cinematic, play area brighter than jungle; night = warm pools of light.
-- [ ] Perf budget respected (dynamic lights capped, particles culled, tri/texture budget) — verify on mobile.
+- [ ] Every meaningful action has a sound (weapon/enemy/boat/resource/UI); cues are 3D & mixed to cut through.
+- [ ] Actions/impacts emit VFX (boat wake/smoke, water splash on hits, muzzle/impacts); emitters pooled, tinted, LOD'd.
+- [ ] Perf budget respected (dynamic lights + concurrent particles/sounds capped, culled, tri/texture budget) — verify on mobile.
 - [ ] Passes the world test (§12); registered in the asset registry if sourced/created.

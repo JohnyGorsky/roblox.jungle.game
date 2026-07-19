@@ -26,9 +26,12 @@ Design and fill in the actual Last River (Jungle) styles in STYLEGUIDE.md: color
 - [x] Font system chosen (Builder Sans + Oswald + Special Elite + Permanent Marker + Roboto Mono)
 - [x] Added HUD-minimalism rule (§6.11): in-game shows only mandatory info; all panels closable +
       collapsible; heavy panels default collapsed; obvious close on every panel; never cover core HUD
-- [ ] User review of filled guide
-- [ ] Source & record: icon asset IDs (Flaticon upload, Creator Store search, or Meshy text-to-image)
-- [ ] Promote accepted guide to a per-game design skill (Jungle's first `.claude/skill`)
+- [x] Promoted to a design skill — `.claude/skills/jungle-style/SKILL.md` (Jungle's first skill).
+      STYLEGUIDE.md stays the authoritative source; the skill is the always-loaded "apply this" wrapper.
+- [x] Reframed §7 — concrete icon/sound/image asset IDs are OUT of scope here; deferred to a
+      **separate assets job** (understand what we need & how much) + the asset registry.
+- [ ] User review of filled guide (open)
+- [ ] NEW JOB (assets): icons/sounds/images inventory — what's needed, how many, sourcing & IDs
 
 ## Checklist
 
