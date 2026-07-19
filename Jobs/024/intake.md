@@ -10,7 +10,7 @@ POC. Per-player skill tree: 10 skills (Twin Motors, Rudder Tuning, Hull Plating,
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake) — skill list confirmed with user (all 10 as designed)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — purchase (lobby) + boat-skill application + crew-skill exposure verified live; analyzer-clean
+- [x] Final summary + changelog written

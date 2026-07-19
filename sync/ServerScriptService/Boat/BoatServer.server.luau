@@ -242,7 +242,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- fuel: drain while the engine runs; empty = no engine (drift at the current's mercy = stranded)
 	local fuel = (boat:GetAttribute("Fuel") :: number?) or 0
 	if fuel > 0 then
-		boat:SetAttribute("Fuel", math.max(0, fuel - (FUEL_IDLE + FUEL_THROTTLE * math.abs(t)) * dt))
+		-- FuelBurnMul lets Diesel Efficiency (skill, Job 024) reduce burn; default 1
+		local burnMul = (boat:GetAttribute("FuelBurnMul") :: number?) or 1
+		boat:SetAttribute("Fuel", math.max(0, fuel - (FUEL_IDLE + FUEL_THROTTLE * math.abs(t)) * burnMul * dt))
 	else
 		t = 0
 	end
@@ -253,9 +255,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 	drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG) -- horizontal only; Y left to buoyancy
 
 	-- rudder heading: turn rate ∝ signed forward speed (0 when stopped; reverse flips it)
+	-- TurnMul lets Rudder Tuning (skill, Job 024) sharpen turning; default 1
+	local turnMul = (boat:GetAttribute("TurnMul") :: number?) or 1
 	local fwdSpeed = vel:Dot(look)
 	local authority = math.clamp(fwdSpeed / TURN_FULL_SPEED, -1, 1)
-	desiredYaw -= s * TURN * authority * dt
+	desiredYaw -= s * TURN * turnMul * authority * dt
 
 	-- attitude. While LAUNCHED (airborne off a ramp) DON'T fight the arc/flip (leveling off). Otherwise keep
 	-- level + bank(into turn) + trim(throttle) and hold the heading.

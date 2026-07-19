@@ -103,7 +103,48 @@ local function apply()
 		table.insert(on, "gunupgrade")
 	end
 
-	print("[BoatModules] applied: " .. (#on > 0 and table.concat(on, ", ") or "none"))
+	-- ── skills (Job 024): boat skills at max crew level, applied on top of modules ──────────────────
+	local function maxSkill(id: string): number
+		local m = 0
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local prof = Profiles.get(plr)
+			local lv = (prof and prof.skills and prof.skills[id]) or 0
+			if lv > m then
+				m = lv
+			end
+		end
+		return m
+	end
+
+	local motors = maxSkill("motors")
+	if motors > 0 then
+		theBoat:SetAttribute("ThrustMul", ((theBoat:GetAttribute("ThrustMul") :: number?) or 1) * (1 + 0.03 * motors))
+	end
+	theBoat:SetAttribute("TurnMul", 1 + 0.025 * maxSkill("rudder"))
+	local hullLv = maxSkill("hull")
+	if hullLv > 0 then
+		local newMax = ((theBoat:GetAttribute("MaxHP") :: number?) or 100) + 5 * hullLv
+		theBoat:SetAttribute("MaxHP", newMax)
+		theBoat:SetAttribute("HP", newMax)
+	end
+	theBoat:SetAttribute("FuelBurnMul", 0.975 ^ maxSkill("diesel"))
+	local cargoLv = maxSkill("cargo")
+	if cargoLv > 0 then
+		theBoat:SetAttribute("CargoMax", ((theBoat:GetAttribute("CargoMax") :: number?) or 10) + math.round(0.5 * cargoLv))
+	end
+
+	-- crew skills: expose per-player levels for their systems to read (deep-wired later)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local prof = Profiles.get(plr)
+		local sk = (prof and prof.skills) or {}
+		plr:SetAttribute("SkillRepair", (sk.repair :: number?) or 0)
+		plr:SetAttribute("SkillRefuel", (sk.refuel :: number?) or 0)
+		plr:SetAttribute("SkillMedic", (sk.medic :: number?) or 0)
+		plr:SetAttribute("SkillGun", (sk.gun :: number?) or 0)
+		plr:SetAttribute("SkillScavenge", (sk.scavenge :: number?) or 0)
+	end
+
+	print("[BoatModules] applied: " .. (#on > 0 and table.concat(on, ", ") or "none") .. " | skills applied")
 end
 
 if Workspace:GetAttribute("RunStarted") == true then
