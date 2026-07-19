@@ -4,4 +4,7 @@
 **Status:** open
 **Created:** 2026-07-19 16:32:24
 
-When the party teleports from the lobby to the reserved game server, show a special, more INTERESTING loading screen (not the plain Roblox teleport screen). Use TeleportService:SetTeleportGui / a custom teleport ScreenGui carried into the destination. Exact concept TBD - user will explain later; for now stub a themed placeholder (e.g. river map / 'Heading downriver...' animation). Ties into the lobby launch flow (Job 017).
+CONCEPT NOW LOCKED IN — see **Planned/game-intro-sequence.md** (plane-crash cold-open). The loading screen
+is the *mask* that hides all-players-joining + world-generation, over a plane-flying-up scene, then a smoking
+descent → crash cold-open → wake up at the boat. This todo is the "loading screen" slice of that larger
+sequence. Baseline Game-place loader = Job 042 (mirrors the lobby loader, Job 041).

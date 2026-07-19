@@ -179,9 +179,19 @@ local function launch(pad: Pad)
 		warn("[Lobby] ReserveServerAsync failed: " .. tostring(code))
 		return
 	end
+	-- member UserIds so the game place knows exactly who to wait for (intro readiness gate, Job 043)
+	local members = {}
+	for _, p in group do
+		table.insert(members, p.UserId)
+	end
 	local opt = Instance.new("TeleportOptions")
 	opt.ReservedServerAccessCode = code
-	opt:SetTeleportData({ seed = rng:NextInteger(1, 2147483646) }) -- PUBLIC data only (shared river seed)
+	-- PUBLIC data only: shared river seed + the party roster (size + UserIds) for the intro gate
+	opt:SetTeleportData({
+		seed = rng:NextInteger(1, 2147483646),
+		partySize = #group,
+		members = members,
+	})
 	for attempt = 1, 3 do
 		local ok, err = pcall(function()
 			TeleportService:TeleportAsync(GAME_PLACE, group, opt)
