@@ -114,7 +114,7 @@ runEnded.OnClientEvent:Connect(function(data)
 	label(won and "🏆 YOU REACHED THE END!" or "☠ THE CREW WAS LOST", 0.2, won and Color3.fromRGB(150, 230, 130) or Color3.fromRGB(230, 120, 110), 34)
 	label(("Distance: %d"):format((data and data.distance) or 0), 0.1, Color3.new(1, 1, 1), 22)
 	label(("Survivors: %d"):format((data and data.survivors) or 0), 0.1, Color3.new(1, 1, 1), 20)
-	label(("+ %d reward"):format((data and data.reward) or 0), 0.13, Color3.fromRGB(255, 225, 120), 26)
+	label(("🪙 + %d Gold"):format((data and data.reward) or 0), 0.13, Color3.fromRGB(255, 225, 120), 26)
 
 	order += 1
 	local btn = Instance.new("TextButton")

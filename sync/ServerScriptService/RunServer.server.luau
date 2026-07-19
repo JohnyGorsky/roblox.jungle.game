@@ -11,11 +11,33 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 
 local LOBBY_PLACE_ID = 114309626266505 -- "Last River COOP lobby" (players return here after a run)
-local REWARD_DIV = 10 -- reward = floor(distance / REWARD_DIV); distance is in studs (display-only for now)
 local RETURN_TIMEOUT = 30 -- seconds on the results screen before auto-return to the lobby
 local DEV_WIN_DISTANCE = 0 -- >0 overrides the win distance for testing (0 = use the real river end)
+
+-- Gold reward (Job 022, design Job 020 §2) — RARE, finish-weighted. Zone-stepped by fraction of the
+-- river reached (checkpoints at 25/50/75/100%); a partial run still pays, a full finish pays a premium.
+-- The 6→10 jump at the finish IS the "+4 completion premium" (makes finishing the goal, not farming).
+local FINISH_GOLD = 10 -- reaching the end
+local ZONE_GOLD = { 1, 2, 4, 6 } -- <25% / 25–50 / 50–75 / 75–99%
+
+local function goldForRun(distance: number, endDist: number, won: boolean): number
+	if won or (endDist > 0 and distance >= endDist) then
+		return FINISH_GOLD
+	end
+	local frac = endDist > 0 and (distance / endDist) or 0
+	local step = math.clamp(math.floor(frac / 0.25) + 1, 1, 4) -- 1..4
+	return ZONE_GOLD[step]
+end
+
+local function zoneReached(distance: number, endDist: number): number
+	local frac = endDist > 0 and (distance / endDist) or 0
+	return math.clamp(math.floor(frac * 4), 0, 4) -- 0..4
+end
 
 -- permadeath: we control character loading so a mid-run death stays dead
 Players.CharacterAutoLoads = false
@@ -137,14 +159,39 @@ local function endRun(won: boolean)
 	Workspace:SetAttribute("RunResult", won and "win" or "lose")
 
 	local distance = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
-	local reward = math.floor(distance / REWARD_DIV)
+	local endDist = winDistance()
+	local goldEarned = goldForRun(distance, endDist, won)
+	local zone = zoneReached(distance, endDist)
 	local survivors = alivePlayers()
-	print(("[Run] ENDED — %s | distance=%d reward=%d survivors=%d"):format(won and "WIN" or "LOSE", distance, reward, survivors))
+
+	-- credit every crew member (incl. the dead who are spectating) + fold in run stats
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if Profiles.isReady(plr) then
+			Profiles.addGold(plr, goldEarned)
+			local prof = Profiles.get(plr)
+			if prof then
+				local s = prof.stats
+				s.totalRuns += 1
+				if won then
+					s.runsFinished += 1
+				end
+				s.totalDistance += distance
+				if distance > (s.bestDistance or 0) then
+					s.bestDistance = distance
+				end
+				if zone > (s.farthestZone or 0) then
+					s.farthestZone = zone
+				end
+			end
+		end
+	end
+
+	print(("[Run] ENDED — %s | distance=%d zone=%d gold=+%d survivors=%d"):format(won and "WIN" or "LOSE", distance, zone, goldEarned, survivors))
 
 	runEndedRemote:FireAllClients({
 		won = won,
 		distance = distance,
-		reward = reward,
+		reward = goldEarned, -- results screen shows this as Gold
 		survivors = survivors,
 		returnIn = RETURN_TIMEOUT,
 	})

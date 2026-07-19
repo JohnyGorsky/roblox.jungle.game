@@ -18,11 +18,19 @@ local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
+local ServerScriptService = game:GetService("ServerScriptService")
+local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 
 local CAMP_AHEAD = 1400
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
 local TREE_COUNT = 45
 local GUARD_LEASH = 55
+
+-- Rare "found gold" (Job 022, design Job 020 §2): a nugget worth 1 Gold may spawn at a camp. Chance per
+-- camp is low and the run is hard-capped so looting can't eclipse finishing (the Dead Rails trap).
+local NUGGET_CHANCE = 0.25 -- per camp
+local NUGGET_VALUE = 1 -- Gold per nugget
+local NUGGET_CAP = 3 -- max nuggets spawned per run (tracked on Workspace)
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -51,6 +59,34 @@ local function block(name: string, size: Vector3, color: Color3, cf: CFrame, par
 	p.CFrame = cf
 	p.Parent = parent
 	return p
+end
+
+-- rare gold nugget: grab it for 1 Gold, run-capped. Credits the persistent profile immediately.
+local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
+	local spawned = (Workspace:GetAttribute("NuggetsSpawned") :: number?) or 0
+	if spawned >= NUGGET_CAP or rng:NextNumber() > NUGGET_CHANCE then
+		return
+	end
+	Workspace:SetAttribute("NuggetsSpawned", spawned + 1)
+	local nug = block("GoldNugget", Vector3.new(2, 2, 2), Color3.fromRGB(245, 197, 66), CFrame.new(pos), parent, Enum.Material.Neon)
+	nug.CanCollide = false
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "NuggetPrompt"
+	prompt.ActionText = "Grab Gold"
+	prompt.ObjectText = "Gold Nugget"
+	prompt.HoldDuration = 0.6
+	prompt.RequiresLineOfSight = false
+	prompt.MaxActivationDistance = 8
+	prompt.Parent = nug
+	prompt.Triggered:Connect(function(player: Player)
+		if not nug.Parent then
+			return
+		end
+		nug:Destroy()
+		if Profiles.isReady(player) then
+			Profiles.addGold(player, NUGGET_VALUE)
+		end
+	end)
 end
 
 -- flatten a walkable grass patch (fill solid below CLEAR_Y, clear terrain above — incl. tall mountains)
@@ -238,9 +274,14 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 		end
 	end
 	-- tiered camps: near (gasoline, 1 guard) + far/deeper (metal + ammo, 2 guards — better haul)
-	buildCampAt(Vector3.new(waterEdge + dock.side * 120, CLEAR_Y, dock.z), model, 1, { "Gasoline" })
+	local nearPos = Vector3.new(waterEdge + dock.side * 120, CLEAR_Y, dock.z)
+	buildCampAt(nearPos, model, 1, { "Gasoline" })
 	local deepPos = Vector3.new(waterEdge + dock.side * 300, CLEAR_Y, dock.z + 40)
 	buildCampAt(deepPos, model, 2, { "Metal", "Ammo" })
+
+	-- rare gold nuggets (run-capped): a chance at each camp
+	trySpawnNugget(nearPos + Vector3.new(0, 2, 6), model, rng)
+	trySpawnNugget(deepPos + Vector3.new(dock.side * -6, 2, 6), model, rng)
 
 	-- loadout loot at the deep camp (Job 015): a scarce WEAPON crate + a handheld-ammo crate.
 	-- Weapon crates are the top reward — alternate pistol/shotgun by landing; spawn rate is tunable.
