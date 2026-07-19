@@ -33,6 +33,13 @@ local W_VAR, F_W = 22, 1 / 700
 local W_FLOOR, W_CEIL = 80, 330
 -- obstacle hooks: a dense candidate grid, thinned per zone by ZONE_PROFILE.obs (density).
 local HOOK_BASE = 120
+-- forks: the channel splits into two branches around an island, then merges. Only in WIDE zones so a branch
+-- never gets too tight; separation ramps 0→max→0 across the fork (smooth split/merge).
+local FORK_SPACING = 1500 -- avg studs between fork candidates
+local FORK_LEN = 520 -- length of one fork (split → island → merge)
+local FORK_MAX_OFFSET = 130 -- peak branch-center offset from the island center
+local FORK_BRANCH_FRAC = 0.62 -- each branch's width as a fraction of widthAt
+local FORK_MIN_WIDTH = 220 -- only fork where the base channel is at least this wide (≈ Delta)
 -- ───────────────────────────────────────────────────────────────────────────
 
 -- Per-zone river CHARACTER, keyed at each zone's CENTER as a fraction of END_DISTANCE and linearly
@@ -126,6 +133,52 @@ function RiverData.widthAt(z: number): number
 	ensureSeed()
 	local n = math.noise(z * F_W + offW) * 2 -- ~[-1, 1]
 	return math.clamp(RiverData.profileAt(z).width + W_VAR * n, W_FLOOR, W_CEIL)
+end
+
+-- ── forks (braided channel around an island) ─────────────────────────────────
+-- smooth 0→1→0 bump over u in [0,1]
+local function forkBump(u: number): number
+	if u <= 0 or u >= 1 then
+		return 0
+	end
+	local s = math.sin(u * math.pi) -- 0 at ends, 1 at u=0.5
+	return s * s -- flatter top / gentler split+merge
+end
+
+-- branch-center offset (studs from the island center to each branch) at z; 0 = single channel (no fork)
+function RiverData.forkOffsetAt(z: number): number
+	ensureSeed()
+	if RiverData.widthAt(z) < FORK_MIN_WIDTH then
+		return 0 -- never fork a narrow channel
+	end
+	-- nearest fork candidate on the seeded grid
+	local i = math.floor((z - RiverData.Z_START) / FORK_SPACING + 0.5)
+	local zc = RiverData.Z_START + i * FORK_SPACING
+	if zc <= RiverData.Z_START then
+		return 0
+	end
+	-- only ~some candidates actually fork (deterministic)
+	if (math.noise(zc * 0.001 + offW, 5.5) * 0.5 + 0.5) > 0.6 then
+		return 0
+	end
+	if math.abs(z - zc) > FORK_LEN * 0.5 then
+		return 0
+	end
+	local u = (z - (zc - FORK_LEN * 0.5)) / FORK_LEN -- 0..1 across the fork
+	return FORK_MAX_OFFSET * forkBump(u)
+end
+
+export type Branch = { c: number, halfW: number }
+
+-- the channel(s) at z: one normally, two (left/right around an island) inside a fork
+function RiverData.branchesAt(z: number): { Branch }
+	local c = RiverData.centerlineX(z)
+	local off = RiverData.forkOffsetAt(z)
+	if off <= 0 then
+		return { { c = c, halfW = RiverData.widthAt(z) * 0.5 } }
+	end
+	local bh = RiverData.widthAt(z) * 0.5 * FORK_BRANCH_FRAC
+	return { { c = c - off, halfW = bh }, { c = c + off, halfW = bh } }
 end
 
 -- world position of the channel center at z (at the water surface)

@@ -1,7 +1,7 @@
 # FINDING 0001: Boat searchlight does not turn on while riding at night
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-07-19) — fixed in Job 049 — every boat now has a default night bow light (BoatModules); it was gated behind an owned module + night-only
 **Severity:** med
 **Created:** 2026-07-19 19:41:38
 
