@@ -18,19 +18,20 @@ local function getBoatHull(): BasePart?
 	return (hull and hull:IsA("BasePart")) and hull or nil
 end
 
--- is the character standing on a part of the boat? (raycast straight down a few studs)
-local function floorIsBoat(root: BasePart, boat: Instance): boolean
+-- returns the downward raycast hit onto the boat (nil = not standing on the boat)
+local function boatFloorHit(root: BasePart, boat: Instance): RaycastResult?
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { boat }
 	params.IgnoreWater = true
-	local r = Workspace:Raycast(root.Position, Vector3.new(0, -6, 0), params)
-	return r ~= nil
+	return Workspace:Raycast(root.Position, Vector3.new(0, -6, 0), params)
 end
 
 local prevHullCF: CFrame? = nil
+local prevSeated = false
+local logAcc = 0
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt: number)
 	local hull = getBoatHull()
 	if not hull then
 		prevHullCF = nil
@@ -43,16 +44,37 @@ RunService.RenderStepped:Connect(function()
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-	if root and hum and boat and hum.SeatPart == nil and prevHullCF then
-		if floorIsBoat(root, boat) then
+	if root and hum and boat then
+		local seated = hum.SeatPart ~= nil
+		local hit = boatFloorHit(root, boat)
+		local onBoat = hit ~= nil
+		local rel = root.Position - hull.Position -- player position RELATIVE to the hull (slide = this changing)
+		local v = root.AssemblyLinearVelocity
+
+		-- DEBUG (Job 052): log the moment you leave a seat + a throttled state stream while unseated.
+		if prevSeated and not seated then
+			print(string.format(
+				"[BoatRide] LEFT SEAT | onBoat=%s hit=%s | rel=(%.1f,%.1f,%.1f) vel=(%.1f,%.1f,%.1f) move=%.2f",
+				tostring(onBoat), hit and hit.Instance.Name or "nil", rel.X, rel.Y, rel.Z, v.X, v.Y, v.Z, hum.MoveDirection.Magnitude))
+		end
+		prevSeated = seated
+
+		logAcc += dt
+		if not seated and logAcc >= 0.2 then
+			logAcc = 0
+			print(string.format(
+				"[BoatRide] onBoat=%s | rel=(%.1f,%.1f,%.1f) vel=(%.1f,%.1f,%.1f) move=%.2f | hull=(%.0f,%.0f,%.0f)",
+				tostring(onBoat), rel.X, rel.Y, rel.Z, v.X, v.Y, v.Z, hum.MoveDirection.Magnitude,
+				hull.Position.X, hull.Position.Y, hull.Position.Z))
+		end
+
+		if not seated and prevHullCF and onBoat then
 			-- the world transform the hull underwent this frame; apply the same to the rider
 			local delta = now * prevHullCF:Inverse()
 			root.CFrame = delta * root.CFrame
 			-- if you're NOT actively walking, cancel residual/inherited horizontal velocity — e.g. the launch
 			-- you get when leaving the driver seat on a moving boat (Job 052) — so the carry alone moves you.
-			-- Otherwise the seat's velocity + the carry stack and you slide off the deck faster than the boat.
 			if hum.MoveDirection.Magnitude < 0.1 then
-				local v = root.AssemblyLinearVelocity
 				root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
 			end
 		end
