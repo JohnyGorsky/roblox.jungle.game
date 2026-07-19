@@ -187,6 +187,7 @@ end
 claimServerOwnership()
 seat:GetPropertyChangedSignal("Occupant"):Connect(claimServerOwnership)
 
+local DEV_BOAT_LOG = false -- ⟵ turn on for boat-tuning telemetry ([BoatDBG] spam); off for launch
 local logAccum = 0 -- throttle for the debug state log
 RunService.Heartbeat:Connect(function(dt: number)
 	-- KEEP SERVER OWNERSHIP even while driven. The VehicleSeat hands the boat to the driver's client on
@@ -273,9 +274,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 		level.CFrame = CFrame.Angles(0, desiredYaw, 0) * CFrame.Angles(pitch, 0, bank)
 	end
 
-	-- state log (throttled) so we can see speed / height / launched while testing (Job 019)
+	-- state log (throttled) so we can see speed / height / launched while testing (Job 019). Off for launch.
 	logAccum += dt
-	if logAccum >= 0.25 and Workspace:GetAttribute("RunStarted") then
+	if DEV_BOAT_LOG and logAccum >= 0.25 and Workspace:GetAttribute("RunStarted") then
 		logAccum = 0
 		print(("[BoatDBG] spd=%.1f fwd=%.1f Y=%.1f (water %d) velY=%.1f launched=%s thr=%.0f")
 			:format(vel.Magnitude, fwdSpeed, pos.Y, WATER_Y, vel.Y, tostring(launched), t))

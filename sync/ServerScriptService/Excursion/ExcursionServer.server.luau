@@ -23,6 +23,7 @@ local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitFor
 local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent -- village trading post (Job 023)
 
 local CAMP_AHEAD = 1400
+local CULL_BEHIND = 1200 -- destroy a landing site once the boat is this far past it (frees trees/huts/guards) — Job 060
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
 local TREE_COUNT = 45
 local GUARD_LEASH = 55
@@ -57,6 +58,7 @@ campsRoot.Name = "Camps"
 campsRoot.Parent = Workspace
 
 local built: { [number]: boolean } = {}
+local siteModels: { [number]: Model } = {} -- index → LandingSite model, for culling (Job 060)
 local carrying: { [Player]: BasePart } = {}
 type GuardState = { biteTimer: number, anchor: Vector3 }
 local guardState: { [Model]: GuardState } = {}
@@ -386,6 +388,7 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	makeKindCrate(deepPos + Vector3.new(dock.side * 6, 2, -18), "Weapon", weaponId, ItemDefs.Items[weaponId].color, "Take " .. weaponId, model)
 	makeKindCrate(deepPos + Vector3.new(dock.side * 12, 2, -18), "Ammo", weaponId, Color3.fromRGB(200, 170, 80), weaponId .. " Ammo", model)
 	model.Parent = campsRoot
+	siteModels[index] = model -- track for culling (Job 060)
 end
 
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
@@ -484,5 +487,31 @@ while true do
 			buildLandingSite(dock, dockIndex(dock.z))
 		end
 	end
+
+	-- cull landing sites far behind (frees trees/huts/crates/guards) — never while a player is still ashore
+	for idx, model in siteModels do
+		local siteZ = RiverData.Z_START + idx * RiverData.DOCK_SPACING
+		if boatZ - siteZ > CULL_BEHIND then
+			local occupied = false
+			for _, plr in ipairs(Players:GetPlayers()) do
+				local root = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root and math.abs(root.Position.Z - siteZ) < BASIN_SIZE then
+					occupied = true
+					break
+				end
+			end
+			if not occupied then
+				for _, d in model:GetDescendants() do
+					if d:IsA("Model") and guardState[d] then
+						guardState[d] = nil -- drop the guard's AI state so it doesn't leak
+					end
+				end
+				model:Destroy()
+				siteModels[idx] = nil
+				built[idx] = nil
+			end
+		end
+	end
+
 	task.wait(0.5)
 end

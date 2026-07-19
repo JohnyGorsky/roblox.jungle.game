@@ -11,7 +11,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local DEV_RAMPS = true -- ⟵ turn off to remove the test ramps
+local DEV_RAMPS = false -- ⟵ turn off to remove the test ramps (real ramps = todo 0013)
 
 if not DEV_RAMPS then
 	return

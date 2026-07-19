@@ -12,7 +12,7 @@ local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitFor
 
 -- TEMP dev toggle: give every player a Pistol + Shotgun (with ammo) on spawn so guns can be tested
 -- without driving to a camp. Set false (or delete) once camp weapon-crate looting is the real path.
-local DEV_STARTER_GUNS = true
+local DEV_STARTER_GUNS = false -- players start Sword+Torch; guns are looted at camps (the real path)
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "InventoryCmd"
