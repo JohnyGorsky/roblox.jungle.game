@@ -39,9 +39,12 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
 5. **[Job 053 — done]** Excursion/camp rework — `ExcursionServer`: tree-free walking lane (0 trees within 18
    studs) + dirt `CampPath` from shore to camps; escalating non-respawning rosters (tier=ceil(dockIndex/2):
    near=tier, deep=tier+1, cap 6). Verified.
-6. **Pacing & optional stops** — `DockServer` + `RiverData` (dock spacing) + fuel economy: compute leg times so
-   distance feels challenging, add more stops, and tune fuel so **skipping a stop is a real risk/reward** (can't
-   skip them all). Some stops quick-refuel, some full landing raids.
+6. **[Job 054 — done]** Pacing & optional stops — `DOCK_SPACING` 1600 (landings every 3200), near camp gives 2
+   gasoline (funds skipping one stop, not two), and a **NEXT FUEL** HUD readout (distance + green/red reachable)
+   so the stop-or-push decision is informed. Verified.
+
+**✅ RIVER JOURNEY OVERHAUL COMPLETE (all 6 items).** Remaining tuning is playtest-driven; the art pass (P9)
+swaps all greybox.
 
 ## Notes
 - All greybox; the art pass (real trees, rock walls, island props, water FX) swaps visuals later.

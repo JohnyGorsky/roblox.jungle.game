@@ -25,6 +25,14 @@ camps, and camp guards are a **predefined, non-respawning** roster that **escala
       `CampPath` dirt strip (~295 studs, shore→deep camp) present; 5 loot crates.
 - [x] Two camps at increasing depth (near ~120, deep ~300 studs inland).
 
+## Follow-ups folded into this job (2026-07-19)
+- **Painted dirt path**: the thin path Part was buried by the tall grass decoration, so the lane is now
+  **painted into the terrain as `Ground`** (grows no grass blades) — verified Ground on-path vs Grass off-path.
+- **Admin "TP to First Camp"**: `ExcursionServer` exposes a `ForceFirstCamp` BindableFunction (force-builds the
+  first landing + returns the near-camp spawn); `AdminServer` adds a `tpFirstCamp` self-action; `AdminClient`
+  adds the button (identical in both trees; no-ops in the lobby). Verified: teleports the admin from the start
+  to the first camp, building it on demand.
+
 ## Notes / follow-ups
 - **Not committed.**
 - To inspect I had to **untie properly** (destroy the Moor **and** the rope tether — the rope alone kept the
