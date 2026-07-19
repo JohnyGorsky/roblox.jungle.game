@@ -242,8 +242,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- fuel: drain while the engine runs; empty = no engine (drift at the current's mercy = stranded)
 	local fuel = (boat:GetAttribute("Fuel") :: number?) or 0
 	if fuel > 0 then
-		-- FuelBurnMul lets Diesel Efficiency (skill, Job 024) reduce burn; default 1
-		local burnMul = (boat:GetAttribute("FuelBurnMul") :: number?) or 1
+		-- FuelBurnMul = Diesel Efficiency skill (Job 024); StationFuelMul = Engineer at the fuel station (Job 034)
+		local burnMul = ((boat:GetAttribute("FuelBurnMul") :: number?) or 1) * ((boat:GetAttribute("StationFuelMul") :: number?) or 1)
 		boat:SetAttribute("Fuel", math.max(0, fuel - (FUEL_IDLE + FUEL_THROTTLE * math.abs(t)) * burnMul * dt))
 	else
 		t = 0
