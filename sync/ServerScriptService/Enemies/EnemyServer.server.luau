@@ -39,6 +39,36 @@ local rng = Random.new()
 type State = { biteTimer: number, anchor: Vector3?, side: number? }
 local state: { [Model]: State } = {}
 
+-- glowing Neon eyes so threats are visible in the dark (Job 039). Attachment-aware: a real model can put
+-- EyeLeft/EyeRight Attachments where the eyes belong; greybox falls back to an offset from the body + size.
+-- Parts are anchored in the model → they ride along with enemy:PivotTo, like the snout.
+local function addEyes(model: Model, base: BasePart, def: EnemyDefs.EnemyDef)
+	local function eyeAt(cf: CFrame)
+		local e = Instance.new("Part")
+		e.Name = "Eye"
+		e.Shape = Enum.PartType.Ball
+		e.Size = Vector3.new(0.5, 0.5, 0.5)
+		e.Material = Enum.Material.Neon
+		e.Color = Color3.fromRGB(255, 45, 45)
+		e.Anchored = true
+		e.CanCollide = false
+		e.CanQuery = false
+		e.CFrame = cf
+		e.Parent = model
+	end
+	local aL = model:FindFirstChild("EyeLeft", true)
+	local aR = model:FindFirstChild("EyeRight", true)
+	if aL and aL:IsA("Attachment") and aR and aR:IsA("Attachment") then
+		eyeAt(aL.WorldCFrame)
+		eyeAt(aR.WorldCFrame)
+	else
+		local s = def.size
+		-- front = -Z (the snout end), up = +Y, sides = ±X
+		eyeAt(base.CFrame * CFrame.new(-s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
+		eyeAt(base.CFrame * CFrame.new(s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
+	end
+end
+
 local function spawnEnemy(def: EnemyDefs.EnemyDef, pos: Vector3, anchor: Vector3?): Model
 	local model = Instance.new("Model")
 	model.Name = def.name
@@ -67,6 +97,7 @@ local function spawnEnemy(def: EnemyDefs.EnemyDef, pos: Vector3, anchor: Vector3
 	model:SetAttribute("HP", def.hp)
 	model:SetAttribute("MaxHP", def.hp)
 	model:SetAttribute("Category", def.category)
+	addEyes(model, body, def) -- glowing eyes (Job 039)
 	CollectionService:AddTag(model, "Enemy")
 	model.Parent = Workspace
 	state[model] = { biteTimer = def.biteCooldown, anchor = anchor }
