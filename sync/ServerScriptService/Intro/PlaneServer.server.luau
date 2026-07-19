@@ -40,7 +40,12 @@ local function getHubPos(): Vector3
 end
 
 local hubPos = getHubPos()
-local START_CF = CFrame.new(hubPos + Vector3.new(0, 260, -180)) * CFrame.Angles(0, 0, 0)
+-- timing (predefined): after the mask lifts, the plane CRUISES visibly for CRUISE_TIME, then DESCENDs.
+local CRUISE_TIME = 10 -- seconds of visible level flight after the reveal, before it goes down
+local DESCENT_TIME = 5 -- seconds of the nose-down descent to the crash site
+
+local START_CF = CFrame.new(hubPos + Vector3.new(0, 240, -360)) * CFrame.Angles(0, 0, 0) -- build + hover (high, far back)
+local CRUISE_END_CF = CFrame.new(hubPos + Vector3.new(0, 205, -70)) * CFrame.Angles(0, 0, 0) -- end of the cruise (still high, near hub)
 local END_CF = CFrame.new(hubPos + Vector3.new(0, 32, 40)) * CFrame.Angles(math.rad(-28), 0, 0) -- nose-down low pass
 
 -- ── build the greybox plane ──────────────────────────────────────────────────────────────────────────────
@@ -181,13 +186,27 @@ else
 	task.wait(2)
 end
 
--- ── smoking nose-down descent ────────────────────────────────────────────────────────────────────────────
+-- ── reveal: a long, predefined CRUISE (visible level flight) before it goes down ─────────────────────────
 hovering = false
 task.wait() -- let the hover loop exit
-smoke.Enabled = true
 
-local hoverCF = plane:GetPivot()
-local DESCENT_TIME = 4.5
+local cruiseStart = plane:GetPivot()
+do
+	local elapsed = 0
+	while elapsed < CRUISE_TIME do
+		local dt = RunService.Heartbeat:Wait()
+		elapsed += dt
+		local a = math.clamp(elapsed / CRUISE_TIME, 0, 1)
+		local eased = a * a * (3 - 2 * a) -- smoothstep the approach
+		local bob = math.sin(elapsed * 1.2) * 3 -- gentle airborne bob
+		local roll = math.rad(math.sin(elapsed * 0.6) * 8) -- gentle bank
+		plane:PivotTo(cruiseStart:Lerp(CRUISE_END_CF, eased) * CFrame.new(0, bob, 0) * CFrame.Angles(0, 0, roll))
+	end
+end
+
+-- ── smoking nose-down descent ────────────────────────────────────────────────────────────────────────────
+smoke.Enabled = true
+local descentStart = plane:GetPivot()
 do
 	local elapsed = 0
 	while elapsed < DESCENT_TIME do
@@ -195,7 +214,7 @@ do
 		elapsed += dt
 		local a = math.clamp(elapsed / DESCENT_TIME, 0, 1)
 		local eased = a * a * (3 - 2 * a) -- smoothstep
-		plane:PivotTo(hoverCF:Lerp(END_CF, eased))
+		plane:PivotTo(descentStart:Lerp(END_CF, eased))
 	end
 end
 

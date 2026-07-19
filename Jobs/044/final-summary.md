@@ -33,6 +33,17 @@ all staged behind the loading-screen mask so it doubles as the join/world-gen wa
       jetty/boat), free to play.
 - [x] Test overrides reverted (`DESCENT_TIME` 12→4.5, `__DebugExpectedParty` cleared).
 
+## Update (2026-07-19) — longer, predefined flight
+Added a **predefined visible cruise** before the descent (user: "can we play much longer? like 10 seconds, then
+just go down"). After the mask lifts the plane now flies level for `CRUISE_TIME` (10s, tunable) — smoothstepped
+approach with a gentle bob + bank — then does the `DESCENT_TIME` (5s) nose-down descent. So airtime is a fixed
+~15s regardless of how fast the readiness gate opened. Verified: masked hover shows the player seated and riding
+(`Sit=true`, player Y == plane Y == 295), and the greybox plane visibly cruises in from distance before going down.
+
+**Known caveat (→ next job):** during the long cruise the default camera doesn't ride smoothly with the
+anchored, CFrame-moved plane (it can stay grounded and watch the plane fly). Fixing that is the **cinematic
+camera** work in the next step — without it the long flight isn't showcased well.
+
 ## Notes / follow-ups
 - **Not committed.**
 - Camera just follows the seated character (no cinematic camera yet) and there's no prone wake-up — those +
