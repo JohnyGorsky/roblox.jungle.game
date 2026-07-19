@@ -37,9 +37,11 @@ North-star reference: Dead Rails' train-departure intro, adapted to a **plane cr
 - **[Job 045 — done]** Cinematic camera (`IntroCameraClient` chase-cam rides the plane through cruise +
   descent) + crash **cold-open** (crew laid prone at the hub via `IntroWake`, low camera rises as they wake,
   then stand + normal camera/control return).
-- **Next:** the start-area **Robux shop** by the boat (the small shop at the wake-up spot).
-- **Later:** flip `WorldBuilt` when the (future) river generator finishes; **art pass** swaps every greybox
-  (real plane, smoke/impact VFX, environment, prone→get-up animation).
+- **[Job 046 — done]** Start-area **Robux shop** by the boat: `StartShopServer` kiosk at the hub +
+  `OpenRobuxShop` → game `RobuxShop` panel (Gold packs + passes, real prompts).
+- **Sequence mechanics COMPLETE.** Remaining is the **art pass** — real plane model, smoke/impact VFX,
+  environment, prone→get-up animation, real shop/kiosk model — plus flipping `WorldBuilt` once a river
+  generator exists so the mask covers world-gen too.
 - **Then:** the plane scene (greybox plane, seat all players, fly-up hold, smoking descent) behind the mask.
 - **Then:** the crash cold-open (greybox crash site, prone→wake-up character sequence, camera).
 - **Then:** starting area = boat approach + small Robux shop.
