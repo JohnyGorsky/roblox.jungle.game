@@ -3,6 +3,10 @@
   "tree": {
     "$className": "DataModel",
 
+    "ReplicatedFirst": {
+      "$path": "sync/ReplicatedFirst"
+    },
+
     "ReplicatedStorage": {
       "$path": "sync/ReplicatedStorage"
     },
