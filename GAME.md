@@ -17,7 +17,10 @@ ammo at docks, pushing through escalating zones to reach the end.
 ## Genre & feel
 
 Co-op **river-run survival / action**. Tense but fun; escalating difficulty; short-to-medium sessions
-built around "ride → reach a dock → scavenge → ride further." Stylized **low-poly** art direction.
+built around "ride → reach a dock → scavenge → ride further." **Stylized jungle-expedition** art
+direction — *detailed-stylized* (chunky, readable, weathered), not flat low-poly _(direction locked
+2026-07-20, Job #063)_. **Full art direction, palette, typography & UI system:
+[STYLEGUIDE.md](STYLEGUIDE.md).**
 
 ## Platform & input — **mobile-first** (hard requirement)
 
@@ -361,9 +364,11 @@ Captured so nothing's forgotten; most resolve inside their build phase. ★ = de
 - Cross-server leaderboards; performance/streaming budget for mobile; analytics/KPIs
 
 **Content / art**
-- ★ Jungle's own **GUI design system** (its own skill, like Defender's `roblox-gui`)
-- Art style guide (low-poly consistency); asset pipeline (Meshy + Creator Store + Pixabay/Flaticon/
-  ChatGPT — see `GROUND-RULES.md §4`); music & ambient audio; VFX / game-feel juice
+- ✅ **Art & UI style guide** → [STYLEGUIDE.md](STYLEGUIDE.md) (Job #063, 2026-07-20) — art
+  direction, palette, typography, and the full UI system. To be promoted into a per-game design skill
+  (supersedes the separate "GUI design system" + "art style guide" backlog items).
+- Asset pipeline (Meshy + Creator Store + Pixabay/Flaticon/ChatGPT — see `GROUND-RULES.md §4`);
+  music & ambient audio; VFX / game-feel juice
 
 **Live-ops / business**
 - Daily rewards, quests/missions, seasons/events (battle pass?)
