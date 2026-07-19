@@ -10,7 +10,16 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local DAY_LENGTH = 240 -- real seconds for a full 24 h cycle
-local START_CLOCK = 8 -- start mid-morning
+local START_CLOCK = 20 -- start mid-morning
+
+-- remove the moon disc (too shiny at night — TODO 0009). Runs at startup; replicates to clients.
+do
+	local sky = Lighting:FindFirstChildOfClass("Sky")
+	if sky then
+		sky.MoonAngularSize = 0
+		sky.MoonTextureId = ""
+	end
+end
 
 local function phaseFor(t: number): string
 	return if (t >= 6 and t < 19) then "day" else "night"

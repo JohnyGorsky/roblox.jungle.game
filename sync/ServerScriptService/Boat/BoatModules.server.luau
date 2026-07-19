@@ -63,6 +63,20 @@ local function apply()
 	applied = true
 	local on: { string } = {}
 
+	-- every boat gets a basic BOW LIGHT at night (FINDING 0001 — boat was dark when riding). Night-only via
+	-- the NightLight tag (LightController toggles it dusk→dawn). The Searchlight MODULE below is the upgrade.
+	if not theBoat:FindFirstChild("BowLightHead") then
+		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, -10), Enum.Material.Neon)
+		local blight = Instance.new("SpotLight")
+		blight.Face = Enum.NormalId.Front -- forward / downstream (bow = -Z)
+		blight.Angle = 60
+		blight.Range = 55
+		blight.Brightness = 2.5
+		blight.Enabled = false -- night-only; LightController turns NightLight tags on dusk→dawn
+		CollectionService:AddTag(blight, "NightLight")
+		blight.Parent = head
+	end
+
 	if crewOwns("fueltank") then
 		theBoat:SetAttribute("MaxFuel", 150)
 		theBoat:SetAttribute("Fuel", 150)
