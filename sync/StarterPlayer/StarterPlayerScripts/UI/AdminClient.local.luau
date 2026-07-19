@@ -137,7 +137,7 @@ local actions: { AdminAction } = {
 	{ label = "+1000 Salvage (in-run)", kind = "salvage", amount = 1000 },
 	{ label = "Unlock ALL Modules", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", kind = "maxSkills", amount = 0 },
-	{ label = "TP to First Camp", action = "tpFirstCamp" }, -- self-teleport (no target); Job 054
+	{ label = "TP to First Camp", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 }
 
 local list = Instance.new("Frame")

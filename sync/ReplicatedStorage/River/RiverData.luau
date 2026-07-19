@@ -15,7 +15,7 @@ RiverData.WATER_Y = 12            -- target water surface height
 RiverData.Z_START = 0             -- world Z of the river's upstream start
 RiverData.END_DISTANCE = 18000    -- campaign finish distance (studs) ≈ a long ~15–25 min run
 RiverData.ENDLESS = false         -- true = no end (P10 endless mode)
-RiverData.DOCK_SPACING = 2200     -- studs between refuel docks (obstacle-hook density is per-zone; see ZONE_PROFILE)
+RiverData.DOCK_SPACING = 1600     -- studs between docks; landings (gasoline) every 2× that (Job 054 pacing)
 
 export type Hook = { z: number, x: number, kind: string } -- kind = "obstacle" | "ramp"
 export type Dock = { z: number, x: number, side: number, landing: boolean } -- landing = opens a big jungle zone

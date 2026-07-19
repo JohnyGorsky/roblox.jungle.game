@@ -368,7 +368,7 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local tier = math.max(1, math.ceil(index / 2))
 	local nearGuards = math.min(MAX_GUARDS, tier)
 	local deepGuards = math.min(MAX_GUARDS, tier + 1)
-	buildCampAt(nearPos, model, nearGuards, { "Gasoline" })
+	buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }) -- 2 gas → a haul can fund skipping a stop (Job 054)
 	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" })
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
@@ -453,7 +453,7 @@ local function dockIndex(z: number): number
 	return math.floor((z - RiverData.Z_START) / RiverData.DOCK_SPACING + 0.5)
 end
 
--- admin helper (Job 054): force-build the FIRST landing site and return its near-camp spawn position, so an
+-- admin helper (Job 053): force-build the FIRST landing site and return its near-camp spawn position, so an
 -- admin can teleport straight to a camp without sailing there. Invoked by AdminServer.
 local forceCamp = Instance.new("BindableFunction")
 forceCamp.Name = "ForceFirstCamp"
