@@ -190,6 +190,7 @@ local function tickEnemy(enemy: Model, dt: number)
 		return
 	end
 	if ((enemy:GetAttribute("HP") :: number?) or 0) <= 0 then
+		Workspace:SetAttribute("RunKills", ((Workspace:GetAttribute("RunKills") :: number?) or 0) + 1) -- run objective (Job 061)
 		despawn(enemy)
 		return
 	end
