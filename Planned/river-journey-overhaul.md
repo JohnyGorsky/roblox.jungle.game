@@ -28,8 +28,8 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
 1. **[Job 047 — done]** Zone-driven river shape + turn variety — `RiverData` `ZONE_PROFILE` (width/turn/
    obstacle-density interpolated by distance) + 3rd meander octave scaled by per-zone turniness. Rapids
    narrows/twists/dense, Delta wide, Headwaters calm. Verified continuous + drivable.
-2. **Per-zone current** — `RiverData.currentMulAt(z)` + one line in `BoatServer` (`* currentMulAt`). Fast
-   Rapids, slow Delta. Boat-physics testing.
+2. **[Job 048 — done]** Per-zone current — `BoatServer` current force `* RiverData.currentMulAt(z)`. Rapids
+   ×1.5 (18000), Delta ×0.8 (9600), others ×1.0. Verified end-to-end.
 3. **Forks + small islands** — `RiverData` (a second offset centerline + island mask) + `RiverGenerator`
    (carve two channels, fill the island) + culling both branches; boat just drives whichever side. Concentrated
    in the Delta, occasional set-pieces elsewhere. Heaviest piece.

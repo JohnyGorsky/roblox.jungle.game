@@ -251,7 +251,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- ThrustMul lets modules (2nd motor, Job 025) / skills (later) tune engine power; default 1
 	local thrustMul = (boat:GetAttribute("ThrustMul") :: number?) or 1
 	thrust.Force = look * (t * ((t >= 0) and THRUST or REVERSE) * thrustMul)
-	current.Force = downstream(pos.Z) * CURRENT
+	-- per-zone flow (Job 048): the Rapids sweep you along faster, the Delta slows — from the shared RiverData
+	current.Force = downstream(pos.Z) * (CURRENT * RiverData.currentMulAt(pos.Z))
 	drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG) -- horizontal only; Y left to buoyancy
 
 	-- rudder heading: turn rate ∝ signed forward speed (0 when stopped; reverse flips it)
