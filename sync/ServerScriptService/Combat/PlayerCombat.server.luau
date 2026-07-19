@@ -25,6 +25,11 @@ local function setupCharacter(player: Player, char: Model)
 	-- Before the run starts (staging): spawn at the crash-site HUB. After it starts: ON the boat (so
 	-- mid-run respawns land back on the boat). See StagingServer (Job 016).
 	task.spawn(function()
+		-- during the plane intro (Job 044), PlaneServer owns placement (crew rides the plane) — don't yank
+		-- them to the hub. It clears IntroActive when it drops the crew at the hub.
+		if Workspace:GetAttribute("IntroActive") then
+			return
+		end
 		if not Workspace:GetAttribute("RunStarted") then
 			-- wait briefly for StagingServer to publish the hub spawn point
 			local t0 = os.clock()

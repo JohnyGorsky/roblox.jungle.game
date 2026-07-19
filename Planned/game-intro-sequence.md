@@ -31,8 +31,12 @@ North-star reference: Dead Rails' train-departure intro, adapted to a **plane cr
   party has joined (expected size from lobby TeleportData `partySize`, timeout failsafe) + the world is built
   (`WorldBuilt` hook, inert until a generator sets it), publishing `IntroStatus` text; the loader holds on
   `IntroReady` and shows `IntroStatus`.
-- **Next:** the plane scene (greybox plane, seat all players, fly-up hold) built behind the mask — flip
-  `WorldBuilt` when its (future) generator finishes.
+- **[Job 044 — done]** The plane scene (greybox plane, seat the crew, fly-up hold behind the mask, smoking
+  nose-down descent, impact fade → delivered to the crash-site hub). `PlaneServer` + `IntroFade` overlay;
+  `IntroActive` flag; `PlayerCombat` defers placement during the intro.
+- **Next:** the crash **cold-open** — prone characters that slowly wake up + a cinematic camera, ending at the
+  boat/start-area Robux shop. (Currently the camera just follows the seated character and there's no wake-up.)
+- **Later:** flip `WorldBuilt` when the (future) river generator finishes; art pass swaps every greybox.
 - **Then:** the plane scene (greybox plane, seat all players, fly-up hold, smoking descent) behind the mask.
 - **Then:** the crash cold-open (greybox crash site, prone→wake-up character sequence, camera).
 - **Then:** starting area = boat approach + small Robux shop.
