@@ -269,3 +269,11 @@ openBtn.Activated:Connect(openWeekly)
 closeBtn.Activated:Connect(function()
 	wdim.Visible = false
 end)
+
+-- lobby kiosk (Job 032): the BOUNTIES station opens the weekly panel too
+local openPanel = ReplicatedStorage:WaitForChild("OpenPanel") :: RemoteEvent
+openPanel.OnClientEvent:Connect(function(which)
+	if which == "weekly" then
+		openWeekly()
+	end
+end)

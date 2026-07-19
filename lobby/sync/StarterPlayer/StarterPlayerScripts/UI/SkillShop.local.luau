@@ -220,3 +220,11 @@ openBtn.Activated:Connect(openShop)
 closeBtn.Activated:Connect(function()
 	dim.Visible = false
 end)
+
+-- lobby kiosk (Job 032): the SKILL TRAINER station opens this panel too
+local openPanel = ReplicatedStorage:WaitForChild("OpenPanel") :: RemoteEvent
+openPanel.OnClientEvent:Connect(function(which)
+	if which == "skills" then
+		openShop()
+	end
+end)

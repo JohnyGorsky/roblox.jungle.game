@@ -217,3 +217,11 @@ openBtn.Activated:Connect(openShop)
 closeBtn.Activated:Connect(function()
 	dim.Visible = false
 end)
+
+-- lobby kiosk (Job 032): the BOAT UPGRADES station opens this panel too
+local openPanel = ReplicatedStorage:WaitForChild("OpenPanel") :: RemoteEvent
+openPanel.OnClientEvent:Connect(function(which)
+	if which == "modules" then
+		openShop()
+	end
+end)

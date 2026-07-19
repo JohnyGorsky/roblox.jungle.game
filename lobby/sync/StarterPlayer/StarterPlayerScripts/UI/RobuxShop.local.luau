@@ -197,3 +197,11 @@ end)
 closeBtn.Activated:Connect(function()
 	dim.Visible = false
 end)
+
+-- lobby kiosk (Job 032): the ROBUX SHOP station opens this panel too
+local openPanel = ReplicatedStorage:WaitForChild("OpenPanel") :: RemoteEvent
+openPanel.OnClientEvent:Connect(function(which)
+	if which == "robux" then
+		dim.Visible = true
+	end
+end)
