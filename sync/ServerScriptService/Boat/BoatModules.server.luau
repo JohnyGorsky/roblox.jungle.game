@@ -69,12 +69,19 @@ local function apply()
 		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, -10), Enum.Material.Neon)
 		local blight = Instance.new("SpotLight")
 		blight.Face = Enum.NormalId.Front -- forward / downstream (bow = -Z)
-		blight.Angle = 60
-		blight.Range = 55
-		blight.Brightness = 2.5
+		blight.Angle = 80 -- wide beam so you can actually see the path (Job 052)
+		blight.Range = 95
+		blight.Brightness = 9
 		blight.Enabled = false -- night-only; LightController turns NightLight tags on dusk→dawn
 		CollectionService:AddTag(blight, "NightLight")
 		blight.Parent = head
+		-- local glow so the deck + immediate surroundings are visible, not just the forward beam (Job 052)
+		local glow = Instance.new("PointLight")
+		glow.Range = 34
+		glow.Brightness = 2.5
+		glow.Enabled = false
+		CollectionService:AddTag(glow, "NightLight")
+		glow.Parent = head
 	end
 
 	if crewOwns("fueltank") then
@@ -101,8 +108,8 @@ local function apply()
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Front -- emits along -Z (forward / downstream)
 		light.Angle = 70
-		light.Range = 90
-		light.Brightness = 4
+		light.Range = 130 -- the searchlight upgrade throws far + bright (Job 052)
+		light.Brightness = 11
 		light.Enabled = false -- night-only; LightController turns it on at night (Job 038)
 		CollectionService:AddTag(light, "NightLight")
 		light.Parent = head

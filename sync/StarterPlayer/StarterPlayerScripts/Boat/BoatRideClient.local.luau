@@ -48,6 +48,13 @@ RunService.RenderStepped:Connect(function()
 			-- the world transform the hull underwent this frame; apply the same to the rider
 			local delta = now * prevHullCF:Inverse()
 			root.CFrame = delta * root.CFrame
+			-- if you're NOT actively walking, cancel residual/inherited horizontal velocity — e.g. the launch
+			-- you get when leaving the driver seat on a moving boat (Job 052) — so the carry alone moves you.
+			-- Otherwise the seat's velocity + the carry stack and you slide off the deck faster than the boat.
+			if hum.MoveDirection.Magnitude < 0.1 then
+				local v = root.AssemblyLinearVelocity
+				root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+			end
 		end
 	end
 
