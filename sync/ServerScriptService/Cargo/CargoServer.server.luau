@@ -69,21 +69,25 @@ local function makeStation(name: string, localCF: CFrame, color: Color3, actionT
 	return prompt
 end
 
--- FUEL station: spend 1 gasoline → refuel the tank
-makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(240, 190, 60), "Refuel").Triggered:Connect(function()
+-- FUEL station: spend 1 gasoline → refuel the tank (Fuel Handling skill scales fuel/gas — Job 029)
+makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(240, 190, 60), "Refuel").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Gasoline") :: number?) or 0) > 0 then
 		boat:SetAttribute("Gasoline", (boat:GetAttribute("Gasoline") :: number) - 1)
 		local maxF = (boat:GetAttribute("MaxFuel") :: number?) or 100
-		boat:SetAttribute("Fuel", math.min(maxF, ((boat:GetAttribute("Fuel") :: number?) or 0) + FUEL_PER_GAS))
+		local skill = (player:GetAttribute("SkillRefuel") :: number?) or 0
+		local gain = FUEL_PER_GAS * (1 + 0.05 * skill)
+		boat:SetAttribute("Fuel", math.min(maxF, ((boat:GetAttribute("Fuel") :: number?) or 0) + gain))
 	end
 end)
 
--- REPAIR station: spend 1 metal → mend the hull
-makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(120, 200, 130), "Repair").Triggered:Connect(function()
+-- REPAIR station: spend 1 metal → mend the hull (Field Repair skill scales HP/metal — Job 029)
+makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(120, 200, 130), "Repair").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Metal") :: number?) or 0) > 0 then
 		boat:SetAttribute("Metal", (boat:GetAttribute("Metal") :: number) - 1)
 		local maxH = (boat:GetAttribute("MaxHP") :: number?) or 100
-		boat:SetAttribute("HP", math.min(maxH, ((boat:GetAttribute("HP") :: number?) or 0) + REPAIR_PER_METAL))
+		local skill = (player:GetAttribute("SkillRepair") :: number?) or 0
+		local gain = REPAIR_PER_METAL * (1 + 0.05 * skill)
+		boat:SetAttribute("HP", math.min(maxH, ((boat:GetAttribute("HP") :: number?) or 0) + gain))
 	end
 end)
 

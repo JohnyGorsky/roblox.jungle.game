@@ -130,9 +130,12 @@ deposit.Triggered:Connect(function(player: Player)
 	deposit.Enabled = next(carrying) ~= nil
 end)
 
--- award in-run Salvage (Job 023) — cash rewards raiding, not passive driving
+-- award in-run Salvage (Job 023) — cash rewards raiding, not passive driving.
+-- Scavenger's Instinct (Job 029): the looter's skill boosts the Salvage payout.
 local function awardSalvage(player: Player, amount: number)
-	player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + amount)
+	local scav = (player:GetAttribute("SkillScavenge") :: number?) or 0
+	local total = math.floor(amount * (1 + 0.03 * scav))
+	player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + total)
 end
 
 local function pickupLoot(player: Player, crate: Part)

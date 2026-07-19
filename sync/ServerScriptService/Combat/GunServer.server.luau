@@ -125,8 +125,11 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 	if seat.Occupant ~= humOf(player) then
 		return
 	end
+	-- Gun Discipline (Job 029): the gunner's skill speeds the turret's fire rate
+	local gunSkill = (player:GetAttribute("SkillGun") :: number?) or 0
+	local interval = FIRE_INTERVAL * (0.965 ^ gunSkill)
 	local now = time()
-	if now - lastFire < FIRE_INTERVAL then
+	if now - lastFire < interval then
 		return
 	end
 	lastFire = now
@@ -157,8 +160,10 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 	if result then
 		local enemy = enemyFrom(result.Instance)
 		if enemy then
+			-- Armored Boat (Job 027/029): GunDamageMul boosts mounted-gun damage (+20% with the pass)
+			local dmg = GUN_DAMAGE * ((boat:GetAttribute("GunDamageMul") :: number?) or 1)
 			local before = (enemy:GetAttribute("HP") :: number?) or 0
-			local after = math.max(0, before - GUN_DAMAGE)
+			local after = math.max(0, before - dmg)
 			enemy:SetAttribute("HP", after)
 			print(string.format("[Gun] HIT %s  HP %d -> %d%s", enemy.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
 		else

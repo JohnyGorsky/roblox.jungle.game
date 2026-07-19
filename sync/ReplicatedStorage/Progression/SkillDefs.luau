@@ -21,7 +21,7 @@ SkillDefs.Defs = {
 	repair = { name = "Field Repair", group = "Crew", per = 5, unit = "% repair speed", blurb = "Repair the hull faster." },
 	refuel = { name = "Fuel Handling", group = "Crew", per = 5, unit = "% refuel speed", blurb = "Refuel faster." },
 	medic = { name = "Combat Medic", group = "Crew", per = 4, unit = "% revive speed", blurb = "Revive teammates faster." },
-	gun = { name = "Gun Discipline", group = "Crew", per = 3.5, unit = "% reload", blurb = "Reload faster." },
+	gun = { name = "Gun Discipline", group = "Crew", per = 3.5, unit = "% faster fire", blurb = "Shoot faster (guns & turret)." },
 	scavenge = { name = "Scavenger's Instinct", group = "Crew", per = 3, unit = "% loot", blurb = "More loot & nugget luck." },
 } :: { [string]: SkillDef }
 

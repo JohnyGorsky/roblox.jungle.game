@@ -97,9 +97,12 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 		return
 	end
 
+	-- Gun Discipline (Job 029): faster fire rate (shrinks the interval between shots)
+	local gunSkill = (player:GetAttribute("SkillGun") :: number?) or 0
+	local interval = (def.fireInterval or 0.22) * (0.965 ^ gunSkill)
 	local now = time()
 	local last = lastShot[player]
-	if last and now - last < (def.fireInterval or 0.22) then
+	if last and now - last < interval then
 		return
 	end
 	lastShot[player] = now

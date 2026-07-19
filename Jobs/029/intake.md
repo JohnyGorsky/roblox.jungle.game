@@ -10,7 +10,8 @@ Make the 5 crew skills actually work. They are bought (Job 024) and exposed as p
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created (`implementation-plan.md`)
+- [x] Implementation completed — 5 crew skills + Armored Boat weapon bonus wired; inputs+formulas confirmed
+      live at L10; analyzer-clean
+- [x] Final summary + changelog written

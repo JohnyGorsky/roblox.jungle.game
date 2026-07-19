@@ -59,12 +59,14 @@ local function setupCharacter(player: Player, char: Model)
 		end
 	end
 
-	local function revive()
+	local function revive(reviver: Player?)
 		if not char:GetAttribute("Downed") then
 			return
 		end
 		char:SetAttribute("Downed", false)
-		char:SetAttribute("HP", REVIVE_HP)
+		-- Combat Medic (Job 029): revived ally comes up with more HP
+		local medic = (reviver and (reviver:GetAttribute("SkillMedic") :: number?)) or 0
+		char:SetAttribute("HP", math.min(MAX_HP, REVIVE_HP + 2.5 * medic))
 		hum.WalkSpeed, hum.JumpHeight = walk, jump
 		local prompt = root:FindFirstChild("RevivePrompt")
 		if prompt then
@@ -92,6 +94,12 @@ local function setupCharacter(player: Player, char: Model)
 		prompt.MaxActivationDistance = REVIVE_RANGE
 		prompt.Parent = root
 
+		-- Combat Medic (Job 029): a skilled reviver holds for less time (set per-reviver as they start)
+		prompt.PromptButtonHoldBegan:Connect(function(reviver: Player)
+			local medic = (reviver:GetAttribute("SkillMedic") :: number?) or 0
+			prompt.HoldDuration = math.max(0.6, REVIVE_HOLD * (1 - 0.04 * medic))
+		end)
+
 		prompt.Triggered:Connect(function(reviver: Player)
 			if reviver == player then
 				return -- no self-revive (that's the paid revive, P8)
@@ -105,7 +113,7 @@ local function setupCharacter(player: Player, char: Model)
 				return
 			end
 			reviver:SetAttribute("Bandages", bandages - 1)
-			revive()
+			revive(reviver)
 		end)
 
 		bleedThread = task.delay(BLEEDOUT, function()
