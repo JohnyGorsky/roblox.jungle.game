@@ -25,9 +25,9 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
 (Numbers are a starting point; tune in-engine.)
 
 ## Jobs (sequential — foundation → richness)
-1. **Zone-driven river shape + turn variety** — `RiverData` + `RiverGenerator`. Per-zone width / meander /
-   obstacle-density (blended by distance). Fix "straight & predictable": add a 3rd meander octave + per-zone
-   amplitude/turniness so bends vary. *(no forks/current yet)* — the most visible win, do first.
+1. **[Job 047 — done]** Zone-driven river shape + turn variety — `RiverData` `ZONE_PROFILE` (width/turn/
+   obstacle-density interpolated by distance) + 3rd meander octave scaled by per-zone turniness. Rapids
+   narrows/twists/dense, Delta wide, Headwaters calm. Verified continuous + drivable.
 2. **Per-zone current** — `RiverData.currentMulAt(z)` + one line in `BoatServer` (`* currentMulAt`). Fast
    Rapids, slow Delta. Boat-physics testing.
 3. **Forks + small islands** — `RiverData` (a second offset centerline + island mask) + `RiverGenerator`
