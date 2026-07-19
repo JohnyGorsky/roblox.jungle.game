@@ -14,9 +14,9 @@ local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitFor
 
 local DRIP_STUDS = 60 -- 1 Salvage per this many studs travelled (~300 over an 18k run)
 
--- remotes (created here; DockServer + the client WaitForChild these)
+-- remotes (created here; the village trading-post prompt + the client WaitForChild these)
 local openShop = Instance.new("RemoteEvent")
-openShop.Name = "OpenDockShop"
+openShop.Name = "OpenShop"
 openShop.Parent = ReplicatedStorage
 local shopRF = Instance.new("RemoteFunction")
 shopRF.Name = "DockShop"
@@ -133,6 +133,6 @@ shopRF.OnServerInvoke = function(plr: Player, action: string?, id: string?)
 	return { error = "bad-action" }
 end
 
--- (DockServer WaitForChilds the OpenDockShop RemoteEvent and fires it when its shop prompt is triggered.)
+-- (ExcursionServer WaitForChilds the OpenShop RemoteEvent and fires it from the village trading post.)
 
-print("[Salvage] in-run currency + dock shop online (drip 1/" .. DRIP_STUDS .. " studs)")
+print("[Salvage] in-run currency + village shop online (drip 1/" .. DRIP_STUDS .. " studs)")

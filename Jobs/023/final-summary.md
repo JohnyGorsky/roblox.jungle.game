@@ -11,17 +11,20 @@ An in-run **Salvage** currency (soft, resets each run, never persisted) + a **do
 - **Loot:** grabbing a camp crate awards Salvage (resource/ammo +40, weapon +80); a gold nugget also +30.
 - **Reset to 0 on `RunStarted`** (never carries between runs / into the profile).
 
-### Dock shop (Job 020 §3 prices)
-A "Dock Shop" ProximityPrompt on each dock opens the panel; buys go through a server RemoteFunction:
+### Shop = a village TRADING POST (moved off the pier per user feedback)
+The pier is just where you moor; the shop is a **visible TRADING POST stall** (wooden counter, posts, red
+awning, big floating "TRADING POST" sign) **inland in the landing-site village**, reached on foot after
+tying up. A "Trade" ProximityPrompt on the counter opens the panel. Buys go through a server RemoteFunction:
 bandage 50 (`Bandages+1`) · fuel 120 (`Gasoline+1`) · ammo 90 (`Ammo+1`) · repair 150 (`Metal+1`) ·
 pistol 400 · shotgun 750 (`InventoryService.grant`). Resource buys respect `CargoMax`.
+Remote renamed `OpenDockShop` → `OpenShop`; panel titled "TRADING POST".
 
 ### Files (all `sync/`)
 - **New:** `ReplicatedStorage/Economy/ShopDefs.luau` (catalog); `ServerScriptService/Economy/SalvageServer.server.luau`
   (remotes + reset + drip + buy handler); `StarterPlayer/StarterPlayerScripts/UI/DockShopClient.local.luau`
   (Salvage pill + shop panel).
-- **Edit:** `Excursion/ExcursionServer.server.luau` (award Salvage on loot + nugget); `World/DockServer.server.luau`
-  (Dock Shop prompt → `OpenDockShop`).
+- **Edit:** `Excursion/ExcursionServer.server.luau` (award Salvage on loot + nugget; **build the village
+  TRADING POST stall + Trade prompt**); `World/DockServer.server.luau` (pier prompt removed — mooring only).
 
 ## Verified (live in Studio)
 - [x] Analyzer-clean (all files).

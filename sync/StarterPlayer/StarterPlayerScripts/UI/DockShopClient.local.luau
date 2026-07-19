@@ -9,7 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local ShopDefs = require(ReplicatedStorage:WaitForChild("Economy"):WaitForChild("ShopDefs")) :: any
-local openDockShop = ReplicatedStorage:WaitForChild("OpenDockShop") :: RemoteEvent
+local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent
 local shopRF = ReplicatedStorage:WaitForChild("DockShop") :: RemoteFunction
 
 local ATTR = "Salvage"
@@ -83,7 +83,7 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.TextColor3 = Color3.fromRGB(120, 210, 150)
 title.TextScaled = true
-title.Text = "DOCK SHOP"
+title.Text = "TRADING POST"
 local ttsc = Instance.new("UITextSizeConstraint")
 ttsc.MaxTextSize = 26
 ttsc.Parent = title
@@ -235,7 +235,7 @@ for i, id in ipairs(ShopDefs.Order) do
 	makeRow(i, id)
 end
 
-local function openShop()
+local function openShopPanel()
 	local ok, res = pcall(function()
 		return shopRF:InvokeServer("list")
 	end)
@@ -244,7 +244,7 @@ local function openShop()
 	dim.Visible = true
 end
 
-openDockShop.OnClientEvent:Connect(openShop)
+openShop.OnClientEvent:Connect(openShopPanel)
 closeBtn.Activated:Connect(function()
 	dim.Visible = false
 end)

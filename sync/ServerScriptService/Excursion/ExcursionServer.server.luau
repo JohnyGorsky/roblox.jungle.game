@@ -20,6 +20,7 @@ local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChil
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
 local ServerScriptService = game:GetService("ServerScriptService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent -- village trading post (Job 023)
 
 local CAMP_AHEAD = 1400
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
@@ -252,6 +253,55 @@ local function tree(x: number, z: number, parent: Instance, rng: Random)
 	block("Canopy", Vector3.new(11, 8, 11), Color3.fromRGB(45, 100, 50), CFrame.new(x, CLEAR_Y + h + 2, z), parent)
 end
 
+-- a visible market stall in the village so players can SEE where to trade (Job 023). Fires the shop panel.
+local function buildTradingPost(pos: Vector3, parent: Instance)
+	block("TradingPost", Vector3.new(12, 1, 10), Color3.fromRGB(120, 85, 55), CFrame.new(pos + Vector3.new(0, 0.5, 0)), parent, Enum.Material.WoodPlanks)
+	local counter = block("Counter", Vector3.new(12, 3, 2), Color3.fromRGB(150, 110, 70), CFrame.new(pos + Vector3.new(0, 2, -4)), parent, Enum.Material.WoodPlanks)
+	block("Post", Vector3.new(0.6, 6, 0.6), Color3.fromRGB(90, 60, 40), CFrame.new(pos + Vector3.new(-5.5, 3.5, 4.5)), parent, Enum.Material.Wood)
+	block("Post", Vector3.new(0.6, 6, 0.6), Color3.fromRGB(90, 60, 40), CFrame.new(pos + Vector3.new(5.5, 3.5, 4.5)), parent, Enum.Material.Wood)
+	block("Post", Vector3.new(0.6, 6, 0.6), Color3.fromRGB(90, 60, 40), CFrame.new(pos + Vector3.new(-5.5, 3.5, -4.5)), parent, Enum.Material.Wood)
+	block("Post", Vector3.new(0.6, 6, 0.6), Color3.fromRGB(90, 60, 40), CFrame.new(pos + Vector3.new(5.5, 3.5, -4.5)), parent, Enum.Material.Wood)
+	block("Awning", Vector3.new(13, 0.6, 11), Color3.fromRGB(200, 70, 70), CFrame.new(pos + Vector3.new(0, 6.6, 0)), parent, Enum.Material.Fabric)
+
+	local signPart = Instance.new("Part")
+	signPart.Name = "ShopSign"
+	signPart.Anchored = true
+	signPart.CanCollide = false
+	signPart.Transparency = 1
+	signPart.Size = Vector3.one
+	signPart.CFrame = CFrame.new(pos + Vector3.new(0, 9.5, 0))
+	signPart.Parent = parent
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.fromScale(9, 2.5)
+	bb.AlwaysOnTop = true
+	bb.MaxDistance = 300
+	bb.Parent = signPart
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.fromScale(1, 1)
+	lbl.BackgroundTransparency = 0.3
+	lbl.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	lbl.TextColor3 = Color3.fromRGB(120, 210, 150)
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextScaled = true
+	lbl.Text = "TRADING POST"
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = lbl
+	lbl.Parent = bb
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ShopPrompt"
+	prompt.ActionText = "Trade"
+	prompt.ObjectText = "Trading Post"
+	prompt.HoldDuration = 0.3
+	prompt.RequiresLineOfSight = false
+	prompt.MaxActivationDistance = 14
+	prompt.Parent = counter
+	prompt.Triggered:Connect(function(player: Player)
+		openShop:FireClient(player)
+	end)
+end
+
 local function buildLandingSite(dock: RiverData.Dock, index: number)
 	if built[index] then
 		return
@@ -287,6 +337,9 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	buildCampAt(nearPos, model, 1, { "Gasoline" })
 	local deepPos = Vector3.new(waterEdge + dock.side * 300, CLEAR_Y, dock.z + 40)
 	buildCampAt(deepPos, model, 2, { "Metal", "Ammo" })
+
+	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
+	buildTradingPost(Vector3.new(waterEdge + dock.side * 65, CLEAR_Y, dock.z - 24), model)
 
 	-- rare gold nuggets (run-capped): a chance at each camp
 	trySpawnNugget(nearPos + Vector3.new(0, 2, 6), model, rng)
