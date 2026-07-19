@@ -1,0 +1,1140 @@
+Yes. The image has a very clear stylized tropical expedition / Vietnam-era jungle adventure direction. The key is to avoid making it either too realistic or too cartoony. It should feel like a polished Roblox adventure game with chunky readable shapes, warm lighting, saturated jungle colors, and worn military/expedition props.
+
+Roblox supports font families and FontFace, including font assets, so you can keep one consistent typography system across signs and UI. Roblox also supports built-in and custom materials through MaterialService/MaterialVariant, which fits this style well for weathered wood, metal, sand, and jungle surfaces.
+
+Here is a master art-direction instruction you can give to Roblox AI:
+
+ROBLOX GAME ART DIRECTION — JUNGLE EXPEDITION STYLE
+
+Use the following visual style consistently for all environments, buildings, props, UI, signs, boats, aircraft, shops, NPC areas, and future lobby expansions.
+
+1. OVERALL VISUAL STYLE
+
+The game should use a:
+
+Stylized Tropical Jungle Expedition Adventure
+
+Visual inspiration:
+
+Vietnam-style tropical jungle environment
+Old jungle airfield
+Military expedition outpost
+River exploration
+Weathered wooden docks
+Old propeller aircraft
+Boats and mechanical equipment
+Jungle ruins and improvised camps
+
+The game should NOT look like a realistic military simulator.
+
+It should feel adventurous, colorful, slightly mysterious, and fun.
+
+Use:
+
+70% stylized Roblox
+20% cinematic adventure
+10% realistic environmental detail
+
+Objects should have slightly exaggerated proportions so players can easily understand them from a distance.
+
+Avoid extremely small details.
+
+Important gameplay objects must always have a recognizable silhouette.
+
+2. COLOR PALETTE
+
+Use warm earthy colors combined with strong jungle greens.
+
+Jungle
+
+Dark Jungle Green
+
+#1B341C
+
+Main Jungle Green
+
+#31552B
+
+Palm Leaf Green
+
+#47713A
+
+Light Tropical Green
+
+#6F8E45
+
+Moss Green
+
+#617044
+
+Do NOT use extremely bright neon-green vegetation.
+
+Vegetation should use several slightly different greens.
+
+Sand / Dirt / Airfield
+
+Main Sand
+
+#C8A36A
+
+Light Sand
+
+#D4B77D
+
+Dark Sand / Dirt
+
+#8A6945
+
+Mud / Earth
+
+#6A4F32
+
+Dust
+
+#B89160
+
+The ground should never be perfectly flat-colored.
+
+Mix:
+
+sand
+
+dirt
+
+small grass patches
+
+mud
+
+stones
+
+tire tracks
+
+footpaths
+
+3. WOOD COLORS
+
+Main Weathered Wood
+
+#72502D
+
+Dark Wood
+
+#4C3725
+
+Light Weathered Wood
+
+#967044
+
+Old Wooden Planks
+
+#806142
+
+Wood should look:
+
+slightly worn
+
+sun-damaged
+
+dirty
+
+used
+
+Do NOT make wooden buildings perfectly clean.
+
+Use different plank sizes and slightly irregular structures.
+
+4. MILITARY / EXPEDITION COLORS
+
+Primary Military Olive
+
+#59613B
+
+Dark Olive
+
+#3F4930
+
+Faded Army Green
+
+#737750
+
+Weathered Metal
+
+#4E5246
+
+Dark Metal
+
+#353A35
+
+Use these colors for:
+
+aircraft
+
+boats
+
+fuel containers
+
+military crates
+
+machinery
+
+watchtowers
+
+equipment
+
+Old equipment should look slightly faded and weathered.
+
+Avoid modern glossy military equipment.
+
+5. WATER
+
+Main Tropical River
+
+#247786
+
+Deep Water
+
+#195D68
+
+Shallow Water
+
+#3B9291
+
+Foam
+
+#D6E2D2
+
+Water should be slightly saturated turquoise-blue but NOT tropical-beach bright blue.
+
+It should feel like:
+
+a jungle river
+
+river delta
+
+coastal jungle water
+
+Add rocks, mud, vegetation, wooden poles, and docks near the shoreline.
+
+6. ACCENT COLORS
+
+Important gameplay areas may use stronger accent colors.
+
+Gold / Major Upgrade
+
+#D69B22
+
+Green / Boat Upgrade
+
+#4B7A2B
+
+Blue / Utility
+
+#356B9A
+
+Red
+
+#A84B3C
+
+Yellow
+
+#D5A12B
+
+Cream / Main Text
+
+#F3E6C2
+
+Dark UI Background
+
+#26362F
+
+Dark Navy UI
+
+#243542
+
+Do NOT use accents everywhere.
+
+Accent colors should indicate something important.
+
+Example:
+
+Gold = important progression
+
+Green = boat / mechanical progression
+
+Blue = utilities / smaller skills
+
+Colored circles = party matchmaking
+
+7. ENVIRONMENT DESIGN
+
+The jungle should frame the playable areas.
+
+Do NOT cover the playable area completely with jungle.
+
+Use the structure:
+
+DENSE JUNGLE
+
+→ sparse jungle transition
+
+→ props and vegetation
+
+→ sandy playable area
+
+The playable center should remain readable.
+
+Use:
+
+palm trees
+
+banana plants
+
+large tropical leaves
+
+ferns
+
+vines
+
+rocks
+
+fallen branches
+
+small bushes
+
+grass patches
+
+tree roots
+
+Use vegetation in clusters instead of randomly placing individual plants everywhere.
+
+8. SHAPE LANGUAGE
+
+Use chunky, readable shapes.
+
+Buildings should have slightly exaggerated features.
+
+Examples:
+
+Thicker wooden beams
+
+Large roof shapes
+
+Large signs
+
+Large crates
+
+Large barrels
+
+Chunky mechanical equipment
+
+Wide stairs
+
+Large doorways
+
+Gameplay objects should be immediately recognizable.
+
+Avoid:
+
+tiny realistic architecture
+
+extremely thin beams
+
+perfect modern geometry
+
+clean rectangular buildings
+
+Everything should feel handmade, repaired, modified, or improvised.
+
+9. BUILDING STYLE
+
+Buildings should look like jungle expedition structures.
+
+Use:
+
+wood
+
+corrugated metal
+
+canvas
+
+military tarps
+
+ropes
+
+wooden beams
+
+old metal
+
+sandbags
+
+crates
+
+barrels
+
+hanging lamps
+
+Some buildings can have:
+
+uneven roofs
+
+extensions
+
+small balconies
+
+workbenches
+
+equipment attached outside
+
+Buildings should feel like they evolved over time instead of being perfectly planned.
+
+10. ROOFS
+
+Use combinations of:
+
+Corrugated metal
+
+Old wooden boards
+
+Canvas
+
+Military tarps
+
+Palm/thatch details occasionally
+
+Roof colors:
+
+Dark olive
+
+Weathered brown
+
+Faded blue
+
+Rusty metal
+
+Avoid bright modern roofs.
+
+11. PROPS
+
+Use environmental storytelling.
+
+Common props:
+
+Wooden crates
+
+Metal military crates
+
+Oil barrels
+
+Fuel cans
+
+Ropes
+
+Fishing nets
+
+Cargo nets
+
+Sandbags
+
+Toolboxes
+
+Lanterns
+
+Old radios
+
+Mechanical parts
+
+Boat engines
+
+Propellers
+
+Fuel tanks
+
+Pipes
+
+Spare tires
+
+Cargo pallets
+
+Tarps
+
+Maps
+
+Small tables
+
+Supply boxes
+
+Do not place props randomly.
+
+Props should explain what happens in that location.
+
+Example:
+
+Boat mechanic area:
+
+engine
+
+tools
+
+oil
+
+fuel cans
+
+propellers
+
+spare parts
+
+Workshop:
+
+toolboxes
+
+metal pieces
+
+workbench
+
+wrenches
+
+lamps
+
+Aircraft area:
+
+fuel barrels
+
+cargo
+
+crates
+
+maintenance equipment
+
+12. BOAT DESIGN
+
+Boats should have a stylized expedition/military riverboat design.
+
+Main colors:
+
+Olive green
+
+Dark green
+
+Weathered wood
+
+Dark metal
+
+Boat should look:
+
+rugged
+
+repairable
+
+upgradeable
+
+used
+
+Do NOT make it look like a modern luxury boat.
+
+Visible upgrade areas should include:
+
+ENGINE
+
+HULL
+
+FUEL
+
+STORAGE
+
+EQUIPMENT
+
+Each upgrade should visually change the boat.
+
+Example:
+
+ENGINE LEVEL 1
+
+Small old engine.
+
+ENGINE LEVEL 2
+
+Larger cleaner engine.
+
+ENGINE LEVEL 3
+
+Powerful engine with additional pipes and exhaust.
+
+Players should visually see progression.
+
+13. AIRCRAFT
+
+Use an old propeller cargo aircraft.
+
+Style:
+
+1940s–1970s-inspired expedition aircraft
+
+Weathered military olive
+
+Large readable propellers
+
+Cargo aircraft silhouette
+
+Slightly exaggerated Roblox proportions
+
+Do NOT make it historically exact.
+
+The aircraft exists to communicate:
+
+ADVENTURE START
+
+EXPEDITION
+
+TRAVEL
+
+MATCHMAKING
+
+The pilot NPC should stand near the plane.
+
+14. PARTY PADS
+
+Use four clearly separated party pads.
+
+Colors:
+
+BLUE
+
+RED
+
+GREEN
+
+YELLOW
+
+Party pads should be large enough to immediately understand their function.
+
+Suggested design:
+
+Circular raised platform.
+
+Wood + metal outer ring.
+
+Colored center.
+
+Large party/player icon.
+
+Small lights around edges.
+
+Never hide party pads behind vegetation.
+
+They are one of the most important gameplay elements.
+
+15. LIGHTING
+
+Use warm cinematic jungle lighting.
+
+Preferred atmosphere:
+
+Late afternoon / warm daylight.
+
+Sun color:
+
+slightly warm.
+
+Shadows:
+
+soft but visible.
+
+Use:
+
+Ambient occlusion
+
+Soft directional shadows
+
+Subtle atmospheric haze
+
+Slight warm sunlight
+
+Cooler shaded jungle areas
+
+The central airfield should be brighter.
+
+The surrounding jungle should become darker.
+
+This naturally guides players toward gameplay areas.
+
+Do NOT use:
+
+extreme orange sunset
+
+extremely dark jungle
+
+photorealistic lighting
+
+heavy bloom everywhere
+
+16. NIGHT LIGHTING
+
+At night use warm practical lighting.
+
+Lantern color:
+
+Warm amber.
+
+Torch color:
+
+Warm orange.
+
+Mechanical equipment:
+
+Small blue/green indicator lights.
+
+Shops:
+
+Warm internal lighting.
+
+Use small pools of light.
+
+Do NOT illuminate the whole jungle evenly.
+
+17. MATERIAL STYLE
+
+Materials should look slightly stylized rather than photorealistic.
+
+Use:
+
+Wood / WoodPlanks
+
+Metal
+
+CorrodedMetal
+
+Sand
+
+Ground
+
+Rock
+
+Grass
+
+Fabric-like textures for tarps
+
+Custom MaterialVariants can be used for important repeated surfaces.
+
+Texture details should be visible but not excessively high-frequency.
+
+Avoid extremely detailed photorealistic PBR textures.
+
+Materials should remain readable from normal Roblox camera distance.
+
+18. FONT STYLE
+
+Typography should feel:
+
+BOLD
+
+ADVENTUROUS
+
+MILITARY / EXPEDITION
+
+HIGHLY READABLE
+
+For general UI use:
+
+Builder Sans Bold
+
+or another clean bold Roblox sans-serif FontFace.
+
+Use bold or extra-bold weight for buttons and important labels.
+
+Example:
+
+BOAT UPGRADES
+
+SKILLS
+
+PLAY
+
+PARTY
+
+ENGINE
+
+STORAGE
+
+For large physical jungle signs, use a:
+
+bold condensed
+
+slightly industrial
+
+military poster
+
+or stencil-inspired
+
+font.
+
+Do NOT use decorative fonts for small UI text.
+
+19. TEXT STYLE
+
+Major headings:
+
+ALL CAPS
+
+Example:
+
+BOAT UPGRADES
+
+GOLD SKILLS
+
+EQUIPMENT
+
+PARTY
+
+ENGINE
+
+Smaller descriptions:
+
+Normal capitalization.
+
+Example:
+
+Increase maximum boat speed.
+
+Text should normally use:
+
+Light cream
+
+#F3E6C2
+
+instead of pure white.
+
+Use dark outlines or shadows behind important text.
+
+20. SIGN DESIGN
+
+Physical signs should look like part of the environment.
+
+Recommended structure:
+
+Dark wooden or metal backing.
+
+Thick border.
+
+Large bold text.
+
+Small icon.
+
+Slightly worn surface.
+
+Examples:
+
+GOLD SKILL SHOP
+
+Use:
+
+gold border
+
+gold star icon
+
+warm lighting
+
+BOAT UPGRADES
+
+Use:
+
+dark green background
+
+light green border
+
+gear icon
+
+SMALL SKILL SHOP
+
+Use:
+
+dark blue background
+
+blue border
+
+wrench icon
+
+Signs should be readable from far away.
+
+21. UI STYLE
+
+UI should match the physical world.
+
+Do NOT use futuristic glass UI.
+
+Use panels inspired by:
+
+military equipment
+
+expedition crates
+
+metal plates
+
+wood signs
+
+maps
+
+UI shapes:
+
+rounded rectangles
+
+thick borders
+
+small bevels
+
+subtle texture
+
+Dark background:
+
+#24352D
+
+Border:
+
+#806142
+
+Text:
+
+#F3E6C2
+
+Important buttons can use:
+
+Gold
+
+Green
+
+Blue
+
+Avoid excessive gradients.
+
+22. ICON STYLE
+
+Icons should be:
+
+simple
+
+bold
+
+easy to understand
+
+slightly 3D or embossed
+
+Examples:
+
+Gear = engine
+
+Shield = hull
+
+Fuel pump = fuel
+
+Crate = storage
+
+Crossed tools = equipment
+
+Star = major skill
+
+Wrench = utility skill
+
+Player group = party
+
+Use one consistent icon style throughout the entire game.
+
+23. MAP COMPOSITION RULE
+
+When creating areas use:
+
+LANDMARK
+
+→ PATH
+
+→ SECONDARY AREA
+
+Every major location needs a strong visual landmark.
+
+Examples:
+
+Spawn = giant painted airfield star.
+
+Party = aircraft.
+
+Boat upgrades = boat + dock.
+
+Gold upgrades = gold-star building.
+
+Small upgrades = blue workshop.
+
+Players should understand the map WITHOUT needing a minimap.
+
+24. PATHS
+
+Create natural visual paths.
+
+Use:
+
+lighter sand
+
+wooden walkways
+
+ground arrows
+
+lanterns
+
+flags
+
+fences
+
+prop placement
+
+Paths should naturally connect:
+
+SPAWN
+
+↓
+
+PLANE / PARTY
+
+↙ ↓ ↘
+
+SHOPS / BOAT
+
+Avoid perfectly straight symmetrical roads.
+
+Paths should curve slightly and feel naturally created.
+
+25. DETAIL DENSITY
+
+Use three levels of visual importance.
+
+LEVEL 1 — LANDMARK
+
+Large objects.
+
+Aircraft.
+
+Boat.
+
+Shop.
+
+Tower.
+
+LEVEL 2 — SUPPORT OBJECTS
+
+Crates.
+
+Barrels.
+
+Tables.
+
+Machinery.
+
+LEVEL 3 — DETAIL
+
+Small plants.
+
+Tools.
+
+Ropes.
+
+Boxes.
+
+Small rocks.
+
+Never allow Level 3 details to visually overpower gameplay objects.
+
+26. WORLD RULE
+
+Everything should feel like it belongs to the same expedition camp.
+
+Whenever generating a new asset ask:
+
+"Could this realistically exist in this jungle expedition outpost?"
+
+If NO:
+
+redesign it.
+
+Example:
+
+GOOD:
+
+Weathered wooden weapon crate.
+
+BAD:
+
+Clean futuristic glowing sci-fi chest.
+
+GOOD:
+
+Mechanical boat upgrade bench.
+
+BAD:
+
+Floating futuristic holographic upgrade terminal.
+
+27. IMPORTANT STYLE KEYWORDS
+
+When generating new assets always include these keywords:
+
+Stylized Roblox
+
+Tropical jungle expedition
+
+Vietnam jungle atmosphere
+
+Weathered
+
+Chunky readable geometry
+
+Hand-built expedition camp
+
+Warm cinematic lighting
+
+Military olive and earthy colors
+
+Adventure game
+
+Slightly exaggerated proportions
+
+High readability
+
+Environmental storytelling
+
+Polished Roblox experience
+
+28. THINGS TO AVOID
+
+DO NOT create:
+
+Sci-fi objects
+
+Cyberpunk elements
+
+Modern luxury buildings
+
+Perfect clean surfaces
+
+Photorealistic assets
+
+Extremely low-poly cartoon assets
+
+Neon colors everywhere
+
+Randomly scattered props
+
+Modern city architecture
+
+Perfect symmetry
+
+Huge empty flat terrain
+
+Excessively dense vegetation in gameplay zones
+
+Tiny unreadable objects
+
+Everything must maintain the feeling of a:
+
+lost jungle expedition base that has become the player's adventure headquarters.
+
+One thing I would emphasize to the Roblox AI is “stylized, not low-poly.” Your reference has detailed meshes and materials, but the shapes remain chunky and readable. Roblox can use custom MaterialVariants for repeated weathered surfaces, and atmosphere/lighting can provide the jungle depth without making every asset overly detailed.
+
+For typography specifically, I would use Builder Sans Bold/ExtraBold-style typography for almost all interface text, with cream text + dark stroke. For physical location signs, use a condensed military/stencil-style FontFace sparingly. Roblox's current font system supports font families, weights/styles, and font assets through FontFace.
+
+The next useful step would be turning this into a much stricter Roblox AI “system prompt” containing exact rules for every generated building/prop, so when you say “create Boat Upgrade Shop” or “create Gold Skill Shop”, AI automatically follows this exact art style.

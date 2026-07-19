@@ -10,7 +10,8 @@ GAME.md P5: split the river into escalating ZONES (visible marker/announce as yo
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan (inline)
+- [x] Implementation completed — 4 zones with crossing announces + day/night set-piece banners + stronger
+      night surge; verified (Zone=2 at 5200, client received "NIGHTFALL" banner); analyzer-clean
+- [x] Final summary + changelog written

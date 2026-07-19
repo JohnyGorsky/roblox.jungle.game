@@ -231,7 +231,7 @@ end
 local function seaCap(): number
 	local c = BASE_SEA_CAP + math.floor((MAX_SEA_CAP - BASE_SEA_CAP) * distFrac())
 	if currentPhase() == "night" then
-		c += 2 -- night surge on the water
+		c += 3 -- NIGHT SET-PIECE: the water surges (Job 035) — reach a dock and hold out
 	end
 	return c
 end
