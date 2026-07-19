@@ -19,7 +19,7 @@ RiverGenerator.CHUNK_LEN = 256      -- downstream studs per chunk
 local RES = 4                       -- voxel resolution
 local CHANNEL_DEPTH = 18            -- water carved this far below WATER_Y (bed = WATER_Y - depth)
 local LAND = 220                    -- grass+hill band beyond each bank edge
-local MAX_HALFW = 140               -- upper bound of widthAt()/2 (≥ W_CEIL/2), for sizing the chunk region
+local MAX_HALFW = 170               -- upper bound of widthAt()/2 (≥ W_CEIL/2 = 165, wide Delta), for sizing the chunk region
 local HILL_MAX = 42                 -- max hill height added far from the channel
 local BANK_LIP = 10                 -- how high the immediate bank rises out of the water
 local Y_MIN, Y_MAX = -8, 64         -- vertical span of generated terrain
