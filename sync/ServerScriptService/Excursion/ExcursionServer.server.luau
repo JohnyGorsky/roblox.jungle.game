@@ -26,6 +26,17 @@ local CAMP_AHEAD = 1400
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
 local TREE_COUNT = 45
 local GUARD_LEASH = 55
+local PATH_HALF = 18 -- keep a tree-free walking lane this wide (half) from the shore to the camps (Job 053)
+local MAX_GUARDS = 6 -- escalation cap per camp (Job 053)
+
+-- perpendicular distance (X/Z) from point (px,pz) to segment A→B — used to keep the path lane clear of trees
+local function distToSeg(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = if len2 > 0 then math.clamp(((px - ax) * dx + (pz - az) * dz) / len2, 0, 1) else 0
+	local cx, cz = ax + t * dx, az + t * dz
+	return math.sqrt((px - cx) ^ 2 + (pz - cz) ^ 2)
+end
 
 -- Rare "found gold" (Job 022, design Job 020 §2): a nugget worth 1 Gold may spawn at a camp. Chance per
 -- camp is low and the run is hard-capped so looting can't eclipse finishing (the Dead Rails trap).
@@ -328,18 +339,37 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local model = Instance.new("Model")
 	model.Name = "LandingSite"
 	local rng = Random.new(index * 131 + 7)
+
+	-- camp positions first, so we can keep the walking lane to them clear of trees (Job 053)
+	local nearPos = Vector3.new(waterEdge + dock.side * 120, CLEAR_Y, dock.z)
+	local deepPos = Vector3.new(waterEdge + dock.side * 300, CLEAR_Y, dock.z + 40)
+	-- the path runs from the shore (just past the water line) to the deep camp, passing the near camp
+	local pathAx, pathAz = waterEdge + dock.side * 8, dock.z
+	local pathBx, pathBz = deepPos.X, deepPos.Z
+
+	-- visible dirt path along that lane
+	local aV = Vector3.new(pathAx, CLEAR_Y + 0.1, pathAz)
+	local bV = Vector3.new(pathBx, CLEAR_Y + 0.1, pathBz)
+	local pathLen = (bV - aV).Magnitude
+	local pathPart = block("CampPath", Vector3.new(PATH_HALF * 1.4, 0.2, pathLen), Color3.fromRGB(120, 95, 60), CFrame.lookAt((aV + bV) / 2, bV), model, Enum.Material.Ground)
+	pathPart.CanCollide = false
+
 	for _ = 1, TREE_COUNT do
 		local rx = basinCenterX + rng:NextNumber(-1, 1) * (BASIN_SIZE / 2 - 15)
 		local rz = dock.z + rng:NextNumber(-1, 1) * (BASIN_SIZE / 2 - 15)
-		if (rx - waterEdge) * dock.side > 10 then -- keep trees on land, out of the channel
+		-- keep trees on land (out of the channel) AND out of the walking lane to the camps
+		if (rx - waterEdge) * dock.side > 10 and distToSeg(rx, rz, pathAx, pathAz, pathBx, pathBz) > PATH_HALF then
 			tree(rx, rz, model, rng)
 		end
 	end
-	-- tiered camps: near (gasoline, 1 guard) + far/deeper (metal + ammo, 2 guards — better haul)
-	local nearPos = Vector3.new(waterEdge + dock.side * 120, CLEAR_Y, dock.z)
-	buildCampAt(nearPos, model, 1, { "Gasoline" })
-	local deepPos = Vector3.new(waterEdge + dock.side * 300, CLEAR_Y, dock.z + 40)
-	buildCampAt(deepPos, model, 2, { "Metal", "Ammo" })
+
+	-- tiered, ESCALATING camps: rosters are predefined + non-respawning, and grow at each successive landing
+	-- (tier = the landing's ordinal downriver). Deeper camp always has one more guard than the near camp.
+	local tier = math.max(1, math.ceil(index / 2))
+	local nearGuards = math.min(MAX_GUARDS, tier)
+	local deepGuards = math.min(MAX_GUARDS, tier + 1)
+	buildCampAt(nearPos, model, nearGuards, { "Gasoline" })
+	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" })
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
 	buildTradingPost(Vector3.new(waterEdge + dock.side * 65, CLEAR_Y, dock.z - 24), model)

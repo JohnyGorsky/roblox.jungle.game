@@ -36,9 +36,9 @@ excursion/camp systems already exist (Jobs 005, 011, 012) — this is enrichment
 4. **[Job 051 — done]** Off-path = dense & dangerous — `FoliageServer` thick inland-biased fork-aware bank
    forest (clearing at landings) + `EnemyServer` higher land caps (3/7) & faster spawns emerging from the
    treeline. River = safe corridor, banks = hostile jungle.
-5. **Excursion/camp rework** — `ExcursionServer`: a clear tree-free **path** from the disembark point to the
-   camp; **predefined, non-respawning** rosters per camp that **escalate per successive landing** (track a
-   per-run camp counter), replacing/curbing any respawn.
+5. **[Job 053 — done]** Excursion/camp rework — `ExcursionServer`: tree-free walking lane (0 trees within 18
+   studs) + dirt `CampPath` from shore to camps; escalating non-respawning rosters (tier=ceil(dockIndex/2):
+   near=tier, deep=tier+1, cap 6). Verified.
 6. **Pacing & optional stops** — `DockServer` + `RiverData` (dock spacing) + fuel economy: compute leg times so
    distance feels challenging, add more stops, and tune fuel so **skipping a stop is a real risk/reward** (can't
    skip them all). Some stops quick-refuel, some full landing raids.
