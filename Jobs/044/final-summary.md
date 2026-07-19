@@ -44,6 +44,9 @@ approach with a gentle bob + bank — then does the `DESCENT_TIME` (5s) nose-dow
 anchored, CFrame-moved plane (it can stay grounded and watch the plane fly). Fixing that is the **cinematic
 camera** work in the next step — without it the long flight isn't showcased well.
 
+**Direction fix (2026-07-19):** the nose sat at local -Z but the plane travels +Z toward the hub, so it flew
+backward (user spotted it). Added a `FACE` 180° yaw to the build/cruise/descent CFrames so the nose leads.
+
 ## Notes / follow-ups
 - **Not committed.**
 - Camera just follows the seated character (no cinematic camera yet) and there's no prone wake-up — those +

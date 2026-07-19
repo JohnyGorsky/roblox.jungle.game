@@ -44,9 +44,11 @@ local hubPos = getHubPos()
 local CRUISE_TIME = 10 -- seconds of visible level flight after the reveal, before it goes down
 local DESCENT_TIME = 5 -- seconds of the nose-down descent to the crash site
 
-local START_CF = CFrame.new(hubPos + Vector3.new(0, 240, -360)) * CFrame.Angles(0, 0, 0) -- build + hover (high, far back)
-local CRUISE_END_CF = CFrame.new(hubPos + Vector3.new(0, 205, -70)) * CFrame.Angles(0, 0, 0) -- end of the cruise (still high, near hub)
-local END_CF = CFrame.new(hubPos + Vector3.new(0, 32, 40)) * CFrame.Angles(math.rad(-28), 0, 0) -- nose-down low pass
+-- plane travels toward the hub (+Z); yaw it 180° so the nose (local -Z) LEADS instead of flying backward
+local FACE = CFrame.Angles(0, math.rad(180), 0)
+local START_CF = CFrame.new(hubPos + Vector3.new(0, 240, -360)) * FACE -- build + hover (high, far back)
+local CRUISE_END_CF = CFrame.new(hubPos + Vector3.new(0, 205, -70)) * FACE -- end of the cruise (still high, near hub)
+local END_CF = CFrame.new(hubPos + Vector3.new(0, 32, 40)) * FACE * CFrame.Angles(math.rad(-28), 0, 0) -- nose-down low pass
 
 -- ── build the greybox plane ──────────────────────────────────────────────────────────────────────────────
 local plane = Instance.new("Model")
@@ -218,26 +220,52 @@ do
 	end
 end
 
--- ── impact: fade to black, drop the crew at the hub, remove the plane, fade back in ──────────────────────
+-- ── impact: fade to black, then the crash COLD-OPEN (crew lying at the hub → slowly wake) ────────────────
 fadeRemote:FireAllClients("out", 0.35)
 task.wait(0.45)
+plane:Destroy()
 
+-- lay everyone out prone at the crash site (greybox: limp PlatformStand + horizontal CFrame; no anim yet)
+Workspace:SetAttribute("IntroWake", true)
 for _, plr in Players:GetPlayers() do
 	local char = plr.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if hum then
 		hum.Sit = false
+		hum.PlatformStand = true -- go limp — no auto-stand while unconscious
+		hum.WalkSpeed = 0
+		hum.JumpHeight = 0
 	end
 	if root then
-		root.CFrame = CFrame.new(hubPos + Vector3.new(math.random(-6, 6), 3, math.random(-6, 6)))
+		local px, pz = math.random(-5, 5), math.random(-5, 5)
+		-- lie on the ground: tilt the root 90° (on its back), random facing
+		root.CFrame = CFrame.new(hubPos + Vector3.new(px, 1.5, pz))
+			* CFrame.Angles(math.rad(-90), math.random() * math.pi * 2, 0)
 	end
 end
 
-plane:Destroy()
-Workspace:SetAttribute("IntroActive", false)
-
 task.wait(0.2)
-fadeRemote:FireAllClients("in", 0.8)
+fadeRemote:FireAllClients("in", 1.2) -- fade in ON the crash scene (still down)
+
+-- hold on the ground, then wake up (the client camera rises during this window)
+task.wait(2.6)
+
+for _, plr in Players:GetPlayers() do
+	local char = plr.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		root.CFrame = CFrame.new(hubPos + Vector3.new(math.random(-5, 5), 3, math.random(-5, 5))) -- stand upright
+	end
+	if hum then
+		hum.PlatformStand = false
+		hum.WalkSpeed = 16
+		hum.JumpHeight = 7.2
+	end
+end
+
+Workspace:SetAttribute("IntroWake", false)
+Workspace:SetAttribute("IntroActive", false)
 
 print("[Intro] plane cinematic complete — crew delivered to the crash-site hub")
