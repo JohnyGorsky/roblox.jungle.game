@@ -14,8 +14,9 @@ local StarterGui = game:GetService("StarterGui")
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
 
--- persistent in-run HUD elements to hide during the intro (transient/contextual GUIs are left alone)
-local HUD = { "BoatHud", "GoldHud", "InventoryHud", "StagingHint", "RunGui", "UntieButton" }
+-- persistent in-run HUD elements to hide during the intro (transient/contextual GUIs are left alone).
+-- DockShop carries the always-visible SALVAGE pill (not just the shop panel), so it's included.
+local HUD = { "BoatHud", "GoldHud", "InventoryHud", "StagingHint", "RunGui", "UntieButton", "DockShop" }
 
 local function setHudEnabled(enabled: boolean)
 	for _, name in HUD do

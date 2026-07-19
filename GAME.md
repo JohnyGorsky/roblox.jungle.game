@@ -375,17 +375,25 @@ Captured so nothing's forgotten; most resolve inside their build phase. ★ = de
   spreads via short-form/mobile discovery. (Optional: verify the name isn't taken on Roblox.)
 - Trailer / clip-worthy set-pieces
 
-## Open questions (tracked; resolve as we build)
+## Open questions (resolved 2026-07-19 — see decisions below)
 
-- [ ] Solo play: is 1 player viable (auto-assist idle stations / difficulty scale), or min 2? _(leaning: playable solo, scaled)_
-- [ ] The 4th role.
-- [ ] Number/length of campaign zones for v1.
-- [ ] Which specific animals beyond crocodiles; do they attack boat, players, or both per-type.
-- [ ] Exact fail thresholds and revive rules.
-- [ ] Economy: one **soft** currency vs **soft + premium (Robux)** split; currency name(s).
-- [ ] Revive monetization: fully paid vs limited-free + paid; pricing / cooldown.
-- [ ] Which **pre-run upgrades & skills** exist (boat stats, perks).
-- [ ] Robux product list (revive packs, cosmetics, unlocks, game pass?).
+- [x] **Solo play** → **soloable but harder.** 1 player can finish the run, but it's a real juggle; a crew is
+      clearly better (station bonuses + parallel tasks). Tune for co-op, keep solo viable (not disabled). _(todo 0000)_
+- [x] **The 4th role** → **Medic.** Faster/ranged revives + crew heal (builds on the existing `SkillMedic`).
+      Roles: Driver/helm · Gunner · Engineer/fuel · Mechanic/repair · **Medic**. _(todo 0000)_
+- [x] **Campaign zones for v1** → **4**: Headwaters · Croc Country · The Rapids · Lost Delta (END_DISTANCE 18000).
+- [x] **Animals** → sea: Crocodile, Piranha, River Hippo · land: Panther, Boar (sea attack boat+players; land
+      ambush from banks, leashed).
+- [x] **Currency names** → **Gold** (persistent meta) · **Salvage** (in-run) · **River Score** (rank/leaderboard).
+- [x] **Revive rules** → downed player revived by a teammate (1 Bandage); Robux paid self-revive is the safety net.
+- [ ] Which **pre-run upgrades & skills** exist — largely built (modules + 10-skill tree); refine as we tune.
+- [x] **Robux products** → Gold packs (dev products) + game passes (Armored Boat, Boat Paint, Cosmetic Bundle).
+
+### Still to build from these decisions
+- ~~**Medic role**~~ — **DONE (Job 057):** Medic station on the boat → crew heal (3 HP/s) + revive buffs
+  (2× range, 1.6× bleed-out, 0.6× hold); stacks with `SkillMedic`.
+- ~~**Solo tuning pass**~~ — **DONE (Job 058):** threat scales by crew size (0.55× solo → 1.0× at 6) on river
+  enemies + camp guards, so solo is finishable and a crew faces the full load.
 
 ## Assets needed — **Jungle's own** (the existing Meshy library is Defender's, not for Jungle)
 

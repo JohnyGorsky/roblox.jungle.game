@@ -91,4 +91,36 @@ makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(1
 	end
 end)
 
-print("[Cargo] back deck + fuel/repair stations online")
+-- MEDIC station (Job 057): the 4th role. Presence-based (no spend) — while a crew member mans it, RoleServer
+-- heals the crew and buffs revives (see RoleServer + PlayerCombat). Just a labelled part to stand at.
+do
+	local m = Instance.new("Part")
+	m.Name = "Medic Station"
+	m.Size = Vector3.new(3, 3, 3)
+	m.Color = Color3.fromRGB(230, 90, 90)
+	m.Material = Enum.Material.Metal
+	m.Massless = true
+	m.CanCollide = false
+	m.CFrame = hull.CFrame * CFrame.new(0, topY + 1.5, backZ + 3)
+	local w = Instance.new("WeldConstraint")
+	w.Part0 = hull
+	w.Part1 = m
+	w.Parent = m
+	m.Parent = boat
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.new(0, 90, 0, 28)
+	bb.StudsOffsetWorldSpace = Vector3.new(0, 2.4, 0)
+	bb.AlwaysOnTop = true
+	bb.Parent = m
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.fromScale(1, 1)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextColor3 = Color3.fromRGB(255, 150, 150)
+	lbl.TextStrokeTransparency = 0.4
+	lbl.TextScaled = true
+	lbl.Text = "MEDIC"
+	lbl.Parent = bb
+end
+
+print("[Cargo] back deck + fuel/repair/medic stations online")

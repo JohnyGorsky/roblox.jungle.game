@@ -90,19 +90,27 @@ local function setupCharacter(player: Player, char: Model)
 		-- (no PlatformStand ragdoll → doesn't slide off the boat or sink through the water)
 		hum.WalkSpeed, hum.JumpHeight = 0, 0
 
+		-- MEDIC role (Job 057): while a Medic mans the station, revives reach FURTHER + you bleed slower
+		-- (snapshot at down-time), and the hold is faster (live, stacks with the per-reviver Combat Medic skill).
+		local boatNow = Workspace:FindFirstChild("Boat")
+		local medicAboard = boatNow ~= nil and boatNow:GetAttribute("StationMedic") == true
+
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "RevivePrompt"
 		prompt.ActionText = "Revive"
 		prompt.ObjectText = player.DisplayName
 		prompt.HoldDuration = REVIVE_HOLD
 		prompt.RequiresLineOfSight = false
-		prompt.MaxActivationDistance = REVIVE_RANGE
+		prompt.MaxActivationDistance = if medicAboard then REVIVE_RANGE * 2 else REVIVE_RANGE
 		prompt.Parent = root
 
-		-- Combat Medic (Job 029): a skilled reviver holds for less time (set per-reviver as they start)
+		-- Combat Medic skill (Job 029) + Medic role station (Job 057): a skilled reviver / a manned station
+		-- both shorten the hold (set per-reviver as they start).
 		prompt.PromptButtonHoldBegan:Connect(function(reviver: Player)
 			local medic = (reviver:GetAttribute("SkillMedic") :: number?) or 0
-			prompt.HoldDuration = math.max(0.6, REVIVE_HOLD * (1 - 0.04 * medic))
+			local b2 = Workspace:FindFirstChild("Boat")
+			local stationMul = if b2 ~= nil and b2:GetAttribute("StationMedic") == true then 0.6 else 1
+			prompt.HoldDuration = math.max(0.4, REVIVE_HOLD * (1 - 0.04 * medic) * stationMul)
 		end)
 
 		prompt.Triggered:Connect(function(reviver: Player)
@@ -121,7 +129,7 @@ local function setupCharacter(player: Player, char: Model)
 			revive(reviver)
 		end)
 
-		bleedThread = task.delay(BLEEDOUT, function()
+		bleedThread = task.delay(if medicAboard then BLEEDOUT * 1.6 else BLEEDOUT, function()
 			if char:GetAttribute("Downed") then
 				hum.Health = 0 -- bled out → death. During a run RunServer disables respawn → PERMADEATH + spectate (Job 018)
 			end

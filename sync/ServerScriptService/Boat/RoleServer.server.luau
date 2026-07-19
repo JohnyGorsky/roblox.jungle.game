@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 
 local MAN_RANGE = 11 -- a player within this of a station "mans" it
 local REGEN = 2.5 -- hull HP/s while a repairer mans the repair station
+local MEDIC_REGEN = 3 -- player HP/s healed to the crew while a Medic mans the Medic station (Job 057)
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -73,6 +74,24 @@ RunService.Heartbeat:Connect(function(dt: number)
 		local maxH = (theBoat:GetAttribute("MaxHP") :: number?) or 100
 		if hp > 0 and hp < maxH then
 			theBoat:SetAttribute("HP", math.min(maxH, hp + REGEN * step))
+		end
+	end
+
+	-- MEDIC role (Job 057): while the Medic station is manned, passively heal the crew (and flag it so
+	-- PlayerCombat buffs revives). Distinct from the per-player SkillMedic — they stack.
+	local medicOn = manned(theBoat:FindFirstChild("Medic Station"))
+	theBoat:SetAttribute("StationMedic", medicOn)
+	if medicOn then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local char = plr.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if char and hum and hum.Health > 0 and not char:GetAttribute("Downed") then
+				local hp = (char:GetAttribute("HP") :: number?) or 0
+				local maxH = (char:GetAttribute("MaxHP") :: number?) or 100
+				if hp > 0 and hp < maxH then
+					char:SetAttribute("HP", math.min(maxH, hp + MEDIC_REGEN * step))
+				end
+			end
 		end
 	end
 end)

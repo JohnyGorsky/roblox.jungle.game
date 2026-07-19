@@ -259,15 +259,24 @@ local function pickType(pool: { { name: string, near: number, far: number } }): 
 	return EnemyDefs.Defs[pool[1].name]
 end
 
+-- SOLO tuning (Job 058): scale threat by crew size so a lone player (who can't man two stations at once) can
+-- finish, while a full crew faces the full load. 0.55× at 1 player → 1.0× at 6.
+local SOLO_SCALE = 0.55
+local function crewScale(): number
+	local t = math.clamp((#Players:GetPlayers() - 1) / 5, 0, 1)
+	return SOLO_SCALE + (1 - SOLO_SCALE) * t
+end
+
 local function seaCap(): number
 	local c = BASE_SEA_CAP + math.floor((MAX_SEA_CAP - BASE_SEA_CAP) * distFrac())
 	if currentPhase() == "night" then
 		c += 3 -- NIGHT SET-PIECE: the water surges (Job 035) — reach a dock and hold out
 	end
-	return c
+	return math.max(1, math.floor(c * crewScale()))
 end
 local function landCap(): number
-	return BASE_LAND_CAP + math.floor((MAX_LAND_CAP - BASE_LAND_CAP) * distFrac())
+	local c = BASE_LAND_CAP + math.floor((MAX_LAND_CAP - BASE_LAND_CAP) * distFrac())
+	return math.max(1, math.floor(c * crewScale()))
 end
 
 local function countByCategory(cat: string): number

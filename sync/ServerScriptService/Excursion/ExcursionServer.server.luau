@@ -366,8 +366,10 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- tiered, ESCALATING camps: rosters are predefined + non-respawning, and grow at each successive landing
 	-- (tier = the landing's ordinal downriver). Deeper camp always has one more guard than the near camp.
 	local tier = math.max(1, math.ceil(index / 2))
-	local nearGuards = math.min(MAX_GUARDS, tier)
-	local deepGuards = math.min(MAX_GUARDS, tier + 1)
+	-- SOLO tuning (Job 058): fewer guards for a small crew so a lone raider can clear a camp (min 1).
+	local scale = 0.55 + (1 - 0.55) * math.clamp((#Players:GetPlayers() - 1) / 5, 0, 1)
+	local nearGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier) * scale))
+	local deepGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier + 1) * scale))
 	buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }) -- 2 gas → a haul can fund skipping a stop (Job 054)
 	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" })
 
