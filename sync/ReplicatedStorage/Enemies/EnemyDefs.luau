@@ -34,6 +34,32 @@ EnemyDefs.Defs = {
 		color = Color3.fromRGB(58, 86, 54),
 		size = Vector3.new(6, 3, 16),
 	},
+	-- sea: fast, fragile, low bite — but comes in numbers (a swarm nibbling the hull)
+	Piranha = {
+		name = "Piranha",
+		category = "sea",
+		hp = 15,
+		speed = 22,
+		aggroRadius = 120,
+		biteRange = 11,
+		biteDamage = 4,
+		biteCooldown = 0.8,
+		color = Color3.fromRGB(120, 70, 70),
+		size = Vector3.new(2, 1.2, 4),
+	},
+	-- sea: slow, tanky, hits HARD — a mini-threat that appears deeper downriver
+	RiverHippo = {
+		name = "RiverHippo",
+		category = "sea",
+		hp = 120,
+		speed = 10,
+		aggroRadius = 130,
+		biteRange = 18,
+		biteDamage = 20,
+		biteCooldown = 2.6,
+		color = Color3.fromRGB(120, 110, 120),
+		size = Vector3.new(8, 5, 12),
+	},
 	-- land: ambushes from the bank (leashed), fast lunge; most active by day
 	Panther = {
 		name = "Panther",
@@ -46,6 +72,19 @@ EnemyDefs.Defs = {
 		biteCooldown = 1.8,
 		color = Color3.fromRGB(32, 28, 36),
 		size = Vector3.new(5, 4, 11),
+	},
+	-- land: fast pack hunter; charges from the bank in numbers
+	Boar = {
+		name = "Boar",
+		category = "land",
+		hp = 40,
+		speed = 30,
+		aggroRadius = 90,
+		biteRange = 12,
+		biteDamage = 10,
+		biteCooldown = 1.4,
+		color = Color3.fromRGB(90, 65, 45),
+		size = Vector3.new(4, 3, 7),
 	},
 } :: { [string]: EnemyDef }
 

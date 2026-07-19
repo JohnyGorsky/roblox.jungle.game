@@ -16,7 +16,8 @@ local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
-local MAX_SEA, MAX_LAND = 4, 2
+local BASE_SEA_CAP, MAX_SEA_CAP = 4, 9 -- concurrent sea enemies: grows with distance (+2 at night)
+local BASE_LAND_CAP, MAX_LAND_CAP = 2, 5
 local SEA_AHEAD_MIN, SEA_AHEAD_MAX = 180, 320 -- spawn well ahead → time to react at speed
 local FLANK_DIST = 12 -- crocs attack from ~this far off the boat centre (its side), not underneath
 local LAND_AHEAD_MIN, LAND_AHEAD_MAX = 60, 130
@@ -194,10 +195,54 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 end
 
-local function countByName(name: string): number
+-- enemy mix by category; weights shift from "near" (start) to "far" (deep) with progress (Job 033)
+local SEA_POOL = {
+	{ name = "Crocodile", near = 6, far = 3 },
+	{ name = "Piranha", near = 4, far = 5 },
+	{ name = "RiverHippo", near = 0, far = 4 }, -- only appears deeper downriver
+}
+local LAND_POOL = {
+	{ name = "Panther", near = 5, far = 4 },
+	{ name = "Boar", near = 3, far = 5 },
+}
+
+local function distFrac(): number
+	return math.clamp(RiverData.worldToDistance(hull.Position.Z) / ESCALATE_DISTANCE, 0, 1)
+end
+
+local function pickType(pool: { { name: string, near: number, far: number } }): EnemyDefs.EnemyDef
+	local f = distFrac()
+	local weights, total = {}, 0
+	for i, e in ipairs(pool) do
+		local w = math.max(0, e.near + (e.far - e.near) * f)
+		weights[i] = w
+		total += w
+	end
+	local r = rng:NextNumber(0, total)
+	for i, e in ipairs(pool) do
+		r -= weights[i]
+		if r <= 0 then
+			return EnemyDefs.Defs[e.name]
+		end
+	end
+	return EnemyDefs.Defs[pool[1].name]
+end
+
+local function seaCap(): number
+	local c = BASE_SEA_CAP + math.floor((MAX_SEA_CAP - BASE_SEA_CAP) * distFrac())
+	if currentPhase() == "night" then
+		c += 2 -- night surge on the water
+	end
+	return c
+end
+local function landCap(): number
+	return BASE_LAND_CAP + math.floor((MAX_LAND_CAP - BASE_LAND_CAP) * distFrac())
+end
+
+local function countByCategory(cat: string): number
 	local n = 0
 	for _, e in CollectionService:GetTagged("Enemy") do
-		if e.Name == name then
+		if e:GetAttribute("Category") == cat then
 			n += 1
 		end
 	end
@@ -220,14 +265,15 @@ local function spawnInterval(base: number, category: string): number
 	return ramp / EnemyDefs.strengthFor(category, currentPhase())
 end
 
--- SEA spawner: crocs in the channel ahead
+-- SEA spawner: a mix of crocs / piranha / (deep) hippos in the channel ahead
 task.spawn(function()
 	while true do
-		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByName("Crocodile") < MAX_SEA then
+		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByCategory("sea") < seaCap() then
+			local def = pickType(SEA_POOL)
 			local z = hull.Position.Z + rng:NextNumber(SEA_AHEAD_MIN, SEA_AHEAD_MAX)
 			local x = RiverData.centerlineX(z) + rng:NextNumber(-1, 1) * RiverData.widthAt(z) * 0.35
-			local croc = spawnEnemy(EnemyDefs.Defs.Crocodile, Vector3.new(x, WATER_Y, z), nil)
-			local st = state[croc]
+			local e = spawnEnemy(def, Vector3.new(x, WATER_Y, z), nil)
+			local st = state[e]
 			if st then
 				st.side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1 -- attack from left or right
 			end
@@ -236,15 +282,16 @@ task.spawn(function()
 	end
 end)
 
--- LAND spawner: panthers on the bank ahead (anchored to that bank point)
+-- LAND spawner: a mix of panthers / boars on the bank ahead (anchored to that bank point)
 task.spawn(function()
 	while true do
-		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByName("Panther") < MAX_LAND then
+		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByCategory("land") < landCap() then
+			local def = pickType(LAND_POOL)
 			local z = hull.Position.Z + rng:NextNumber(LAND_AHEAD_MIN, LAND_AHEAD_MAX)
 			local side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1
 			local edge = RiverData.centerlineX(z) + side * (RiverData.widthAt(z) * 0.5 + 8)
 			local anchor = Vector3.new(edge, WATER_Y, z)
-			spawnEnemy(EnemyDefs.Defs.Panther, anchor, anchor)
+			spawnEnemy(def, anchor, anchor)
 		end
 		task.wait(spawnInterval(BASE_LAND_INTERVAL, "land"))
 	end
