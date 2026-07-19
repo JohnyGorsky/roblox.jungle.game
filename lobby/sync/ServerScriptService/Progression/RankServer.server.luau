@@ -96,11 +96,13 @@ Players.PlayerAdded:Connect(onPlayer)
 local board = Instance.new("Part")
 board.Name = "LeaderboardBoard"
 board.Anchored = true
-board.Size = Vector3.new(18, 11, 1)
+board.CanCollide = false
+board.Size = Vector3.new(24, 13, 1)
 board.Color = Color3.fromRGB(24, 26, 32)
 board.Material = Enum.Material.SmoothPlastic
--- stand it beyond the pads, front face (+Z after 180° yaw) toward players walking in from spawn
-board.CFrame = CFrame.new(0, 7, -6) * CFrame.Angles(0, math.rad(180), 0)
+-- raised HIGH and set back behind the pads so it clears the pads' AlwaysOnTop signs; front face
+-- (+Z after 180° yaw) toward players walking in from spawn — reads as a leaderboard wall
+board.CFrame = CFrame.new(0, 17, -16) * CFrame.Angles(0, math.rad(180), 0)
 board.Parent = workspace
 
 local sg = Instance.new("SurfaceGui")

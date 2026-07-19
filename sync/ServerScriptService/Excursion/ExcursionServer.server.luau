@@ -86,6 +86,7 @@ local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
 		if Profiles.isReady(player) then
 			Profiles.addGold(player, NUGGET_VALUE)
 		end
+		player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + 30) -- Job 023
 	end)
 end
 
@@ -128,6 +129,11 @@ deposit.Triggered:Connect(function(player: Player)
 	deposit.Enabled = next(carrying) ~= nil
 end)
 
+-- award in-run Salvage (Job 023) — cash rewards raiding, not passive driving
+local function awardSalvage(player: Player, amount: number)
+	player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + amount)
+end
+
 local function pickupLoot(player: Player, crate: Part)
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -140,6 +146,7 @@ local function pickupLoot(player: Player, crate: Part)
 	if kind == "Weapon" then
 		local id = (crate:GetAttribute("Id") :: string?) or "Pistol"
 		if InventoryService.grant(player, id) then
+			awardSalvage(player, 80)
 			crate:Destroy()
 		end -- inventory full → leave the crate so the player can free a slot
 		return
@@ -147,6 +154,7 @@ local function pickupLoot(player: Player, crate: Part)
 		local id = (crate:GetAttribute("Id") :: string?) or "Pistol"
 		local def = ItemDefs.get(id)
 		InventoryService.addAmmo(player, id, (def and def.ammoPerCrate) or 12)
+		awardSalvage(player, 40)
 		crate:Destroy()
 		return
 	end
@@ -171,6 +179,7 @@ local function pickupLoot(player: Player, crate: Part)
 	weld.Parent = carried
 	carried.Parent = char
 	carrying[player] = carried
+	awardSalvage(player, 40)
 	char:SetAttribute("Carrying", resource)
 	player:SetAttribute("Busy", true) -- hands full → can't shoot
 	deposit.Enabled = true

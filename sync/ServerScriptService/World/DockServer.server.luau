@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
+local openDockShop = ReplicatedStorage:WaitForChild("OpenDockShop") :: RemoteEvent -- Job 023 (SalvageServer)
 
 local AHEAD = 1600 -- generate docks this far ahead
 local BEHIND = 400 -- cull docks this far behind
@@ -66,6 +67,19 @@ local function buildDock(dock: RiverData.Dock, index: number)
 	tie.RequiresLineOfSight = false
 	tie.MaxActivationDistance = 18
 	tie.Parent = tieAtt
+
+	-- dock shop: spend in-run Salvage on supplies (Job 023). Opens the client shop panel.
+	local shopPrompt = Instance.new("ProximityPrompt")
+	shopPrompt.Name = "ShopPrompt"
+	shopPrompt.ActionText = "Dock Shop"
+	shopPrompt.ObjectText = "Dock"
+	shopPrompt.HoldDuration = 0.3
+	shopPrompt.RequiresLineOfSight = false
+	shopPrompt.MaxActivationDistance = 18
+	shopPrompt.Parent = deck
+	shopPrompt.Triggered:Connect(function(player: Player)
+		openDockShop:FireClient(player)
+	end)
 
 	local rope: RopeConstraint? = nil
 	local ropeAtts: { Attachment } = {}
