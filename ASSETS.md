@@ -17,6 +17,10 @@ weathered) + **[STYLEGUIDE.md](STYLEGUIDE.md)**.
   anything new — we may already own it.** This file links there rather than duplicating IDs.
 - Third-party inserts are **script-scanned before use** (`roblox-assets` skill; foliage/props must have
   **0 scripts**). Rejected assets are logged so we don't re-source them.
+- **Localize what we reuse:** approved third-party models are copied into a clean-named **library folder
+  in the place** (e.g. `ServerStorage/AssetLibrary/Foliage/`), renamed plainly, parts anchored — then we
+  **duplicate from the library**. This removes the dependency on the Store *listing* surviving and on
+  chasing origin IDs. The registry records the origin ID *when known* + the library path.
 
 **Status legend:** ✅ sourced/built · ⏳ in progress · ▫ queued · ⏸ pending (needs you) · ❌ rejected.
 
@@ -52,15 +56,19 @@ mountains must read as dense jungle (heavily packed palms/trees + bushes/ferns, 
 lobby and hides the edges. **Placement:** editor-placed by hand and/or a one-time editor scatter helper
 (allowed) — never runtime.
 
-| Object | Want | Source | Status | Notes / registry |
+**Localized masters:** all approved foliage is copied into a clean-named library
+**`ServerStorage/AssetLibrary/Foliage/`** (lobby place). We **duplicate from there** to place/scatter —
+no dependency on the Store listing surviving, and no need for the origin Store ID. All parts anchored.
+
+| Library master | Want | Origin | Status | Notes |
 |---|---|---|---|---|
-| Palm — tall straight | ✓ | Store (Vupatu) | ✅ | chunky stylized; → registry `models.md` |
-| Palm — curved/leaning | ✓ | Store (Vupatu) | ✅ | matched pair w/ tall straight |
-| Palm — low-poly variant | ✓ | Store (LegendaryFrosts) | ✅ | darker/thinner silhouette variant |
-| Coconut palm | ✓ | Store (Trexlty) | ✅ | 4 meshes; ID confirmed by mesh-match |
-| Bush / fern / ground-cover pack | 3+ | Store (DoctorFir) | ✅ | Tropical Plant Pack, 8 meshes; broadleaf+small+flowers |
-| Tall fern / large leaf | ✓ | Store | ✅ scanned | `CAND_FernTall`; ⏸ **ID pending** (Toolbox → Copy Asset ID) |
-| Canopy trees pack (behind palms) | ✓ | Store (PSY0PZ) | ✅ scanned | `CAND_TreesFoliagePack_PSY0PZ`, 102 meshes, rings clearing; ⏸ **ID pending**. Dupe deleted. |
+| `PalmTall` | ✓ | Store (Vupatu `5031791950`) | ✅ | chunky stylized; matched pair w/ PalmCurved |
+| `PalmCurved` | ✓ | Store (Vupatu `5031794668`) | ✅ | leaning variant |
+| `PalmLowPoly` | ✓ | Store (LegendaryFrosts `1436325105`) | ✅ | darker/thinner silhouette variant |
+| `PalmCoconut` | ✓ | Store (Trexlty `18363394399`) | ✅ | 4 meshes |
+| `BushPack` | 3+ | Store (DoctorFir `81654645105891`) | ✅ | 8 meshes; broadleaf + small foliage + flowers |
+| `FernTall` | ✓ | Store (origin ID unknown) | ✅ | localized master; large ground leaf |
+| `JungleTreesPack` | ✓ | Store (PSY0PZ, origin ID unknown) | ✅ | 102 meshes; pre-arranged, rings the clearing. Dupe deleted. |
 | Rocks (S/M/L) | 3 | Store | ⏳ next search | shoreline + jungle floor |
 | Fallen log / roots | 2 | Store | ⏳ next search | environmental storytelling |
 | Vines / hanging | 1–2 | Store | ⏳ next search | drape on towers/trees |
