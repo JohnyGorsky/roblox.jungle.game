@@ -276,9 +276,18 @@ The screen must stay **clean and uncluttered while playing.** The player fights 
 - Late-afternoon / warm daylight; slightly warm sun; **soft but visible** shadows.
 - Use ambient occlusion, soft directional shadows, **subtle** atmospheric haze, cooler shaded jungle
   vs. warmer open airfield. **Central play areas brighter; jungle edges darker** (guides the player).
-- Suggested starting point: `Lighting.Technology = Future`; warm `Ambient`/`OutdoorAmbient`; warm
-  directional sun (`ClockTime` ~15–16); subtle `Atmosphere` (low `Density`, warm `Color`/`Decay`);
-  **light** `Bloom`; a gentle warm `ColorCorrection`. Tune in Studio, verify by screenshot.
+- **Canonical daytime values** (tuned & accepted for the lobby, Job #064 — reusable baseline;
+  reproducible in `lobby/build/lobby_atmosphere.luau`):
+  - `Lighting.Technology = Future` (set in Studio — can't be scripted), `ClockTime = 16.1`,
+    `GeographicLatitude = 25`, `Brightness = 2.7`, `ExposureCompensation = 0.12`.
+  - `OutdoorAmbient = (104,106,80)` mossy shade · `Ambient = (74,72,56)` · `EnvironmentDiffuseScale`/
+    `EnvironmentSpecularScale = 0.5`.
+  - `Atmosphere`: `Density 0.40`, `Offset 0.20`, `Color (196,186,150)` warm humid air,
+    `Decay (158,120,72)` warm horizon, `Glare 0.32`, `Haze 2.7`.
+  - `ColorCorrection`: `TintColor (255,240,212)`, `Saturation 0.13`, `Contrast 0.07`.
+  - `Bloom`: `Intensity 0.5`, `Size 24`, `Threshold 1.4` · `SunRays`: `Intensity 0.08`, `Spread 0.85`.
+  - Water: `Terrain.WaterColor (36,119,134)`, `Transparency 0.60`, `Reflectance 0.08`,
+    `WaveSize 0.12`, `WaveSpeed 12`.
 - **Avoid:** extreme orange sunset, pitch-black jungle, photorealistic lighting, heavy bloom
   everywhere.
 
