@@ -60,6 +60,12 @@ lobby and hides the edges. **Placement:** editor-placed by hand and/or a one-tim
 **`ServerStorage/AssetLibrary/Foliage/`** (lobby place). We **duplicate from there** to place/scatter —
 no dependency on the Store listing surviving, and no need for the origin Store ID. All parts anchored.
 
+**✅ PLACED (2026-07-20):** greybox trees/bushes replaced with real models + a terrain-following dense
+ring scattered around the clearing (Grass-only, denser toward the mountains, sand center + runway kept
+open). ~148 models in `Workspace/LOBBY_GREYBOX/Scenery/Foliage`. Bulk uses the light MeshPart models
+(PalmCoconut/PalmLowPoly/FernTall); the part-heavy Vupatu palms are used sparingly. **Master fix:**
+`FernTall` mesh had a 39° baked tilt — corrected in the library master so it stands upright.
+
 | Library master | Want | Origin | Status | Notes |
 |---|---|---|---|---|
 | `PalmTall` | ✓ | Store (Vupatu `5031791950`) | ✅ | chunky stylized; matched pair w/ PalmCurved |
@@ -141,19 +147,23 @@ shimmer/ripples/foam · plane heat-haze · flag/tarp wind sway · purchase-confi
 glow. **Status:** ▫ Claude builds. Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled
 (STYLEGUIDE §8).
 
-## 1.11 Audio — Ambient (looping beds, mostly spatial) — ✅ UPLOADED
+## 1.11 Audio — Ambient (looping beds, mostly spatial) — ✅ UPLOADED + ✅ IMPLEMENTED
 IDs → registry [`audio.md`](../roblox.workspace/Assets/registry/audio.md) (Jungle section).
 Jungle day ambience 1 & 2 · wind/breeze · water lapping (`water-splashes`) · campfire crackle
 (`crackle-campfire`) · cicadas/wildlife. ⏸ Flag/rope creak — not yet uploaded.
+**Wired by** `lobby/sync/ServerScriptService/LobbySoundscape.server.luau`: 2D ambience+wind beds,
+positional water @ `Dock.Pier`, positional campfire @ both `FirePit`s, cicada one-shots every ~18–44s.
+(Needs Rojo sync + Play to hear.)
 
 ## 1.12 Audio — SFX (events / one-shots) — ⏸ pending upload
 UI click/tap · panel open/close · purchase success · purchase fail · upgrade applied · pad join/leave ·
 leader assigned · countdown tick · launch/teleport whoosh · prompt appear/hold-complete · footsteps
 (sand vs wood) · rank/reward stinger.
 
-## 1.13 Music — ✅ UPLOADED
-IDs → registry `audio.md`. Lobby theme (`lobby_intro_music`) · day-start (`morning_starts`) · night-start
-(`night_starts`) · battle-start (`battle_starts`). ⏸ Countdown/launch layer — optional, not yet uploaded.
+## 1.13 Music — ✅ UPLOADED · lobby theme ✅ IMPLEMENTED
+IDs → registry `audio.md`. Lobby theme (`lobby_intro_music`) ✅ wired 2D in `LobbySoundscape`.
+`morning_starts` / `night_starts` / `battle_starts` are day-night/combat cues for the GAME place (not the
+static-afternoon lobby). ⏸ Countdown/launch layer — optional, not yet uploaded.
 
 ## 1.14 Lighting — ✅ APPLIED (reference, not to re-source)
 Warm-afternoon rig live (STYLEGUIDE §8 / `lobby/build/lobby_atmosphere.luau`): Atmosphere haze, warm
