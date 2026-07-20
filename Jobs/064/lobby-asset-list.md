@@ -143,15 +143,16 @@ Star (gold/major) · Wrench (utility) · Player-group (party). One consistent se
 
 Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled (STYLEGUIDE §8).
 
-## 11. Audio — Ambient (looping beds, mostly spatial)
-| Sound | Notes |
-|---|---|
-| Jungle day ambience | birds + insects bed (2D loop) |
-| Wind / breeze | light layer over the ambience |
-| Water lapping | positional at the dock/shore |
-| Campfire crackle | positional at the campfire |
-| Cicadas / distant wildlife calls | occasional layered one-shots |
-| Flag / rope creak | subtle positional near towers & signs |
+## 11. Audio — Ambient (looping beds, mostly spatial) — ✅ UPLOADED (IDs 2026-07-20)
+| Sound | rbxassetid | Notes |
+|---|---|---|
+| Jungle day ambience 1 | 116462724806689 | birds + insects bed (2D loop) |
+| Jungle day ambience 2 | 120011248667884 | bed variant |
+| Wind / breeze | 93331028777865 | light layer over the ambience |
+| Water lapping (`water-splashes`) | 115704936377395 | positional at the dock/shore |
+| Campfire crackle (`crackle-campfire`) | 113774133604878 | positional at the campfire |
+| Cicadas / distant wildlife calls | 128204240690640 | occasional layered one-shots |
+| Flag / rope creak | _pending_ | subtle positional near towers & signs (not yet uploaded) |
 
 ## 12. Audio — SFX (events / one-shots)
 | Sound | Trigger |
@@ -169,11 +170,14 @@ Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled (STYLEGUIDE §8
 | Footsteps — sand vs wood/dock | material-aware (optional; engine default ok) |
 | Rank / reward stinger | leaderboard or rank change (if surfaced) |
 
-## 13. Music
-| Track | Notes |
-|---|---|
-| Lobby theme (loop) | adventurous but chill jungle-expedition; not tense; seamless loop |
-| Countdown / launch layer (optional) | subtle intensity lift while a pad counts down |
+## 13. Music — ✅ UPLOADED (IDs 2026-07-20)
+| Track | rbxassetid | Notes |
+|---|---|---|
+| Lobby theme (`lobby_intro_music`) | 135826546197884 | adventurous but chill jungle-expedition; seamless loop |
+| Day-start stinger (`morning_starts`) | 98066971477923 | plays when day starts (day/night cycle) |
+| Night-start stinger (`night_starts`) | 99602574849976 | plays when night starts |
+| Battle-start stinger (`battle_starts`) | 79506043370965 | combat start (bonus — found in inventory) |
+| Countdown / launch layer (optional) | _pending_ | subtle intensity lift while a pad counts down |
 
 ## 14. Lighting (already applied — reference, not to re-source)
 Warm-afternoon rig live (STYLEGUIDE §8 / `lobby/build/lobby_atmosphere.luau`): Atmosphere haze, warm
@@ -196,7 +200,7 @@ Chosen assets as we go (Store = approved + scanned; ChatGPT/You = pending your u
 | Palm — Tall Straight | Store (Vupatu) | ✅ APPROVED + scanned (2026-07-20) | `5031791950` |
 | Palm — Curved | Store (Vupatu) | ✅ APPROVED + scanned | `5031794668` — matched pair |
 | Palm — Low-Poly | Store (LegendaryFrosts) | ✅ APPROVED + scanned | `1436325105` — darker variant |
-| Coconut Palm | Store (Trexlty) | ✅ APPROVED + scanned | `CAND_PalmCoconut_Trexlty` — **ID pending (user to paste)** |
+| Coconut Palm | Store (Trexlty) | ✅ APPROVED + scanned | `18363394399` (confirmed by mesh-ID match) |
 | Bush/fern/ground-cover pack | Store (DoctorFir) | ✅ APPROVED + scanned | `81654645105891` — Tropical Plant Pack (8 meshes) |
 | Tall fern / large leaf | Store | ✅ APPROVED + scanned | `CAND_FernTall` — **ID pending (user to paste)** |
 | Canopy trees pack | Store (PSY0PZ) | ✅ APPROVED + scanned | `CAND_TreesFoliagePack_PSY0PZ` — 102 meshes, rings clearing; **ID pending**. Dupe deleted. |
@@ -206,7 +210,8 @@ Chosen assets as we go (Store = approved + scanned; ChatGPT/You = pending your u
 | Watchtower / tents | Store | queued | — |
 | Airfield star / path decals | ChatGPT (you) | pending | — |
 | UI icons ×8 | ChatGPT (you) | pending | — |
-| Ambient / SFX / music | You (Pixabay) | pending | — |
+| Ambient / music (uploaded) | You → uploaded | ✅ IDs recorded (2026-07-20) | See §11/§13 below + registry `audio.md` |
+| Remaining SFX (UI/purchase/pad/etc.) | You (Pixabay) | pending | — |
 | Party pads / leaderboards / VFX | Build | Claude builds | — |
 
 > **REJECTED:** Jungle Trees Pack (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts; deleted per scan rule.
