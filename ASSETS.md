@@ -5,33 +5,33 @@ living document. Style per the **`jungle-style`** skill (stylized jungle-expedit
 weathered) + **[STYLEGUIDE.md](STYLEGUIDE.md)**.
 
 > **THE RULE:** consult this before sourcing/building any asset, and **update it whenever an asset is
-> used, added, swapped, or retired**. If it's in the game, it's in this file.
+> used, added, swapped, or retired**. If it's in the game, it's in this file. **Every asset section is a
+> table; done rows are green.**
 
 ## How this file works (and its relationship to the registry)
 
-- **This file = requirements + decisions + status** (the design logic): *what each area needs*, the
-  chosen source, priority, and whether it's sourced/built/pending.
+- **This file = requirements + decisions + status** (design logic): *what each area needs*, chosen source,
+  and whether it's sourced/built/pending.
 - **Exact asset IDs / license / scan state live in the shared cross-game registry** →
-  [`../roblox.workspace/Assets/registry/`](../roblox.workspace/Assets/registry/) (`models.md`,
-  `meshes.md`, `images.md`, `audio.md`, `animations.md`, `ui.md`). **Grep the registry before sourcing
-  anything new — we may already own it.** This file links there rather than duplicating IDs.
-- Third-party inserts are **script-scanned before use** (`roblox-assets` skill; foliage/props must have
-  **0 scripts**). Rejected assets are logged so we don't re-source them.
-- **Localize what we reuse:** approved third-party models are copied into a clean-named **library folder
-  in the place** (e.g. `ServerStorage/AssetLibrary/Foliage/`), renamed plainly, parts anchored — then we
-  **duplicate from the library**. This removes the dependency on the Store *listing* surviving and on
-  chasing origin IDs. The registry records the origin ID *when known* + the library path.
+  [`../roblox.workspace/Assets/registry/`](../roblox.workspace/Assets/registry/) (`models.md`, `meshes.md`,
+  `images.md`, `audio.md`, `animations.md`, `ui.md`). **Grep the registry before sourcing anything new.**
+- Third-party inserts are **script-scanned before use** (`roblox-assets`; foliage/props must have 0 scripts).
+  Rejected assets are logged so we don't re-source them.
+- **Localize what we reuse:** approved third-party models are copied into a clean-named library folder in the
+  place (e.g. `ServerStorage/AssetLibrary/…`), renamed, anchored — then we **duplicate from the library**.
+  Registry records the origin ID *when known* + the library path.
 
-**Status legend:** ✅ sourced/built · ⏳ in progress · ▫ queued · ⏸ pending (needs you) · ❌ rejected.
+**Status legend:** <span style="color:#2e9c3f">✅ done</span> · <span style="color:#c9911d">⏳ in progress</span> · ▫ queued · <span style="color:#c9911d">⏸ pending (you)</span> · <span style="color:#c93c3c">❌ rejected</span>. **Green = done.**
 
 ## Global sourcing plan (decided 2026-07-20)
-- **3D models / props / foliage / structures → Creator Store** first (Claude searches → presents
-  candidates → you approve → Claude inserts + **scans** + deletes junk). **Meshy** only as fallback.
-- **Images — decals / painted art / signage / UI icons → ChatGPT (you generate)** → upload → give Claude
-  the `rbxassetid://` → Claude wires them in. (UI icon IDs also → `STYLEGUIDE.md §7`.)
-- **Audio — ambient / SFX / music → you source** (Pixabay etc.) & upload → give Claude the IDs.
-- **VFX (particles / beams / lights) → build in Studio** (Claude authors; no external asset).
-- **Party pads · leaderboards · sign text · HUD → build** (parts + SurfaceGui/GUI).
+
+| Asset type | Source | How |
+|---|---|---|
+| 3D models / props / foliage / structures | Creator Store (Meshy fallback) | Claude searches → you approve → scan → localize → place |
+| Images (decals / art / signage / UI icons) | ChatGPT (you generate) | upload → give `rbxassetid://` → Claude wires (icon IDs also → STYLEGUIDE §7) |
+| Audio (ambient / SFX / music) | You (Pixabay etc.) | upload → give IDs |
+| VFX (particles / beams / lights) | Build in Studio | Claude authors (no external asset) |
+| Party pads · leaderboards · signs · HUD | Build | parts + SurfaceGui/GUI |
 
 Interactive objects stay a **named Model + `Station` attribute + `Anchor` part** so scripts bind to them
 (memory: `lobby-editor-placed-not-scripted`).
@@ -40,162 +40,230 @@ Interactive objects stay a **named Model + `Station` attribute + `Anchor` part**
 
 # 1) LOBBY — Jungle Airfield
 
-Everything the lobby needs to be finished. Reference `assets/Images/MapIdea.png` + `jungle_example.png`.
-
-**Priority:** **P1** cargo plane · palm/tree/bush foliage kit · station buildings · party pads —
-**P2** camp props · signs · leaderboards · lanterns/torches — **P3** fine detail · ground decals ·
-ambient VFX.
+Everything the lobby needs. Reference `assets/Images/MapIdea.png` + `jungle_example.png`.
+**Priority:** **P1** plane · foliage · station buildings · party pads — **P2** camp props · signs ·
+leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 ## 1.1 Foliage — the jungle floor
-The grass band must read as **dense jungle**, not bare grass — a **kit of variants** placed in clusters
-(styleguide: cluster, frame the play area, keep the center readable).
 
-**★ DENSE FOREST requirement (2026-07-20):** the whole grass ring between the sand clearing and the
-mountains must read as dense jungle (heavily packed palms/trees + bushes/ferns, like
-`jungle_example.png`), denser toward the mountains; the sand play-center stays open. This frames the
-lobby and hides the edges. **Placement:** editor-placed by hand and/or a one-time editor scatter helper
-(allowed) — never runtime.
-
-**Localized masters:** all approved foliage is copied into a clean-named library
-**`ServerStorage/AssetLibrary/Foliage/`** (lobby place). We **duplicate from there** to place/scatter —
-no dependency on the Store listing surviving, and no need for the origin Store ID. All parts anchored.
-
-**✅ PLACED (2026-07-20):** greybox trees/bushes replaced + a terrain-following ring scattered **evenly
-around the whole clearing** (Grass-only via raycast; collect-shuffle-then-place so no side starves; sand
-center + runway kept open). **175 models** in `Workspace/LOBBY_GREYBOX/Scenery/Foliage` (~522 MeshParts +
-~1462 solid parts). Bulk uses light MeshPart models (PalmCoconut/PalmLowPoly/FernTall); part-heavy Vupatu
-palms used sparingly (can swap to mesh palms if a leaner part count is needed). **Master fix:** `FernTall`
-mesh had a 39° baked tilt — corrected in the library master so it stands upright.
+> **★ Dense-forest ring:** the grass band between the sand clearing and the mountains must read as dense
+> jungle (packed palms/trees + bushes/ferns), denser toward the mountains; sand center + runway kept open.
+> **Localized** to `ServerStorage/AssetLibrary/Foliage/` (duplicate from there). **✅ Placed:** 175 models
+> evenly ringing the clearing (Grass-only raycast, shuffle-then-place). `FernTall` 39° tilt fixed at master.
 
 | Library master | Want | Origin | Status | Notes |
 |---|---|---|---|---|
-| `PalmTall` | ✓ | Store (Vupatu `5031791950`) | ✅ | chunky stylized; matched pair w/ PalmCurved |
-| `PalmCurved` | ✓ | Store (Vupatu `5031794668`) | ✅ | leaning variant |
-| `PalmLowPoly` | ✓ | Store (LegendaryFrosts `1436325105`) | ✅ | darker/thinner silhouette variant |
-| `PalmCoconut` | ✓ | Store (Trexlty `18363394399`) | ✅ | 4 meshes |
-| `BushPack` | 3+ | Store (DoctorFir `81654645105891`) | ✅ | 8 meshes; broadleaf + small foliage + flowers |
-| `FernTall` | ✓ | Store (origin ID unknown) | ✅ | localized master; large ground leaf |
-| `JungleTreesPack` | ✓ | Store (PSY0PZ, origin ID unknown) | ✅ | 102 meshes; pre-arranged, rings the clearing. Dupe deleted. |
-| Rocks (S/M/L) | 3 | Store ("rocks 3") | ✅ PLACED | `AssetLibrary/Rocks/RockA·B·C` (split from 1 oversized mesh). ~24 placed: jungle floor + Sand shoreline. Embedded (bottom-aligned, water rejected). |
-| Fallen log / roots | 2 | Store (OptOff mossy log) | ✅ PLACED | `AssetLibrary/Logs/LogMossy`; 6 near the tree line. Realistic moss (mild style clash). |
-| Vines / hanging | 1–2 | Store | ⏸ deferred | Rotanix `9376334307` scanned-clean but user skipped for now; other vine candidates carried scripts (rejected). Revisit later. |
-| Grass tuft / clump | 2 | Build/Store | ▫ | editor-scatter in clusters |
+| `PalmTall` | ✓ | Store (Vupatu `5031791950`) | <span style="color:#2e9c3f">✅ placed</span> | chunky stylized; matched pair w/ PalmCurved (heavy ~64 parts) |
+| `PalmCurved` | ✓ | Store (Vupatu `5031794668`) | <span style="color:#2e9c3f">✅ placed</span> | leaning variant |
+| `PalmLowPoly` | ✓ | Store (LegendaryFrosts `1436325105`) | <span style="color:#2e9c3f">✅ placed</span> | darker/thinner (MeshPart, light) |
+| `PalmCoconut` | ✓ | Store (Trexlty `18363394399`) | <span style="color:#2e9c3f">✅ placed</span> | 4 meshes, light |
+| `BushPack` | 3+ | Store (DoctorFir `81654645105891`) | <span style="color:#2e9c3f">✅ placed</span> | 8 meshes; broadleaf + small + flowers |
+| `FernTall` | ✓ | Store (origin unknown) | <span style="color:#2e9c3f">✅ placed</span> | large ground leaf; tilt fixed |
+| `JungleTreesPack` | ✓ | Store (PSY0PZ, origin unknown) | <span style="color:#2e9c3f">✅ placed</span> | 102 meshes; pre-arranged; dupe deleted |
+| Rocks S/M/L (`RockA/B/C`) | 3 | Store ("rocks 3" `13967717089`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Rocks`; ~24 on floor + Sand shore; embedded |
+| Fallen log (`LogMossy`) | 2 | Store (OptOff `18497743057`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Logs`; 6 near tree line; realistic moss |
+| Vines / hanging | 1–2 | Store | <span style="color:#c9911d">⏸ deferred</span> | Rotanix `9376334307` clean but skipped; others had scripts |
+| Grass tuft / clump | 2 | Build/Store | ▫ queued | editor-scatter in clusters |
 
-❌ **Rejected:** *Jungle Trees Pack* (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts;
-deleted per scan rule. Do not re-source.
+<span style="color:#c93c3c">❌ Rejected:</span> *Jungle Trees Pack* (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts. Do not re-source.
 
 ## 1.2 Landmark
+
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | ✅ PLACED (user) | User Meshy plane placed at `Scenery.Plane` (center, grounded) + copy in `AssetLibrary/Plane`. Olive cargo plane, 1 MeshPart 53×57. **CollisionFidelity set to PreciseConvexDecomposition** so players can walk under the wings (was default Box). |
-| Pilot NPC | 1 | Meshy | ✅ PLACED + RIGGED | User Meshy pilot at `workspace.Pilot` (+ `AssetLibrary/Characters/Pilot`). Skinned rig (22 bones); AnimationController+Animator added; idle `71254620030056` looped by `lobby/sync/ServerScriptService/PilotIdle.server.luau`. Needs Rojo sync + Play to see it idle. |
-| Airstrip / runway surface | 5 tiles | Store (user) | ✅ PLACED (user) | Cracked-concrete airstrip tiled up the corridor (z −154→−485, X≈0). Clean/anchored/flush. Master in `AssetLibrary/Plane/RunWay` (consider moving to Structures). |
+| Cargo plane (olive, big props) | 1 | Meshy (user) | <span style="color:#2e9c3f">✅ placed</span> | `Scenery.Plane` (+ `AssetLibrary/Plane`). 1 MeshPart 53×57. CollisionFidelity = PreciseConvexDecomposition (walk under wings) |
+| Pilot NPC | 1 | Meshy (user) | <span style="color:#2e9c3f">✅ placed + rigged</span> | `workspace.Pilot` (+ `AssetLibrary/Characters/Pilot`). 22-bone rig; idle `71254620030056` looped by `PilotIdle.server.luau` |
+| Airstrip / runway | 5 tiles | Store (user) | <span style="color:#2e9c3f">✅ placed</span> | Cracked-concrete, tiled corridor (z −154→−485). Master `AssetLibrary/Plane/RunWay` |
 
 ## 1.3 Station buildings / kiosks (interactive — name + `Station` attr + `Anchor`)
+
 | Station | Object | Source | Status | Notes |
 |---|---|---|---|---|
-| `SkillTrainer` | wooden stall + counter + sign | Store/Build | ▫ | blue accent |
-| `Bounties` | board stand / stall | Store/Build | ▫ | gold accent |
-| `RobuxShop` | small kiosk | Store/Build | ▫ | green; prompt wired ✅ |
-| `BoatUpgrades` | mechanic rig/bench at the dock | Store/Build | ▫ | green; at the water |
-| Sign boards (per station) | 4+ | Build + Flaticon | ▫ | wood/metal, thick border, icon + ALL-CAPS (styleguide §20) |
+| `SkillTrainer` | wooden stall + counter + sign | Store/Build | ▫ queued | blue accent |
+| `Bounties` | board stand / stall | Store/Build | ▫ queued | gold accent |
+| `RobuxShop` | small kiosk | Store/Build | ▫ queued | green; prompt wired |
+| `BoatUpgrades` | mechanic rig/bench at the dock | Store/Build | ▫ queued | green; at the water |
+| Sign boards (per station) | 4+ | Build + Flaticon | ▫ queued | wood/metal, icon + ALL-CAPS (styleguide §20) |
 
 ## 1.4 Party / launch pads (interactive)
+
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Party pad (wood+metal ring, glowing center, group icon) | 4 (Blue/Red/Green/Yellow) | Build + Flaticon | ▫ | `PartyPad_*`; edge lights; never obscured |
+| Party pad (ring + glowing center + group icon) | 4 (Blue/Red/Green/Yellow) | Build + Flaticon | ▫ queued | `PartyPad_*`; edge lights; never obscured |
 
 ## 1.5 Water / dock
+
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Dock / jetty (planks + posts) | 1 | Store (Sxphies) | ✅ PLACED | `AssetLibrary/Structures/Dock` at east water; deck walkable, `Pier` part kept for soundscape |
-| Winch / mooring post | 1 | Store | ▫ | rope tie point |
-| Boat (moored display) | 1 | cross-ref gameplay | ▫ | real boat is BoatServer's (own job); lobby shows it moored — see `boat_ideas.png` (3 tiers) |
+| Dock / jetty | 1 | Store (Sxphies `3023220773`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/Dock` at east water; `Pier` part kept for soundscape |
+| Winch / mooring post | 1 | Store | ▫ queued | rope tie point |
+| Boat (moored display) | 1 | cross-ref gameplay | ▫ queued | real boat is BoatServer's; lobby shows it moored (`boat_ideas.png`) |
 
 ## 1.6 Structures / scenery
+
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Watchtower | 2 | Store (RangerTower) | ✅ PLACED | `AssetLibrary/Structures/RangerTower` @0.7 → `Watchtower_NW/NE`, grounded |
-| Welcome sign | 1 | Build | ▫ | "WELCOME TO JUNGLE AIRFIELD", stencil font |
-| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | ▫ | wood/metal, gold/blue trim; live text |
-| Tents / tarps | 3–4 | Store | ▫ | canvas, olive |
-| Cargo netting | 2 | Store | ▫ | strung between posts |
-| Windsock | 1 | Store | ▫ | airfield flavor (reads wind) |
-| Path fences / rope barriers | few | Store | ▫ | line the curved sand paths |
-| Directional path markers / lanterns | few | Build/Store | ▫ | guide flow (styleguide §24) |
-| Sky / clouds | 1 | Store/Build | ▫ | warm `Sky` + `Clouds` to complement Atmosphere |
+| Watchtower | 2 | Store (RangerTower `81318418778699`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/RangerTower` @0.7 → `Watchtower_NW/NE` |
+| Welcome sign | 1 | Build | ▫ queued | "WELCOME TO JUNGLE AIRFIELD", stencil font |
+| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | ▫ queued | wood/metal, gold/blue trim; live text |
+| Tents / tarps | 3–4 | Store | <span style="color:#2e9c3f">✅ (2 placed)</span> | olive canvas (see camp props); more optional |
+| Cargo netting | 2 | Store | ▫ queued | strung between posts |
+| Windsock | 1 | Store | ▫ queued | airfield flavor (reads wind) |
+| Path fences / rope barriers | few | Store | ▫ queued | line the curved sand paths |
+| Directional markers / lanterns | few | Build/Store | ▫ queued | guide flow (styleguide §24) |
+| Sky / clouds | 1 | Store/Build | ▫ queued | warm `Sky` + `Clouds` to complement Atmosphere |
 
 ## 1.7 Camp props (environmental storytelling — cluster meaningfully)
-**✅ PLACED (2026-07-20):** localized to `AssetLibrary/Props` + placed in `Scenery/CampProps` (25 models,
-replaced 41 greybox placeholders): `CrateWood` + `AmmoBox` stacks (4 clusters), `Barrel`/`BarrelsSet`
-(3 groups), `Tent` ×2 (@0.5 scale), `SandbagWall`+`SandbagBarrier` (2 north rows). Grounded by raycast.
-Perf: heavy parts (CrateWood 66, BarrelsSet 62) used sparingly. IDs → registry `models.md`.
-Still ▫ (later): fuel can · campfire (Build+VFX) · lantern/torch · toolbox · spare tire · cargo pallet · rope/radio.
+
+> **✅ Placed:** localized to `AssetLibrary/Props` + placed in `Scenery/CampProps` (25 models, replaced 41
+> greybox placeholders). Grounded by raycast. Heavy parts (CrateWood 66, BarrelsSet 62) used sparingly.
+
+| Object | Qty | Source | Status | Notes |
+|---|---|---|---|---|
+| Wooden crate (`CrateWood`) | 4 clusters | Store (`3335320854`) | <span style="color:#2e9c3f">✅ placed</span> | heavy (66 parts) — sparse use |
+| Ammo box (`AmmoBox`) | several | Store (`12523523963`) | <span style="color:#2e9c3f">✅ placed</span> | olive; stacks with crates |
+| Barrel (`Barrel`) | 3 groups | Store (`3160087663`) | <span style="color:#2e9c3f">✅ placed</span> | rusty, light |
+| Barrels set (`BarrelsSet`) | 1 | Store (`16944361687`) | <span style="color:#2e9c3f">✅ placed</span> | cluster, ~62 parts |
+| Tent (`Tent`) | 2 | Store (`7992921193`) | <span style="color:#2e9c3f">✅ placed</span> | olive canvas @0.5 |
+| Sandbag wall / barrier | 2 rows | Store (`119411292085005` / `78010383039337`) | <span style="color:#2e9c3f">✅ placed</span> | north line |
+| Fuel can | 1 | Store | ▫ queued | handheld |
+| Campfire | 1 | Build + VFX | ▫ queued | fire/smoke/embers + light |
+| Lantern / tiki torch | 2+ | Store | ▫ queued | warm night light |
+| Toolbox / spare tire / cargo pallet / rope / radio | few | Store | ▫ queued | fine detail (P3) |
 
 ## 1.8 Ground / decals
+
 | Object | Source | Status | Notes |
 |---|---|---|---|
-| Airfield star (spawn) | ChatGPT/Flaticon → decal | ⏸ | painted military star |
-| Runway "27" + stripes | Build/decal | ▫ | cream markings |
-| Path decals (sand/dirt/tire tracks) | ChatGPT → decal | ⏸ | curved paths connecting zones (styleguide §24) |
+| Airfield star (spawn) | ChatGPT/Flaticon → decal | <span style="color:#c9911d">⏸ pending</span> | painted military star |
+| Runway "27" + stripes | Build/decal | ▫ queued | cream markings |
+| Path decals (sand/dirt/tire tracks) | ChatGPT → decal | <span style="color:#c9911d">⏸ pending</span> | curved paths connecting zones (styleguide §24) |
 
 ## 1.9 UI icons (signs + HUD) — Flaticon
-Gear (engine) · Shield (hull) · Fuel pump (fuel) · Crate (storage) · Crossed tools (equipment) · Star
-(gold/major) · Wrench (utility) · Player-group (party). One consistent set → IDs go to `STYLEGUIDE.md §7`
-+ registry `images.md`. **Status:** ⏸ pending your generation/upload.
+
+> One consistent set → IDs go to `STYLEGUIDE.md §7` + registry `images.md`.
+
+| Icon | Use | Source | Status |
+|---|---|---|---|
+| Gear | engine | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Shield | hull | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Fuel pump | fuel | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Crate | storage | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Crossed tools | equipment | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Star | gold / major | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Wrench | utility | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| Player-group | party | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
 
 ## 1.10 VFX (particles / beams / lights) — build in Studio
-Party-pad glow ring (×4) · leader sparkle · launch effect (light column + dust burst) · campfire
-(fire+smoke+embers+light) · torch/lantern flame · fireflies/motes · sun-ray dust motes · water
-shimmer/ripples/foam · plane heat-haze · flag/tarp wind sway · purchase-confirm burst · leaderboard #1
-glow. **Status:** ▫ Claude builds. Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled
-(STYLEGUIDE §8).
 
-## 1.11 Audio — Ambient (looping beds, mostly spatial) — ✅ UPLOADED + ✅ IMPLEMENTED
-IDs → registry [`audio.md`](../roblox.workspace/Assets/registry/audio.md) (Jungle section).
-Jungle day ambience 1 & 2 · wind/breeze · water lapping (`water-splashes`) · campfire crackle
-(`crackle-campfire`) · cicadas/wildlife. ⏸ Flag/rope creak — not yet uploaded.
-**Wired by** `lobby/sync/ServerScriptService/LobbySoundscape.server.luau`: 2D ambience+wind beds,
-positional water @ `Dock.Pier`, positional campfire @ both `FirePit`s, cicada one-shots every ~18–44s.
-(Needs Rojo sync + Play to hear.)
+> Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled (STYLEGUIDE §8).
 
-## 1.12 Audio — SFX (events / one-shots) — ⏸ pending upload
-UI click/tap · panel open/close · purchase success · purchase fail · upgrade applied · pad join/leave ·
-leader assigned · countdown tick · launch/teleport whoosh · prompt appear/hold-complete · footsteps
-(sand vs wood) · rank/reward stinger.
+| Effect | Where | Source | Status |
+|---|---|---|---|
+| Party-pad glow ring | each of 4 pads | Build | ▫ queued |
+| Leader sparkle | leader on a pad | Build | ▫ queued |
+| Launch effect (light column + dust burst) | pad → teleport | Build | ▫ queued |
+| Campfire (fire+smoke+embers+light) | campfire prop | Build | ▫ queued |
+| Torch / lantern flame | each torch/lantern | Build | ▫ queued |
+| Fireflies / motes | jungle edge | Build | ▫ queued |
+| Sun-ray dust motes | open airfield | Build | ▫ queued |
+| Water shimmer / ripples / foam | river + dock | Build | ▫ queued |
+| Plane heat-haze / smoke puff | plane | Build | ▫ queued |
+| Flag / tarp wind sway | flags, tents | Build | ▫ queued |
+| Purchase-confirm burst | on buy | Build | ▫ queued |
+| Leaderboard #1 glow | Top Runs board | Build | ▫ queued |
 
-## 1.13 Music — ✅ UPLOADED · lobby theme ✅ IMPLEMENTED
-IDs → registry `audio.md`. Lobby theme (`lobby_intro_music`) ✅ wired 2D in `LobbySoundscape`.
-`morning_starts` / `night_starts` / `battle_starts` are day-night/combat cues for the GAME place (not the
-static-afternoon lobby). ⏸ Countdown/launch layer — optional, not yet uploaded.
+## 1.11 Audio — Ambient (looping beds, mostly spatial)
 
-## 1.14 Lighting — ✅ APPLIED (reference, not to re-source)
-Warm-afternoon rig live (STYLEGUIDE §8 / `lobby/build/lobby_atmosphere.luau`): Atmosphere haze, warm
-ColorCorrection, Bloom, SunRays, muted-teal water. Set `Lighting.Technology = Future` in Studio.
+> IDs → registry [`audio.md`](../roblox.workspace/Assets/registry/audio.md). Wired by
+> `lobby/sync/ServerScriptService/LobbySoundscape.server.luau` (needs Rojo sync + Play to hear).
 
-### Open questions (lobby assets pass)
-- [ ] How many palm/tree variants is "enough" for the density (current kit: 4 palms + trees pack + bush pack + fern)?
-- [ ] Editor hand-place vs one-time scatter helper for the dense foliage?
-- [ ] Boat model: lobby display here, or fully in the boat/gameplay job?
+| Sound | Where | Status | Notes |
+|---|---|---|---|
+| Jungle day ambience 1 & 2 | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | birds + insects loop |
+| Wind / breeze | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | light layer |
+| Water lapping (`water-splashes`) | @ `Dock.Pier` | <span style="color:#2e9c3f">✅ wired</span> | positional |
+| Campfire crackle (`crackle-campfire`) | @ both `FirePit`s | <span style="color:#2e9c3f">✅ wired</span> | positional |
+| Cicadas / wildlife | 2D one-shots | <span style="color:#2e9c3f">✅ wired</span> | every ~18–44s |
+| Rope creak (`rope_creak`) | @ watchtowers | <span style="color:#2e9c3f">✅ wired</span> | positional loop in `LobbySoundscape` |
+
+## 1.12 Audio — SFX (events / one-shots)
+
+| Sound | Trigger | Status |
+|---|---|---|
+| UI click / tap (`ui_mouse_click`) | any button | <span style="color:#2e9c3f">✅ wired</span> — `UIClick.local.luau` |
+| Panel open / close | shop / skills / bounties / robux | <span style="color:#c9911d">⏸ pending</span> |
+| Purchase success | buy confirmed | <span style="color:#c9911d">⏸ pending</span> |
+| Purchase fail / error | insufficient funds / cancel | <span style="color:#c9911d">⏸ pending</span> |
+| Upgrade applied | boat/skill upgrade bought | <span style="color:#c9911d">⏸ pending</span> |
+| Pad join / leave | step on/off a party pad | <span style="color:#c9911d">⏸ pending</span> |
+| Leader assigned | first player on an empty pad | <span style="color:#c9911d">⏸ pending</span> |
+| Countdown tick (`timer_countdown`) | each second of launch countdown | <span style="color:#2e9c3f">✅ wired</span> — `LobbyServer` positional on pad |
+| Launch / teleport whoosh | party launches | <span style="color:#c9911d">⏸ pending</span> |
+| Prompt appear / hold-complete | ProximityPrompt | <span style="color:#c9911d">⏸ pending</span> |
+| Footsteps — sand vs wood | material-aware (optional) | <span style="color:#c9911d">⏸ pending</span> |
+| Rank / reward stinger | leaderboard / rank change | <span style="color:#c9911d">⏸ pending</span> |
+
+## 1.13 Music
+
+> IDs → registry `audio.md`. `morning_starts` / `night_starts` / `battle_starts` belong to the GAME place
+> (day-night/combat), not the static-afternoon lobby.
+
+| Track | Where | Status | Notes |
+|---|---|---|---|
+| Lobby theme (`lobby_intro_music`) | 2D loop | <span style="color:#2e9c3f">✅ wired</span> | in `LobbySoundscape` |
+| Countdown / launch layer | on pad countdown | <span style="color:#c9911d">⏸ pending</span> | optional, not yet uploaded |
+
+## 1.14 Lighting
+
+| Rig | Status | Notes |
+|---|---|---|
+| Warm-afternoon jungle rig | <span style="color:#2e9c3f">✅ applied</span> | Atmosphere haze (Density 0.40/Haze 2.7), warm ColorCorrection, Bloom, SunRays, muted-teal water. `lobby/build/lobby_atmosphere.luau` / STYLEGUIDE §8. Set `Lighting.Technology = Future` in Studio. **Save the place or it resets.** |
+
+### Open questions (lobby)
+
+| # | Question |
+|---|---|
+| 1 | Enough palm/tree variety for the density? (current: 4 palms + trees pack + bush pack + fern) |
+| 2 | Editor hand-place vs one-time scatter helper for future foliage? |
+| 3 | Boat model — lobby display here, or fully in the boat/gameplay job? |
 
 ---
 
 # 2) BOAT
-_Stub — populate as the boat/gameplay job sources assets._ Hull/motor/searchlight/upgrade-module visuals,
-boat SFX (engine loop, start, on-fire, destroyed, metal hit — some already in `assets/Objects/Boat/Sounds/`).
+
+| Area | Items | Status | Notes |
+|---|---|---|---|
+| Boat visuals | hull / motor / searchlight / upgrade-module parts | ▫ stub | populate as boat/gameplay job sources them |
+| Boat SFX | engine loop, start, on-fire, destroyed, metal hit | <span style="color:#2e9c3f">✅ some exist</span> | in `assets/Objects/Boat/Sounds/` |
 
 # 3) RIVER / WORLD
-_Stub._ River obstacles (rocks, logs, sandbars, wreck debris), set-pieces (waterfalls, ramps, dam
-blockages), docks/piers, zone dressing, day/night set-pieces.
+
+| Area | Items | Status |
+|---|---|---|
+| Obstacles | rocks, logs, sandbars, wreck debris | ▫ stub |
+| Set-pieces | waterfalls, ramps, dam blockages | ▫ stub |
+| Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | ▫ stub |
+| Zone dressing / day-night set-pieces | per-zone props + lighting | ▫ stub |
 
 # 4) ENEMIES / CHARACTERS
-_Stub._ Sea + land enemies (Meshy via `roblox-chars`), glowing-eyes treatment, alligator (SFX exist in
-`assets/Objects/Monsters/`), player-carried torch/lamp.
+
+| Area | Items | Status | Notes |
+|---|---|---|---|
+| Sea + land enemies | Meshy via `roblox-chars` | ▫ stub | glowing-eyes treatment planned |
+| Alligator | model + SFX | <span style="color:#2e9c3f">✅ SFX exist</span> | in `assets/Objects/Monsters/` |
+| Player torch / lamp | carried light item | ▫ stub | night survival |
 
 # 5) UI / HUD (global)
-_Stub._ Loading screen art, teleport/intro sequence art, HUD icons, role-suitability icons. Design system
-= `jungle-style` + STYLEGUIDE.
+
+| Area | Items | Status |
+|---|---|---|
+| Loading screens | lobby + game (built in code) | <span style="color:#2e9c3f">✅ built</span> |
+| Teleport / intro sequence art | plane-crash cold-open visuals | ▫ stub |
+| HUD icons / role-suitability icons | per `jungle-style` + STYLEGUIDE | ▫ stub |
 
 # 6) GLOBAL AUDIO
-_Stub._ Cross-place music/SFX beyond the lobby (combat, ambience per zone). Existing uploads catalogued in
-registry `audio.md`.
+
+| Area | Items | Status | Notes |
+|---|---|---|---|
+| Cross-place music / SFX | combat, per-zone ambience | ▫ stub | existing uploads in registry `audio.md` |

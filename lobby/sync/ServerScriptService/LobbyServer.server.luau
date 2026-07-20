@@ -210,6 +210,23 @@ local function launch(pad: Pad)
 	end
 end
 
+-- positional launch-countdown tick (timer_countdown — registry audio.md)
+local COUNTDOWN_TICK_ID = "rbxassetid://116568191818931"
+local function playCountdownTick(pad: Pad)
+	local part = pad.part
+	if not part then return end
+	local s = Instance.new("Sound")
+	s.SoundId = COUNTDOWN_TICK_ID
+	s.Volume = 0.6
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = 8
+	s.RollOffMaxDistance = 80
+	s.Parent = part
+	s:Play()
+	s.Ended:Once(function() s:Destroy() end)
+	game:GetService("Debris"):AddItem(s, 4)
+end
+
 local function startCountdown(pad: Pad, leader: Player)
 	if pad.launching then
 		return
@@ -222,6 +239,7 @@ local function startCountdown(pad: Pad, leader: Player)
 		for c = COUNTDOWN, 1, -1 do
 			pad.countdown = c
 			updateSign(pad)
+			playCountdownTick(pad)
 			if #pad.occupants == 0 then
 				pad.launching = false
 				updateSign(pad)

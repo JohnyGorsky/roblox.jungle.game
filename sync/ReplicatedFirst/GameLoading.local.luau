@@ -1,13 +1,14 @@
 --!strict
 -- GameLoading.local.luau — GAME-place loading screen (Job 042, todo 0006/0007). Mirrors the lobby loader
 -- (Job 041). Removes the default Roblox loading screen, shows the simple "LAST RIVER" screen (built in code —
--- a design pass replaces the visuals later), preloads assets with a progress bar, WAITS until the game is
--- fully loaded, then fades out and reveals the game. Runs from ReplicatedFirst so it's up before anything
--- else replicates.
+-- a design pass replaces the visuals later), WAITS for full replication, preloads assets, holds through the
+-- intro-readiness gate, lets the scene settle, shows rotating tips, then fades out and reveals the game.
+-- Runs from ReplicatedFirst so it's up before anything else replicates.
 --
 -- This is STEP 1 of the bigger game-intro-sequence (Planned/game-intro-sequence.md): the startup screen that
--- MASKS all-players-joining + world-generation behind the plane-flying-up scene. For now it only waits on
--- game.Loaded; the WorldReady hook below is where the world generator plugs in later.
+-- MASKS all-players-joining + world-generation behind the plane scene. The IntroReady gate below is where the
+-- world generator / crew-join hold plugs in. NOTE: the game world keeps StreamingEnabled ON, so PreloadAsync
+-- only warms what's replicated so far — the intro gate + settle cover the rest.
 
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
@@ -17,6 +18,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local MIN_SHOWN = 1.5 -- keep the screen up at least this long so it never just flickers
+local SETTLE = 2.5    -- after preload/gate, hold so texture streaming + lighting/shadows finish behind the screen
 local FADE_TIME = 0.6
 
 local player = Players.LocalPlayer
@@ -97,6 +99,24 @@ local fillCorner = Instance.new("UICorner")
 fillCorner.CornerRadius = UDim.new(1, 0)
 fillCorner.Parent = fill
 
+-- rotating gameplay tip (fills the load time with something useful to read)
+local tip = Instance.new("TextLabel")
+tip.Name = "Tip"
+tip.AnchorPoint = Vector2.new(0.5, 1)
+tip.Position = UDim2.fromScale(0.5, 0.9)
+tip.Size = UDim2.fromScale(0.72, 0.09)
+tip.BackgroundTransparency = 1
+tip.Font = Enum.Font.GothamMedium
+tip.Text = ""
+tip.TextColor3 = Color3.fromRGB(200, 214, 205)
+tip.TextScaled = true
+tip.TextWrapped = true
+tip.TextTransparency = 1
+tip.Parent = bg
+local tipMax = Instance.new("UITextSizeConstraint")
+tipMax.MaxTextSize = 22
+tipMax.Parent = tip
+
 local playerGui = player:WaitForChild("PlayerGui")
 gui.Parent = playerGui
 
@@ -108,10 +128,45 @@ local function setProgress(p: number, text: string?)
 	end
 end
 
--- ── preload assets, then wait for the whole game to finish loading ───────────────────────────────────────
-local startedAt = os.clock()
+-- ── rotating tips: cycle useful gameplay hints while the screen is up ────────────────────────────────────
+local TIPS = {
+	"Weave around rocks and logs — hitting them damages the hull and slows you down.",
+	"Watch your FUEL — run dry mid-river and the run is over.",
+	"Crews win: split into Driver, Gunner, Engineer, Mechanic and Medic.",
+	"The Mechanic keeps the hull patched; the Engineer keeps the motor running.",
+	"Night falls on the river. A searchlight or a carried torch keeps you from going blind.",
+	"Glowing eyes in the dark are enemies — spot them before they reach the boat.",
+	"The Medic can revive downed crew. Never leave a teammate behind.",
+	"Read the water — currents, forks and narrows all change your line.",
+	"A well-upgraded boat (motors, armor, fuel) survives far deeper down the river.",
+	"Score climbs the further you push — bank a run before the boat goes down.",
+}
 
--- gather the containers players actually see/hear so PreloadAsync warms them
+local loading = true
+task.spawn(function()
+	math.randomseed(os.time())
+	local idx = math.random(1, #TIPS)
+	local fade = TweenInfo.new(0.35, Enum.EasingStyle.Quad)
+	while loading do
+		tip.Text = "TIP:  " .. TIPS[idx]
+		TweenService:Create(tip, fade, { TextTransparency = 0 }):Play()
+		idx = (idx % #TIPS) + 1
+		local t0 = os.clock()
+		while loading and os.clock() - t0 < 3.5 do task.wait(0.1) end
+		if not loading then break end
+		TweenService:Create(tip, fade, { TextTransparency = 1 }):Play()
+		task.wait(0.35)
+	end
+end)
+
+-- ── 1) wait for FULL replication first ───────────────────────────────────────────────────────────────────
+local startedAt = os.clock()
+setProgress(0.10, "Connecting...")
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+-- ── 2) preload everything players see/hear (with streaming ON this warms the replicated region) ──────────
 local containers = {
 	Workspace,
 	game:GetService("ReplicatedStorage"),
@@ -119,7 +174,6 @@ local containers = {
 	game:GetService("Lighting"),
 	game:GetService("SoundService"),
 }
-
 local assets: { Instance } = {}
 for _, c in containers do
 	for _, d in c:GetDescendants() do
@@ -129,7 +183,6 @@ end
 
 local total = #assets
 if total > 0 then
-	-- preload in small batches so the bar advances smoothly instead of one big stall
 	local batchSize = math.max(1, math.floor(total / 40))
 	local i = 1
 	while i <= total do
@@ -141,24 +194,18 @@ if total > 0 then
 			ContentProvider:PreloadAsync(batch)
 		end)
 		i += #batch
-		setProgress((i - 1) / total * 0.9, "Loading assets... " .. math.floor((i - 1) / total * 100) .. "%")
+		setProgress(0.10 + (i - 1) / total * 0.65, "Loading assets... " .. math.floor((i - 1) / total * 100) .. "%")
 	end
 end
 
--- make sure the client has fully replicated before we reveal
-setProgress(0.92, "Finishing up...")
-if not game:IsLoaded() then
-	game.Loaded:Wait()
-end
-
--- ── intro readiness gate (game-intro-sequence, Job 043) ──────────────────────────────────────────────────
+-- ── 3) intro readiness gate (game-intro-sequence, Job 043) ──────────────────────────────────────────────
 -- The server (IntroGateServer) holds Workspace.IntroReady == false until the whole crew has joined and the
 -- world is built, publishing progress in Workspace.IntroStatus. We keep the loading screen up and mirror that
 -- status. If no gate is present (IntroReady never set), this is skipped so the loader behaves standalone.
 if Workspace:GetAttribute("IntroReady") == false then
 	local function showStatus()
 		local s = Workspace:GetAttribute("IntroStatus")
-		setProgress(0.95, (type(s) == "string" and s) or "Preparing your run...")
+		setProgress(0.80, (type(s) == "string" and s) or "Preparing your run...")
 	end
 	showStatus()
 	local statusConn = Workspace:GetAttributeChangedSignal("IntroStatus"):Connect(showStatus)
@@ -166,6 +213,13 @@ if Workspace:GetAttribute("IntroReady") == false then
 		Workspace:GetAttributeChangedSignal("IntroReady"):Wait()
 	end
 	statusConn:Disconnect()
+end
+
+-- ── 4) settle: let texture streaming + Future-lighting voxelization finish behind the screen ─────────────
+local s0 = os.clock()
+while os.clock() - s0 < SETTLE do
+	setProgress(0.85 + math.clamp((os.clock() - s0) / SETTLE, 0, 1) * 0.13, "Finishing up...")
+	task.wait(0.1)
 end
 
 -- honour the minimum on-screen time
@@ -178,12 +232,14 @@ setProgress(1, "Ready")
 task.wait(0.25)
 
 -- ── fade out and reveal the game ─────────────────────────────────────────────────────────────────────────
+loading = false -- stop the tip cycler
 local info = TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 TweenService:Create(bg, info, { BackgroundTransparency = 1 }):Play()
 TweenService:Create(title, info, { TextTransparency = 1 }):Play()
 TweenService:Create(status, info, { TextTransparency = 1 }):Play()
 TweenService:Create(track, info, { BackgroundTransparency = 1 }):Play()
 TweenService:Create(fill, info, { BackgroundTransparency = 1 }):Play()
+TweenService:Create(tip, info, { TextTransparency = 1 }):Play()
 
 task.wait(FADE_TIME)
 setCoreGui(true)

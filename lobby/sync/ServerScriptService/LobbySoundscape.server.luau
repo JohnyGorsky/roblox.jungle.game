@@ -16,6 +16,7 @@ local ID = {
 	Water          = "rbxassetid://115704936377395", -- water-splashes (positional @ dock/shore)
 	Campfire       = "rbxassetid://113774133604878", -- crackle-campfire (positional @ fire pits)
 	Cicadas        = "rbxassetid://128204240690640", -- cicadas (occasional one-shots)
+	RopeCreak      = "rbxassetid://99642631685891",  -- rope_creak (positional @ watchtowers)
 }
 -- NOTE: morning_starts / night_starts / battle_starts are day-night/combat cues for the GAME place,
 -- not the static-afternoon lobby — intentionally not used here.
@@ -93,7 +94,7 @@ local function attachPositional(part: BasePart, id: string, volume: number)
 	s:Play()
 end
 
-local waterCount, fireCount = 0, 0
+local waterCount, fireCount, ropeCount = 0, 0, 0
 if scenery then
 	-- water at the dock pier
 	local dock = scenery:FindFirstChild("Dock")
@@ -107,6 +108,15 @@ if scenery then
 		if p:IsA("BasePart") and p.Name == "FirePit" then
 			attachPositional(p, ID.Campfire, 0.6)
 			fireCount += 1
+		end
+	end
+	-- subtle rope/rigging creak at the watchtowers
+	for _, name in ipairs({ "Watchtower_NW", "Watchtower_NE" }) do
+		local m = scenery:FindFirstChild(name)
+		local part = m and (m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true))
+		if part then
+			attachPositional(part, ID.RopeCreak, 0.25)
+			ropeCount += 1
 		end
 	end
 end
@@ -124,5 +134,5 @@ task.spawn(function()
 	end
 end)
 
-print(("[LobbySoundscape] ready — music+ambience+wind (2D), water×%d, campfire×%d, cicadas looping")
-	:format(waterCount, fireCount))
+print(("[LobbySoundscape] ready — music+ambience+wind (2D), water×%d, campfire×%d, rope×%d, cicadas looping")
+	:format(waterCount, fireCount, ropeCount))
