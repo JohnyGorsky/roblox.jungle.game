@@ -79,7 +79,10 @@ intro gameplay), start with **Robux Shop**.
       shared registry (`Assets/registry/models.md`). Rejected ClawWOMinerm pack (hidden script + 3,335 parts).
       **Pending:** user to paste Store IDs for the 3 user-inserted `CAND_*` items.
 - [ ] Next foliage: rocks / fallen logs / vines. Then plane, stations, camp props.
-- [ ] Lobby required-objects list (`lobby-asset-list.md`) → assets job (incl. palm/tree/bush foliage).
+- [x] **Asset list promoted out of the job → root [`/ASSETS.md`](../../ASSETS.md) §1 (user, 2026-07-20):**
+      it's the always-referenced, always-updated game-wide asset bible (next to GAME.md/STYLEGUIDE.md),
+      wired into CLAUDE.md + jungle-style skill. Requirements/status live there; IDs in the shared
+      registry. `lobby-asset-list.md` is now a pointer stub.
 
 ## Checklist
 

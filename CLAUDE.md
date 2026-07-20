@@ -8,6 +8,7 @@ rules, file/system map, code standards, and rules is the **`jungle-project` skil
 (and the shared `roblox-dev` skill for engine APIs) before doing any work here.
 
 - **Game vision / mechanics** → [GAME.md](GAME.md)
+- **Asset bible** (what the game needs + what's used; always reference & update) → [ASSETS.md](ASSETS.md)
 - **Planned work** → [Planned/](Planned/) (one file per queued idea)
 - **Jobs** → [Jobs/](Jobs/); scaffold with
   `python ../roblox.workspace/tools/job.py new --project jungle "Title" "Requirements"`

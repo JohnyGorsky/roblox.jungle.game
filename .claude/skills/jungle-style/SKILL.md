@@ -1,6 +1,6 @@
 ---
 name: jungle-style
-description: Last River (Jungle) art & UI design system — the game's colors, typography, art-direction principles, UI/HUD rules, lighting/materials, and hard do/don't rules for the "stylized tropical jungle expedition" look. Use when building or restyling ANY GUI/HUD, menu, panel, button, model, prop, sign, boat, VFX, lighting, or scene for Roblox Jungle (Last River), so it matches the game's look. The full reference is the repo-root STYLEGUIDE.md. (Concrete asset IDs — icons/sounds/images — live in a separate assets job/registry, not here.)
+description: Last River (Jungle) art & UI design system — the game's colors, typography, art-direction principles, UI/HUD rules, lighting/materials, and hard do/don't rules for the "stylized tropical jungle expedition" look. Use when building or restyling ANY GUI/HUD, menu, panel, button, model, prop, sign, boat, VFX, lighting, or scene for Roblox Jungle (Last River), so it matches the game's look. The full reference is the repo-root STYLEGUIDE.md. (What the game needs + what's used lives in the root ASSETS.md asset bible; concrete asset IDs live in the shared registry — not here.)
 ---
 
 # Last River (Jungle) — Art & UI Style System
@@ -27,9 +27,11 @@ modify anything visual so the result matches the game's **stylized tropical jung
 
 - **This skill / STYLEGUIDE.md = the design system:** colors, principles, typography, UI rules,
   lighting/materials, do/don't. Stable, rarely changes.
-- **Concrete assets are OUT of scope here** — icon/sound/image/model **asset IDs** and "what we need
-  & how much" are tracked in a **separate assets job + registry** (see `roblox-assets`). This guide
-  defines the *style/vocabulary* of icons etc.; it does not hold their IDs.
+- **Concrete assets are OUT of scope here** but have a fixed home: **what the game needs + what's used +
+  sourcing status** lives in the game-wide asset bible **[../../../ASSETS.md](../../../ASSETS.md)**
+  (always reference & update it when an asset is used); **exact asset IDs / license / scan state** live in
+  the shared **registry** `../../../../roblox.workspace/Assets/registry/` (see `roblox-assets`). This
+  guide defines the *style/vocabulary* of icons etc.; it does not hold their IDs.
 
 ## Quick reference
 
