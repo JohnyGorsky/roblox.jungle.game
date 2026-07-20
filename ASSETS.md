@@ -79,9 +79,9 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Station | Object | Source | Status | Notes |
 |---|---|---|---|---|
-| `SkillTrainer` | wooden stall + counter + sign | Meshy (user) | ▫ queued | blue accent — awaiting user Meshy model |
+| `SkillTrainer` | wooden stall + counter + sign | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy stall (blue awning + chalkboard); Station attr + Anchor/prompt transferred, grounded, entry sign, localized to `AssetLibrary/Structures/SkillTrainer` |
 | `Bounties` | board stand / stall | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/Bounties` |
-| `RobuxShop` | small kiosk | Meshy (user) | ▫ queued | green — awaiting user Meshy model |
+| `RobuxShop` | small kiosk | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy hut/kiosk; Station attr + Anchor/prompt transferred, grounded, entry sign, localized to `AssetLibrary/Structures/RobuxShop` |
 | `BoatUpgrades` | mechanic rig/bench at the dock | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/BoatUpgrades` |
 | Sign boards (per station) | 4+ | Build + Flaticon | ▫ queued | wood/metal, icon + ALL-CAPS (styleguide §20) |
 
@@ -160,13 +160,13 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Effect | Where | Source | Status |
 |---|---|---|---|
-| Party-pad glow ring | each of 4 pads | Build | ▫ queued |
+| Party-pad glow ring / motes | each of 4 pads | Build | <span style="color:#2e9c3f">✅ built</span> | rising accent-tinted glow motes on each pad Center |
 | Leader sparkle | leader on a pad | Build | ▫ queued |
-| Launch effect (light column + dust burst) | pad → teleport | Build | ▫ queued |
-| Campfire (fire+smoke+embers+light) | campfire prop | Build | ▫ queued |
-| Torch / lantern flame | each torch/lantern | Build | ▫ queued |
-| Fireflies / motes | jungle edge | Build | ▫ queued |
-| Sun-ray dust motes | open airfield | Build | ▫ queued |
+| Launch effect (light column + dust burst) | pad → teleport | Build | ▫ queued | needs hook into LobbyServer launch |
+| Campfire (fire+smoke+embers+light) | FirePits | <span style="color:#2e9c3f">✅ built</span> | Fire + Smoke + ember ParticleEmitter + warm PointLight on both `FirePit`s |
+| Torch / lantern flame | each torch/lantern | Build | ▫ queued | needs torch/lantern props first |
+| Fireflies / motes | jungle edge | Build | <span style="color:#2e9c3f">✅ built</span> | 6 firefly clusters on the grass ring (`AmbientVFX`) |
+| Sun-ray dust motes | open airfield | Build | <span style="color:#2e9c3f">✅ built</span> | fine drifting dust field over the clearing (`AmbientVFX`) |
 | Water shimmer / ripples / foam | river + dock | Build | ▫ queued |
 | Plane heat-haze / smoke puff | plane | Build | ▫ queued |
 | Flag / tarp wind sway | flags, tents | Build | ▫ queued |
