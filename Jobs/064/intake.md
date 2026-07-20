@@ -29,7 +29,7 @@ Design the lobby (Jungle Airfield) per assets/Images/MapIdea.png. Step 1: agree 
 - [x] Runway lengthened to match the water lobe (~390 studs, Z −490..−100); map north edge
       extended (MINZ −600) so hills/mountains still enclose the longer airstrip.
 - [x] `implementation-plan.md` written
-- [ ] User walks the base & confirms scale/spots
+- [x] **Base terrain ACCEPTED by user (2026-07-20)** — scale, enclosure, runway/water lengths approved
 - [ ] Asset placement pass (markers → props)
 - [ ] Final lobby asset list → assets job
 
