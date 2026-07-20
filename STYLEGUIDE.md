@@ -286,8 +286,10 @@ The screen must stay **clean and uncluttered while playing.** The player fights 
     `Decay (158,120,72)` warm horizon, `Glare 0.32`, `Haze 2.7`.
   - `ColorCorrection`: `TintColor (255,240,212)`, `Saturation 0.13`, `Contrast 0.07`.
   - `Bloom`: `Intensity 0.5`, `Size 24`, `Threshold 1.4` · `SunRays`: `Intensity 0.08`, `Spread 0.85`.
-  - Water: `Terrain.WaterColor (36,119,134)`, `Transparency 0.60`, `Reflectance 0.08`,
-    `WaveSize 0.12`, `WaveSpeed 12`.
+  - Water: `Terrain.WaterColor (24,78,86)`, `Transparency 0.30`, `Reflectance 0.03`,
+    `WaveSize 0.15`, `WaveSpeed 10`. **Note:** `WaterColor` is set *darker* than the §4 on-screen
+    river color `#247786` because Roblox terrain water renders brighter than the raw value (very much
+    so under `Voxel` tech) — this darker input renders as the intended muted jungle teal, not neon.
 - **Avoid:** extreme orange sunset, pitch-black jungle, photorealistic lighting, heavy bloom
   everywhere.
 

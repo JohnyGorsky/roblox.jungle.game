@@ -53,12 +53,14 @@ sr.Name = "JungleSunRays"
 sr.Intensity = 0.08; sr.Spread = 0.85
 sr.Parent = L
 
--- Water: jungle river turquoise (STYLEGUIDE §4), slightly murky + moving
+-- Water: muted jungle-river teal. NOTE: WaterColor is set darker than the §4
+-- on-screen river color (#247786) because terrain water renders brighter than
+-- the raw value (esp. under Voxel tech) -> this input renders as the intended teal.
 local T = workspace.Terrain
-T.WaterColor = Color3.fromRGB(36,119,134)
-T.WaterTransparency = 0.60
-T.WaterReflectance = 0.08
-T.WaterWaveSize = 0.12
-T.WaterWaveSpeed = 12
+T.WaterColor = Color3.fromRGB(24,78,86)
+T.WaterTransparency = 0.30
+T.WaterReflectance = 0.03
+T.WaterWaveSize = 0.15
+T.WaterWaveSpeed = 10
 
 return "lobby atmosphere applied"
