@@ -228,6 +228,15 @@ local function refresh()
 		row.Size = UDim2.fromScale(1, 0.092)
 		row.BackgroundColor3 = Color3.fromRGB(32, 35, 42)
 		row.BackgroundTransparency = rank % 2 == 0 and 0.35 or 0.1
+		if rank == 1 then
+			-- #1 glow: gold plate + glowing stroke
+			row.BackgroundColor3 = Color3.fromRGB(214, 155, 34)
+			row.BackgroundTransparency = 0.08
+			local st = Instance.new("UIStroke")
+			st.Color = Color3.fromRGB(255, 224, 120)
+			st.Thickness = 2
+			st.Parent = row
+		end
 		row.Font = Enum.Font.GothamMedium
 		row.TextColor3 = tier.color
 		row.TextScaled = true

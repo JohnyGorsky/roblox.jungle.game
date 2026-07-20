@@ -131,6 +131,45 @@ local function makePad(index: number, part: BasePart): Pad
 	return { index = index, part = part, prompt = prompt, label = label, occupants = {}, launching = false, countdown = 0 }
 end
 
+-- gold sparkle over the current pad leader (occupants[1]); moves as leaders change
+local function setLeaderSparkle(pad: Pad)
+	local leader = pad.occupants[1]
+	if (pad :: any).leaderSparkleFor == leader then
+		return
+	end
+	local old = (pad :: any).leaderSparkleFor
+	if old and old.Character then
+		local h = old.Character:FindFirstChild("Head")
+		local s = h and h:FindFirstChild("LeaderSparkle")
+		if s then
+			s:Destroy()
+		end
+	end
+	;(pad :: any).leaderSparkleFor = leader
+	if leader and leader.Character then
+		local h = leader.Character:FindFirstChild("Head")
+		if h then
+			local a = Instance.new("Attachment")
+			a.Name = "LeaderSparkle"
+			a.Position = Vector3.new(0, 1.5, 0)
+			a.Parent = h
+			local e = Instance.new("ParticleEmitter")
+			e.Rate = 10
+			e.Lifetime = NumberRange.new(0.6, 1.1)
+			e.Speed = NumberRange.new(0.5, 1.5)
+			e.Color = ColorSequence.new(Color3.fromRGB(255, 224, 120))
+			e.LightEmission = 1
+			e.LightInfluence = 0
+			e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.28), NumberSequenceKeypoint.new(1, 0) })
+			e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+			e.SpreadAngle = Vector2.new(35, 35)
+			e.Acceleration = Vector3.new(0, 2, 0)
+			e.Rotation = NumberRange.new(0, 360)
+			e.Parent = a
+		end
+	end
+end
+
 local function updateSign(pad: Pad)
 	local names = {}
 	for i, plr in ipairs(pad.occupants) do
@@ -147,6 +186,7 @@ local function updateSign(pad: Pad)
 	pad.label.Text =
 		string.format("<b>LAUNCH PAD %d</b>\n%d/%d\n%s\n%s", pad.index, #pad.occupants, MAX, table.concat(names, "\n"), status)
 	pad.prompt.Enabled = (#pad.occupants > 0) and not pad.launching
+	setLeaderSparkle(pad)
 end
 
 -- true if a player's character is standing on this pad

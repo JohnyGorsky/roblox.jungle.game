@@ -62,8 +62,8 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | `JungleTreesPack` | ✓ | Store (PSY0PZ, origin unknown) | <span style="color:#2e9c3f">✅ placed</span> | 102 meshes; pre-arranged; dupe deleted |
 | Rocks S/M/L (`RockA/B/C`) | 3 | Store ("rocks 3" `13967717089`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Rocks`; ~24 on floor + Sand shore; embedded |
 | Fallen log (`LogMossy`) | 2 | Store (OptOff `18497743057`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Logs`; 6 near tree line; realistic moss |
-| Vines / hanging | 1–2 | Store | <span style="color:#c9911d">⏸ deferred</span> | Rotanix `9376334307` clean but skipped; others had scripts |
-| Grass tuft / clump | 2 | Build/Store | ▫ queued | editor-scatter in clusters |
+| Vines / hanging | — | — | <span style="color:#2e9c3f">✅ done (dropped)</span> | user decision 2026-07-20: skipped, not needed |
+| Grass tuft / clump | 48 | Build | <span style="color:#2e9c3f">✅ built</span> | bladed tufts scattered on the grass ring (`Scenery.Details.GrassTufts`) |
 
 <span style="color:#c93c3c">❌ Rejected:</span> *Jungle Trees Pack* (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts. Do not re-source.
 
@@ -107,10 +107,10 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Welcome sign | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood + gold trim; SurfaceGui "WELCOME TO JUNGLE AIRFIELD" (Special Elite, cream+stroke) on both faces |
 | Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | <span style="color:#2e9c3f">✅ built</span> | wood + gold/blue trim; `RankServer` rewired to fill editor `Leaderboard_TopRuns` (find-by-name) with live Top-10; Weekly = "coming soon" placeholder (no weekly data yet) |
 | Tents / tarps | 3–4 | Store | <span style="color:#2e9c3f">✅ (2 placed)</span> | olive canvas (see camp props); more optional |
-| Cargo netting | 2 | Store/Build | ▫ queued | strung between posts |
+| Cargo netting | 2 | Build | <span style="color:#2e9c3f">✅ built</span> | draped rope nets between posts (`Scenery.Details.CargoNet`) |
 | Windsock | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | pole + orange/white bands, by the runway (`Scenery.Details.Windsock`) |
-| Path fences / rope barriers | few | Store/Build | ▫ queued | line the curved sand paths |
-| Directional markers / lanterns | few | Build/Store | ▫ queued | guide flow (styleguide §24) |
+| Path fences / rope barriers | few | Build | <span style="color:#2e9c3f">✅ built</span> | post+rope runs flanking the spawn approach (`Scenery.Details.RopeBarrier`) |
+| Directional markers | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | signpost near spawn (PLANE/DOCK/SHOPS arrows). Lanterns still ▫ (need props) |
 | Sky / clouds | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | volumetric `Clouds` (cover .58) + `Sky`, warm-tinted |
 
 ## 1.7 Camp props (environmental storytelling — cluster meaningfully)
@@ -136,7 +136,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Object | Source | Status | Notes |
 |---|---|---|---|
 | Airfield star (spawn) | ChatGPT/Flaticon → decal | <span style="color:#c9911d">⏸ pending</span> | painted military star |
-| Runway "27" + stripes | Build/decal | ▫ queued | cream markings |
+| Runway "27" + stripes | user | <span style="color:#2e9c3f">✅ done (user)</span> | airfield/runway done by user |
 | Path decals (sand/dirt/tire tracks) | ChatGPT → decal | <span style="color:#c9911d">⏸ pending</span> | curved paths connecting zones (styleguide §24) |
 
 ## 1.9 UI icons (signs + HUD) — Flaticon
@@ -161,17 +161,17 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Effect | Where | Source | Status |
 |---|---|---|---|
 | Party-pad glow ring / motes | each of 4 pads | Build | <span style="color:#2e9c3f">✅ built</span> | rising accent-tinted glow motes on each pad Center |
-| Leader sparkle | leader on a pad | Build | ▫ queued |
+| Leader sparkle | leader on a pad | Build | <span style="color:#2e9c3f">✅ built</span> | gold sparkle over occupants[1]'s head, managed in `LobbyServer` |
 | Launch effect (light column + dust burst) | pad → teleport | Build | <span style="color:#2e9c3f">✅ built</span> | rising light column + dust burst + flash, fired in `LobbyServer` launch() |
 | Campfire (fire+smoke+embers+light) | FirePits | <span style="color:#2e9c3f">✅ built</span> | Fire + Smoke + ember ParticleEmitter + warm PointLight on both `FirePit`s |
 | Torch / lantern flame | each torch/lantern | Build | ▫ queued | needs torch/lantern props first |
 | Fireflies / motes | jungle edge | Build | <span style="color:#2e9c3f">✅ built</span> | 6 firefly clusters on the grass ring (`AmbientVFX`) |
 | Sun-ray dust motes | open airfield | Build | <span style="color:#2e9c3f">✅ built</span> | fine drifting dust field over the clearing (`AmbientVFX`) |
 | Water shimmer / ripples / foam | river + dock | Build | <span style="color:#2e9c3f">✅ built (dock foam)</span> | foam/shimmer emitter at the dock shore (`AmbientVFX.DockFoam`); river handled in game place |
-| Plane heat-haze / smoke puff | plane | Build | ▫ queued |
-| Flag / tarp wind sway | flags, tents | Build | ▫ queued |
-| Purchase-confirm burst | on buy | Build | ▫ queued |
-| Leaderboard #1 glow | Top Runs board | Build | ▫ queued |
+| Plane heat-haze / smoke puff | plane | Build | <span style="color:#2e9c3f">✅ built</span> | subtle rising shimmer at both engines |
+| Flag / tarp wind sway | flags, tents | Build | ▫ deferred | needs per-frame cloth anim; low value |
+| Purchase-confirm burst | on buy | Build | ▫ queued | wire with the GUI/shop pass |
+| Leaderboard #1 glow | Top Runs board | Build | <span style="color:#2e9c3f">✅ built</span> | #1 row = gold plate + glowing UIStroke (`RankServer`) |
 
 ## 1.11 Audio — Ambient (looping beds, mostly spatial)
 
