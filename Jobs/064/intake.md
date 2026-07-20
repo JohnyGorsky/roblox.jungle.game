@@ -69,6 +69,10 @@ intro gameplay), start with **Robux Shop**.
       `LobbyServer` (stop generating world/pads/spawn; bind party/countdown/teleport to editor
       `PartyPad_*`; spawn = editor SpawnLocation). Finders validated (4 pads, 4 kiosks, spawn).
 - [ ] Rojo-sync the 2 lobby scripts + Play test (grey world gone; prompts + party work).
+- [x] **Populated the full lobby asset requirements** (`lobby-asset-list.md`): objects, foliage
+      (dense-forest ring ★), stations, pads, displays, props, decals, icons, VFX, ambient audio, SFX,
+      music, lighting-ref. Sourcing (where to get each) = the NEXT step.
+- [ ] Decide sourcing per item (Meshy / Store / Flaticon / Pixabay / Build) → assets job.
 - [ ] Lobby required-objects list (`lobby-asset-list.md`) → assets job (incl. palm/tree/bush foliage).
 
 ## Checklist

@@ -1,12 +1,14 @@
-# Lobby — Required Objects List (Jungle Airfield)
+# Lobby — Required Assets List (Jungle Airfield)
 
 **Project**: `roblox.jungle` · Job #064 · drafted 2026-07-20
 
-The full list of objects the lobby needs, to seed the **assets job**. Style per the `jungle-style`
-guide (stylized jungle-expedition, chunky/readable, weathered). **Source key:** `Meshy` = custom 3D
-(human generates from my prompt), `Store` = Creator Store search (present for approval, scan scripts),
-`Flaticon` = UI icon (upload → ID), `Build` = Studio parts/GUI (no asset), `ChatGPT` = decal/art image.
-All sourcing per `GROUND-RULES §4` + `roblox-assets` (our inventory/registry first, present before use).
+**Everything the lobby needs to be finished** — objects, foliage, VFX, audio (ambient + SFX), and
+music. Style per the `jungle-style` guide (stylized jungle-expedition, chunky/readable, weathered).
+
+> **Sourcing (where to get each) is the NEXT step** — this doc first captures **WHAT** we need. The
+> `Source` columns below are provisional suggestions, not decisions. **Source key:** `Meshy` = custom
+> 3D · `Store` = Creator Store · `Flaticon` = UI icon · `Build` = Studio parts/GUI · `ChatGPT` =
+> decal/art · `Pixabay` = audio. All final sourcing per `GROUND-RULES §4` + `roblox-assets`.
 
 Every interactive object stays a **named Model + `Station` attribute + `Anchor` part** so scripts bind
 to it (memory: lobby-editor-placed-not-scripted).
@@ -78,6 +80,10 @@ the lobby and hides the edges. Needs the tree/bush kit above first (assets job),
 | Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | Wood/metal, gold/blue trim; live text via SurfaceGui |
 | Tents / tarps | 3–4 | Meshy/Store | Canvas, olive |
 | Cargo netting | 2 | Meshy/Store | Strung between posts |
+| Windsock | 1 | Meshy/Store | Airfield flavor (also reads wind direction) |
+| Path fences / rope barriers | few | Meshy/Store | Line the curved sand paths |
+| Directional path markers / lanterns | few | Build/Store | Guide flow between zones (styleguide §24) |
+| Sky / clouds | 1 | Store/Build | Warm `Sky` + `Clouds` to complement the Atmosphere |
 
 ## 7. Camp props (environmental storytelling — cluster meaningfully)
 | Object | Variants | Source | Notes |
@@ -107,9 +113,60 @@ Gear (engine) · Shield (hull) · Fuel pump (fuel) · Crate (storage) · Crossed
 Star (gold/major) · Wrench (utility) · Player-group (party). One consistent set → record IDs in
 `STYLEGUIDE.md §7` + the asset registry.
 
-## 10. Audio / VFX (cross-ref — own passes)
-Jungle ambience bed, birds/insects, water lapping, campfire crackle, lantern hum; warm point-lights,
-campfire fire+smoke, water shimmer. (Audio sourcing = Pixabay; see STYLEGUIDE §8–9.)
+## 10. VFX (particles / beams / lights)
+| Effect | Where | Notes |
+|---|---|---|
+| Party-pad glow ring | each of 4 pads | Colored beam/particle ring; gentle pulse; brighter when occupied |
+| Leader sparkle | leader on a pad | Small sparkle over the ★ leader |
+| Launch effect | pad, countdown → teleport | Rising light column + dust burst / swirl on launch |
+| Campfire | campfire prop | Fire + smoke + embers + warm PointLight |
+| Torch / lantern flame | each torch/lantern | Small flame + warm PointLight (pools of light) |
+| Fireflies / motes | jungle edge | Drifting glow particles (ambient life) |
+| Sun-ray dust motes | open airfield | Fine floating dust catching the light |
+| Water shimmer / ripples / foam | river + dock | Surface sparkle, gentle ripples, dock foam |
+| Plane heat-haze / smoke puff | plane (optional) | Subtle idle flavor |
+| Flag / tarp wind sway | flags, tents | Cloth movement |
+| Purchase confirm burst | on buy | Gold/coin sparkle at the kiosk / HUD |
+| Leaderboard #1 glow | Top Runs board | Subtle highlight on the top entry |
+
+Mobile budget: pooled, capped, distance-LOD'd, off-screen-culled (STYLEGUIDE §8).
+
+## 11. Audio — Ambient (looping beds, mostly spatial)
+| Sound | Notes |
+|---|---|
+| Jungle day ambience | birds + insects bed (2D loop) |
+| Wind / breeze | light layer over the ambience |
+| Water lapping | positional at the dock/shore |
+| Campfire crackle | positional at the campfire |
+| Cicadas / distant wildlife calls | occasional layered one-shots |
+| Flag / rope creak | subtle positional near towers & signs |
+
+## 12. Audio — SFX (events / one-shots)
+| Sound | Trigger |
+|---|---|
+| UI click / tap | any button |
+| Panel open / close | shop / skills / bounties / robux |
+| Purchase success | buy confirmed |
+| Purchase fail / error | insufficient funds / cancel |
+| Upgrade applied | boat/skill upgrade bought |
+| Pad join (step-on) / leave | player steps on / off a party pad |
+| Leader assigned | first player on an empty pad |
+| Countdown tick | each second of the launch countdown |
+| Launch / teleport whoosh | party launches |
+| Prompt appear / hold-complete | ProximityPrompt shown / held |
+| Footsteps — sand vs wood/dock | material-aware (optional; engine default ok) |
+| Rank / reward stinger | leaderboard or rank change (if surfaced) |
+
+## 13. Music
+| Track | Notes |
+|---|---|
+| Lobby theme (loop) | adventurous but chill jungle-expedition; not tense; seamless loop |
+| Countdown / launch layer (optional) | subtle intensity lift while a pad counts down |
+
+## 14. Lighting (already applied — reference, not to re-source)
+Warm-afternoon rig live (STYLEGUIDE §8 / `lobby/build/lobby_atmosphere.luau`): Atmosphere haze, warm
+ColorCorrection, Bloom, SunRays, muted-teal water. Warm lantern/torch pools if a night lobby is ever
+added. (Set `Lighting.Technology = Future` in Studio.)
 
 ---
 
