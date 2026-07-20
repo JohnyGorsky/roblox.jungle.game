@@ -1,80 +1,92 @@
 --!strict
--- LobbyStations.server.luau — greybox dry-docked boat + walk-up upgrade kiosks (Job 032). GREYBOX/mechanics
--- only — the design pass replaces the art. Each kiosk's ProximityPrompt opens the matching purchase panel
--- (via the OpenPanel remote); the bottom-left buttons still work too.
+-- LobbyStations.server.luau — walk-up upgrade kiosks (Job 032; REWIRED Job 064).
+--
+-- The lobby is EDITOR-PLACED (memory: lobby-editor-placed-not-scripted). This script NO LONGER builds
+-- the dry-dock / boat / kiosk geometry — it FINDS each editor station (a Model with attribute
+-- Station = "<type>", by convention under Workspace.LOBBY_GREYBOX.Stations) and attaches a
+-- ProximityPrompt that opens the matching purchase panel via OpenPanel. The bottom-left buttons still
+-- work too. Panel-opening logic (OpenPanel + ids) is unchanged.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local openPanel = Instance.new("RemoteEvent")
-openPanel.Name = "OpenPanel"
-openPanel.Parent = ReplicatedStorage
-
-local root = Instance.new("Folder")
-root.Name = "LobbyStations"
-root.Parent = Workspace
-
-local function block(name: string, size: Vector3, color: Color3, pos: Vector3, mat: Enum.Material?): Part
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Anchored = true
-	p.Size = size
-	p.Color = color
-	p.Material = mat or Enum.Material.SmoothPlastic
-	p.Position = pos
-	p.Parent = root
-	return p
+local openPanel = ReplicatedStorage:FindFirstChild("OpenPanel")
+if not openPanel then
+	local ev = Instance.new("RemoteEvent")
+	ev.Name = "OpenPanel"
+	ev.Parent = ReplicatedStorage
+	openPanel = ev
 end
 
--- greybox dry-docked boat (visual anchor for the upgrade area)
-local BOAT_POS = Vector3.new(-52, 3.5, 52)
-block("DryDock", Vector3.new(20, 1, 28), Color3.fromRGB(90, 90, 96), BOAT_POS - Vector3.new(0, 3, 0), Enum.Material.Concrete)
-block("LobbyBoatHull", Vector3.new(14, 3, 22), Color3.fromRGB(120, 85, 55), BOAT_POS, Enum.Material.WoodPlanks)
-block("LobbyBoatSeat", Vector3.new(4, 1, 5), Color3.fromRGB(60, 45, 30), BOAT_POS + Vector3.new(0, 2, 0))
-block("LobbyBoatMotor", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), BOAT_POS + Vector3.new(-3.5, 1, 10.5), Enum.Material.Metal)
+-- editor Station attribute -> (OpenPanel id, prompt title)
+local STATIONS = {
+	{ station = "BoatUpgrades", id = "modules", title = "BOAT UPGRADES" },
+	{ station = "SkillTrainer", id = "skills", title = "SKILL TRAINER" },
+	{ station = "RobuxShop", id = "robux", title = "ROBUX SHOP" },
+	{ station = "Bounties", id = "weekly", title = "BOUNTIES" },
+}
 
-local function kiosk(title: string, id: string, pos: Vector3, color: Color3)
-	local post = block("Kiosk_" .. id, Vector3.new(3, 5, 3), color, pos, Enum.Material.Metal)
-	local sp = Instance.new("Part")
-	sp.Anchored = true
-	sp.CanCollide = false
-	sp.Transparency = 1
-	sp.Size = Vector3.one
-	sp.Position = pos + Vector3.new(0, 4, 0)
-	sp.Parent = root
-	local bb = Instance.new("BillboardGui")
-	bb.Size = UDim2.fromScale(7, 2)
-	bb.AlwaysOnTop = true
-	bb.MaxDistance = 140
-	bb.Parent = sp
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.fromScale(1, 1)
-	lbl.BackgroundTransparency = 0.3
-	lbl.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	lbl.TextColor3 = Color3.new(1, 1, 1)
-	lbl.Font = Enum.Font.GothamBold
-	lbl.TextScaled = true
-	lbl.Text = title
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = lbl
-	lbl.Parent = bb
+local function findStation(kind: string): Instance?
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:GetAttribute("Station") == kind then
+			return d
+		end
+	end
+	return nil
+end
+
+local function promptHost(inst: Instance): BasePart?
+	local a = inst:FindFirstChild("Anchor")
+	if a and a:IsA("BasePart") then
+		return a
+	end
+	if inst:IsA("Model") and inst.PrimaryPart then
+		return inst.PrimaryPart
+	end
+	if inst:IsA("BasePart") then
+		return inst :: BasePart
+	end
+	return inst:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function attach(def)
+	-- wait briefly for the editor station to be present
+	local station: Instance? = nil
+	local t0 = os.clock()
+	repeat
+		station = findStation(def.station)
+		if station then
+			break
+		end
+		task.wait(0.2)
+	until os.clock() - t0 > 15
+	if not station then
+		warn('[LobbyStations] no editor station Station="' .. def.station .. '" — kiosk prompt not attached')
+		return
+	end
+	local host = promptHost(station)
+	if not host then
+		warn("[LobbyStations] station " .. def.station .. " has no BasePart to host the prompt")
+		return
+	end
+	local dup = host:FindFirstChild("KioskPrompt")
+	if dup then
+		dup:Destroy()
+	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "KioskPrompt"
 	prompt.ActionText = "Open"
-	prompt.ObjectText = title
+	prompt.ObjectText = def.title
 	prompt.HoldDuration = 0.2
 	prompt.RequiresLineOfSight = false
 	prompt.MaxActivationDistance = 12
-	prompt.Parent = post
+	prompt.Parent = host
 	prompt.Triggered:Connect(function(player: Player)
-		openPanel:FireClient(player, id)
+		openPanel:FireClient(player, def.id)
 	end)
+	print("[LobbyStations] " .. def.title .. " -> " .. station:GetFullName())
 end
 
-kiosk("BOAT UPGRADES", "modules", Vector3.new(-40, 2.5, 62), Color3.fromRGB(60, 100, 170))
-kiosk("SKILL TRAINER", "skills", Vector3.new(-40, 2.5, 52), Color3.fromRGB(150, 110, 60))
-kiosk("ROBUX SHOP", "robux", Vector3.new(-40, 2.5, 42), Color3.fromRGB(40, 130, 90))
-kiosk("BOUNTIES", "weekly", Vector3.new(-40, 2.5, 32), Color3.fromRGB(90, 120, 70))
-
-print("[LobbyStations] dry-docked boat + upgrade kiosks online")
+for _, def in ipairs(STATIONS) do
+	task.spawn(attach, def)
+end

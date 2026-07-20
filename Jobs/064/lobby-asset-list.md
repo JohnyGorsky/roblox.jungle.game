@@ -35,7 +35,13 @@ clusters (styleguide: cluster, don't scatter singles; frame the play area, keep 
 
 **Placement approach:** editor-placed. Once the tree/bush models exist, place by hand **and/or** a
 one-time editor **scatter helper** (like the terrain-once script — allowed) that drops the models in
-clusters across the grass band, denser toward the jungle edge, sparse in the play center. Not runtime.
+clusters. Not runtime.
+
+**★ DENSE FOREST in the grass band (user requirement, 2026-07-20).** The whole **grass ring between
+the sand clearing and the mountains** (the red-outlined zone in the user's screenshot) must read as
+**dense jungle** — heavily packed palms/trees + small bushes/ferns, like `jungle_example.png` — NOT
+sparse. Denser toward the mountain edge; the sand play-center stays open/readable. This is what frames
+the lobby and hides the edges. Needs the tree/bush kit above first (assets job), then a dense scatter.
 
 ## 2. Landmark
 | Object | Qty | Source | Notes |

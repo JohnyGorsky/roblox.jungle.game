@@ -1,10 +1,10 @@
 --!strict
--- LobbyServer.server.luau — the LOBBY place: greybox airfield + launch-pad party + reserved teleport (Job 017).
+-- LobbyServer.server.luau — LOBBY party/launch + reserved teleport (Job 017; REWIRED Job 064).
 --
--- Players spawn in the lobby, step onto one of N launch PADS to form a party (first on an empty pad = the
--- LEADER), and the leader presses Start → a short countdown → the whole pad group is teleported TOGETHER
--- into one private RESERVED gameplay server. Server-authoritative. Greybox (art later). Teleport only runs
--- LIVE (not in Studio) — with a placeholder Place ID it logs a warning and unlocks instead.
+-- The lobby world is EDITOR-PLACED (memory: lobby-editor-placed-not-scripted). This script NO LONGER
+-- builds ground/runway/hangar/spawn/pads. It FINDS the editor launch pads (Models with attribute
+-- Station = "PartyPad") and drives the party → countdown → reserved-server teleport on them. The spawn
+-- is the editor SpawnLocation. ALL matchmaking/teleport logic is unchanged from the original.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,49 +13,16 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
 local LobbyConfig = require(ReplicatedStorage:WaitForChild("LobbyConfig"))
-local PAD_COUNT = LobbyConfig.PAD_COUNT
 local MAX = LobbyConfig.MAX_PER_PAD
 local COUNTDOWN = LobbyConfig.COUNTDOWN
 local GAME_PLACE = LobbyConfig.GAMEPLAY_PLACE_ID
 
-local GROUND_Y = 0
 local rng = Random.new()
+local PAD_RADIUS = 9 -- how close a player must stand to count as "on" the editor pad
 
--- ── greybox airfield (PLACEHOLDER — replace with a hand-built departure hangar) ───────────────
-local lobby = Instance.new("Folder")
-lobby.Name = "LobbyWorld"
-lobby.Parent = Workspace
-
-local function block(name: string, size: Vector3, color: Color3, pos: Vector3, mat: Enum.Material?): Part
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Anchored = true
-	p.Size = size
-	p.Color = color
-	p.Material = mat or Enum.Material.SmoothPlastic
-	p.Position = pos
-	p.Parent = lobby
-	return p
-end
-
-block("Ground", Vector3.new(240, 2, 240), Color3.fromRGB(90, 95, 90), Vector3.new(0, GROUND_Y - 1, 0), Enum.Material.Concrete)
-block("Runway", Vector3.new(40, 0.4, 200), Color3.fromRGB(60, 60, 66), Vector3.new(0, GROUND_Y + 0.2, 0), Enum.Material.Asphalt)
-block("Hangar", Vector3.new(60, 30, 40), Color3.fromRGB(120, 120, 130), Vector3.new(0, GROUND_Y + 15, -90), Enum.Material.Metal)
-
--- spawn point so players land in the lobby (not the void)
-local spawn = Instance.new("SpawnLocation")
-spawn.Name = "LobbySpawn"
-spawn.Anchored = true
-spawn.Size = Vector3.new(12, 1, 12)
-spawn.Color = Color3.fromRGB(80, 140, 90)
-spawn.Position = Vector3.new(0, GROUND_Y + 0.5, 70)
-spawn.Neutral = true
-spawn.Parent = lobby
-
--- ── pads ──────────────────────────────────────────────────────────────────────────────────────
 type Pad = {
 	index: number,
-	part: Part,
+	part: BasePart,
 	prompt: ProximityPrompt,
 	label: TextLabel,
 	occupants: { Player },
@@ -63,31 +30,67 @@ type Pad = {
 	countdown: number,
 }
 
+-- ── find the editor launch pads (Station="PartyPad"), stable order by name ──────────────────────
+local function findPadParts(): { BasePart }
+	local models = {}
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:GetAttribute("Station") == "PartyPad" then
+			table.insert(models, d)
+		end
+	end
+	table.sort(models, function(a, b)
+		return a.Name < b.Name
+	end)
+	local parts = {}
+	for _, m in ipairs(models) do
+		local p = m:FindFirstChild("Center")
+			or m:FindFirstChild("Anchor")
+			or (m:IsA("Model") and m.PrimaryPart)
+			or m:FindFirstChildWhichIsA("BasePart", true)
+		if p and p:IsA("BasePart") then
+			table.insert(parts, p)
+		end
+	end
+	return parts
+end
+
+local padParts: { BasePart } = {}
+local t0 = os.clock()
+repeat
+	padParts = findPadParts()
+	if #padParts > 0 then
+		break
+	end
+	task.wait(0.2)
+until os.clock() - t0 > 15
+if #padParts == 0 then
+	warn('[Lobby] no editor launch pads (Station="PartyPad") found — party system offline')
+	return
+end
+
 local pads: { Pad } = {}
-local PAD_SIZE = Vector3.new(14, 1, 14)
-local PAD_SPACING = 26
 
-local PAD_COLORS = { Color3.fromRGB(200, 120, 60), Color3.fromRGB(70, 140, 200), Color3.fromRGB(150, 90, 190) }
-
-local function makePad(index: number): Pad
-	local x = (index - (PAD_COUNT + 1) / 2) * PAD_SPACING
-	local part = block("LaunchPad" .. index, PAD_SIZE, PAD_COLORS[((index - 1) % #PAD_COLORS) + 1], Vector3.new(x, GROUND_Y + 0.5, 20))
-	part.Material = Enum.Material.Neon
-	part.Transparency = 0.35
-
-	-- floating sign above the pad
-	local signPart = Instance.new("Part")
-	signPart.Name = "Sign"
-	signPart.Anchored = true
-	signPart.CanCollide = false
-	signPart.Transparency = 1
-	signPart.Size = Vector3.new(1, 1, 1)
-	signPart.Position = part.Position + Vector3.new(0, 7, 0)
-	signPart.Parent = part
+local function makePad(index: number, part: BasePart): Pad
+	-- floating sign above the pad (runtime UI attachment, not geometry)
+	local signPart = part:FindFirstChild("PadSignAnchor") :: BasePart?
+	if not signPart then
+		local s = Instance.new("Part")
+		s.Name = "PadSignAnchor"
+		s.Anchored = true
+		s.CanCollide = false
+		s.Transparency = 1
+		s.Size = Vector3.one
+		s.Position = part.Position + Vector3.new(0, 7, 0)
+		s.Parent = part
+		signPart = s
+	end
+	local oldBB = signPart:FindFirstChild("PadSign")
+	if oldBB then
+		oldBB:Destroy()
+	end
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "PadSign"
 	bb.Size = UDim2.fromScale(9, 6)
-	bb.StudsOffset = Vector3.new(0, 0, 0)
 	bb.AlwaysOnTop = true
 	bb.MaxDistance = 200
 	bb.Parent = signPart
@@ -111,6 +114,10 @@ local function makePad(index: number): Pad
 	pad2.Parent = label
 	label.Parent = bb
 
+	local existing = part:FindFirstChild("StartPrompt")
+	if existing then
+		existing:Destroy()
+	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "StartPrompt"
 	prompt.ActionText = "Start Expedition"
@@ -137,7 +144,8 @@ local function updateSign(pad: Pad)
 	else
 		status = "Leader: hold Start"
 	end
-	pad.label.Text = string.format("<b>LAUNCH PAD %d</b>\n%d/%d\n%s\n%s", pad.index, #pad.occupants, MAX, table.concat(names, "\n"), status)
+	pad.label.Text =
+		string.format("<b>LAUNCH PAD %d</b>\n%d/%d\n%s\n%s", pad.index, #pad.occupants, MAX, table.concat(names, "\n"), status)
 	pad.prompt.Enabled = (#pad.occupants > 0) and not pad.launching
 end
 
@@ -149,7 +157,7 @@ local function onPad(player: Player, pad: Pad): boolean
 		return false
 	end
 	local d = root.Position - pad.part.Position
-	return math.abs(d.X) <= PAD_SIZE.X / 2 + 1 and math.abs(d.Z) <= PAD_SIZE.Z / 2 + 1 and d.Y > -2 and d.Y < 10
+	return (Vector3.new(d.X, 0, d.Z)).Magnitude <= PAD_RADIUS and d.Y > -3 and d.Y < 10
 end
 
 local function removeFromAll(player: Player)
@@ -179,14 +187,12 @@ local function launch(pad: Pad)
 		warn("[Lobby] ReserveServerAsync failed: " .. tostring(code))
 		return
 	end
-	-- member UserIds so the game place knows exactly who to wait for (intro readiness gate, Job 043)
 	local members = {}
 	for _, p in group do
 		table.insert(members, p.UserId)
 	end
 	local opt = Instance.new("TeleportOptions")
 	opt.ReservedServerAccessCode = code
-	-- PUBLIC data only: shared river seed + the party roster (size + UserIds) for the intro gate
 	opt:SetTeleportData({
 		seed = rng:NextInteger(1, 2147483646),
 		partySize = #group,
@@ -229,14 +235,13 @@ local function startCountdown(pad: Pad, leader: Player)
 			return
 		end
 		launch(pad)
-		-- if we reach here the teleport didn't take (placeholder/failed) → unlock so testing continues
 		pad.launching = false
 		updateSign(pad)
 	end)
 end
 
-for i = 1, PAD_COUNT do
-	local pad = makePad(i)
+for i, part in ipairs(padParts) do
+	local pad = makePad(i, part)
 	pad.prompt.Triggered:Connect(function(player: Player)
 		startCountdown(pad, player)
 	end)
@@ -254,7 +259,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 	acc = 0
 	for _, pad in ipairs(pads) do
 		local changed = false
-		-- drop players who left the pad (or the game)
 		for i = #pad.occupants, 1, -1 do
 			local plr = pad.occupants[i]
 			if plr.Parent == nil or not onPad(plr, pad) then
@@ -262,7 +266,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 				changed = true
 			end
 		end
-		-- add players newly standing on the pad (append → preserves arrival order)
 		for _, plr in ipairs(Players:GetPlayers()) do
 			if onPad(plr, pad) and not table.find(pad.occupants, plr) then
 				table.insert(pad.occupants, plr)
@@ -277,4 +280,4 @@ end)
 
 Players.PlayerRemoving:Connect(removeFromAll)
 
-print(("[Lobby] airfield + %d launch pads online (gameplay place = %s)"):format(PAD_COUNT, GAME_PLACE > 0 and tostring(GAME_PLACE) or "NOT SET"))
+print(("[Lobby] party system bound to %d editor launch pads (gameplay place = %s)"):format(#pads, GAME_PLACE > 0 and tostring(GAME_PLACE) or "NOT SET"))

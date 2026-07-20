@@ -61,7 +61,14 @@ intro gameplay), start with **Robux Shop**.
 - [x] **REWIRED `StartShopServer` (Robux Shop)** → finds station by attribute `Station="RobuxShop"`,
       attaches prompt to its `Anchor` at runtime (no more HubSpawn kiosk build). Finder validated in
       Edit against all 6 station types. This is the pattern for the rest.
-- [ ] Convert BoatUpgrades / SkillTrainer / Bounties / PartyPads similarly (PartyPad = iterate all).
+- [x] **CORRECTION:** StartShopServer is a GAME script (`/sync/`) — mistakenly edited, **reverted**.
+      Rule saved (memory + GROUND-RULES §1): don't edit scripts across places; GAME `/sync/` vs LOBBY
+      `/lobby/sync/`. The grey box in Play = `Hangar` from `LobbyServer` (lobby), not PlaneWreck.
+- [x] **Converted the correct LOBBY scripts** (user approved both): `lobby/sync/.../LobbyStations`
+      (kiosks → find editor stations by `Station` attr, attach KioskPrompt→OpenPanel) and
+      `LobbyServer` (stop generating world/pads/spawn; bind party/countdown/teleport to editor
+      `PartyPad_*`; spawn = editor SpawnLocation). Finders validated (4 pads, 4 kiosks, spawn).
+- [ ] Rojo-sync the 2 lobby scripts + Play test (grey world gone; prompts + party work).
 - [ ] Lobby required-objects list (`lobby-asset-list.md`) → assets job (incl. palm/tree/bush foliage).
 
 ## Checklist
