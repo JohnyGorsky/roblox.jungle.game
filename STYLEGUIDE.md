@@ -362,6 +362,9 @@ fires a sound. Sound is the primary feedback layer paired with the VFX in §8.
   weathered brown, faded blue, rusty — never bright modern).
 - **Meshy / Creator-Store assets** must be recolored/retextured to this palette and re-checked
   against the world test (§12) before use (per `roblox-assets`).
+- **Terrain grass decoration** (`Terrain.Decoration`) renders **only near the camera** and fades with
+  distance (engine limit — no far-distance setting). Use it for up-close lushness; **distant greenery
+  comes from actual foliage models** (palms/ferns/bushes/grass clumps) placed with LOD/streaming.
 - **Mobile budget:** moderate texture sizes; reuse MaterialVariants over unique textures; keep tri
   counts sensible for streamed river content (see `roblox-optimization`).
 

@@ -30,8 +30,37 @@ Design the lobby (Jungle Airfield) per assets/Images/MapIdea.png. Step 1: agree 
       extended (MINZ −600) so hills/mountains still enclose the longer airstrip.
 - [x] `implementation-plan.md` written
 - [x] **Base terrain ACCEPTED by user (2026-07-20)** — scale, enclosure, runway/water lengths approved
-- [ ] Asset placement pass (markers → props)
+- [x] Atmosphere/lighting pass done & accepted (warm afternoon jungle, muted teal river) →
+      `lobby/build/lobby_atmosphere.luau` + STYLEGUIDE §8
+- [x] **Greybox placement pass** — 15 groups (plane+pilot, spawn, 4 party pads, gold/small shops,
+      dock+stations, boat, welcome sign, 2 watchtowers, runway markings) at agreed coords →
+      `lobby/build/greybox_placement.luau`. Verified by screenshots.
+- [ ] User review of greybox (scale/spacing tweaks?)
 - [ ] Final lobby asset list → assets job
+
+## PIVOT (2026-07-20) — editor-placed lobby, scripts find-by-name
+
+User direction: the lobby is **hand-placed in the editor**, NOT generated at runtime. Scripts must
+**find objects by name** (+ attributes/tags) and **attach actions** (prompts/behavior). Terrain-once
+and ambient/color scripts are OK. Chose **"align code to the design."** (Saved to memory:
+`lobby-editor-placed-not-scripted`.)
+
+Consequence: the runtime lobby-generation scripts (e.g. `StartShopServer` builds a Robux kiosk at
+`HubSpawn+offset`; other stations similarly) get **converted to find-by-name + attach**. The greybox
+becomes the real editor lobby (named objects) + human hand-builds/refines the art.
+
+Decisions: canonical stations = **code's set**; scope = **lobby stations only** (leave boat/river/
+intro gameplay), start with **Robux Shop**.
+
+- [x] Rebuilt greybox as editor lobby → `lobby/build/greybox_placement.luau`. Under `LOBBY_GREYBOX/`:
+      **Stations/** (Spawn, PartyPad_Blue/Red/Green/Yellow, SkillTrainer, Bounties, RobuxShop,
+      BoatUpgrades — each Model has attribute `Station` + hidden `Anchor` part for the prompt),
+      **Displays/** (Leaderboard_TopRuns, Leaderboard_Weekly, WelcomeSign),
+      **Scenery/** (Plane+Pilot, Dock, 2 watchtowers, runway markings, crates/barrels/tents/
+      campfires/sandbags/foliage). BoatUpgrades placed at the water per user request.
+- [ ] Convert `StartShopServer` (Robux) → find `Workspace.LOBBY_GREYBOX.Stations.RobuxShop` + attach
+      prompt (retire the HubSpawn+offset kiosk build). Pattern for the rest.
+- [ ] Then convert BoatUpgrades / SkillTrainer / Bounties / PartyPads similarly.
 
 ## Checklist
 
