@@ -7,7 +7,23 @@
 local Workspace = game:GetService("Workspace")
 local IDLE_ID = "rbxassetid://71254620030056"
 
-local pilot = Workspace:WaitForChild("Pilot", 30)
+-- Find the pilot anywhere in Workspace (it may be nested, e.g. under LOBBY_GREYBOX.Scenery) —
+-- a Model named "Pilot" or one containing the skinned "char1" mesh, with an AnimationController.
+local function findPilot(): Instance?
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and (d.Name == "Pilot" or d:FindFirstChild("char1")) and d:FindFirstChildWhichIsA("AnimationController") then
+			return d
+		end
+	end
+	return nil
+end
+local pilot: Instance? = nil
+local t0 = os.clock()
+repeat
+	pilot = findPilot()
+	if pilot then break end
+	task.wait(0.5)
+until os.clock() - t0 > 20
 if not pilot then warn("[PilotIdle] Pilot model not found in Workspace") return end
 
 local ac = pilot:FindFirstChildWhichIsA("AnimationController")

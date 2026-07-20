@@ -69,6 +69,13 @@ local function attach(def)
 		warn("[LobbyStations] station " .. def.station .. " has no BasePart to host the prompt")
 		return
 	end
+	-- size the activation radius to cover the WHOLE building (+ walk-up margin), measured from the
+	-- host part — so the prompt triggers anywhere around the house, not just at one exact spot.
+	local reach = 34
+	if station:IsA("Model") then
+		local _, sz = station:GetBoundingBox()
+		reach = math.max(math.max(sz.X, sz.Z) / 2 + 22, 34) -- generous: whole building + wide walk-up
+	end
 	local dup = host:FindFirstChild("KioskPrompt")
 	if dup then
 		dup:Destroy()
@@ -79,7 +86,7 @@ local function attach(def)
 	prompt.ObjectText = def.title
 	prompt.HoldDuration = 0.2
 	prompt.RequiresLineOfSight = false
-	prompt.MaxActivationDistance = 12
+	prompt.MaxActivationDistance = reach
 	prompt.Parent = host
 	prompt.Triggered:Connect(function(player: Player)
 		openPanel:FireClient(player, def.id)
