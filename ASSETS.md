@@ -96,7 +96,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
 | Dock / jetty | 1 | Store (Sxphies `3023220773`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/Dock` at east water; `Pier` part kept for soundscape |
-| Winch / mooring post | 1 | Store | ▫ queued | rope tie point |
+| Winch / mooring post | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood post + metal cap + rope, at the dock end (`Scenery.Details.MooringPost`) |
 | Boat (moored display) | 1 | cross-ref gameplay | ▫ queued | real boat is BoatServer's; lobby shows it moored (`boat_ideas.png`) |
 
 ## 1.6 Structures / scenery
@@ -107,11 +107,11 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Welcome sign | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood + gold trim; SurfaceGui "WELCOME TO JUNGLE AIRFIELD" (Special Elite, cream+stroke) on both faces |
 | Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | <span style="color:#2e9c3f">✅ built</span> | wood + gold/blue trim; `RankServer` rewired to fill editor `Leaderboard_TopRuns` (find-by-name) with live Top-10; Weekly = "coming soon" placeholder (no weekly data yet) |
 | Tents / tarps | 3–4 | Store | <span style="color:#2e9c3f">✅ (2 placed)</span> | olive canvas (see camp props); more optional |
-| Cargo netting | 2 | Store | ▫ queued | strung between posts |
-| Windsock | 1 | Store | ▫ queued | airfield flavor (reads wind) |
-| Path fences / rope barriers | few | Store | ▫ queued | line the curved sand paths |
+| Cargo netting | 2 | Store/Build | ▫ queued | strung between posts |
+| Windsock | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | pole + orange/white bands, by the runway (`Scenery.Details.Windsock`) |
+| Path fences / rope barriers | few | Store/Build | ▫ queued | line the curved sand paths |
 | Directional markers / lanterns | few | Build/Store | ▫ queued | guide flow (styleguide §24) |
-| Sky / clouds | 1 | Store/Build | ▫ queued | warm `Sky` + `Clouds` to complement Atmosphere |
+| Sky / clouds | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | volumetric `Clouds` (cover .58) + `Sky`, warm-tinted |
 
 ## 1.7 Camp props (environmental storytelling — cluster meaningfully)
 
@@ -127,7 +127,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Tent (`Tent`) | 2 | Store (`7992921193`) | <span style="color:#2e9c3f">✅ placed</span> | olive canvas @0.5 |
 | Sandbag wall / barrier | 2 rows | Store (`119411292085005` / `78010383039337`) | <span style="color:#2e9c3f">✅ placed</span> | north line |
 | Fuel can | 1 | Store | ▫ queued | handheld |
-| Campfire | 1 | Build + VFX | ▫ queued | fire/smoke/embers + light |
+| Campfire | 2 | Build + VFX | <span style="color:#2e9c3f">✅ built</span> | rock pit raised onto sand + crossed logs; Fire/Smoke/embers/light (§1.10) |
 | Lantern / tiki torch | 2+ | Store | ▫ queued | warm night light |
 | Toolbox / spare tire / cargo pallet / rope / radio | few | Store | ▫ queued | fine detail (P3) |
 
@@ -162,12 +162,12 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 |---|---|---|---|
 | Party-pad glow ring / motes | each of 4 pads | Build | <span style="color:#2e9c3f">✅ built</span> | rising accent-tinted glow motes on each pad Center |
 | Leader sparkle | leader on a pad | Build | ▫ queued |
-| Launch effect (light column + dust burst) | pad → teleport | Build | ▫ queued | needs hook into LobbyServer launch |
+| Launch effect (light column + dust burst) | pad → teleport | Build | <span style="color:#2e9c3f">✅ built</span> | rising light column + dust burst + flash, fired in `LobbyServer` launch() |
 | Campfire (fire+smoke+embers+light) | FirePits | <span style="color:#2e9c3f">✅ built</span> | Fire + Smoke + ember ParticleEmitter + warm PointLight on both `FirePit`s |
 | Torch / lantern flame | each torch/lantern | Build | ▫ queued | needs torch/lantern props first |
 | Fireflies / motes | jungle edge | Build | <span style="color:#2e9c3f">✅ built</span> | 6 firefly clusters on the grass ring (`AmbientVFX`) |
 | Sun-ray dust motes | open airfield | Build | <span style="color:#2e9c3f">✅ built</span> | fine drifting dust field over the clearing (`AmbientVFX`) |
-| Water shimmer / ripples / foam | river + dock | Build | ▫ queued |
+| Water shimmer / ripples / foam | river + dock | Build | <span style="color:#2e9c3f">✅ built (dock foam)</span> | foam/shimmer emitter at the dock shore (`AmbientVFX.DockFoam`); river handled in game place |
 | Plane heat-haze / smoke puff | plane | Build | ▫ queued |
 | Flag / tarp wind sway | flags, tents | Build | ▫ queued |
 | Purchase-confirm burst | on buy | Build | ▫ queued |
