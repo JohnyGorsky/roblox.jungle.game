@@ -92,7 +92,7 @@ local function makePad(index: number, part: BasePart): Pad
 	bb.Name = "PadSign"
 	bb.Size = UDim2.fromScale(9, 6)
 	bb.AlwaysOnTop = true
-	bb.MaxDistance = 200
+	bb.MaxDistance = 40 -- only show the pad sign when the player is near (declutter the far view)
 	bb.Parent = signPart
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)

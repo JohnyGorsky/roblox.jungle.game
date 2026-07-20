@@ -79,17 +79,17 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Station | Object | Source | Status | Notes |
 |---|---|---|---|---|
-| `SkillTrainer` | wooden stall + counter + sign | Store/Build | ▫ queued | blue accent |
-| `Bounties` | board stand / stall | Store/Build | ▫ queued | gold accent |
-| `RobuxShop` | small kiosk | Store/Build | ▫ queued | green; prompt wired |
-| `BoatUpgrades` | mechanic rig/bench at the dock | Store/Build | ▫ queued | green; at the water |
+| `SkillTrainer` | wooden stall + counter + sign | Meshy (user) | ▫ queued | blue accent — awaiting user Meshy model |
+| `Bounties` | board stand / stall | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/Bounties` |
+| `RobuxShop` | small kiosk | Meshy (user) | ▫ queued | green — awaiting user Meshy model |
+| `BoatUpgrades` | mechanic rig/bench at the dock | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/BoatUpgrades` |
 | Sign boards (per station) | 4+ | Build + Flaticon | ▫ queued | wood/metal, icon + ALL-CAPS (styleguide §20) |
 
 ## 1.4 Party / launch pads (interactive)
 
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Party pad (ring + glowing center + group icon) | 4 (Blue/Red/Green/Yellow) | Build + Flaticon | ▫ queued | `PartyPad_*`; edge lights; never obscured |
+| Party pad (ring + glowing center + edge lights) | 4 (Blue/Red/Green/Yellow) | Build | <span style="color:#2e9c3f">✅ built</span> | `PartyPad_*` restyled: weathered wood ring + dark-metal rim, vivid neon center + PointLight, 8 neon edge studs. Station/PadColor attrs kept. Group icon ⏸ (needs Flaticon). Labels distance-culled. |
 
 ## 1.5 Water / dock
 
@@ -104,8 +104,8 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
 | Watchtower | 2 | Store (RangerTower `81318418778699`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/RangerTower` @0.7 → `Watchtower_NW/NE` |
-| Welcome sign | 1 | Build | ▫ queued | "WELCOME TO JUNGLE AIRFIELD", stencil font |
-| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | ▫ queued | wood/metal, gold/blue trim; live text |
+| Welcome sign | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood + gold trim; SurfaceGui "WELCOME TO JUNGLE AIRFIELD" (Special Elite, cream+stroke) on both faces |
+| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | <span style="color:#2e9c3f">✅ built</span> | wood + gold/blue trim; `RankServer` rewired to fill editor `Leaderboard_TopRuns` (find-by-name) with live Top-10; Weekly = "coming soon" placeholder (no weekly data yet) |
 | Tents / tarps | 3–4 | Store | <span style="color:#2e9c3f">✅ (2 placed)</span> | olive canvas (see camp props); more optional |
 | Cargo netting | 2 | Store | ▫ queued | strung between posts |
 | Windsock | 1 | Store | ▫ queued | airfield flavor (reads wind) |
