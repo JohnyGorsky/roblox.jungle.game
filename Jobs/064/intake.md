@@ -78,7 +78,20 @@ intro gameplay), start with **Robux Shop**.
       canopy trees pack (PSY0PZ, rings the clearing). All ✅ 0-script scanned. Recorded in tracker +
       shared registry (`Assets/registry/models.md`). Rejected ClawWOMinerm pack (hidden script + 3,335 parts).
       **Pending:** user to paste Store IDs for the 3 user-inserted `CAND_*` items.
-- [ ] Next foliage: rocks / fallen logs / vines. Then plane, stations, camp props.
+- [x] **Localized foliage into a clean library (user-confirmed):** all 7 approved models copied into
+      `ServerStorage/AssetLibrary/Foliage/` (PalmTall/PalmCurved/PalmLowPoly/PalmCoconut/BushPack/FernTall/
+      JungleTreesPack), renamed + anchored. We duplicate from there; record library path always, origin
+      Store ID only if known. Convention saved to memory + ASSETS.md + registry `models.md`.
+- [x] **Foliage PLACED (2026-07-20):** replaced greybox trees/bushes + terrain-following scatter ringing
+      the clearing **evenly on all sides** (Grass-only raycast; collect-shuffle-place; center + runway
+      kept open). **175 models** in `LOBBY_GREYBOX/Scenery/Foliage`. **User: "perfect."** Fixed a 39°
+      baked tilt in the `FernTall` master (re-stood upright). Perf: ~522 MeshParts + ~1462 solid parts.
+- [x] **Lobby soundscape IMPLEMENTED (2026-07-20):** `lobby/sync/ServerScriptService/LobbySoundscape.server.luau`
+      — 2D music (`lobby_intro_music`) + jungle ambience + wind; positional water @ `Dock.Pier`, campfire
+      @ both `FirePit`s; cicada one-shots. All IDs in registry `audio.md`. (Needs Rojo sync + Play to hear.)
+      Day-night/combat cues (`morning/night/battle_starts`) intentionally left for the GAME place.
+- [ ] Next foliage batch: **rocks / fallen logs / vines** (find → scan → localize → place). Then plane, stations, camp props.
+- [ ] User: **save the place** (foliage is place-file content) + Rojo-sync the lobby scripts + Play test.
 - [x] **Asset list promoted out of the job → root [`/ASSETS.md`](../../ASSETS.md) §1 (user, 2026-07-20):**
       it's the always-referenced, always-updated game-wide asset bible (next to GAME.md/STYLEGUIDE.md),
       wired into CLAUDE.md + jungle-style skill. Requirements/status live there; IDs in the shared

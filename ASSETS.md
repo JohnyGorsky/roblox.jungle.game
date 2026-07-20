@@ -60,11 +60,12 @@ lobby and hides the edges. **Placement:** editor-placed by hand and/or a one-tim
 **`ServerStorage/AssetLibrary/Foliage/`** (lobby place). We **duplicate from there** to place/scatter —
 no dependency on the Store listing surviving, and no need for the origin Store ID. All parts anchored.
 
-**✅ PLACED (2026-07-20):** greybox trees/bushes replaced with real models + a terrain-following dense
-ring scattered around the clearing (Grass-only, denser toward the mountains, sand center + runway kept
-open). ~148 models in `Workspace/LOBBY_GREYBOX/Scenery/Foliage`. Bulk uses the light MeshPart models
-(PalmCoconut/PalmLowPoly/FernTall); the part-heavy Vupatu palms are used sparingly. **Master fix:**
-`FernTall` mesh had a 39° baked tilt — corrected in the library master so it stands upright.
+**✅ PLACED (2026-07-20):** greybox trees/bushes replaced + a terrain-following ring scattered **evenly
+around the whole clearing** (Grass-only via raycast; collect-shuffle-then-place so no side starves; sand
+center + runway kept open). **175 models** in `Workspace/LOBBY_GREYBOX/Scenery/Foliage` (~522 MeshParts +
+~1462 solid parts). Bulk uses light MeshPart models (PalmCoconut/PalmLowPoly/FernTall); part-heavy Vupatu
+palms used sparingly (can swap to mesh palms if a leaner part count is needed). **Master fix:** `FernTall`
+mesh had a 39° baked tilt — corrected in the library master so it stands upright.
 
 | Library master | Want | Origin | Status | Notes |
 |---|---|---|---|---|
