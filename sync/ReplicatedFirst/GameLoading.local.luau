@@ -48,9 +48,27 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local bg = Instance.new("Frame")
 bg.Name = "Backdrop"
 bg.Size = UDim2.fromScale(1, 1)
-bg.BackgroundColor3 = Color3.fromRGB(12, 18, 16) -- deep jungle-night
+bg.BackgroundColor3 = Color3.fromRGB(12, 18, 16) -- deep jungle-night (fallback behind the image)
 bg.BorderSizePixel = 0
 bg.Parent = gui
+
+-- background art (fills the screen; cropped to cover any aspect)
+local bgImage = Instance.new("ImageLabel")
+bgImage.Name = "BgImage"
+bgImage.Size = UDim2.fromScale(1, 1)
+bgImage.BackgroundTransparency = 1
+bgImage.Image = "rbxassetid://73636751330777"
+bgImage.ScaleType = Enum.ScaleType.Crop
+bgImage.Parent = bg
+
+-- dark scrim so the title/tips stay readable over the art
+local scrim = Instance.new("Frame")
+scrim.Name = "Scrim"
+scrim.Size = UDim2.fromScale(1, 1)
+scrim.BackgroundColor3 = Color3.fromRGB(8, 12, 10)
+scrim.BackgroundTransparency = 0.4
+scrim.BorderSizePixel = 0
+scrim.Parent = bg
 
 local title = Instance.new("TextLabel")
 title.Name = "Title"
@@ -235,6 +253,8 @@ task.wait(0.25)
 loading = false -- stop the tip cycler
 local info = TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 TweenService:Create(bg, info, { BackgroundTransparency = 1 }):Play()
+TweenService:Create(bgImage, info, { ImageTransparency = 1 }):Play()
+TweenService:Create(scrim, info, { BackgroundTransparency = 1 }):Play()
 TweenService:Create(title, info, { TextTransparency = 1 }):Play()
 TweenService:Create(status, info, { TextTransparency = 1 }):Play()
 TweenService:Create(track, info, { BackgroundTransparency = 1 }):Play()
