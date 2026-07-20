@@ -21,7 +21,7 @@ local Mat = Enum.Material
 local res = 4
 
 local MINX, MAXX = -380, 600
-local MINZ, MAXZ = -340, 360
+local MINZ, MAXZ = -600, 360   -- extended north so a long runway stays enclosed by hills
 local MINY, MAXY = -48, 140
 local WATER_Y = -4
 local BASIN   = -20
@@ -67,8 +67,9 @@ local function riverValley(x, z)
 end
 
 -- runway influence 0..1: flat strip with graded sides + tapered ends
+-- runway spans z0..z1 (length ~390, matched to the water lobe)
 local function runwayInfluence(x, z)
-	local z0, z1 = -210, -100
+	local z0, z1 = -490, -100
 	if z < z0 - 60 or z > z1 + 60 then return 0 end
 	local dx = math.abs(x) - 18
 	local lat = dx <= 0 and 1 or smooth(1 - dx / 60)
@@ -196,7 +197,7 @@ marker("GOLD SKILL SHOP",Vector3.new(-105,0.6,-20),GOLD,Vector3.new(14,1,12))
 marker("SMALL SKILL SHOP",Vector3.new(-105,0.6,45),BLUE,Vector3.new(14,1,12))
 marker("BOAT DOCK + BOAT",Vector3.new(150,1,5),GREEN,Vector3.new(14,1,10))
 marker("WELCOME SIGN",Vector3.new(0,0.6,120),WOOD,Vector3.new(12,1,6))
-marker("RUNWAY 27",Vector3.new(0,0.6,-155),METAL,Vector3.new(30,1,20))
+marker("RUNWAY 27",Vector3.new(0,0.6,-295),METAL,Vector3.new(36,1,60))
 marker("WATCHTOWER NW",Vector3.new(-95,0.6,-120),DOLIVE)
 marker("WATCHTOWER NE",Vector3.new(90,0.6,-120),DOLIVE)
 local sp = Instance.new("SpawnLocation")

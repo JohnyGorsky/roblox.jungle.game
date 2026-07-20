@@ -42,7 +42,7 @@ Clearing surface at **y = 0**; terrain water surface at **y ≈ −6**.
 | Small Skill Shop | (−105, 45) | West, blue |
 | Boat Dock + Boat | (150, 5) | Over the east water lobe |
 | Welcome Sign | (0, 120) | South entry |
-| Runway 27 | (0, −155) | Flat corridor cut north through the hills |
+| Runway 27 | (0, −295) | Long flat airstrip (~390, matched to water length), Z −490..−100, tapering into the north hills |
 | Watchtower NW / NE | (−95, −120) / (90, −120) | North corners |
 
 ## Terrain spec (what the generator builds)

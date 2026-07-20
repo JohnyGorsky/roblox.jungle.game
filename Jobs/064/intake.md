@@ -26,6 +26,8 @@ Design the lobby (Jungle Airfield) per assets/Images/MapIdea.png. Step 1: agree 
 - [x] Repo artifact: `lobby/build/generate_base_terrain.luau` (re-runnable generator)
 - [x] **v2 fix** — continuous height field: removed hard walls (water now has sloped sand beaches;
       runway is graded + tapered into the hills). Verified by eye-level screenshots.
+- [x] Runway lengthened to match the water lobe (~390 studs, Z −490..−100); map north edge
+      extended (MINZ −600) so hills/mountains still enclose the longer airstrip.
 - [x] `implementation-plan.md` written
 - [ ] User walks the base & confirms scale/spots
 - [ ] Asset placement pass (markers → props)
