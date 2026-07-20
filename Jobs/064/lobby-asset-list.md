@@ -193,10 +193,14 @@ Chosen assets as we go (Store = approved + scanned; ChatGPT/You = pending your u
 
 | Asset | Source | Status | Asset ID / notes |
 |---|---|---|---|
-| Palm tree(s) | Store | searching | — |
-| Jungle tree(s) | Store | searching | — |
-| Bush / fern | Store | searching | — |
-| Rocks / logs | Store | queued | — |
+| Palm — Tall Straight | Store (Vupatu) | ✅ APPROVED + scanned (2026-07-20) | `5031791950` |
+| Palm — Curved | Store (Vupatu) | ✅ APPROVED + scanned | `5031794668` — matched pair |
+| Palm — Low-Poly | Store (LegendaryFrosts) | ✅ APPROVED + scanned | `1436325105` — darker variant |
+| Coconut Palm | Store (Trexlty) | ✅ APPROVED + scanned | `CAND_PalmCoconut_Trexlty` — **ID pending (user to paste)** |
+| Bush/fern/ground-cover pack | Store (DoctorFir) | ✅ APPROVED + scanned | `81654645105891` — Tropical Plant Pack (8 meshes) |
+| Tall fern / large leaf | Store | ✅ APPROVED + scanned | `CAND_FernTall` — **ID pending (user to paste)** |
+| Canopy trees pack | Store (PSY0PZ) | ✅ APPROVED + scanned | `CAND_TreesFoliagePack_PSY0PZ` — 102 meshes, rings clearing; **ID pending**. Dupe deleted. |
+| Rocks / logs / vines | Store | ⏳ next search | — |
 | Cargo plane | Store→Meshy | queued | — |
 | Crates / barrels / props | Store | queued | — |
 | Watchtower / tents | Store | queued | — |
@@ -204,3 +208,5 @@ Chosen assets as we go (Store = approved + scanned; ChatGPT/You = pending your u
 | UI icons ×8 | ChatGPT (you) | pending | — |
 | Ambient / SFX / music | You (Pixabay) | pending | — |
 | Party pads / leaderboards / VFX | Build | Claude builds | — |
+
+> **REJECTED:** Jungle Trees Pack (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts; deleted per scan rule.

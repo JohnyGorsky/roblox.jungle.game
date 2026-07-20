@@ -72,7 +72,13 @@ intro gameplay), start with **Robux Shop**.
 - [x] **Populated the full lobby asset requirements** (`lobby-asset-list.md`): objects, foliage
       (dense-forest ring ★), stations, pads, displays, props, decals, icons, VFX, ambient audio, SFX,
       music, lighting-ref. Sourcing (where to get each) = the NEXT step.
-- [ ] Decide sourcing per item (Meshy / Store / Flaticon / Pixabay / Build) → assets job.
+- [x] Decide sourcing per item — Creator Store first for 3D (decided 2026-07-20).
+- [x] **Foliage kit sourced (Creator Store, scanned) — 2026-07-20:** palms ×3 (Vupatu straight/curved,
+      LegendaryFrosts), coconut palm (Trexlty), bush/fern pack (DoctorFir `81654645105891`), tall fern,
+      canopy trees pack (PSY0PZ, rings the clearing). All ✅ 0-script scanned. Recorded in tracker +
+      shared registry (`Assets/registry/models.md`). Rejected ClawWOMinerm pack (hidden script + 3,335 parts).
+      **Pending:** user to paste Store IDs for the 3 user-inserted `CAND_*` items.
+- [ ] Next foliage: rocks / fallen logs / vines. Then plane, stations, camp props.
 - [ ] Lobby required-objects list (`lobby-asset-list.md`) → assets job (incl. palm/tree/bush foliage).
 
 ## Checklist
