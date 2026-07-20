@@ -13,6 +13,18 @@ music. Style per the `jungle-style` guide (stylized jungle-expedition, chunky/re
 Every interactive object stays a **named Model + `Station` attribute + `Anchor` part** so scripts bind
 to it (memory: lobby-editor-placed-not-scripted).
 
+## Sourcing plan (decided 2026-07-20)
+- **3D models / props / foliage / structures → Creator Store** (Roblox assets, free/paid). Claude
+  searches + presents candidates (name / creator / id); **you approve**; Claude inserts + **scans for
+  scripts** and deletes anything unneeded (`roblox-assets`). Meshy only as fallback if nothing fits.
+- **Images — decals, painted airfield star, signage art, UI icons → ChatGPT (you generate)** → upload
+  to Roblox → hand Claude the `rbxassetid://` → Claude wires them in.
+- **Audio — ambient / SFX / music → you source** (Pixabay etc.) → give Claude the IDs.
+- **VFX (particles / beams / lights) → Build in Studio** (Claude authors; no external asset).
+- **Party pads · leaderboards · sign text · HUD → Build** (parts + SurfaceGui/GUI).
+
+Chosen assets are recorded in **Sourcing tracker** (bottom) + the shared asset registry.
+
 ## Priority
 - **P1 (hero / blocks the look):** cargo plane, palm/tree set + bushes (the jungle floor), station buildings, party pads.
 - **P2:** camp props (crates/barrels/tents/sandbags), signs, leaderboards, lanterns/torches.
@@ -175,3 +187,20 @@ added. (Set `Lighting.Technology = Future` in Studio.)
 - [ ] How many palm/tree variants is "enough" for the density we want (start 4 palms + 3 trees + 3 bushes)?
 - [ ] Editor hand-place vs one-time scatter helper for foliage?
 - [ ] Boat model: handled here (lobby display) or fully in the boat/gameplay job?
+
+## Sourcing tracker
+Chosen assets as we go (Store = approved + scanned; ChatGPT/You = pending your upload/IDs).
+
+| Asset | Source | Status | Asset ID / notes |
+|---|---|---|---|
+| Palm tree(s) | Store | searching | — |
+| Jungle tree(s) | Store | searching | — |
+| Bush / fern | Store | searching | — |
+| Rocks / logs | Store | queued | — |
+| Cargo plane | Store→Meshy | queued | — |
+| Crates / barrels / props | Store | queued | — |
+| Watchtower / tents | Store | queued | — |
+| Airfield star / path decals | ChatGPT (you) | pending | — |
+| UI icons ×8 | ChatGPT (you) | pending | — |
+| Ambient / SFX / music | You (Pixabay) | pending | — |
+| Party pads / leaderboards / VFX | Build | Claude builds | — |
