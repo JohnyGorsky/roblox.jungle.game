@@ -88,7 +88,8 @@ deleted per scan rule. Do not re-source.
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
 | Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | ✅ PLACED (user) | User Meshy plane placed at `Scenery.Plane` (center, grounded) + copy in `AssetLibrary/Plane`. Olive cargo plane, 1 MeshPart 53×57. **CollisionFidelity set to PreciseConvexDecomposition** so players can walk under the wings (was default Box). |
-| Pilot NPC | 1 | Meshy (roblox-chars) | ▫ | stands by the plane; talk-to-start flavor |
+| Pilot NPC | 1 | Meshy | 🔨 USER (in progress) | **User making it** — Meshy object, rigged, with one animation (idle). Stands by the plane. |
+| Airstrip / runway surface | 5 tiles | Store (user) | ✅ PLACED (user) | Cracked-concrete airstrip tiled up the corridor (z −154→−485, X≈0). Clean/anchored/flush. Master in `AssetLibrary/Plane/RunWay` (consider moving to Structures). |
 
 ## 1.3 Station buildings / kiosks (interactive — name + `Station` attr + `Anchor`)
 | Station | Object | Source | Status | Notes |
@@ -107,14 +108,14 @@ deleted per scan rule. Do not re-source.
 ## 1.5 Water / dock
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Dock / jetty (planks + posts) | 1 | Store/Build | ▫ | east shore |
+| Dock / jetty (planks + posts) | 1 | Store (Sxphies) | ✅ PLACED | `AssetLibrary/Structures/Dock` at east water; deck walkable, `Pier` part kept for soundscape |
 | Winch / mooring post | 1 | Store | ▫ | rope tie point |
 | Boat (moored display) | 1 | cross-ref gameplay | ▫ | real boat is BoatServer's (own job); lobby shows it moored — see `boat_ideas.png` (3 tiers) |
 
 ## 1.6 Structures / scenery
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Watchtower | 2 | Store/Build | ▫ | legs + platform + tarp roof |
+| Watchtower | 2 | Store (RangerTower) | ✅ PLACED | `AssetLibrary/Structures/RangerTower` @0.7 → `Watchtower_NW/NE`, grounded |
 | Welcome sign | 1 | Build | ▫ | "WELCOME TO JUNGLE AIRFIELD", stencil font |
 | Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | ▫ | wood/metal, gold/blue trim; live text |
 | Tents / tarps | 3–4 | Store | ▫ | canvas, olive |
