@@ -93,32 +93,63 @@ end
 Players.PlayerAdded:Connect(onPlayer)
 
 -- ── leaderboard board (global Top 10 by River Score) ────────────────────────────────────────────
-local board = Instance.new("Part")
-board.Name = "LeaderboardBoard"
-board.Anchored = true
-board.CanCollide = false
-board.Size = Vector3.new(24, 13, 1)
-board.Color = Color3.fromRGB(24, 26, 32)
-board.Material = Enum.Material.SmoothPlastic
--- raised HIGH and set back behind the pads so it clears the pads' AlwaysOnTop signs; front face
--- (+Z after 180° yaw) toward players walking in from spawn — reads as a leaderboard wall
-board.CFrame = CFrame.new(0, 17, -16) * CFrame.Angles(0, math.rad(180), 0)
-board.Parent = workspace
+-- Prefer the EDITOR-placed board (find-by-name, per Job 064 pivot); fall back to a generated wall
+-- so the leaderboard still shows if the editor board is missing.
+local board: BasePart
+local displays = workspace:FindFirstChild("LOBBY_GREYBOX") and workspace.LOBBY_GREYBOX:FindFirstChild("Displays")
+local editorLb = displays and displays:FindFirstChild("Leaderboard_TopRuns")
+local editorBoardPart = editorLb and editorLb:FindFirstChild("Board")
+if editorBoardPart and editorBoardPart:IsA("BasePart") then
+	board = editorBoardPart
+else
+	board = Instance.new("Part")
+	board.Name = "LeaderboardBoard"
+	board.Anchored = true
+	board.CanCollide = false
+	board.Size = Vector3.new(24, 13, 1)
+	board.Color = Color3.fromRGB(36, 53, 45)
+	board.Material = Enum.Material.WoodPlanks
+	board.CFrame = CFrame.new(0, 17, -16) * CFrame.Angles(0, math.rad(180), 0)
+	board.Parent = workspace
+end
 
+-- pick the board face pointing toward the lobby centre so text reads for approaching players
+local function faceToward(part: BasePart, target: Vector3): Enum.NormalId
+	local best, bestDot = Enum.NormalId.Front, -math.huge
+	for _, nid in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }) do
+		local n = part.CFrame:VectorToWorldSpace(Vector3.FromNormalId(nid))
+		local d = n:Dot((target - part.Position).Unit)
+		if d > bestDot then bestDot, best = d, nid end
+	end
+	return best
+end
+
+for _, g in ipairs(board:GetChildren()) do
+	if g:IsA("SurfaceGui") or g:IsA("BillboardGui") then g:Destroy() end
+end
 local sg = Instance.new("SurfaceGui")
 sg.Name = "BoardGui"
-sg.Face = Enum.NormalId.Front
-sg.CanvasSize = Vector2.new(600, 380)
+sg.Face = faceToward(board, Vector3.new(0, board.Position.Y, 0))
+sg.CanvasSize = Vector2.new(700, 400)
 sg.Parent = board
 
+-- backing panel (dark jungle UI) so cream text reads on the wood
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromScale(1, 1)
+panel.BackgroundColor3 = Color3.fromRGB(36, 53, 45)
+panel.BackgroundTransparency = 0.12
+panel.BorderSizePixel = 0
+panel.Parent = sg
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.fromScale(1, 0.14)
-title.BackgroundColor3 = Color3.fromRGB(245, 197, 66)
-title.TextColor3 = Color3.fromRGB(20, 20, 24)
-title.Font = Enum.Font.GothamBold
+title.Size = UDim2.fromScale(1, 0.16)
+title.BackgroundColor3 = Color3.fromRGB(214, 155, 34) -- gold (progression)
+title.BorderSizePixel = 0
+title.TextColor3 = Color3.fromRGB(36, 26, 14)
+title.Font = Enum.Font.Oswald
 title.TextScaled = true
 title.Text = "TOP RIVER LEGENDS"
-title.Parent = sg
+title.Parent = panel
 
 local rows = Instance.new("Frame")
 rows.Position = UDim2.fromScale(0, 0.15)
