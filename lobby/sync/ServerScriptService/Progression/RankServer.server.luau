@@ -115,8 +115,19 @@ end
 
 -- pick the board face pointing toward the lobby centre so text reads for approaching players
 local function faceToward(part: BasePart, target: Vector3): Enum.NormalId
-	local best, bestDot = Enum.NormalId.Front, -math.huge
-	for _, nid in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }) do
+	-- big faces = the two normals along the part's THINNEST axis (the flat board faces);
+	-- pick whichever points more toward the target so text reads for approaching players.
+	local s = part.Size
+	local candidates
+	if s.Z <= s.X and s.Z <= s.Y then
+		candidates = { Enum.NormalId.Front, Enum.NormalId.Back }
+	elseif s.X <= s.Y then
+		candidates = { Enum.NormalId.Right, Enum.NormalId.Left }
+	else
+		candidates = { Enum.NormalId.Top, Enum.NormalId.Bottom }
+	end
+	local best, bestDot = candidates[1], -math.huge
+	for _, nid in ipairs(candidates) do
 		local n = part.CFrame:VectorToWorldSpace(Vector3.FromNormalId(nid))
 		local d = n:Dot((target - part.Position).Unit)
 		if d > bestDot then bestDot, best = d, nid end
