@@ -89,7 +89,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Party pad (ring + glowing center + edge lights) | 4 (Blue/Red/Green/Yellow) | Build | <span style="color:#2e9c3f">✅ built</span> | `PartyPad_*` restyled: weathered wood ring + dark-metal rim, vivid neon center + PointLight, 8 neon edge studs. Station/PadColor attrs kept. Group icon ⏸ (needs Flaticon). Labels distance-culled. |
+| Party pad (launch platform) | 4 (Blue/Red/Green/Yellow) | Build | <span style="color:#2e9c3f">✅ built (v2)</span> | Redesigned from flat discs → raised diamond-plate platform + wood deck, glowing accent center-ring + dark metal `Center` (kept for LobbyServer detection), colored light-beam column, 8 edge lights, rising motes. Station/PadColor/Anchor kept. Group icon ⏸ (needs Flaticon). |
 
 ## 1.5 Water / dock
 

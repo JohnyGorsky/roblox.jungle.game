@@ -51,7 +51,18 @@ local bgImage = Instance.new("ImageLabel")
 bgImage.Name = "BgImage"
 bgImage.Size = UDim2.fromScale(1, 1)
 bgImage.BackgroundTransparency = 1
-bgImage.Image = "rbxassetid://73636751330777"
+-- use the image from ReplicatedFirst.LoadingBackground (author-editable in Studio); fall back to the id
+local BG_FALLBACK = "rbxassetid://73636751330777"
+local bgSrc = ReplicatedFirst:FindFirstChild("LoadingBackground")
+local bgId = BG_FALLBACK
+if bgSrc then
+	if (bgSrc:IsA("Decal") or bgSrc:IsA("Texture")) and bgSrc.Texture ~= "" then
+		bgId = bgSrc.Texture
+	elseif (bgSrc:IsA("ImageLabel") or bgSrc:IsA("ImageButton")) and bgSrc.Image ~= "" then
+		bgId = bgSrc.Image
+	end
+end
+bgImage.Image = bgId
 bgImage.ScaleType = Enum.ScaleType.Crop
 bgImage.Parent = bg
 

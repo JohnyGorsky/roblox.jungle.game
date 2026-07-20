@@ -170,12 +170,43 @@ local function removeFromAll(player: Player)
 	end
 end
 
+-- launch "juice": a rising light column + dust burst + brief flash at the pad
+local function playLaunchVFX(pad: Pad)
+	local part = pad.part
+	if not part then return end
+	local TweenService = game:GetService("TweenService")
+	local base = part.Position + Vector3.new(0, 1, 0)
+	local col = Instance.new("Part")
+	col.Anchored = true; col.CanCollide = false; col.CastShadow = false
+	col.Material = Enum.Material.Neon; col.Color = Color3.fromRGB(255, 240, 205); col.Transparency = 0.25
+	col.Shape = Enum.PartType.Cylinder; col.Size = Vector3.new(6, 6, 6)
+	col.CFrame = CFrame.new(base) * CFrame.Angles(0, 0, math.rad(90))
+	col.Parent = Workspace
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 240, 205); light.Brightness = 6; light.Range = 32; light.Shadows = false
+	light.Parent = col
+	local att = Instance.new("Attachment"); att.Parent = col
+	local dust = Instance.new("ParticleEmitter")
+	dust.Color = ColorSequence.new(Color3.fromRGB(222, 208, 172))
+	dust.Lifetime = NumberRange.new(0.7, 1.3); dust.Speed = NumberRange.new(12, 20); dust.SpreadAngle = Vector2.new(45, 45)
+	dust.Rate = 0; dust.Acceleration = Vector3.new(0, -10, 0)
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2), NumberSequenceKeypoint.new(1, 5) })
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	dust.Parent = att
+	dust:Emit(40)
+	TweenService:Create(col, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Size = Vector3.new(90, 3.5, 3.5), CFrame = CFrame.new(part.Position + Vector3.new(0, 46, 0)) * CFrame.Angles(0, 0, math.rad(90)), Transparency = 1 }):Play()
+	TweenService:Create(light, TweenInfo.new(0.9), { Brightness = 0 }):Play()
+	game:GetService("Debris"):AddItem(col, 1.6)
+end
+
 -- ── launch ──────────────────────────────────────────────────────────────────────────────────
 local function launch(pad: Pad)
 	local group = table.clone(pad.occupants)
 	if #group == 0 then
 		return
 	end
+	pcall(playLaunchVFX, pad)
 	if GAME_PLACE <= 0 then
 		warn("[Lobby] set LobbyConfig.GAMEPLAY_PLACE_ID — cannot teleport yet (Studio/placeholder).")
 		return
