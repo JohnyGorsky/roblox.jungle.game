@@ -88,7 +88,7 @@ deleted per scan rule. Do not re-source.
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
 | Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | ✅ PLACED (user) | User Meshy plane placed at `Scenery.Plane` (center, grounded) + copy in `AssetLibrary/Plane`. Olive cargo plane, 1 MeshPart 53×57. **CollisionFidelity set to PreciseConvexDecomposition** so players can walk under the wings (was default Box). |
-| Pilot NPC | 1 | Meshy | 🔨 USER (in progress) | **User making it** — Meshy object, rigged, with one animation (idle). Stands by the plane. |
+| Pilot NPC | 1 | Meshy | ✅ PLACED + RIGGED | User Meshy pilot at `workspace.Pilot` (+ `AssetLibrary/Characters/Pilot`). Skinned rig (22 bones); AnimationController+Animator added; idle `71254620030056` looped by `lobby/sync/ServerScriptService/PilotIdle.server.luau`. Needs Rojo sync + Play to see it idle. |
 | Airstrip / runway surface | 5 tiles | Store (user) | ✅ PLACED (user) | Cracked-concrete airstrip tiled up the corridor (z −154→−485, X≈0). Clean/anchored/flush. Master in `AssetLibrary/Plane/RunWay` (consider moving to Structures). |
 
 ## 1.3 Station buildings / kiosks (interactive — name + `Station` attr + `Anchor`)
