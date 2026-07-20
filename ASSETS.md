@@ -76,9 +76,9 @@ mesh had a 39° baked tilt — corrected in the library master so it stands upri
 | `BushPack` | 3+ | Store (DoctorFir `81654645105891`) | ✅ | 8 meshes; broadleaf + small foliage + flowers |
 | `FernTall` | ✓ | Store (origin ID unknown) | ✅ | localized master; large ground leaf |
 | `JungleTreesPack` | ✓ | Store (PSY0PZ, origin ID unknown) | ✅ | 102 meshes; pre-arranged, rings the clearing. Dupe deleted. |
-| Rocks (S/M/L) | 3 | Store | ⏳ next search | shoreline + jungle floor |
-| Fallen log / roots | 2 | Store | ⏳ next search | environmental storytelling |
-| Vines / hanging | 1–2 | Store | ⏳ next search | drape on towers/trees |
+| Rocks (S/M/L) | 3 | Store ("rocks 3") | ✅ PLACED | `AssetLibrary/Rocks/RockA·B·C` (split from 1 oversized mesh). ~24 placed: jungle floor + Sand shoreline. Embedded (bottom-aligned, water rejected). |
+| Fallen log / roots | 2 | Store (OptOff mossy log) | ✅ PLACED | `AssetLibrary/Logs/LogMossy`; 6 near the tree line. Realistic moss (mild style clash). |
+| Vines / hanging | 1–2 | Store | ⏸ deferred | Rotanix `9376334307` scanned-clean but user skipped for now; other vine candidates carried scripts (rejected). Revisit later. |
 | Grass tuft / clump | 2 | Build/Store | ▫ | editor-scatter in clusters |
 
 ❌ **Rejected:** *Jungle Trees Pack* (ClawWOMinerm `119737242130790`) — hidden `Script` + 3,335 parts;
@@ -87,7 +87,7 @@ deleted per scan rule. Do not re-source.
 ## 1.2 Landmark
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | ▫ P1 | parked/half-crashed; `Scenery.Plane`. A crashed-plane Meshy asset already exists in `assets/Objects/Plane/` |
+| Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | ✅ PLACED (user) | User Meshy plane placed at `Scenery.Plane` (center, grounded) + copy in `AssetLibrary/Plane`. Olive cargo plane, 1 MeshPart 53×57. **CollisionFidelity set to PreciseConvexDecomposition** so players can walk under the wings (was default Box). |
 | Pilot NPC | 1 | Meshy (roblox-chars) | ▫ | stands by the plane; talk-to-start flavor |
 
 ## 1.3 Station buildings / kiosks (interactive — name + `Station` attr + `Anchor`)
@@ -125,9 +125,11 @@ deleted per scan rule. Do not re-source.
 | Sky / clouds | 1 | Store/Build | ▫ | warm `Sky` + `Clouds` to complement Atmosphere |
 
 ## 1.7 Camp props (environmental storytelling — cluster meaningfully)
-Wooden crate ×3 · metal military crate ×2 · oil barrel/fuel drum ×2 · fuel can · sandbags · campfire
-(Build+VFX) · lantern/hanging lamp ×2 · tiki torch · toolbox/wrenches ×2 · spare tire · cargo pallet ×2 ·
-rope coil/radio/small table ×3. **Source:** Store · **Status:** ▫ P2–P3.
+**✅ PLACED (2026-07-20):** localized to `AssetLibrary/Props` + placed in `Scenery/CampProps` (25 models,
+replaced 41 greybox placeholders): `CrateWood` + `AmmoBox` stacks (4 clusters), `Barrel`/`BarrelsSet`
+(3 groups), `Tent` ×2 (@0.5 scale), `SandbagWall`+`SandbagBarrier` (2 north rows). Grounded by raycast.
+Perf: heavy parts (CrateWood 66, BarrelsSet 62) used sparingly. IDs → registry `models.md`.
+Still ▫ (later): fuel can · campfire (Build+VFX) · lantern/torch · toolbox · spare tire · cargo pallet · rope/radio.
 
 ## 1.8 Ground / decals
 | Object | Source | Status | Notes |
