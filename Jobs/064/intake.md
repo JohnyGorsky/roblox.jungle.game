@@ -58,9 +58,11 @@ intro gameplay), start with **Robux Shop**.
       **Displays/** (Leaderboard_TopRuns, Leaderboard_Weekly, WelcomeSign),
       **Scenery/** (Plane+Pilot, Dock, 2 watchtowers, runway markings, crates/barrels/tents/
       campfires/sandbags/foliage). BoatUpgrades placed at the water per user request.
-- [ ] Convert `StartShopServer` (Robux) → find `Workspace.LOBBY_GREYBOX.Stations.RobuxShop` + attach
-      prompt (retire the HubSpawn+offset kiosk build). Pattern for the rest.
-- [ ] Then convert BoatUpgrades / SkillTrainer / Bounties / PartyPads similarly.
+- [x] **REWIRED `StartShopServer` (Robux Shop)** → finds station by attribute `Station="RobuxShop"`,
+      attaches prompt to its `Anchor` at runtime (no more HubSpawn kiosk build). Finder validated in
+      Edit against all 6 station types. This is the pattern for the rest.
+- [ ] Convert BoatUpgrades / SkillTrainer / Bounties / PartyPads similarly (PartyPad = iterate all).
+- [ ] Lobby required-objects list (`lobby-asset-list.md`) → assets job (incl. palm/tree/bush foliage).
 
 ## Checklist
 

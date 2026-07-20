@@ -1,0 +1,114 @@
+# Lobby — Required Objects List (Jungle Airfield)
+
+**Project**: `roblox.jungle` · Job #064 · drafted 2026-07-20
+
+The full list of objects the lobby needs, to seed the **assets job**. Style per the `jungle-style`
+guide (stylized jungle-expedition, chunky/readable, weathered). **Source key:** `Meshy` = custom 3D
+(human generates from my prompt), `Store` = Creator Store search (present for approval, scan scripts),
+`Flaticon` = UI icon (upload → ID), `Build` = Studio parts/GUI (no asset), `ChatGPT` = decal/art image.
+All sourcing per `GROUND-RULES §4` + `roblox-assets` (our inventory/registry first, present before use).
+
+Every interactive object stays a **named Model + `Station` attribute + `Anchor` part** so scripts bind
+to it (memory: lobby-editor-placed-not-scripted).
+
+## Priority
+- **P1 (hero / blocks the look):** cargo plane, palm/tree set + bushes (the jungle floor), station buildings, party pads.
+- **P2:** camp props (crates/barrels/tents/sandbags), signs, leaderboards, lanterns/torches.
+- **P3:** fine detail (ropes, radios, tools, tires), ground decals, ambient VFX/audio.
+
+---
+
+## 1. Foliage — the jungle floor  ← (addresses jungle_example.png: grass filled with trees + bushes)
+The grass band must read as **dense jungle**, not bare grass. We need a **kit of variants** placed in
+clusters (styleguide: cluster, don't scatter singles; frame the play area, keep the center readable).
+
+| Object | Variants | Source | Notes |
+|---|---|---|---|
+| Palm tree | 3–4 (tall/leaning/short/coconut) | Meshy / Store | Hero jungle silhouette; low-poly-ish, chunky fronds |
+| Jungle broadleaf tree | 2–3 | Meshy / Store | Fills canopy behind palms |
+| Bush / shrub | 3 (small/med/flowering) | Meshy / Store | The "small bushes" from the reference |
+| Fern / large leaf | 2–3 | Meshy / Store | Ground cover near banks/paths |
+| Grass tuft / clump | 2 | Build/Store | Editor-scatter in clusters (terrain decoration only renders near camera — §10) |
+| Vines / hanging | 1–2 | Meshy / Store | Drape on towers/trees for atmosphere |
+| Rock (S/M/L) | 3 | Meshy / Store | Shoreline + jungle floor |
+| Fallen log / roots | 2 | Meshy / Store | Environmental storytelling |
+
+**Placement approach:** editor-placed. Once the tree/bush models exist, place by hand **and/or** a
+one-time editor **scatter helper** (like the terrain-once script — allowed) that drops the models in
+clusters across the grass band, denser toward the jungle edge, sparse in the play center. Not runtime.
+
+## 2. Landmark
+| Object | Qty | Source | Notes |
+|---|---|---|---|
+| Cargo plane (1940s–70s, olive, big props) | 1 | Meshy | Parked/half-crashed; the "arrive by air" landmark (`Scenery.Plane`) |
+| Pilot NPC | 1 | Meshy (roblox-chars) | Stands by the plane; talk-to-start flavor |
+
+## 3. Station buildings / kiosks (interactive — keep names + `Station` attr + `Anchor`)
+| Station | Object | Source | Notes |
+|---|---|---|---|
+| `SkillTrainer` | Wooden stall + counter + sign | Meshy/Build | Blue accent |
+| `Bounties` | Board stand / stall | Meshy/Build | Gold accent |
+| `RobuxShop` | Small kiosk | Meshy/Build | Green accent (prompt wired ✅) |
+| `BoatUpgrades` | Mechanic rig/bench at the dock | Meshy/Build | Green; at the water |
+| Sign boards (per station) | 4+ | Build + Flaticon | Wood/metal backing, thick border, icon + ALL-CAPS (styleguide §20) |
+
+## 4. Party / launch pads (interactive)
+| Object | Qty | Source | Notes |
+|---|---|---|---|
+| Party pad (wood+metal ring, colored glowing center, player-group icon) | 4 (Blue/Red/Green/Yellow) | Build + Flaticon | `PartyPad_*`; edge lights; never obscured |
+
+## 5. Water / dock
+| Object | Qty | Source | Notes |
+|---|---|---|---|
+| Dock / jetty (planks + posts) | 1 | Meshy/Build | East shore |
+| Winch / mooring post | 1 | Meshy/Store | Rope tie point |
+| Boat (moored display) | 1 | **cross-ref gameplay** | The real boat is BoatServer's (own job); lobby shows it moored — see `boat_ideas.png` (3 tiers) |
+
+## 6. Structures / scenery
+| Object | Qty/Variants | Source | Notes |
+|---|---|---|---|
+| Watchtower | 2 | Meshy/Build | Legs + platform + tarp roof |
+| Welcome sign | 1 | Build | "WELCOME TO JUNGLE AIRFIELD", stencil font |
+| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | Wood/metal, gold/blue trim; live text via SurfaceGui |
+| Tents / tarps | 3–4 | Meshy/Store | Canvas, olive |
+| Cargo netting | 2 | Meshy/Store | Strung between posts |
+
+## 7. Camp props (environmental storytelling — cluster meaningfully)
+| Object | Variants | Source | Notes |
+|---|---|---|---|
+| Wooden crate | 3 | Meshy/Store | Stacks near shops/dock |
+| Metal military crate | 2 | Meshy/Store | Olive, weathered |
+| Oil barrel / fuel drum | 2 | Meshy/Store | Rust; fuel theme |
+| Fuel can | 1 | Meshy/Store | Handheld |
+| Sandbags (stack) | 1 | Meshy/Build | Defensive dressing |
+| Campfire | 1 | Build + VFX | Fire/smoke particles + light |
+| Lantern / hanging lamp | 2 | Meshy/Store | Warm light source (night) |
+| Tiki torch (path-lining) | 1 | Meshy/Store | Warm light; lines paths |
+| Toolbox / wrenches | 2 | Meshy/Store | At Boat Upgrades / mechanic |
+| Spare tire | 1 | Meshy/Store | Clutter |
+| Cargo pallet / supply box | 2 | Meshy/Store | Clutter |
+| Rope coil / radio / small table | 3 | Meshy/Store | Fine detail (P3) |
+
+## 8. Ground / decals
+| Object | Qty | Source | Notes |
+|---|---|---|---|
+| Airfield star (spawn) | 1 | ChatGPT/Flaticon → decal | Painted military star |
+| Runway "27" + stripes | 1 set | Build/decal | Cream markings |
+| Path decals (sand/dirt/tire tracks) | 2–3 | ChatGPT → decal | Curved paths connecting zones (styleguide §24) |
+
+## 9. Icons (UI, for signs + HUD) — Flaticon
+Gear (engine) · Shield (hull) · Fuel pump (fuel) · Crate (storage) · Crossed tools (equipment) ·
+Star (gold/major) · Wrench (utility) · Player-group (party). One consistent set → record IDs in
+`STYLEGUIDE.md §7` + the asset registry.
+
+## 10. Audio / VFX (cross-ref — own passes)
+Jungle ambience bed, birds/insects, water lapping, campfire crackle, lantern hum; warm point-lights,
+campfire fire+smoke, water shimmer. (Audio sourcing = Pixabay; see STYLEGUIDE §8–9.)
+
+---
+
+### Open questions for the assets pass
+- [ ] Meshy vs Creator Store per item (I'll draft Meshy prompts for the hero set: plane, palms, boat).
+- [ ] How many palm/tree variants is "enough" for the density we want (start 4 palms + 3 trees + 3 bushes)?
+- [ ] Editor hand-place vs one-time scatter helper for foliage?
+- [ ] Boat model: handled here (lobby display) or fully in the boat/gameplay job?
