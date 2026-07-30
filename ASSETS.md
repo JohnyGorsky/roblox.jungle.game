@@ -375,22 +375,26 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 > trees). Icon IDs verified 2026-07-30 — gold packs via Studio `GetProductInfo(...).IconImageAssetId`
 > (all 4 match), passes via the Roblox game-pass product-info API.
 
-| File | Product / pass | Type | Product/Pass ID | Icon `rbxassetid` | Status |
-|---|---|---|---|---|---|
-| `10.png` | 10 Gold (49 R$) | dev product | `3610663250` | `121862847548970` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `25.png` | 25 Gold (99 R$) | dev product | `3610663288` | `95542160791148` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `60.png` | 60 Gold (199 R$) | dev product | `3610663341` | `74400053482366` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | `80233861953394` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | `138728521842994` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | <span style="color:#2e9c3f">✅ live on Hub</span> |
-| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | `130780112255781` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+**Two ids per product** — they are not interchangeable:
+**Hub icon** = what the Roblox store listing shows · **In-game icon** = the transparent PNG the shop GUI
+draws. Both verified in Studio (`GetProductInfo` → name + type match).
 
-**Transparent re-uploads (2026-07-31) — use THESE in game.** The Hub thumbnails above are matted onto an
-opaque square/disc, which renders as a white blob inside the round row badges. Alpha-channel versions were
-uploaded and verified; `Theme.productIcon` points at them. Ids in registry `images.md`.
+| File | Product / pass | Type | Product/Pass ID | Hub icon | **In-game (transparent)** | Status |
+|---|---|---|---|---|---|---|
+| `10.png` | 10 Gold (49 R$) | dev product | `3610663250` | `121862847548970` | **`72255341573939`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `25.png` | 25 Gold (99 R$) | dev product | `3610663288` | `95542160791148` | **`114957317211525`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `60.png` | 60 Gold (199 R$) | dev product | `3610663341` | `74400053482366` | **`100983946600429`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | `80233861953394` | **`133943328068949`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | `138728521842994` | **`130910653087108`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | **`82416796032835`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | `130780112255781` | **`95212286807985`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 
-<span style="color:#2e9c3f">✅ Wired 2026-07-31</span> — the lobby `RobuxShop` now shows real store art per
-row (Job #065 phase 2). The game-place copy is still text-only (out of scope).
+> **Why two:** Creator Hub mattes its thumbnails onto an opaque square/disc, so those ids render as a
+> white blob inside the round row badges. The transparent re-uploads (2026-07-31, `*_transparent`) fixed
+> it and are what `Theme.productIcon` points at. **Never swap a Hub id into the GUI.**
+
+<span style="color:#2e9c3f">✅ Wired 2026-07-31</span> — the lobby `RobuxShop` shows real store art per row
+(Job #065 phase 2). The game-place copy is still text-only (out of scope).
 
 # 6) GLOBAL AUDIO
 
