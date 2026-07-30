@@ -269,24 +269,26 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Teleport / intro sequence art | plane-crash cold-open visuals | ▫ stub |
 | HUD icons / role-suitability icons | per `jungle-style` + STYLEGUIDE | ▫ stub |
 
-## 5.1 Monetization art — Creator Hub product / pass icons (added 2026-07-20)
+## 5.1 Monetization art — product / pass icons (added 2026-07-20)
 
-> These are **Creator Hub thumbnails**, not asset-library decals: they're uploaded in the product/pass
-> settings on create.roblox.com, so they have **no `rbxassetid://`** and are not referenced from code.
-> Art lives in the repo at `assets/Images/Purchase/`. Product IDs are in
-> `ReplicatedStorage/Progression/MonetizationDefs.luau` (identical copy in both trees).
-> Repo files are the large source renders; the Hub thumbnails are the downscaled (512×512) versions.
-> **All 7 icons are set on the Hub — verified 2026-07-20.**
+> Uploaded as **Creator Hub product & pass thumbnails** (create.roblox.com), which also mints a normal
+> owned image asset — so each icon **is** usable in-game as `rbxassetid://<icon>` in the shop GUI.
+> Source art: `assets/Images/Purchase/` (large source renders; Hub versions are 512×512).
+> Product/pass IDs live in `ReplicatedStorage/Progression/MonetizationDefs.luau` (identical copy in both
+> trees). Icon IDs verified 2026-07-20 (passes via Roblox product-info API, gold packs by thumbnail).
 
-| File | Product / pass | Type | ID | Status |
-|---|---|---|---|---|
-| `10.png` | 10 Gold (49 R$) | dev product | `3610663250` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `25.png` | 25 Gold (99 R$) | dev product | `3610663288` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `60.png` | 60 Gold (199 R$) | dev product | `3610663341` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
-| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| File | Product / pass | Type | Product/Pass ID | Icon `rbxassetid` | Status |
+|---|---|---|---|---|---|
+| `10.png` | 10 Gold (49 R$) | dev product | `3610663250` | `121862847548970` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `25.png` | 25 Gold (99 R$) | dev product | `3610663288` | `95542160791148` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `60.png` | 60 Gold (199 R$) | dev product | `3610663341` | `74400053482366` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | `80233861953394` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | `138728521842994` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | `130780112255781` | <span style="color:#2e9c3f">✅ live on Hub</span> |
+
+**Not yet used in game:** `RobuxShop.local.luau` still renders text-only rows — wiring these icons into
+the shop rows is a queued UI task (both lobby + game copies).
 
 # 6) GLOBAL AUDIO
 

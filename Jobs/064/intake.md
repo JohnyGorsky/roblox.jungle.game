@@ -92,6 +92,18 @@ intro gameplay), start with **Robux Shop**.
       Day-night/combat cues (`morning/night/battle_starts`) intentionally left for the GAME place.
 - [ ] Next foliage batch: **rocks / fallen logs / vines** (find → scan → localize → place). Then plane, stations, camp props.
 - [ ] User: **save the place** (foliage is place-file content) + Rojo-sync the lobby scripts + Play test.
+- [x] **Lobby SFX batch 2 UPLOADED by user (2026-07-20 22:40)** — 11 owned sounds
+      (`open_close`, `prompt`, `joined_pad`, `leader_assigned`, `teleport_woosh`, `purchase_success`,
+      `failed_or_not_allowed`, `upgrade_applied`, `rank_completed_or_mission_completed`, `footsteps_wood`,
+      `running_on_sand`); source mp3s in `assets/Objects/Ambient/Sound_wave_2/`. IDs recorded in registry
+      `audio.md` (§ *Lobby SFX batch 2*) + ASSETS.md §1.12. See `Sounds.png`.
+      **Uploaded ≠ wired — hooking them into the lobby scripts/GUI is the next audio task.**
+- [x] **Monetization icons LIVE (2026-07-20)** — all 4 gold dev-product + 3 game-pass thumbnails set on the
+      Creator Hub from `assets/Images/Purchase/*.png`; each also minted an owned image asset usable in the
+      shop GUI. File → product/pass → icon-ID mapping in ASSETS.md §5.1 + registry `images.md`
+      (verified via Roblox product-info API / thumbnail read, not guessed). Shop rows are still text-only.
+- [x] **Loading-screen art registered** — `LoadingBackground` `73636751330777` (already wired as the
+      fallback in `LobbyLoading`/`GameLoading`) added to registry `images.md` + ASSETS.md §5.
 - [x] **Asset list promoted out of the job → root [`/ASSETS.md`](../../ASSETS.md) §1 (user, 2026-07-20):**
       it's the always-referenced, always-updated game-wide asset bible (next to GAME.md/STYLEGUIDE.md),
       wired into CLAUDE.md + jungle-style skill. Requirements/status live there; IDs in the shared
