@@ -271,19 +271,20 @@ end
 
 export type Chip = { instance: Frame, setValue: (text: string) -> () }
 
+-- The chip HUGS ITS CONTENT: it grows with the number rather than reserving a fixed slab, so "12" and
+-- "1,284,900" both look deliberate. That means AutomaticSize.X, which cannot be combined with
+-- TextScaled (the label would size to its box and the box to the label). Instead the text size is
+-- derived from the chip's own height whenever that changes — still fully responsive, no fixed pixels.
 function Components.chip(iconName: string, parent: Instance?): Chip
 	local frame = Instance.new("Frame")
 	frame.Name = "Chip"
-	frame.Size = UDim2.fromScale(0.17, 0.055)
+	frame.Size = UDim2.new(0, 0, 0.055, 0) -- height by scale, width from content
+	frame.AutomaticSize = Enum.AutomaticSize.X
 	frame.BackgroundColor3 = Theme.color.sunken
 	frame.BackgroundTransparency = 0.15
 	frame.BorderSizePixel = 0
 	corner(Theme.radius.pill, frame)
 	stroke(Theme.color.wood, Theme.strokeWidth.control, frame)
-
-	local ratio = Instance.new("UIAspectRatioConstraint")
-	ratio.AspectRatio = 3.6
-	ratio.Parent = frame
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -292,20 +293,48 @@ function Components.chip(iconName: string, parent: Instance?): Chip
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = frame
 
-	padding(Theme.space.sm, frame)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, Theme.space.sm)
+	pad.PaddingRight = UDim.new(0, Theme.space.md)
+	pad.PaddingTop = UDim.new(0, Theme.space.xs)
+	pad.PaddingBottom = UDim.new(0, Theme.space.xs)
+	pad.Parent = frame
 
-	Components.icon({ name = iconName, size = UDim2.fromScale(0.22, 0.8), chip = false, layoutOrder = 1, parent = frame })
+	local ico = Components.icon({
+		name = iconName,
+		size = UDim2.fromScale(1, 1), -- square, driven by the chip's height
+		chip = false,
+		layoutOrder = 1,
+		parent = frame,
+	})
+	ico.Size = UDim2.new(0, 0, 1, 0)
+	ico.AutomaticSize = Enum.AutomaticSize.None
 
 	local value = Instance.new("TextLabel")
 	value.Name = "Value"
-	value.Size = UDim2.fromScale(0.7, 0.9)
+	value.AutomaticSize = Enum.AutomaticSize.X
+	value.Size = UDim2.new(0, 0, 1, 0)
 	value.LayoutOrder = 2
 	value.TextXAlignment = Enum.TextXAlignment.Right
-	Components.applyText(value, Theme.text.h2, Theme.font.bodyBold)
+	value.BackgroundTransparency = 1
+	value.BorderSizePixel = 0
+	value.Font = Theme.font.bodyBold
 	value.TextColor3 = Theme.color.gold
-	value.RichText = false
+	value.TextStrokeColor3 = Theme.color.stroke
+	value.TextStrokeTransparency = 0.6
+	value.TextScaled = false -- would fight AutomaticSize
 	value.Text = "0"
 	value.Parent = frame
+
+	-- keep the type proportional to the chip on every screen size
+	local function resize()
+		local height = frame.AbsoluteSize.Y
+		if height > 0 then
+			value.TextSize = math.clamp(math.floor(height * 0.52), Theme.text.h2.min, Theme.text.h2.max)
+		end
+	end
+	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	resize()
 
 	frame.Parent = parent
 
@@ -315,6 +344,79 @@ function Components.chip(iconName: string, parent: Instance?): Chip
 			value.Text = text
 		end,
 	}
+end
+
+-- ── icon button (circular, for the entry rail) ───────────────────────────────────────────────────
+
+export type IconButtonOptions = {
+	icon: string,
+	label: string,
+	layoutOrder: number?,
+	parent: Instance?,
+	onActivated: (() -> ())?,
+}
+
+function Components.iconButton(opts: IconButtonOptions): Frame
+	local tile = Instance.new("Frame")
+	tile.Name = "Tile_" .. opts.label
+	tile.Size = UDim2.fromScale(1, 0.22)
+	tile.BackgroundTransparency = 1
+	tile.BorderSizePixel = 0
+	tile.LayoutOrder = opts.layoutOrder or 0
+
+	local btn = Instance.new("ImageButton")
+	btn.Name = "Button"
+	btn.AnchorPoint = Vector2.new(0.5, 0)
+	btn.Position = UDim2.fromScale(0.5, 0)
+	btn.Size = UDim2.fromScale(1, 0.74)
+	btn.BackgroundColor3 = Theme.color.panel
+	btn.BackgroundTransparency = 0.1
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Image = (Theme.icon :: { [string]: string })[opts.icon] or ""
+	btn.ScaleType = Enum.ScaleType.Fit
+	corner(Theme.radius.pill, btn)
+	stroke(Theme.color.gold, Theme.strokeWidth.control, btn)
+
+	local ratio = Instance.new("UIAspectRatioConstraint")
+	ratio.AspectRatio = 1
+	ratio.Parent = btn
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, Theme.space.sm)
+	pad.PaddingBottom = UDim.new(0, Theme.space.sm)
+	pad.PaddingLeft = UDim.new(0, Theme.space.sm)
+	pad.PaddingRight = UDim.new(0, Theme.space.sm)
+	pad.Parent = btn
+
+	local scale = Instance.new("UIScale")
+	scale.Parent = btn
+
+	local caption = Instance.new("TextLabel")
+	caption.Name = "Caption"
+	caption.AnchorPoint = Vector2.new(0.5, 1)
+	caption.Position = UDim2.fromScale(0.5, 1)
+	caption.Size = UDim2.fromScale(1, 0.22)
+	Components.applyText(caption, Theme.text.caption, Theme.font.button)
+	caption.Text = string.upper(opts.label)
+	caption.Parent = tile
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(scale, Theme.tween.fast, { Scale = 1.08 }):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(scale, Theme.tween.fast, { Scale = 1 }):Play()
+	end)
+	btn.Activated:Connect(function()
+		UISound.play("open")
+		if opts.onActivated then
+			opts.onActivated()
+		end
+	end)
+
+	btn.Parent = tile
+	tile.Parent = opts.parent
+	return tile
 end
 
 -- ── progress bar (STYLEGUIDE §6.8) ───────────────────────────────────────────────────────────────
@@ -846,34 +948,35 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 	local gui = Components.screen("LobbyEntryBar", parent)
 	gui.DisplayOrder = 5
 
+	-- A narrow rail of circular icon badges with a caption under each, rather than four identical
+	-- full-width slabs: the icon carries the meaning, the label confirms it, and it takes a fraction of
+	-- the screen — which matters most on a phone, where a wide stack eats the play area.
 	local holder = Instance.new("Frame")
 	holder.Name = "Bar"
 	holder.AnchorPoint = Vector2.new(0, 1)
-	holder.Position = UDim2.fromScale(0.012, 0.985)
-	holder.Size = UDim2.fromScale(0.15, 0.42)
+	holder.Position = UDim2.fromScale(0.014, 0.975)
+	holder.Size = UDim2.fromScale(0.062, 0.46)
 	holder.BackgroundTransparency = 1
 	holder.BorderSizePixel = 0
 
 	local sizeClamp = Instance.new("UISizeConstraint")
-	sizeClamp.MinSize = Vector2.new(120, 180)
-	sizeClamp.MaxSize = Vector2.new(280, 420)
+	sizeClamp.MinSize = Vector2.new(64, 240)
+	sizeClamp.MaxSize = Vector2.new(110, 420)
 	sizeClamp.Parent = holder
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	layout.Padding = UDim.new(0, Theme.space.sm)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.Padding = UDim.new(0, Theme.space.md)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = holder
 
 	for index, entry in ipairs(entries) do
-		Components.button({
-			text = entry.label,
-			variant = "secondary",
+		Components.iconButton({
 			icon = entry.icon,
-			size = UDim2.fromScale(1, 0.2),
+			label = entry.label,
 			layoutOrder = index,
-			sound = "open",
 			parent = holder,
 			onActivated = entry.onActivated,
 		})
