@@ -699,6 +699,60 @@ function Components.toast(parent: Instance, iconName: string, title: string, sub
 	end)
 end
 
+-- ── burst (STYLEGUIDE §12 juice rule — sound alone is only half of it) ───────────────────────────
+-- A short, cheap confirmation flourish on the element that changed: a colour wash plus a few rising
+-- motes. Deliberately NOT a ParticleEmitter — this is 2D UI, so it's a handful of tweened frames that
+-- clean themselves up. Budget-capped by construction: MOTES per call, all destroyed on completion.
+
+local MOTES = 6
+
+function Components.burst(target: GuiObject, color: Color3?)
+	local tint = color or Theme.color.gold
+
+	-- 1) a quick wash over the element that changed
+	local wash = Instance.new("Frame")
+	wash.Name = "Burst"
+	wash.Size = UDim2.fromScale(1, 1)
+	wash.BackgroundColor3 = tint
+	wash.BackgroundTransparency = 0.55
+	wash.BorderSizePixel = 0
+	wash.ZIndex = 5
+	wash.Active = false -- never eats input
+	corner(Theme.radius.control, wash)
+	wash.Parent = target
+
+	local washOut = TweenService:Create(wash, Theme.tween.slow, { BackgroundTransparency = 1 })
+	washOut:Play()
+	washOut.Completed:Connect(function()
+		wash:Destroy()
+	end)
+
+	-- 2) motes rising off it
+	for i = 1, MOTES do
+		local mote = Instance.new("Frame")
+		mote.Name = "Mote"
+		mote.AnchorPoint = Vector2.new(0.5, 0.5)
+		mote.Position = UDim2.fromScale(0.1 + (0.8 * (i - 1) / math.max(1, MOTES - 1)), 0.65)
+		mote.Size = UDim2.fromOffset(6, 6)
+		mote.BackgroundColor3 = tint
+		mote.BorderSizePixel = 0
+		mote.ZIndex = 6
+		mote.Active = false
+		corner(Theme.radius.pill, mote)
+		mote.Parent = target
+
+		local rise = TweenService:Create(
+			mote,
+			TweenInfo.new(0.5 + (i % 3) * 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = UDim2.fromScale(mote.Position.X.Scale, 0.05), BackgroundTransparency = 1 }
+		)
+		rise:Play()
+		rise.Completed:Connect(function()
+			mote:Destroy()
+		end)
+	end
+end
+
 -- ── confirm popup (STYLEGUIDE §6.6) ──────────────────────────────────────────────────────────────
 -- Gates every GOLD spend. Approved as the job's one deliberate behaviour change: nothing is deducted
 -- until BUY is pressed, which prevents mis-tap purchases (worst on mobile).

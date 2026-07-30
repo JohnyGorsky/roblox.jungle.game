@@ -1,279 +1,208 @@
 --!strict
--- RetentionClient.local.luau — LOBBY daily-reward popup + weekly objectives panel (Job 028).
--- The daily reward is auto-granted server-side; this just NOTIFIES (popup). Weekly objectives are viewed +
--- claimed here through the server RemoteFunction. Greybox, mobile-safe.
+-- RetentionClient.local.luau — LOBBY daily-reward popup + BOUNTIES panel (Job 028; restyled Job 065).
+-- The daily reward is auto-granted server-side; this only NOTIFIES. Bounties are viewed and claimed here
+-- through the `Weekly` RemoteFunction.
+--
+-- NAMING (Job 065): the feature is called **BOUNTIES** everywhere a player can see it — the building
+-- sign, the entry button and this panel. It used to carry three different names (BOUNTIES on the
+-- building, WEEKLY on the button, WEEKLY OBJECTIVES in the panel). INTERNAL ids are unchanged: the
+-- OpenPanel id is still "weekly", the remote is still `Weekly`, and RetentionDefs is untouched — this is
+-- a player-facing string change only, with no server or data migration.
+--
+-- Job 065 also adds: design system, panel/row icons, claim VFX + stinger, and an empty state.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local UISound = require(UI:WaitForChild("UISound"))
+local UIBus = require(UI:WaitForChild("UIBus"))
+
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 local dailyRemote = ReplicatedStorage:WaitForChild("DailyReward") :: RemoteEvent
 local weeklyRF = ReplicatedStorage:WaitForChild("Weekly") :: RemoteFunction
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "Retention"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 30
-gui.Parent = player:WaitForChild("PlayerGui")
-
--- ── daily reward popup ──────────────────────────────────────────────────────────────────────────
+-- ── daily reward popup ────────────────────────────────────────────────────────────────────────────
+-- Server-granted; this is purely the notification. Built on demand, destroyed on Collect.
 dailyRemote.OnClientEvent:Connect(function(data)
-	local dim = Instance.new("Frame")
-	dim.Size = UDim2.fromScale(1, 1)
-	dim.BackgroundColor3 = Color3.new(0, 0, 0)
-	dim.BackgroundTransparency = 0.5
-	dim.Parent = gui
+	local daily = Components.panel({
+		name = "DailyReward",
+		title = "Daily reward",
+		icon = "calendar",
+		size = UDim2.fromScale(0.34, 0.36),
+		parent = playerGui,
+	})
 
-	local panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(0.32, 0.32)
-	panel.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
-	panel.Parent = dim
-	local pc = Instance.new("UICorner")
-	pc.CornerRadius = UDim.new(0, 14)
-	pc.Parent = panel
+	local streak = Instance.new("TextLabel")
+	streak.Position = UDim2.fromScale(0, 0.04)
+	streak.Size = UDim2.fromScale(1, 0.2)
+	Components.applyText(streak, Theme.text.body, Theme.font.body)
+	streak.TextColor3 = Theme.color.creamDim
+	streak.Text = string.format("Day %d  ·  Streak %d", (data and data.day) or 1, (data and data.streak) or 1)
+	streak.Parent = daily.content
 
-	local function line(text: string, y: number, h: number, color: Color3, max: number, bold: boolean)
-		local l = Instance.new("TextLabel")
-		l.Position = UDim2.fromScale(0.05, y)
-		l.Size = UDim2.fromScale(0.9, h)
-		l.BackgroundTransparency = 1
-		l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-		l.TextColor3 = color
-		l.TextScaled = true
-		l.Text = text
-		local c = Instance.new("UITextSizeConstraint")
-		c.MaxTextSize = max
-		c.Parent = l
-		l.Parent = panel
-	end
-	line("DAILY REWARD", 0.08, 0.18, Color3.fromRGB(245, 197, 66), 26, true)
-	line(("Day %d  ·  Streak %d"):format((data and data.day) or 1, (data and data.streak) or 1), 0.32, 0.12, Color3.new(1, 1, 1), 18, false)
-	line(("+ %d Gold"):format((data and data.gold) or 0), 0.46, 0.16, Color3.fromRGB(245, 197, 66), 30, true)
+	local amount = Instance.new("TextLabel")
+	amount.Position = UDim2.fromScale(0, 0.28)
+	amount.Size = UDim2.fromScale(1, 0.28)
+	Components.applyText(amount, Theme.text.display, Theme.font.display)
+	amount.TextColor3 = Theme.color.gold
+	amount.Text = string.format("+ %d GOLD", (data and data.gold) or 0)
+	amount.Parent = daily.content
 
-	local ok = Instance.new("TextButton")
-	ok.AnchorPoint = Vector2.new(0.5, 1)
-	ok.Position = UDim2.fromScale(0.5, 0.92)
-	ok.Size = UDim2.fromScale(0.5, 0.2)
-	ok.BackgroundColor3 = Color3.fromRGB(60, 130, 90)
-	ok.Font = Enum.Font.GothamBold
-	ok.TextColor3 = Color3.new(1, 1, 1)
-	ok.TextScaled = true
-	ok.Text = "Collect"
-	local okc = Instance.new("UICorner")
-	okc.CornerRadius = UDim.new(0, 10)
-	okc.Parent = ok
-	local oktsc = Instance.new("UITextSizeConstraint")
-	oktsc.MaxTextSize = 20
-	oktsc.Parent = ok
-	ok.Parent = panel
-	ok.Activated:Connect(function()
-		dim:Destroy()
-	end)
+	local collect = Components.button({
+		text = "COLLECT",
+		variant = "primary",
+		size = UDim2.fromScale(0.5, 0.2),
+		parent = daily.content,
+		onActivated = function()
+			daily.setOpen(false)
+			task.defer(function()
+				daily.gui:Destroy()
+			end)
+		end,
+	})
+	collect.instance.AnchorPoint = Vector2.new(0.5, 1)
+	collect.instance.Position = UDim2.fromScale(0.5, 0.98)
+
+	daily.setOpen(true)
+	UISound.play("rank")
+	Components.burst(daily.frame, Theme.color.gold)
 end)
 
--- ── weekly objectives panel ──────────────────────────────────────────────────────────────────────
-local openBtn = Instance.new("TextButton")
-openBtn.AnchorPoint = Vector2.new(0, 1)
-openBtn.Position = UDim2.new(0, 14, 1, -154)
-openBtn.Size = UDim2.fromScale(0.18, 0.06)
-openBtn.BackgroundColor3 = Color3.fromRGB(90, 120, 70)
-openBtn.Font = Enum.Font.GothamBold
-openBtn.TextColor3 = Color3.new(1, 1, 1)
-openBtn.TextScaled = true
-openBtn.Text = "WEEKLY"
-local obc = Instance.new("UICorner")
-obc.CornerRadius = UDim.new(0, 8)
-obc.Parent = openBtn
-local obar = Instance.new("UIAspectRatioConstraint")
-obar.AspectRatio = 3.2
-obar.Parent = openBtn
-local obtsc = Instance.new("UITextSizeConstraint")
-obtsc.MaxTextSize = 18
-obtsc.Parent = openBtn
-openBtn.Parent = gui
+-- ── bounties panel ────────────────────────────────────────────────────────────────────────────────
 
-local wdim = Instance.new("Frame")
-wdim.Size = UDim2.fromScale(1, 1)
-wdim.BackgroundColor3 = Color3.new(0, 0, 0)
-wdim.BackgroundTransparency = 0.5
-wdim.Visible = false
-wdim.Parent = gui
+local panel = Components.panel({
+	name = "Bounties",
+	title = "Bounties",
+	icon = "bounty",
+	size = UDim2.fromScale(0.56, 0.72),
+	parent = playerGui,
+})
 
-local panel = Instance.new("Frame")
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromScale(0.5, 0.6)
-panel.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
-panel.Parent = wdim
-local pcc = Instance.new("UICorner")
-pcc.CornerRadius = UDim.new(0, 14)
-pcc.Parent = panel
+local subtitle = Instance.new("TextLabel")
+subtitle.Name = "Subtitle"
+subtitle.Position = UDim2.fromScale(0, 0)
+subtitle.Size = UDim2.fromScale(1, 0.07)
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Components.applyText(subtitle, Theme.text.caption, Theme.font.body)
+subtitle.TextColor3 = Theme.color.creamDim
+subtitle.Text = "Resets weekly"
+subtitle.Parent = panel.content
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.fromScale(1, 0.13)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.fromRGB(160, 210, 120)
-title.TextScaled = true
-title.Text = "WEEKLY OBJECTIVES"
-local ttsc = Instance.new("UITextSizeConstraint")
-ttsc.MaxTextSize = 24
-ttsc.Parent = title
-title.Parent = panel
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, -8, 0, 8)
-closeBtn.Size = UDim2.fromScale(0.09, 0.1)
-closeBtn.BackgroundColor3 = Color3.fromRGB(150, 60, 60)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextColor3 = Color3.new(1, 1, 1)
-closeBtn.TextScaled = true
-closeBtn.Text = "X"
-local cbc = Instance.new("UICorner")
-cbc.CornerRadius = UDim.new(0, 8)
-cbc.Parent = closeBtn
-closeBtn.Parent = panel
-
-local list = Instance.new("Frame")
-list.Position = UDim2.fromScale(0.04, 0.16)
-list.Size = UDim2.fromScale(0.92, 0.8)
+local list = Instance.new("ScrollingFrame")
+list.Name = "List"
+list.Position = UDim2.fromScale(0, 0.09)
+list.Size = UDim2.fromScale(1, 0.91)
 list.BackgroundTransparency = 1
-list.Parent = panel
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 6
+list.ScrollBarImageColor3 = Theme.color.wood
+list.CanvasSize = UDim2.new()
+list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
 local layout = Instance.new("UIListLayout")
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, Theme.space.lg) -- row art breaks out of its row
 layout.Parent = list
+list.Parent = panel.content
 
-local function render(objectives)
-	for _, c in ipairs(list:GetChildren()) do
-		if c:IsA("Frame") then
-			c:Destroy()
+local render: (objectives: { any }?) -> ()
+
+render = function(objectives)
+	for _, child in ipairs(list:GetChildren()) do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
 		end
 	end
-	for i, o in ipairs(objectives or {}) do
-		local row = Instance.new("Frame")
-		row.LayoutOrder = i
-		row.Size = UDim2.new(1, 0, 0, 72)
-		row.BackgroundColor3 = Color3.fromRGB(32, 35, 42)
-		row.Parent = list
-		local rc = Instance.new("UICorner")
-		rc.CornerRadius = UDim.new(0, 8)
-		rc.Parent = row
 
-		local name = Instance.new("TextLabel")
-		name.Position = UDim2.fromScale(0.03, 0.08)
-		name.Size = UDim2.fromScale(0.6, 0.4)
-		name.BackgroundTransparency = 1
-		name.Font = Enum.Font.GothamBold
-		name.TextColor3 = Color3.new(1, 1, 1)
-		name.TextXAlignment = Enum.TextXAlignment.Left
-		name.TextScaled = true
-		name.Text = o.name
-		local ntsc = Instance.new("UITextSizeConstraint")
-		ntsc.MaxTextSize = 16
-		ntsc.Parent = name
-		name.Parent = row
+	-- empty state: say so, rather than rendering a blank box (audit gap B)
+	if not objectives or #objectives == 0 then
+		local empty = Instance.new("TextLabel")
+		empty.Name = "Empty"
+		empty.Size = UDim2.new(1, 0, 0, 60)
+		Components.applyText(empty, Theme.text.body, Theme.font.body)
+		empty.TextColor3 = Theme.color.creamDim
+		empty.Text = "No bounties available right now."
+		empty.Parent = list
+		return
+	end
+
+	for index, o in ipairs(objectives) do
+		local complete = o.progress >= o.target
+		local claimable = complete and not o.claimed
+
+		local row = Components.row({
+			icon = o.claimed and "check" or (complete and "trophy" or "bounty"),
+			title = o.name,
+			blurb = string.format("+%d Gold  ·  +%d River Score", o.gold, o.score),
+			actionText = o.claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"),
+			variant = claimable and "gold" or "secondary",
+			withBar = true,
+			layoutOrder = index,
+			parent = list,
+		})
+		row.instance.Size = UDim2.new(1, 0, 0, Theme.rowHeight + 6)
 
 		local prog = math.min(o.progress, o.target)
-		local barBg = Instance.new("Frame")
-		barBg.Position = UDim2.fromScale(0.03, 0.56)
-		barBg.Size = UDim2.fromScale(0.6, 0.24)
-		barBg.BackgroundColor3 = Color3.fromRGB(20, 22, 26)
-		barBg.Parent = row
-		local bbc = Instance.new("UICorner")
-		bbc.CornerRadius = UDim.new(1, 0)
-		bbc.Parent = barBg
-		local fill = Instance.new("Frame")
-		fill.Size = UDim2.fromScale(math.clamp(prog / o.target, 0, 1), 1)
-		fill.BackgroundColor3 = Color3.fromRGB(120, 200, 110)
-		fill.BorderSizePixel = 0
-		fill.Parent = barBg
-		local fc = Instance.new("UICorner")
-		fc.CornerRadius = UDim.new(1, 0)
-		fc.Parent = fill
-		local ptxt = Instance.new("TextLabel")
-		ptxt.Size = UDim2.fromScale(1, 1)
-		ptxt.BackgroundTransparency = 1
-		ptxt.Font = Enum.Font.GothamBold
-		ptxt.TextColor3 = Color3.new(1, 1, 1)
-		ptxt.TextScaled = true
-		ptxt.Text = ("%d / %d   (+%d G, +%d score)"):format(prog, o.target, o.gold, o.score)
-		local pt = Instance.new("UITextSizeConstraint")
-		pt.MaxTextSize = 12
-		pt.Parent = ptxt
-		ptxt.Parent = barBg
-
-		local claim = Instance.new("TextButton")
-		claim.AnchorPoint = Vector2.new(1, 0.5)
-		claim.Position = UDim2.fromScale(0.97, 0.5)
-		claim.Size = UDim2.fromScale(0.28, 0.6)
-		claim.Font = Enum.Font.GothamBold
-		claim.TextColor3 = Color3.new(1, 1, 1)
-		claim.TextScaled = true
-		local cc = Instance.new("UICorner")
-		cc.CornerRadius = UDim.new(0, 8)
-		cc.Parent = claim
-		local ctsc = Instance.new("UITextSizeConstraint")
-		ctsc.MaxTextSize = 15
-		ctsc.Parent = claim
-		claim.Parent = row
-
-		if o.claimed then
-			claim.Text = "CLAIMED"
-			claim.BackgroundColor3 = Color3.fromRGB(60, 120, 70)
-			claim.Active = false
-			claim.AutoButtonColor = false
-		elseif o.progress >= o.target then
-			claim.Text = "CLAIM"
-			claim.BackgroundColor3 = Color3.fromRGB(200, 150, 50)
-			claim.Active = true
-		else
-			claim.Text = "…"
-			claim.BackgroundColor3 = Color3.fromRGB(70, 72, 80)
-			claim.Active = false
-			claim.AutoButtonColor = false
+		if row.bar then
+			row.bar.setFill(prog / o.target, false)
+			row.bar.setText(string.format("%d / %d", prog, o.target))
 		end
-		claim.Activated:Connect(function()
-			if not claim.Active then
-				return
-			end
-			claim.Text = "…"
-			pcall(function()
-				weeklyRF:InvokeServer("claim", o.id)
+
+		row.action.setEnabled(claimable)
+
+		if claimable then
+			row.action.instance.Activated:Connect(function()
+				if not row.action.instance.Active then
+					return
+				end
+				row.action.setText("…")
+				row.action.setEnabled(false)
+
+				local claimOk = pcall(function()
+					weeklyRF:InvokeServer("claim", o.id)
+				end)
+				local ok, res = pcall(function()
+					return weeklyRF:InvokeServer("list")
+				end)
+
+				if claimOk and ok then
+					UISound.play("rank")
+					Components.burst(row.instance, Theme.color.gold)
+					Components.toast(playerGui, "trophy", "Bounty complete!", string.format("+%d Gold", o.gold))
+				else
+					UISound.play("fail")
+					row.flashFail()
+				end
+
+				if ok and type(res) == "table" then
+					render(res.objectives)
+				end
 			end)
-			local ok, res = pcall(function()
-				return weeklyRF:InvokeServer("list")
-			end)
-			if ok and type(res) == "table" then
-				render(res.objectives)
-			end
-		end)
+		end
 	end
 end
 
-local function openWeekly()
+local function openBounties()
 	local ok, res = pcall(function()
 		return weeklyRF:InvokeServer("list")
 	end)
-	if ok and type(res) == "table" then
-		render(res.objectives)
-	end
-	wdim.Visible = true
+	render(ok and type(res) == "table" and res.objectives or nil)
+	panel.setOpen(true)
 end
 
-openBtn.Activated:Connect(openWeekly)
-closeBtn.Activated:Connect(function()
-	wdim.Visible = false
-end)
-
--- lobby kiosk (Job 032): the BOUNTIES station opens the weekly panel too
+-- kiosk (server) and client-side entry both open this panel; the id stays "weekly" internally
 local openPanel = ReplicatedStorage:WaitForChild("OpenPanel") :: RemoteEvent
 openPanel.OnClientEvent:Connect(function(which)
 	if which == "weekly" then
-		openWeekly()
+		openBounties()
+	end
+end)
+UIBus.onOpen(function(id)
+	if id == "weekly" then
+		openBounties()
 	end
 end)

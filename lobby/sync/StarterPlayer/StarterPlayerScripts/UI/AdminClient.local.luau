@@ -20,13 +20,18 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 60
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- Job 065: tokens only, no redesign (it's an allowlisted dev tool, not a player screen). The magenta
+-- was the one colour in the lobby that appears nowhere in STYLEGUIDE §4; it now uses the palette's
+-- alt/cooler surface so it reads as "not part of the game's UI" without inventing a colour.
+local Theme = require(game:GetService("ReplicatedStorage"):WaitForChild("UI"):WaitForChild("Theme"))
+
 local openBtn = Instance.new("TextButton")
 openBtn.AnchorPoint = Vector2.new(1, 1)
 openBtn.Position = UDim2.new(1, -14, 1, -14)
 openBtn.Size = UDim2.fromScale(0.12, 0.05)
-openBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 120)
-openBtn.Font = Enum.Font.GothamBold
-openBtn.TextColor3 = Color3.new(1, 1, 1)
+openBtn.BackgroundColor3 = Theme.color.panelAlt
+openBtn.Font = Theme.font.button
+openBtn.TextColor3 = Theme.color.cream
 openBtn.TextScaled = true
 openBtn.Text = "ADMIN"
 local obc = Instance.new("UICorner")
