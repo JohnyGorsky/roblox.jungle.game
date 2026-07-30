@@ -139,20 +139,61 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Runway "27" + stripes | user | <span style="color:#2e9c3f">✅ done (user)</span> | airfield/runway done by user |
 | Path decals (sand/dirt/tire tracks) | ChatGPT → decal | <span style="color:#c9911d">⏸ pending</span> | curved paths connecting zones (styleguide §24) |
 
-## 1.9 UI icons (signs + HUD) — Flaticon
+## 1.9 UI icons (signs + HUD) — sourcing list (LOBBY scope, drawn up 2026-07-30)
 
-> One consistent set → IDs go to `STYLEGUIDE.md §7` + registry `images.md`.
+> **This is the shopping list that gates the lobby GUI job.** Derived from the actual lobby screens
+> (`GoldHud`, `RobuxShop`, `SkillShop`, `ModulesShop`, `RetentionClient`) + station signs (§1.3) + party
+> pads (§1.4), against STYLEGUIDE §6/§7. IDs go to registry `images.md` + STYLEGUIDE §7 when uploaded.
 
-| Icon | Use | Source | Status |
+**Picking rules (matter more than the individual choices):**
+- **One pack, one author.** Pick a single Flaticon pack that has *most* of P1, then take every other icon
+  from that same author — mixed packs are the #1 way an icon set looks amateur.
+- Style per §7: **simple, bold, slightly 3D/embossed**, readable at **32 px** on a phone. Solid shapes,
+  no thin outlines, no long shadows, no flat-minimal line art.
+- Colorable or already in-palette (gold `#D69B22` / cream `#F3E6C2` / green `#4B7A2B`). Prefer a
+  **white/mono silhouette** version too — we tint those in code and they always match.
+- **PNG 512×512, transparent.** Upload in Studio → Asset Manager → Images, then hand me the IDs.
+- Flaticon free tier **requires attribution** — if we skip attribution we need the paid plan (GROUND-RULES §4).
+
+### P1 — chrome + the §7 vocabulary (14 icons; unblocks the whole restyle)
+
+| # | Icon | Used by | Flaticon search |
 |---|---|---|---|
-| Gear | engine | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Shield | hull | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Fuel pump | fuel | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Crate | storage | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Crossed tools | equipment | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Star | gold / major | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Wrench | utility | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
-| Player-group | party | Flaticon | <span style="color:#c9911d">⏸ pending</span> |
+| 1 | Close **X** | every panel header (4 panels) | [`close`](https://www.flaticon.com/search?word=close) |
+| 2 | **Gold coin** | `GoldHud` currency chip, every cost row | [`gold coin`](https://www.flaticon.com/search?word=gold+coin) |
+| 3 | **Shopping cart / shop** | `RobuxShop` open button, RobuxShop sign | [`shop`](https://www.flaticon.com/search?word=shop) |
+| 4 | **Star** | major/Gold skill, `SkillTrainer` sign | [`star`](https://www.flaticon.com/search?word=star) |
+| 5 | **Wrench** | utility skill, `BoatUpgrades` sign | [`wrench`](https://www.flaticon.com/search?word=wrench) |
+| 6 | **Player group** | party pads ×4, party UI | [`team`](https://www.flaticon.com/search?word=team) |
+| 7 | **Calendar-check** | `RetentionClient` WEEKLY button/title | [`calendar check`](https://www.flaticon.com/search?word=calendar+check) |
+| 8 | **Checkmark** | CLAIMED / OWNED / MAX states | [`checkmark`](https://www.flaticon.com/search?word=checkmark) |
+| 9 | **Clipboard / target** | `Bounties` station sign | [`bounty`](https://www.flaticon.com/search?word=bounty) |
+| 10 | **Gear** = engine | `motors`, `motor2` | [`gear`](https://www.flaticon.com/search?word=gear) |
+| 11 | **Shield** = hull | `hull`, `hullkit` | [`shield`](https://www.flaticon.com/search?word=shield) |
+| 12 | **Fuel pump** = fuel | `diesel`, `fueltank`, `refuel` | [`fuel`](https://www.flaticon.com/search?word=fuel) |
+| 13 | **Crate** = storage | `cargo`, `trailer` | [`crate`](https://www.flaticon.com/search?word=crate) |
+| 14 | **Crossed tools** = equipment | `repair`, generic upgrade | [`tools`](https://www.flaticon.com/search?word=tools) |
+
+### P2 — per-item icons (9; makes shop/skill rows read at a glance, §6.5)
+
+| # | Icon | Used by | Flaticon search |
+|---|---|---|---|
+| 15 | **Boat** | "Boat" skill group header, boat rows | [`boat`](https://www.flaticon.com/search?word=boat) |
+| 16 | **Crew / helmet person** | "Crew" skill group header | [`crew`](https://www.flaticon.com/search?word=crew) |
+| 17 | **Ship wheel** | `rudder` (Rudder Tuning) | [`ship wheel`](https://www.flaticon.com/search?word=ship+wheel) |
+| 18 | **Medkit / cross** | `medic` (Combat Medic) | [`medical kit`](https://www.flaticon.com/search?word=medical+kit) |
+| 19 | **Gun / turret** | `gun`, `gunupgrade` | [`machine gun`](https://www.flaticon.com/search?word=machine+gun) |
+| 20 | **Spotlight** | `searchlight` (Searchlight Rig) | [`spotlight`](https://www.flaticon.com/search?word=spotlight) |
+| 21 | **Loot bag / grab hand** | `scavenge` (Scavenger's Instinct) | [`loot bag`](https://www.flaticon.com/search?word=loot+bag) |
+| 22 | **Trophy / chart** | weekly-objective score reward | [`trophy`](https://www.flaticon.com/search?word=trophy) |
+| 23 | **Robux R$** *(optional)* | R$ price rows — text `R$` also fine | [`robux`](https://www.flaticon.com/search?word=robux) |
+
+**Already covered — do not re-source:** shop product/pass art (§5.1, 7 IDs live) · loading background (§5) ·
+the `LastRiverLogo.png` used by `TeleportGui`.
+
+**Alternative sources** if Flaticon picking drags: the **Creator Store** has free game-icon packs (I can
+search + present candidates for approval via Studio MCP, per GROUND-RULES §4), and **ChatGPT** can render a
+bespoke embossed set on the palette — the most on-style option, and the one that guarantees a single family.
 
 ## 1.10 VFX (particles / beams / lights) — build in Studio
 
