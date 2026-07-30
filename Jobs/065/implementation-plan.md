@@ -77,6 +77,62 @@ in a screen file after this job is a bug.
 | `progressBar(fill)` | §6.8 — dark track, green fill, rounded, optional label | skills, rank bar |
 | `toast(icon, title, subtitle)` | §6.7 — slide in/out, **auto-dismiss, never blocks input** | upgrades, claims |
 | `icon(name, size)` | `ImageLabel` from `Theme.icon`, seated on a dark chip (decision #5) | everywhere |
+| `iconBar(entries)` | **one** shared entry bar — scale-based, safe-area aware, icon + label. Replaces the 4 ad-hoc open buttons | lobby entry |
+| `confirm(item, cost)` | §6.6 — CANCEL (red) / BUY (green) before any Gold is spent | SkillShop, ModulesShop |
+
+### Found by looking at the running game (2026-07-30, Play screenshot)
+
+The intake was written from the code; a Play screenshot showed three things the file list didn't:
+
+1. **An on-screen entry stack already exists.** Every panel script builds its *own* open button —
+   `RobuxShop` at `(0,14),(1,-224)`, `RetentionClient` at `(1,-154)`, `ModulesShop` at `(1,-14)`,
+   `AdminClient` bottom-right. They are **hardcoded pixel offsets manually stacked**, so entry is
+   *both* kiosk-driven and screen-button-driven. **This invalidated the premise of intake decision #8**
+   (which assumed kiosk-only).
+   → Those absolute offsets are also a **live mobile defect**: on a small screen they overlap or run
+   off. §6.10 requires scale-based positioning.
+   → **RE-DECIDED (user, 2026-07-30): decision #8 is superseded.** Build **one shared icon bar** owned
+   by `Components` — scale-based, safe-area aware, icon + label — replacing all four ad-hoc buttons.
+   Kiosks remain the second route in. This removes four duplicated implementations and fixes the
+   mobile defect in one place.
+2. **Two GUI surfaces were missing from scope** (now added — 10 surfaces, not 8):
+   - **Rank nameplate** — a `BillboardGui` built by `RankServer.server.luau` showing tier + name +
+     River Score over the player's head. Currently white/grey, off-palette.
+   - **Hint banner** — top-centre, built by `LobbyClient.local.luau` ("Step on a LAUNCH PAD…").
+3. **`AdminClient`'s open button is magenta** — not a colour in §4. Tokens-only still applies, but the
+   magenta goes.
+
+**Reading well already:** the Gold chip (top-right) is close to the §6.3 chip spec and is a good
+baseline for the token set.
+
+### Full mockup audit — every `GUI_PATTERN.png` element vs what's actually in the game
+
+Swept both the code and the live place (26 world GUIs found: 8 `BillboardGui` + 18 `SurfaceGui`).
+
+**The headline finding: the world-space GUI is already on-spec; the drift is entirely screen-side.**
+Every station sign, pad label, leaderboard and signpost already uses **Builder Sans / Oswald / Special
+Elite** per §5. Only the 8 `ScreenGui` scripts use Gotham. World signage needs *icons*, not a restyle.
+
+| Mockup element | In game? | Where / what's missing |
+|---|---|---|
+| **Top HUD bar** (avatar·name·level·XP·chips) | ⚠️ partial | Only the Gold chip exists. Bar built in phase 2 with **rank in place of XP** (decision #6). |
+| **Currency chips ×3** | ✅ correct as-is | One chip, Gold. The other two are mockup-only — the game has no other lobby wallet. |
+| **Main menu** (PLAY·BOAT UPGRADES·SKILLS·PARTY·INVENTORY) | ❌ / n/a | Deliberate: PLAY and PARTY are **physical** (launch pads), INVENTORY doesn't exist in the lobby. Do not build. |
+| **Bottom bar** (5 icon buttons) | ❌ | Replaced in reality by the ad-hoc left button stack — see the entry-model re-decision. |
+| **Notification toast** ("BOAT UPGRADED!") | ❌ **missing** | Nothing anywhere emits a toast. `Components.toast` + wire to upgrade/claim. |
+| **Shop/upgrade panel** (art · stat deltas · before→after) | ⚠️ partial | Rows show name/blurb/cost/buy. **No item art, no `+%` stat deltas, no before→after.** Deltas are cheap (`SkillDefs.per`/`unit` already exist); art waits on §1.9b. |
+| **Buy popup / CONFIRM PURCHASE** | ❌ **missing for Gold** | Robux uses Roblox's own prompt. **Gold spends (skills, modules) buy instantly on click — no confirm.** That's a mockup gap *and* a real UX/mis-tap risk. |
+| **Button styles ×4** (primary/secondary/gold/danger) | ❌ | Ad-hoc colours per screen. Becomes `Components.button(variant)`. |
+| **Progress bar** | ⚠️ partial | One exists — `RetentionClient` objective bar. Skills show `Lv n / 10` as **text only**. Unify via `Components.progressBar`. |
+| **Checkbox · toggle · slider** | ❌ / n/a | No settings panel exists in the lobby → **out of scope**; build when one does. |
+| **Party pads** (coloured + group icon) | ⚠️ partial | 4 `BillboardGui`s ("Blue PAD"…) in Builder Sans Bold. **No `user_group` icon** — wire it (one colour, decision #3). |
+| **Shop signs w/ icons** (star·gear·wrench) | ⚠️ partial | All 4 stations have Special Elite entry signs + billboards. **No icons** — wire `star`/`wrench`/`shop`/`target_bounty`. |
+| **Upgrade item art** (engine·hull·fuel·storage·turret) | ❌ | The 7 renders, §1.9b. Not blocking. |
+| **Leaderboards** | ✅ done | 2 `SurfaceGui`s, Builder Sans + Oswald, live Top-10 + #1 gold glow. |
+| **Welcome sign · signpost** | ✅ done | Special Elite, on-spec. |
+
+**Net new work this audit surfaced:** a toast component, a Gold confirm-purchase popup, `+%` stat
+deltas in the shops, icons on the 8 world billboards, and unifying the one existing progress bar.
 
 ## Implementation steps
 
@@ -102,6 +158,25 @@ in a screen file after this job is a bug.
 7. `RetentionClient` — weekly objectives, claim states, toast.
 8. `TeleportGui` — full-screen launch; logo + `teleport_woosh`.
 9. `AdminClient` — tokens only, no redesign.
+
+**Phase 3b · The two other screen surfaces + world GUI** *(added by the audit)*
+
+10. `LobbyClient` hint banner — tokens + §6.7 styling.
+11. `RankServer` rank nameplate (`BillboardGui`) — tier colour + cream name, on-palette.
+12. **World billboard icons** — wire icons onto the 8 station/pad billboards that already exist and are
+    already on-spec for type: `star` → SkillTrainer · `wrench` → BoatUpgrades · `shop` → RobuxShop ·
+    `target_bounty` → Bounties · `user_group` → all 4 pads. *Icons only — the type stays as it is.*
+
+**Phase 3c · The gaps the audit found** *(new behaviour — called out, not silent)*
+
+13. **Gold confirm popup — APPROVED (user, 2026-07-30), all Gold spends.** Skills and modules currently
+    spend Gold **instantly on click with no confirmation**. Add `Components.confirm(item, cost)` →
+    CANCEL (red) / BUY (green) per §6.6, shown before any Gold is deducted.
+    ⚠️ *This is the one deliberate behaviour change in the job* — it inserts a step into the buy flow.
+    The server contract is untouched; the popup gates the client call. Play-test both paths (confirm
+    → purchase completes; cancel → nothing spent).
+14. **`+%` stat deltas** in SkillShop rows (§6.5) — `SkillDefs.per`/`.unit` already carry the numbers.
+15. **Toast** on upgrade bought / objective claimed, via `Components.toast`.
 
 **Phase 4 · Sound + mobile**
 
@@ -159,7 +234,11 @@ No runtime test harness, so the gates are:
 ## Definition of done
 
 - [ ] `Theme` / `Components` / `UISound` exist; **no raw colour or font literal left in any lobby screen**
-- [ ] All 8 screens restyled to §4/§5/§6
+- [ ] All **10 screen surfaces** restyled to §4/§5/§6 (8 UI scripts + hint banner + rank nameplate)
+- [ ] **One shared icon bar** replaces the 4 ad-hoc open buttons; no fixed-pixel positioning left
+- [ ] Icons wired onto the **8 world billboards** (4 stations + 4 pads)
+- [ ] **Gold confirm popup** on every Gold spend; cancel spends nothing
+- [ ] Toast fires on upgrade bought / objective claimed; `+%` stat deltas shown in SkillShop
 - [ ] 23 UI icons + 7 monetization icons wired
 - [ ] 11 SFX wired and audible in Play
 - [ ] Analyzer clean on every edited file
