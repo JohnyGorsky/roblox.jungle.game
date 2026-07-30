@@ -154,6 +154,21 @@ platform and coverage*, not looks.
 | I | **`INVENTORY` in the mockup's main menu** — GAME.md treats inventory as *in-run carried items*; there is no lobby inventory. Almost certainly game-place only. | GAME.md §Inventory |
 | J | **The `+` beside the currency chip** is a good, fair-monetization affordance (tap → RobuxShop) and is cheap. **Recommended — added to phase 2.** | §6.3; GAME.md "convenience, not power" |
 
+**Resolved (user, 2026-07-30):**
+
+- **E → `BOUNTIES` everywhere.** Building sign, entry button and panel title all become BOUNTIES; the
+  internal `weekly` OpenPanel id and `RetentionDefs` stay as they are (no data change, player-facing
+  strings only). Fits the fiction and the building already standing in the lobby.
+- **F → one skill shop, `Boat` / `Crew` groups.** The code is the truth; the two buildings were a
+  mockup idea. Group headers use the `motorboat` and `navy_crew` icons. **No second station, no
+  `SkillDefs` change.** The star/wrench major-vs-small split is *not* built here — §7's icon vocabulary
+  keeps `star` for gold-tier meaning and `wrench` for utility meaning without implying two shops.
+- **G → settings panel is out of scope.** New functionality with its own persistence questions; goes to
+  `Planned/` rather than into a restyle.
+- **A → I derive the phone layout** per `roblox-ui` (scale, safe-area, thumb zones) and send **Device
+  Emulator screenshots at every phase gate** for approval. No portrait mockup needed up front.
+- **I** — `INVENTORY` confirmed game-place only; not built in the lobby.
+
 ## Implementation steps
 
 **Phase 1 · Foundation**
@@ -249,7 +264,10 @@ No runtime test harness, so the gates are:
       (sourcemap stays enabled or every `require`/`WaitForChild` false-positives).
 - [ ] **Play test per phase** — panels open/close, purchases complete, claims grant, party flow and
       countdown work. *Behaviour identical to before; only pixels change.*
-- [ ] **Device Emulator (phone)** on every screen — safe-area, ~44×44 tap targets, readable text.
+- [ ] **Device Emulator (phone) screenshots at every phase gate**, sent for approval (decision A) —
+      safe-area, thumb-reachable targets, readable text. Sized by scale + aspect ratio, **not** a
+      hardcoded "minimum px" (`roblox-ui`: no official tap-target size exists — test on device).
+- [ ] `GuiButton.Activated` for every action (fires for mouse **and** touch) — no mouse-only events.
 - [ ] **Screenshots** per screen, checked against `GUI_PATTERN.png` for look and §4/§6 for the rules.
 
 ### Risks
