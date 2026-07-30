@@ -174,38 +174,44 @@ They are sourced differently and must not be confused. (b) is listed in §1.9b.
 > **Currency trap:** the mockup HUD shows 3 chips (gold coin / green cash / blue gem). Per STYLEGUIDE §6.3
 > that illustrates **layout only** — the lobby has **Gold only**. Source **one** currency icon, not three.
 
-### P1 — chrome + the §7 vocabulary (14 icons; unblocks the whole restyle)
+### <span style="color:#2e9c3f">✅ ALL 23 SOURCED, UPLOADED & VERIFIED (user, 2026-07-30)</span>
 
-| # | Icon | Used by | Flaticon search |
+Flaticon set, PNGs in `assets/Images/Icons/`. **IDs → registry
+[`images.md`](../roblox.workspace/Assets/registry/images.md) → *Lobby UI icon set*.** All 23 verified in
+Studio (`GetProductInfo` → name match, AssetTypeId 1). Nothing left to source for the lobby GUI.
+
+| # | Icon | Uploaded as | Used by |
 |---|---|---|---|
-| 1 | Close **X** | every panel header (4 panels) | [`close`](https://www.flaticon.com/search?word=close) |
-| 2 | **Gold coin** | `GoldHud` currency chip, every cost row | [`gold coin`](https://www.flaticon.com/search?word=gold+coin) |
-| 3 | **Shopping cart / shop** | `RobuxShop` open button, RobuxShop sign | [`shop`](https://www.flaticon.com/search?word=shop) |
-| 4 | **Star** | major/Gold skill, `SkillTrainer` sign | [`star`](https://www.flaticon.com/search?word=star) |
-| 5 | **Wrench** | utility skill, `BoatUpgrades` sign | [`wrench`](https://www.flaticon.com/search?word=wrench) |
-| 6 | **Player group** | party pads ×4, party UI | [`team`](https://www.flaticon.com/search?word=team) |
-| 7 | **Calendar-check** | `RetentionClient` WEEKLY button/title | [`calendar check`](https://www.flaticon.com/search?word=calendar+check) |
-| 8 | **Checkmark** | CLAIMED / OWNED / MAX states | [`checkmark`](https://www.flaticon.com/search?word=checkmark) |
-| 9 | **Clipboard / target** | `Bounties` station sign | [`bounty`](https://www.flaticon.com/search?word=bounty) |
-| 10 | **Gear** = engine | `motors`, `motor2` | [`gear`](https://www.flaticon.com/search?word=gear) |
-| 11 | **Shield** = hull | `hull`, `hullkit` | [`shield`](https://www.flaticon.com/search?word=shield) |
-| 12 | **Fuel pump** = fuel | `diesel`, `fueltank`, `refuel` | [`fuel`](https://www.flaticon.com/search?word=fuel) |
-| 13 | **Crate** = storage | `cargo`, `trailer` | [`crate`](https://www.flaticon.com/search?word=crate) |
-| 14 | **Crossed tools** = equipment | `repair`, generic upgrade | [`tools`](https://www.flaticon.com/search?word=tools) |
+| 1 | Close **X** | `close` | every panel header (4 panels) |
+| 2 | **Gold coin** | `coin` | `GoldHud` chip, every cost row |
+| 3 | **Shop** | `shop` | `RobuxShop` open button, RobuxShop sign |
+| 4 | **Star** | `star` | major/Gold skill, `SkillTrainer` sign |
+| 5 | **Wrench** | `wrench` | utility skill, `BoatUpgrades` sign |
+| 6 | **Player group** | `user_group` | party pads ×4, party UI |
+| 7 | **Calendar** | `calendar` | `RetentionClient` WEEKLY |
+| 8 | **Checkmark** | `check` | CLAIMED / OWNED / MAX states |
+| 9 | **Target / bounty** | `target_bounty` | `Bounties` station sign |
+| 10 | **Gear** = engine | `cogwheel_gear` | `motors`, `motor2` |
+| 11 | **Shield** = hull | `shield` | `hull`, `hullkit` |
+| 12 | **Fuel** | `fuel-station` | `diesel`, `fueltank`, `refuel` |
+| 13 | **Crate** = storage | `box_Create` | `cargo`, `trailer` |
+| 14 | **Crossed tools** | `tools` | `repair`, generic upgrade |
+| 15 | **Boat** | `motorboat` | "Boat" skill group header |
+| 16 | **Crew** | `navy_crew` | "Crew" skill group header |
+| 17 | **Ship wheel** | `ship-wheel` | `rudder` (Rudder Tuning) |
+| 18 | **Medkit** | `first-aid-kit` | `medic` (Combat Medic) |
+| 19 | **Gun / turret** | `machine-gun` | `gun`, `gunupgrade` |
+| 20 | **Spotlight** | `spotlight` | `searchlight` (Searchlight Rig) |
+| 21 | **Money bag** | `money-bag` | `scavenge` (Scavenger's Instinct) |
+| 22 | **Trophy** | `winner_trophy` | weekly-objective score reward |
+| 23 | **Robux** | `roblox` | R$ price rows |
 
-### P2 — per-item icons (9; makes shop/skill rows read at a glance, §6.5)
-
-| # | Icon | Used by | Flaticon search |
-|---|---|---|---|
-| 15 | **Boat** | "Boat" skill group header, boat rows | [`boat`](https://www.flaticon.com/search?word=boat) |
-| 16 | **Crew / helmet person** | "Crew" skill group header | [`crew`](https://www.flaticon.com/search?word=crew) |
-| 17 | **Ship wheel** | `rudder` (Rudder Tuning) | [`ship wheel`](https://www.flaticon.com/search?word=ship+wheel) |
-| 18 | **Medkit / cross** | `medic` (Combat Medic) | [`medical kit`](https://www.flaticon.com/search?word=medical+kit) |
-| 19 | **Gun / turret** | `gun`, `gunupgrade` | [`machine gun`](https://www.flaticon.com/search?word=machine+gun) |
-| 20 | **Spotlight** | `searchlight` (Searchlight Rig) | [`spotlight`](https://www.flaticon.com/search?word=spotlight) |
-| 21 | **Loot bag / grab hand** | `scavenge` (Scavenger's Instinct) | [`loot bag`](https://www.flaticon.com/search?word=loot+bag) |
-| 22 | **Trophy / chart** | weekly-objective score reward | [`trophy`](https://www.flaticon.com/search?word=trophy) |
-| 23 | **Robux R$** *(optional)* | R$ price rows — text `R$` also fine | [`robux`](https://www.flaticon.com/search?word=robux) |
+> **Colour note (changes §1.9's original plan):** the delivered set is **full-colour flat icons**, not the
+> mono silhouettes the tint table below assumed. `ImageColor3` multiplies, so tinting these muddies them —
+> **the tint table applies to panel/text/button colour, not to these icons.** They carry their own palette
+> (bright red medkit/fuel, green check, blue shield) which sits brighter than STYLEGUIDE §4. Handle at
+> restyle time: seat each icon on a dark panel chip so it reads as deliberate, or re-export desaturated if
+> they fight the muted jungle ground. Decide by eye once the first panel is restyled.
 
 **Already covered — do not re-source:** shop product/pass art (§5.1, 7 IDs live) · loading background (§5) ·
 the `LastRiverLogo.png` used by `TeleportGui`.
