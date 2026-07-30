@@ -373,8 +373,6 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	btn.BackgroundTransparency = 0.1
 	btn.BorderSizePixel = 0
 	btn.AutoButtonColor = false
-	btn.Image = (Theme.icon :: { [string]: string })[opts.icon] or ""
-	btn.ScaleType = Enum.ScaleType.Fit
 	corner(Theme.radius.pill, btn)
 	stroke(Theme.color.gold, Theme.strokeWidth.control, btn)
 
@@ -382,12 +380,19 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	ratio.AspectRatio = 1
 	ratio.Parent = btn
 
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, Theme.space.sm)
-	pad.PaddingBottom = UDim.new(0, Theme.space.sm)
-	pad.PaddingLeft = UDim.new(0, Theme.space.sm)
-	pad.PaddingRight = UDim.new(0, Theme.space.sm)
-	pad.Parent = btn
+	-- The artwork is a child sized by SCALE rather than the button's own Image with pixel padding, so the
+	-- inset stays proportional at any badge size — the ring keeps its breathing room on a phone and a
+	-- 4K monitor alike, instead of the icon swelling to the rim.
+	local art = Instance.new("ImageLabel")
+	art.Name = "Art"
+	art.AnchorPoint = Vector2.new(0.5, 0.5)
+	art.Position = UDim2.fromScale(0.5, 0.5)
+	art.Size = UDim2.fromScale(0.56, 0.56)
+	art.BackgroundTransparency = 1
+	art.BorderSizePixel = 0
+	art.ScaleType = Enum.ScaleType.Fit
+	art.Image = (Theme.icon :: { [string]: string })[opts.icon] or ""
+	art.Parent = btn
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = btn
