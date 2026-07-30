@@ -192,14 +192,43 @@ platform and coverage*, not looks.
   star boundaries: no NaN, no out-of-range fill, no divide-by-zero. 11 cases, 0 problems.
 - ⏳ Runtime behaviour still unverified — the modules aren't Rojo-synced yet (user action).
 
-**Phase 2 · Validate the tokens on the two most dissimilar screens**
+**Phase 2 · Validate the tokens on the two most dissimilar screens** — <span style="color:#2e9c3f">✅ GATE PASSED 2026-07-31</span>
 
-3. `GoldHud` → the §6.3 top bar: avatar · name · **rank tier** · **River Score → next tier** · Gold chip.
-4. `RobuxShop` → panel + rows using the 7 live product/pass icons + buy/confirm popup (§6.5/§6.6).
+3. [x] `GoldHud` → **`TopBar.local.luau`**: avatar · name · rank tier + colour dot · River Score bar
+       ("418 / 500 to Drifter") · Gold chip · `+`. The lobby `GoldHud` was deleted; the game-place copy
+       is deliberately left as a plain gold readout (in-run HUD stays mandatory-info-only, §6.11).
+4. [x] `RobuxShop` → panel + 7 offer rows with real store art, opened from the kiosk **and** from `+`.
 
-> **Gate:** if the token set can't express both without additions, fix `Theme` *before* phase 3. This is
-> also where the two deferred questions get answered by eye — rank-tier colour (ladder colour vs cream +
-> accent dot), and whether any of the 6 loud icons need desaturating.
+**Gate outcome — the token set held.** Only two additions were needed, both data not design:
+`Theme.productIcon` (store art) and `Theme.rowHeight`. No palette, typography, spacing or motion token
+changed. Rollout can proceed.
+
+**Answered by eye at the gate:**
+- **Rank tier colour** → cream tier name + a small dot in the ladder colour. Keeps the off-palette
+  teal/purple/magenta out of the type while preserving tier identity.
+- **Loud icons** → no desaturation needed. Seated on dark circular badges they read as deliberate.
+
+**Design decisions that came out of live review (user, 2026-07-31):**
+- **Icons are circular badges everywhere by default** — title bars, rows, anywhere a chip is drawn — so
+  the set reads as one system. `round = false` opts back to a rounded rectangle.
+- **Row art breaks out of its row** (badge is 1.34× row height), so lists that use it need the wider
+  `Theme.space.lg` gap and rows must not clip children.
+- **Every panel carries a title icon**, never text alone (`PanelOptions.icon`).
+- The `+` and the close `X` were both scaled down — a convenience affordance and a utility should not
+  out-shout the balance and the title they sit next to.
+- **Product art swapped to transparent PNGs** — the Creator Hub thumbnails are matted on an opaque
+  disc, which showed as a white blob inside a round badge.
+
+**New in `UI/`:** `UIBus.luau` — a client-side BindableEvent bus. `OpenPanel` is a server→client
+RemoteEvent, so it cannot carry a *client* script's request to open another client script's panel
+(the `+`, and later the shared entry bar). Round-tripping via the server would add latency and an
+exploitable remote for nothing.
+
+**Verified in Play:** `+` → `UIBus` → panel opens with 7 rows and 7 icons; kiosk route intact; close
+button and tap-outside scrim both dismiss. Analyzer clean on every touched file.
+⚠️ *Testing note:* `execute_luau` runs in a **separate Luau context**, so `require`ing `UIBus` there
+yields a different BindableEvent and cannot trigger the real listener — the bus must be tested with a
+real click (`user_mouse_input`), not a scripted fire.
 
 **Phase 3 · Rollout**
 
