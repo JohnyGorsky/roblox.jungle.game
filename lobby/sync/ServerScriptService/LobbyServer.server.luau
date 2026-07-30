@@ -13,6 +13,8 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
 local LobbyConfig = require(ReplicatedStorage:WaitForChild("LobbyConfig"))
+-- Theme is tokens only (no instances), so a server script can read the palette too (Job 065)
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 local MAX = LobbyConfig.MAX_PER_PAD
 local COUNTDOWN = LobbyConfig.COUNTDOWN
 local GAME_PLACE = LobbyConfig.GAMEPLAY_PLACE_ID
@@ -72,8 +74,17 @@ local pads: { Pad } = {}
 
 local function makePad(index: number, part: BasePart): Pad
 	-- floating sign above the pad (runtime UI attachment, not geometry)
-	local signPart = part:FindFirstChild("PadSignAnchor") :: BasePart?
-	if not signPart then
+	-- The old form cast FindFirstChild straight to BasePart? and left the variable optional afterwards,
+	-- which the analyzer flagged (finding 0002) — and the cast would also have lied if something
+	-- non-BasePart were ever named PadSignAnchor. Check the class, and keep the result non-optional.
+	local existingAnchor = part:FindFirstChild("PadSignAnchor")
+	local signPart: BasePart
+	if existingAnchor and existingAnchor:IsA("BasePart") then
+		signPart = existingAnchor
+	else
+		if existingAnchor then
+			existingAnchor:Destroy() -- wrong class under a name we depend on
+		end
 		local s = Instance.new("Part")
 		s.Name = "PadSignAnchor"
 		s.Anchored = true
