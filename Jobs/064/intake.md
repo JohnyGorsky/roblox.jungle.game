@@ -114,5 +114,8 @@ intro gameplay), start with **Robux Shop**.
 
 - [x] Requirements reviewed (this intake)
 - [x] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation completed
+- [x] Final summary + changelog written — **CLOSED 2026-07-30**
+
+> Open items were **carried forward, not dropped** — see `final-summary.md` → *Carried forward*.
+> The GUI-facing ones (wire the 11 SFX, wire the 23 icons) move to the lobby GUI job.
