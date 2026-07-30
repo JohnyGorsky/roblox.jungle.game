@@ -80,10 +80,14 @@ task.spawn(function()
 	end
 end)
 
+-- The avatar is a square driven by the strip's height (~0.18 of its width), so the text column starts
+-- past that with a clear gap rather than butting against the portrait.
+local TEXT_X = 0.235
+
 local nameLabel = Instance.new("TextLabel")
 nameLabel.Name = "PlayerName"
-nameLabel.Position = UDim2.fromScale(0.2, 0.1)
-nameLabel.Size = UDim2.fromScale(0.62, 0.34)
+nameLabel.Position = UDim2.fromScale(TEXT_X, 0.1)
+nameLabel.Size = UDim2.fromScale(0.6, 0.34)
 nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 Components.applyText(nameLabel, Theme.text.h2, Theme.font.bodyBold)
 nameLabel.Text = player.DisplayName
@@ -95,7 +99,7 @@ nameLabel.Parent = left
 local tierDot = Instance.new("Frame")
 tierDot.Name = "TierDot"
 tierDot.AnchorPoint = Vector2.new(0, 0.5)
-tierDot.Position = UDim2.fromScale(0.2, 0.62)
+tierDot.Position = UDim2.fromScale(TEXT_X, 0.62)
 tierDot.Size = UDim2.fromScale(0.028, 0.16)
 tierDot.BackgroundColor3 = Theme.color.gold
 tierDot.BorderSizePixel = 0
@@ -107,16 +111,16 @@ tierDot.Parent = left
 
 local tierLabel = Instance.new("TextLabel")
 tierLabel.Name = "Tier"
-tierLabel.Position = UDim2.fromScale(0.245, 0.46)
-tierLabel.Size = UDim2.fromScale(0.58, 0.3)
+tierLabel.Position = UDim2.fromScale(TEXT_X + 0.045, 0.46)
+tierLabel.Size = UDim2.fromScale(0.55, 0.3)
 tierLabel.TextXAlignment = Enum.TextXAlignment.Left
 Components.applyText(tierLabel, Theme.text.caption, Theme.font.bodyBold)
 tierLabel.Text = "—"
 tierLabel.Parent = left
 
 local rankBar = Components.progressBar(left)
-rankBar.instance.Position = UDim2.fromScale(0.2, 0.8)
-rankBar.instance.Size = UDim2.fromScale(0.76, 0.13)
+rankBar.instance.Position = UDim2.fromScale(TEXT_X, 0.8)
+rankBar.instance.Size = UDim2.fromScale(0.74, 0.13)
 
 -- ── right cluster: Gold chip + `+` ────────────────────────────────────────────────────────────────
 
@@ -150,19 +154,21 @@ local plus = Components.button({
 })
 plus.instance.AnchorPoint = Vector2.new(1, 0.5)
 
--- keep the `+` square, proportional to the strip, and tucked just left of the chip as it grows
-local function placePlus()
+-- Reading order is balance-then-action: the `+` sits at the right edge and the chip parks to its left,
+-- so the chip can grow leftwards as the number does without ever shoving the button around.
+local function layoutCluster()
 	local height = right.AbsoluteSize.Y
 	if height <= 0 then
 		return
 	end
 	local side = math.floor(height * 0.72)
 	plus.instance.Size = UDim2.fromOffset(side, side)
-	plus.instance.Position = UDim2.new(1, -goldChip.instance.AbsoluteSize.X - Theme.space.sm, 0.5, 0)
+	plus.instance.Position = UDim2.fromScale(1, 0.5)
+	goldChip.instance.Position = UDim2.new(1, -side - Theme.space.sm, 0.5, 0)
 end
-right:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePlus)
-goldChip.instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePlus)
-task.defer(placePlus)
+right:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutCluster)
+goldChip.instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutCluster)
+task.defer(layoutCluster)
 
 right.Parent = gui
 left.Parent = gui
