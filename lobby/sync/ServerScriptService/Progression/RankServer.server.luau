@@ -31,11 +31,14 @@ local function buildTag(plr: Player, char: Model): (() -> ())?
 	-- no instances), so a server script can read the palette too.
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "RankTag"
-	bb.Size = UDim2.fromScale(6.4, 1.9)
-	bb.StudsOffset = Vector3.new(0, 2.9, 0)
+	bb.Size = UDim2.fromScale(4.2, 1.15)
+	bb.StudsOffset = Vector3.new(0, 2.6, 0)
 	bb.MaxDistance = 60
 	bb.LightInfluence = 0
 	bb.AlwaysOnTop = false
+	-- You don't need your own name floating in front of you — it just blocks the view of the airfield.
+	-- Everyone ELSE still sees it, which is the point of a rank tag.
+	bb.PlayerToHideFrom = plr
 
 	local plate = Instance.new("Frame")
 	plate.Name = "Plate"

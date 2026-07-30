@@ -134,7 +134,7 @@ right.BorderSizePixel = 0
 
 local goldChip = Components.chip("coin", right)
 goldChip.instance.AnchorPoint = Vector2.new(1, 0.5)
-goldChip.instance.Position = UDim2.fromScale(1, 0.5)
+-- final X set in layoutCluster(), which parks it left of the `+`
 
 -- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience), so it
 -- sits beside the balance as a small square — deliberately quieter than the balance itself.
