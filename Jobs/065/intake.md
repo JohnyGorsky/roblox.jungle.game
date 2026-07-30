@@ -66,6 +66,24 @@ Plus the **shared module** both trees will use, and the **11 SFX** wired per int
 | 3 | **Party pads keep one icon colour** on all four. The pads already carry colour via ring, glow column, edge lights and label; `user_group` is full-colour and can't be tinted. |
 | 4 | **SFX wiring is part of this job**, not a separate one — sound and visuals land together per screen, so each screen is finished once. |
 | 5 | **Ship the icon set as-is** and judge it in context. Six of the 23 are loud (`check`, `star`, `winner_trophy`, `shield`, `coin`, `fuel-station` measure 69–95% saturation); the rest are muted or effectively mono. Seat them on dark chips; re-export desaturated later only if they fight the ground. |
+| 6 | **Top HUD bar = §6.3's shape, with rank in place of XP.** Avatar · name · **rank tier** · **River Score progress to the next tier** · Gold chip. No level system is invented — the bar is driven by the rank ladder that already exists. |
+| 7 | **Theme module ships to the lobby tree only.** The byte-identical `sync/` copy is added when the game place is actually restyled, so an unused file can't drift out of sync first. |
+| 8 | **Entry stays kiosk-driven — no bottom bar.** Panels open from the world stations built in #064. Keeps §6.11 minimalism and makes the physical lobby the interface instead of duplicating it in UI. |
+
+### Consequences of decision #6 (found while checking `RankDefs`)
+
+- **`RankDefs` has no "next tier" helper.** It exposes `tierFor(score)`, `legendStars(score)` and
+  `shortScore(score)` — the progress bar needs the *next* tier's `min` to compute a fill. Either add a
+  small `nextTierFor(score)` helper or derive it client-side from `RankDefs.Tiers`.
+- **`RankDefs` is a shared module with a byte-identical copy in both trees.** If a helper is added, both
+  copies must change together — this is the one place this job legitimately touches a file that also
+  exists in the game tree (data only, no behaviour change).
+- **Top-tier edge case:** at *River Legend* (220,000) there is no next tier. The bar should switch to
+  prestige stars (`legendStars`, one per `LEGEND_STAR_STEP` = 100,000) rather than showing a full or
+  broken bar.
+- **Tier colours sit outside §4.** The ladder uses teal, blue, purple and magenta — colours the jungle
+  palette doesn't contain. Decide at plan time whether the tier name takes its ladder colour (readable,
+  familiar, off-palette) or cream with the ladder colour used only as a small accent dot.
 
 ## Reading the mockup (STANDING RULE: direction, not spec)
 
@@ -137,15 +155,17 @@ From `jungle-style` / STYLEGUIDE and the `game-design` + `roblox-ui` skills:
 
 ## Open questions
 
-| # | Question |
+_All intake questions resolved 2026-07-30 → decisions 1–8 above._ Two items are deliberately deferred to
+the implementation plan, where they're cheaper to answer with a screen in front of us:
+
+| # | Deferred to plan |
 |---|---|
-| 1 | Does the top HUD bar (avatar · name · level · XP bar, §6.3) belong in this job, or is it game-place only? The lobby has rank/River Score but no XP system. |
-| 2 | Should the theme module be published for the game place in this job (byte-identical copy, unused there yet), or added when the game place is restyled? |
-| 3 | Bottom bar (§6.4) — the lobby's entries are opened from world kiosks, not a bar. Add one, or keep kiosk-driven entry? |
+| 1 | Rank tier colour on the top bar — ladder colour vs cream + accent dot (see decision #6 consequences). |
+| 2 | Whether any of the 6 loud icons need desaturating, judged on the first restyled panel (decision #5). |
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created — **awaiting go-ahead**
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
