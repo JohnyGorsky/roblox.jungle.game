@@ -153,17 +153,18 @@ Theme.moduleIcon = {
 -- skill group -> icon key (one shop, Boat/Crew groups — plan decision F)
 Theme.groupIcon = { Boat = "boat", Crew = "crew" }
 
--- Monetization art (registry images.md → "Monetization icons"). These are the Creator Hub product/pass
--- thumbnails, which also mint owned image assets — so the shop can show the real store art.
--- Keyed by MonetizationDefs `id` (gold packs) and `key` (passes).
+-- Monetization art, keyed by MonetizationDefs `id` (gold packs) and `key` (passes).
+-- These are the TRANSPARENT-PNG uploads (2026-07-31), not the Creator Hub thumbnails — the Hub versions
+-- are matted onto an opaque square/disc, which read as white blobs behind the art in a round badge.
+-- The Hub thumbnail ids stay recorded in registry images.md for the store listings themselves.
 Theme.productIcon = {
-	pack10 = "rbxassetid://121862847548970",
-	pack25 = "rbxassetid://95542160791148",
-	pack60 = "rbxassetid://74400053482366",
-	pack150 = "rbxassetid://80233861953394",
-	armoredBoat = "rbxassetid://138728521842994",
-	boatPaint = "rbxassetid://70530350071757",
-	cosmeticBundle = "rbxassetid://130780112255781",
+	pack10 = "rbxassetid://72255341573939", -- 10_transparent
+	pack25 = "rbxassetid://114957317211525", -- 25_transparent
+	pack60 = "rbxassetid://100983946600429", -- 60_transparent
+	pack150 = "rbxassetid://133943328068949", -- 150_transparent
+	armoredBoat = "rbxassetid://130910653087108", -- Boat_transparent
+	boatPaint = "rbxassetid://82416796032835", -- Paint_transparent
+	cosmeticBundle = "rbxassetid://95212286807985", -- Cosmetics_transparent
 }
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────
