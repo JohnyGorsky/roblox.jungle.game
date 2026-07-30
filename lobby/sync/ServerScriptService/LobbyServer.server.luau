@@ -94,18 +94,25 @@ local function makePad(index: number, part: BasePart): Pad
 	bb.AlwaysOnTop = true
 	bb.MaxDistance = 40 -- only show the pad sign when the player is near (declutter the far view)
 	bb.Parent = signPart
+	-- Job 065: pad sign styled to the palette — panel fill, wood border, cream text. The pad's own
+	-- colour still carries the identity (ring, glow column, edge lights), so the sign stays neutral
+	-- rather than competing with it.
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-	label.BackgroundTransparency = 0.25
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.GothamBold
+	label.BackgroundColor3 = Theme.color.panel
+	label.BackgroundTransparency = 0.2
+	label.TextColor3 = Theme.color.cream
+	label.Font = Theme.font.button
 	label.TextScaled = true
 	label.RichText = true
 	label.Text = ""
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 10)
 	corner.Parent = label
+	local labelStroke = Instance.new("UIStroke")
+	labelStroke.Color = Theme.color.wood
+	labelStroke.Thickness = 2
+	labelStroke.Parent = label
 	local pad2 = Instance.new("UIPadding")
 	pad2.PaddingTop = UDim.new(0, 6)
 	pad2.PaddingBottom = UDim.new(0, 6)
