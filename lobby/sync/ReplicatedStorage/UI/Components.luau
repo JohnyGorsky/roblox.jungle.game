@@ -271,74 +271,75 @@ end
 
 export type Chip = { instance: Frame, setValue: (text: string) -> () }
 
--- The chip HUGS ITS CONTENT: it grows with the number rather than reserving a fixed slab, so "12" and
--- "1,284,900" both look deliberate. That means AutomaticSize.X, which cannot be combined with
--- TextScaled (the label would size to its box and the box to the label). Instead the text size is
--- derived from the chip's own height whenever that changes — still fully responsive, no fixed pixels.
+-- The chip HUGS ITS CONTENT so "12" and "1,284,900" both look deliberate instead of one slab fitting
+-- neither. It does that by MEASURING the text (TextBounds) and sizing itself, rather than by
+-- AutomaticSize: automatic sizing does not reliably measure children sized by scale or by a
+-- UIAspectRatioConstraint on the automatic axis, which collapses the icon and the whole chip with it.
+--
+-- Height comes from the parent by scale (mobile-first); everything horizontal is then derived from that
+-- height, so the chip stays proportional on any screen while still hugging its number.
 function Components.chip(iconName: string, parent: Instance?): Chip
+	local PAD = Theme.space.md
+	local GAP = Theme.space.sm
+
 	local frame = Instance.new("Frame")
 	frame.Name = "Chip"
-	frame.Size = UDim2.new(0, 0, 0.055, 0) -- height by scale, width from content
-	frame.AutomaticSize = Enum.AutomaticSize.X
+	frame.Size = UDim2.new(0, 140, 1, 0) -- width recomputed by relayout(); height from the parent
 	frame.BackgroundColor3 = Theme.color.sunken
 	frame.BackgroundTransparency = 0.15
 	frame.BorderSizePixel = 0
 	corner(Theme.radius.pill, frame)
 	stroke(Theme.color.wood, Theme.strokeWidth.control, frame)
 
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, Theme.space.sm)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = frame
-
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, Theme.space.sm)
-	pad.PaddingRight = UDim.new(0, Theme.space.md)
-	pad.PaddingTop = UDim.new(0, Theme.space.xs)
-	pad.PaddingBottom = UDim.new(0, Theme.space.xs)
-	pad.Parent = frame
-
 	local ico = Components.icon({
 		name = iconName,
-		size = UDim2.new(0, 0, 1, 0), -- full chip height; width follows from the aspect below
+		size = UDim2.fromOffset(24, 24), -- real size set in relayout()
 		chip = false,
-		layoutOrder = 1,
 		parent = frame,
 	})
-	-- CRITICAL: a UIAspectRatioConstraint defaults to DominantAxis.Width. Inside an auto-sized chip the
-	-- width is 0 at layout time, so the icon would collapse to nothing. Height must drive the square.
+	ico.AnchorPoint = Vector2.new(0, 0.5)
+	-- both dimensions are set explicitly, so the aspect constraint is redundant and only adds a way to
+	-- collapse to zero
 	local icoRatio = ico:FindFirstChildOfClass("UIAspectRatioConstraint")
 	if icoRatio then
-		icoRatio.DominantAxis = Enum.DominantAxis.Height
+		icoRatio:Destroy()
 	end
 
 	local value = Instance.new("TextLabel")
 	value.Name = "Value"
-	value.AutomaticSize = Enum.AutomaticSize.X
-	value.Size = UDim2.new(0, 0, 1, 0)
-	value.LayoutOrder = 2
-	value.TextXAlignment = Enum.TextXAlignment.Right
+	value.AnchorPoint = Vector2.new(0, 0.5)
 	value.BackgroundTransparency = 1
 	value.BorderSizePixel = 0
 	value.Font = Theme.font.bodyBold
 	value.TextColor3 = Theme.color.gold
 	value.TextStrokeColor3 = Theme.color.stroke
 	value.TextStrokeTransparency = 0.6
-	value.TextScaled = false -- would fight AutomaticSize
+	value.TextXAlignment = Enum.TextXAlignment.Left
+	value.TextScaled = false -- TextBounds is only meaningful when the text isn't stretched to its box
+	value.TextWrapped = false
 	value.Text = "0"
 	value.Parent = frame
 
-	-- keep the type proportional to the chip on every screen size
-	local function resize()
+	local function relayout()
 		local height = frame.AbsoluteSize.Y
-		if height > 0 then
-			value.TextSize = math.clamp(math.floor(height * 0.52), Theme.text.h2.min, Theme.text.h2.max)
+		if height <= 0 then
+			return
 		end
+		local iconSize = math.floor(height * 0.66)
+		value.TextSize = math.clamp(math.floor(height * 0.46), Theme.text.h2.min, Theme.text.h2.max)
+
+		ico.Size = UDim2.fromOffset(iconSize, iconSize)
+		ico.Position = UDim2.new(0, PAD, 0.5, 0)
+
+		local textWidth = math.ceil(value.TextBounds.X)
+		value.Size = UDim2.new(0, textWidth, 1, 0)
+		value.Position = UDim2.new(0, PAD + iconSize + GAP, 0.5, 0)
+
+		frame.Size = UDim2.new(0, PAD + iconSize + GAP + textWidth + PAD, frame.Size.Y.Scale, frame.Size.Y.Offset)
 	end
-	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
-	resize()
+
+	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
+	task.defer(relayout) -- AbsoluteSize is 0 until the first layout pass
 
 	frame.Parent = parent
 
@@ -346,6 +347,7 @@ function Components.chip(iconName: string, parent: Instance?): Chip
 		instance = frame,
 		setValue = function(text: string)
 			value.Text = text
+			relayout() -- the number changed width; the chip follows it
 		end,
 	}
 end

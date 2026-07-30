@@ -120,48 +120,49 @@ rankBar.instance.Size = UDim2.fromScale(0.76, 0.13)
 
 -- ── right cluster: Gold chip + `+` ────────────────────────────────────────────────────────────────
 
--- The cluster hugs its contents (AutomaticSize.X) so the balance and its `+` stay tight together and the
--- whole thing grows only as the number does — no fixed slab reserved for a value we don't know yet.
+-- The cluster is a fixed-height, right-anchored strip. The chip sizes ITSELF to its number
+-- (Components.chip measures the text), and the `+` is then placed to the chip's left. Everything is
+-- laid out explicitly from the strip's height — no AutomaticSize and no aspect constraints, which
+-- collapse to zero when their driving axis isn't resolved yet.
 local right = Instance.new("Frame")
 right.Name = "Currency"
 right.AnchorPoint = Vector2.new(1, 0)
 right.Position = UDim2.fromScale(0.988, 0.02)
-right.Size = UDim2.new(0, 0, 0.07, 0)
-right.AutomaticSize = Enum.AutomaticSize.X
+right.Size = UDim2.fromScale(0.3, 0.07)
 right.BackgroundTransparency = 1
 right.BorderSizePixel = 0
 
-local rightLayout = Instance.new("UIListLayout")
-rightLayout.FillDirection = Enum.FillDirection.Horizontal
-rightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-rightLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-rightLayout.Padding = UDim.new(0, Theme.space.sm)
-rightLayout.SortOrder = Enum.SortOrder.LayoutOrder
-rightLayout.Parent = right
-
 local goldChip = Components.chip("coin", right)
-goldChip.instance.LayoutOrder = 1
-goldChip.instance.Size = UDim2.new(0, 0, 1, 0) -- full cluster height, width from the number
+goldChip.instance.AnchorPoint = Vector2.new(1, 0.5)
+goldChip.instance.Position = UDim2.fromScale(1, 0.5)
 
 -- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience), so it
 -- sits beside the balance as a small square — deliberately quieter than the balance itself.
 local plus = Components.button({
 	text = "+",
 	variant = "gold",
-	size = UDim2.new(0, 0, 0.7, 0),
-	layoutOrder = 2,
+	size = UDim2.fromOffset(36, 36),
 	sound = "open",
 	parent = right,
 	onActivated = function()
 		UIBus.open("robux")
 	end,
 })
--- height drives the square: the cluster auto-sizes its width, so a Width-dominant aspect would
--- collapse the button to nothing (see the same note in Components.chip)
-local plusRatio = Instance.new("UIAspectRatioConstraint")
-plusRatio.AspectRatio = 1
-plusRatio.DominantAxis = Enum.DominantAxis.Height
-plusRatio.Parent = plus.instance
+plus.instance.AnchorPoint = Vector2.new(1, 0.5)
+
+-- keep the `+` square, proportional to the strip, and tucked just left of the chip as it grows
+local function placePlus()
+	local height = right.AbsoluteSize.Y
+	if height <= 0 then
+		return
+	end
+	local side = math.floor(height * 0.72)
+	plus.instance.Size = UDim2.fromOffset(side, side)
+	plus.instance.Position = UDim2.new(1, -goldChip.instance.AbsoluteSize.X - Theme.space.sm, 0.5, 0)
+end
+right:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePlus)
+goldChip.instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePlus)
+task.defer(placePlus)
 
 right.Parent = gui
 left.Parent = gui
