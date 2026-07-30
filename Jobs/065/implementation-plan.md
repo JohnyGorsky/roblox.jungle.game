@@ -267,13 +267,27 @@ explicit decision to ship `Theme` to `sync/` early.
 Restored to `"SkillTrainer"` and verified by read-back; all four kiosks now resolve. This is place
 content, so it is **lost unless the user saves the place.**
 
-**Phase 3b · The two other screen surfaces + world GUI** *(added by the audit)*
+**Phase 3b · The two other screen surfaces + world GUI** — <span style="color:#2e9c3f">✅ DONE 2026-07-31</span>
 
-10. `LobbyClient` hint banner — tokens + §6.7 styling.
-11. `RankServer` rank nameplate (`BillboardGui`) — tier colour + cream name, on-palette.
-12. **World billboard icons** — wire icons onto the 8 station/pad billboards that already exist and are
-    already on-spec for type: `star` → SkillTrainer · `wrench` → BoatUpgrades · `shop` → RobuxShop ·
-    `target_bounty` → Bounties · `user_group` → all 4 pads. *Icons only — the type stays as it is.*
+10. [x] `LobbyClient` hint banner — wood-bordered field notice, party icon, gold ALL-CAPS title. Marked
+        `Active = false` so an informational banner can never eat a tap.
+11. [x] `RankServer` player nameplate — a small wood-bordered dog-tag instead of bare floating text.
+        Two changes from live review: **`PlayerToHideFrom = plr`** (you don't need your own name blocking
+        your view — everyone else still sees it, which is the point of a rank tag) and a smaller plate
+        (6.4×1.9 → 4.2×1.15 studs).
+12. [x] `LobbyServer` pad signs — palette fill + wood border + cream. The pad's own colour still carries
+        identity (ring, glow column, edge lights), so the sign stays neutral rather than competing.
+13. [x] **`LobbySignage.server.luau`** (new) — restyles the 8 world billboards *in place*: finds each by
+        its `Station` attribute and adds the icon badge (`star`/`wrench`/`shop`/`bounty`, and `party` in
+        each pad's own colour). It never creates or moves geometry, matching the lobby's
+        find-by-name/attach rule, and is idempotent. Verified: `restyled 8 world billboard(s)`.
+
+> **Why a script rather than editing the place:** the billboards are editor content, but their *styling*
+> is design-system state. Hand-applying the palette in the editor would have to be redone by hand every
+> time a token changes; find-and-restyle moves with `Theme` automatically.
+
+**Server scripts can read `Theme`** — it is tokens only, no instances, so `RankServer`, `LobbyServer` and
+`LobbySignage` all use the same palette as the client without duplicating a single hex value.
 
 **Phase 3c · The gaps the audit found** *(new behaviour — called out, not silent)*
 
