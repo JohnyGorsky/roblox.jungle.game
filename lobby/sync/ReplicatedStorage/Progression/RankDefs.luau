@@ -38,6 +38,33 @@ function RankDefs.tierFor(score: number): Tier
 	return best
 end
 
+-- The tier ABOVE the current one, or nil at River Legend (there is nothing higher). Job 065: the top-bar
+-- rank progress needs the next tier's `min` to compute a fill.
+function RankDefs.nextTierFor(score: number): Tier?
+	local current = RankDefs.tierFor(score)
+	return RankDefs.Tiers[current.index + 1]
+end
+
+-- Progress toward the next tier as 0..1, plus the labels the HUD shows.
+-- At the top tier there is no next tier, so progress runs toward the NEXT PRESTIGE STAR instead
+-- (LEGEND_STAR_STEP), which keeps the bar meaningful rather than pinned full forever.
+function RankDefs.progressFor(score: number): (number, number, number)
+	local current = RankDefs.tierFor(score)
+	local nextTier = RankDefs.nextTierFor(score)
+	if nextTier then
+		local span = nextTier.min - current.min
+		local into = score - current.min
+		if span <= 0 then
+			return 1, into, into
+		end
+		return math.clamp(into / span, 0, 1), into, span
+	end
+	-- River Legend: progress to the next star
+	local past = score - current.min
+	local into = past % RankDefs.LEGEND_STAR_STEP
+	return math.clamp(into / RankDefs.LEGEND_STAR_STEP, 0, 1), into, RankDefs.LEGEND_STAR_STEP
+end
+
 -- Legend prestige stars (0 until past the top tier)
 function RankDefs.legendStars(score: number): number
 	local top = RankDefs.Tiers[#RankDefs.Tiers]

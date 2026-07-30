@@ -171,11 +171,26 @@ platform and coverage*, not looks.
 
 ## Implementation steps
 
-**Phase 1 · Foundation**
+**Phase 1 · Foundation** — <span style="color:#2e9c3f">✅ DONE 2026-07-31</span>
 
-1. `Theme.luau` + `Components.luau` + `UISound.luau`.
-2. `RankDefs` gains `nextTierFor(score)` — **mirrored byte-identically into `sync/`** (data only, no
-   behaviour change). Falls back to `legendStars` at *River Legend*, where there is no next tier.
+1. [x] `Theme.luau` + `Components.luau` + `UISound.luau` → `lobby/sync/ReplicatedStorage/UI/`
+       (`lobby/default.project.json` maps them to `ReplicatedStorage.UI.*`).
+       Components built: `screen · icon · button(4 variants + 4 states) · chip · progressBar ·
+       panel(X + tap-outside) · row(+ flashFail) · toast · confirm · iconBar`.
+2. [x] `RankDefs.nextTierFor(score)` **+ `progressFor(score)`** — mirrored byte-identically into
+       `sync/` (verified with `diff`). At *River Legend* there is no next tier, so progress runs toward
+       the next prestige star instead of dividing by nothing.
+3. [x] **Tooling gap fixed:** `tools/luau-analyze.sh` only ever analyzed the GAME tree — it always used
+       `default.project.json`/`sourcemap.json`, so every lobby file reported "Unknown require" and the
+       lobby tree was effectively unanalyzable. It now selects the tree (`--lobby`, or inferred from a
+       `lobby/` path), cd's in, and regenerates that tree's sourcemap. Game-tree behaviour unchanged.
+
+**Phase 1 verification**
+
+- Analyzer clean on all 4 files, **both trees** (`lobby exit=0`, `game exit=0`).
+- `progressFor` edge cases executed in Studio — tier boundaries, the top tier (no next tier), and exact
+  star boundaries: no NaN, no out-of-range fill, no divide-by-zero. 11 cases, 0 problems.
+- ⏳ Runtime behaviour still unverified — the modules aren't Rojo-synced yet (user action).
 
 **Phase 2 · Validate the tokens on the two most dissimilar screens**
 
