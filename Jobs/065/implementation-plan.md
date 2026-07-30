@@ -134,6 +134,26 @@ Elite** per §5. Only the 8 `ScreenGui` scripts use Gotham. World signage needs 
 **Net new work this audit surfaced:** a toast component, a Gold confirm-purchase popup, `+%` stat
 deltas in the shops, icons on the 8 world billboards, and unifying the one existing progress bar.
 
+### Mockup review vs GAME.md + STYLEGUIDE §12/§14 + `roblox-ui` (2026-07-30)
+
+**Holds up:** palette is §4 verbatim · panels/buttons match §6.1/§6.2 (rounded, thick wood border, no
+glass/gradients) · party pads match §6.9 · the shop buildings pass the §12 world test · item art is in
+the §4 military/metal range. The mockup is a **good style target**. The gaps are about *states,
+platform and coverage*, not looks.
+
+| # | Gap | Source rule |
+|---|---|---|
+| A | **No mobile layout.** The sheet is desktop 16:9 throughout — a top bar with avatar+XP+3 chips, a 5-button main menu *and* a 5-icon bottom bar. That's heavy chrome for a phone. | GAME.md "mobile-first (hard requirement)"; `roblox-ui` scale/safe-area/thumb-zone |
+| B | **Only the happy path is drawn.** No disabled button, no insufficient-funds/error visual, no empty state, no loading state. We have the `failed_or_not_allowed` **sound** with nothing visual to pair it with. | §6.2 requires a disabled state |
+| C | **No collapsed state.** Heavy panels must be collapsible and default collapsed during play. Lobby is calmer than in-run, but the pattern is defined here and the game place inherits it. | §6.11, §12 "Never … heavy panel left expanded during active play" |
+| D | **UI VFX missing — including from my own plan.** The juice rule is *every meaningful action has a sound **and** matching VFX*. The plan wired 11 sounds and zero effects. `ASSETS.md §1.10` already lists "Purchase-confirm burst — ▫ queued". **Added to phase 3c.** | `jungle-style` juice rule (hard); §12 |
+| E | **Naming inconsistency, player-visible.** The building sign says **BOUNTIES**, the screen button says **WEEKLY**, the panel title says **WEEKLY OBJECTIVES** — one feature, three names. (`LobbyStations` maps `Bounties → weekly`.) | §11 naming; plain UX |
+| F | **Two skill shops in the mockup, one in the game.** The map shows *GOLD SKILL SHOP* (major, gold) and *SMALL SKILL SHOP* (smaller) as separate buildings, and §7's vocabulary splits Star = major/gold skill vs Wrench = utility/small skill. The code has **one** `SkillTrainer` station and one panel grouped **Boat / Crew** — not major/small. | §7 vs `SkillDefs` |
+| G | **No settings panel exists** anywhere, though the mockup's bottom bar has a settings icon. Mobile players expect volume at minimum. | mockup vs code |
+| H | **Not in the mockup but live and fine:** loading screen, teleport/launch screen, party-countdown billboard. The sheet isn't exhaustive — absence there is not a spec to delete them. | — |
+| I | **`INVENTORY` in the mockup's main menu** — GAME.md treats inventory as *in-run carried items*; there is no lobby inventory. Almost certainly game-place only. | GAME.md §Inventory |
+| J | **The `+` beside the currency chip** is a good, fair-monetization affordance (tap → RobuxShop) and is cheap. **Recommended — added to phase 2.** | §6.3; GAME.md "convenience, not power" |
+
 ## Implementation steps
 
 **Phase 1 · Foundation**
@@ -177,6 +197,17 @@ deltas in the shops, icons on the 8 world billboards, and unifying the one exist
     → purchase completes; cancel → nothing spent).
 14. **`+%` stat deltas** in SkillShop rows (§6.5) — `SkillDefs.per`/`.unit` already carry the numbers.
 15. **Toast** on upgrade bought / objective claimed, via `Components.toast`.
+16. **UI VFX — the juice rule (gap D).** Every meaningful action needs sound **and** effect, so sounds
+    alone don't satisfy §12. Add pooled, palette-tinted, budget-capped bursts:
+    **purchase-confirm burst** (gold motes on the chip + the bought row — `ASSETS.md §1.10` already has
+    it queued) · **upgrade-applied flash** on the row · **claim burst** on a completed objective ·
+    **gold-chip pulse** when the balance changes. Tween-driven `Frame`s and one small `ParticleEmitter`
+    template — no new assets required.
+17. **Failure state (gap B).** Pair `failed_or_not_allowed` with something visible: a red shake on the
+    cost row + a short inline reason ("Not enough Gold"). Currently the sound would play against a
+    silent screen.
+18. **Disabled + empty states (gap B).** `Components.button` gets its §6.2 disabled variant
+    (desaturated, raised transparency); lists get an empty-state line rather than rendering nothing.
 
 **Phase 4 · Sound + mobile**
 
