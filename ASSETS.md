@@ -218,26 +218,34 @@ the `LastRiverLogo.png` used by `TeleportGui`.
 
 ## 1.9b Upgrade item art — rendered props, NOT flat icons (added 2026-07-30)
 
-> `GUI_PATTERN.png` shows the UPGRADES row as **painted 3-D props at three levels each**, reused in the shop
-> panel (before → after), the buy/confirm popup and the "BOAT UPGRADED!" toast. **Flaticon cannot supply
-> these** — they're ChatGPT/Meshy renders with the palette baked in. Level 1→3 must read as visibly
-> *more* machine (extra cylinders, plating, welded additions), not just recoloured.
+> `GUI_PATTERN.png` shows the UPGRADES row as **painted 3-D props**, reused in the shop panel, the
+> buy/confirm popup and the "BOAT UPGRADED!" toast. **Flaticon cannot supply these** — they're
+> ChatGPT/Meshy renders with the palette baked in.
+>
+> **Corrected 2026-07-30 against the actual data model** (an earlier draft of this section said 16 renders
+> at 3 levels each — wrong on both counts):
+> - **Modules are one-time Gold unlocks**, not leveled (`ModuleDefs`: buy once → OWNED). **One render each,
+>   no tiers.**
+> - **Skills go to level 10** (`SkillDefs.MAX_LEVEL = 10`), so per-level art is impossible. Skills reuse the
+>   flat §1.9 icons + `Lv n / 10` + progress bar — which is what `SkillShop` already renders.
+> - The mockup's `LEVEL 1 → 2 → 3` illustrates the *upgrade flow*, not a literal 3-tier art requirement.
 >
 > **Palette to bake in:** Primary Military Olive `#59613B` · Weathered Metal `#4E5246` · Dark Metal `#353A35`
 > · brass/gold fittings `#D69B22`. Faded, never glossy (§4 Military/Metal). Transparent PNG, 512×512,
-> consistent 3/4 view + light direction across all 16 so they line up in a row.
+> consistent 3/4 view + light direction across all 7 so they line up in a row.
 
-| Item | Levels | Maps to | Status |
-|---|---|---|---|
-| Engine block | 3 | `motors` skill · `motor2` module | ▫ to generate |
-| Hull / boat plating | 3 | `hull` skill · `hullkit` module | ▫ to generate |
-| Fuel tank | 3 | `diesel`/`refuel` skills · `fueltank` module | ▫ to generate |
-| Storage crate | 3 | `cargo` skill · `trailer` module | ▫ to generate |
-| Equipment / turret | 3 | `gun` skill · `gunupgrade` module | ▫ to generate |
-| Gold chest | 1 | buy-popup art for gold packs | ▫ to generate |
+| Render | For | Status |
+|---|---|---|
+| Twin Motors Mount (engine) | `motor2` module | ▫ to generate |
+| Reinforced Hull (plating) | `hullkit` module | ▫ to generate |
+| Searchlight Rig | `searchlight` module | ▫ to generate |
+| Extended Fuel Tank | `fueltank` module | ▫ to generate |
+| Cargo Trailer (barge) | `trailer` module | ▫ to generate |
+| Mounted Gun Upgrade (turret) | `gunupgrade` module | ▫ to generate |
+| Gold chest | buy-popup art for the 4 gold packs | ▫ to generate |
 
-**16 renders total.** Not blocking the restyle (panels/buttons/type land first), but blocking the
-shop/upgrade panels looking like the mockup.
+**7 renders total.** Not blocking the restyle (panels/buttons/type/icons land first); blocks only the
+Boat-Upgrades panel and buy popup looking like the mockup.
 
 **Alternative sources** if Flaticon picking drags: the **Creator Store** has free game-icon packs (I can
 search + present candidates for approval via Studio MCP, per GROUND-RULES §4), and **ChatGPT** can render a
