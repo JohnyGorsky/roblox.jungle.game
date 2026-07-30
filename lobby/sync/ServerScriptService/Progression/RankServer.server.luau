@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 
 local RankDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("RankDefs")) :: any
+-- Theme is tokens only (no instances), so it is safe to read from a server script (Job 065)
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 
 local scoreBoard = DataStoreService:GetOrderedDataStore(RankDefs.BOARD_RIVERSCORE)
 
@@ -24,39 +26,60 @@ local function buildTag(plr: Player, char: Model): (() -> ())?
 		existing:Destroy()
 	end
 
+	-- Job 065: the player nameplate is a small wood-bordered dog-tag rather than bare floating text, so
+	-- it belongs to the same world as the signage around it. Theme is client/server-safe (tokens only,
+	-- no instances), so a server script can read the palette too.
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "RankTag"
-	bb.Size = UDim2.fromScale(6, 1.7)
-	bb.StudsOffset = Vector3.new(0, 2.8, 0)
+	bb.Size = UDim2.fromScale(6.4, 1.9)
+	bb.StudsOffset = Vector3.new(0, 2.9, 0)
 	bb.MaxDistance = 60
 	bb.LightInfluence = 0
 	bb.AlwaysOnTop = false
 
+	local plate = Instance.new("Frame")
+	plate.Name = "Plate"
+	plate.Size = UDim2.fromScale(1, 1)
+	plate.BackgroundColor3 = Theme.color.panel
+	plate.BackgroundTransparency = 0.25
+	plate.BorderSizePixel = 0
+	local plateCorner = Instance.new("UICorner")
+	plateCorner.CornerRadius = UDim.new(0, 8)
+	plateCorner.Parent = plate
+	local plateStroke = Instance.new("UIStroke")
+	plateStroke.Color = Theme.color.wood
+	plateStroke.Thickness = 2
+	plateStroke.Parent = plate
+	plate.Parent = bb
+
 	local tierLabel = Instance.new("TextLabel")
-	tierLabel.Size = UDim2.fromScale(1, 0.55)
+	tierLabel.Name = "Tier"
+	tierLabel.Position = UDim2.fromScale(0.04, 0.06)
+	tierLabel.Size = UDim2.fromScale(0.92, 0.5)
 	tierLabel.BackgroundTransparency = 1
-	tierLabel.Font = Enum.Font.GothamBold
+	tierLabel.Font = Theme.font.heading
 	tierLabel.TextScaled = true
 	tierLabel.Text = ""
 	local ts = Instance.new("UIStroke")
 	ts.Thickness = 2
-	ts.Color = Color3.new(0, 0, 0)
+	ts.Color = Theme.color.stroke
 	ts.Parent = tierLabel
-	tierLabel.Parent = bb
+	tierLabel.Parent = plate
 
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Position = UDim2.fromScale(0, 0.55)
-	nameLabel.Size = UDim2.fromScale(1, 0.45)
+	nameLabel.Name = "Name"
+	nameLabel.Position = UDim2.fromScale(0.04, 0.56)
+	nameLabel.Size = UDim2.fromScale(0.92, 0.38)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.Gotham
-	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.Font = Theme.font.body
+	nameLabel.TextColor3 = Theme.color.cream -- §5: cream, never pure white
 	nameLabel.TextScaled = true
 	nameLabel.Text = plr.DisplayName
 	local ns = Instance.new("UIStroke")
 	ns.Thickness = 2
-	ns.Color = Color3.new(0, 0, 0)
+	ns.Color = Theme.color.stroke
 	ns.Parent = nameLabel
-	nameLabel.Parent = bb
+	nameLabel.Parent = plate
 
 	bb.Parent = head
 

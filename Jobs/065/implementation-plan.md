@@ -230,13 +230,42 @@ button and tap-outside scrim both dismiss. Analyzer clean on every touched file.
 yields a different BindableEvent and cannot trigger the real listener — the bus must be tested with a
 real click (`user_mouse_input`), not a scripted fire.
 
-**Phase 3 · Rollout**
+**Phase 3 · Rollout** — <span style="color:#2e9c3f">screens done 2026-07-31</span>
 
-5. `SkillShop` — icon per skill, `Lv n / 10` + progress bar (**not** per-level art; `MAX_LEVEL = 10`).
-6. `ModulesShop` — icon per module, OWNED state; art slots left for the 7 renders (§1.9b).
-7. `RetentionClient` — weekly objectives, claim states, toast.
-8. `TeleportGui` — full-screen launch; logo + `teleport_woosh`.
-9. `AdminClient` — tokens only, no redesign.
+5. [x] `SkillShop` — per-skill icons, Boat/Crew group headers, `Lv n / 10` progress bar, `+per unit`
+       stat delta, confirm-before-spend, upgrade cue + burst + toast.
+6. [x] `ModulesShop` — per-module icons, OWNED state, confirm-before-spend, same feedback set.
+7. [x] `RetentionClient` → **BOUNTIES** everywhere player-visible (internal `weekly` id, `Weekly` remote
+       and `RetentionDefs` untouched). Daily-reward popup restyled; claim burst + stinger; empty state.
+8. [x] **`EntryBar.local.luau`** (new) — the single shared rail replacing four ad-hoc open buttons.
+9. [x] `AdminClient` — tokens only. The magenta (a colour in no §4 table) is now `panelAlt`.
+10. [ ] `TeleportGui` — **deliberately deferred, see below.**
+
+**Live-review changes to the system (user, 2026-07-31):**
+- **Entry bar is a rail of circular icon badges with captions**, not four full-width slabs — the icon
+  carries the meaning and it costs a fraction of the screen, which matters most on a phone.
+- **`Components.iconButton`** added for that rail. Its artwork is a child sized by SCALE (0.56) rather
+  than the button's own `Image` with pixel padding, so the ring keeps its inset at any badge size.
+- **The Gold chip now hugs its number** — it measures `TextBounds` and sizes itself, so "12" and
+  "1,284,900" both look deliberate.
+
+> ⚠️ **Layout lesson worth keeping.** Two attempts at the chip collapsed to an empty circle. Cause:
+> `AutomaticSize` does not reliably measure children sized by **scale** or by a
+> **`UIAspectRatioConstraint`** on the automatic axis — and an aspect constraint defaults to
+> `DominantAxis.Width`, so a width of 0 drives the height to 0 too. The fix is to measure and size
+> explicitly from a known height. Do not combine `AutomaticSize` with aspect-constrained children.
+
+**`TeleportGui` deferred — reasoning, not an oversight.** It is byte-identical in both trees (verified
+with `diff`) and is shown during *both* lobby→game and game→lobby teleports. Restyling only the lobby
+copy would make the teleport screen change appearance depending on travel direction, and the game tree
+has no `Theme` to require (decision #7). It therefore moves with the game-place restyle, or with an
+explicit decision to ship `Theme` to `sync/` early.
+
+**Place-file repair (needs a save).** Play logs showed
+`[LobbyStations] no editor station Station="SkillTrainer"` — the `SkillTrainer` model still had its
+`Anchor` part but had **lost its `Station` attribute**, so the skill kiosk silently did nothing in-world.
+Restored to `"SkillTrainer"` and verified by read-back; all four kiosks now resolve. This is place
+content, so it is **lost unless the user saves the place.**
 
 **Phase 3b · The two other screen surfaces + world GUI** *(added by the audit)*
 
