@@ -189,20 +189,26 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 ## 1.12 Audio — SFX (events / one-shots)
 
+> **Batch 2 uploaded by user 2026-07-20** — all 11 SFX below now exist as owned Roblox audio (IDs in
+> registry [`audio.md`](../roblox.workspace/Assets/registry/audio.md) → *Lobby SFX batch 2*; source mp3s in
+> `assets/Objects/Ambient/Sound_wave_2/`). They are **uploaded but not yet wired** — hooking them into the
+> lobby scripts/GUI is the next audio task.
+
 | Sound | Trigger | Status |
 |---|---|---|
 | UI click / tap (`ui_mouse_click`) | any button | <span style="color:#2e9c3f">✅ wired</span> — `UIClick.local.luau` |
-| Panel open / close | shop / skills / bounties / robux | <span style="color:#c9911d">⏸ pending</span> |
-| Purchase success | buy confirmed | <span style="color:#c9911d">⏸ pending</span> |
-| Purchase fail / error | insufficient funds / cancel | <span style="color:#c9911d">⏸ pending</span> |
-| Upgrade applied | boat/skill upgrade bought | <span style="color:#c9911d">⏸ pending</span> |
-| Pad join / leave | step on/off a party pad | <span style="color:#c9911d">⏸ pending</span> |
-| Leader assigned | first player on an empty pad | <span style="color:#c9911d">⏸ pending</span> |
+| Panel open / close (`open_close`) | shop / skills / bounties / robux | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Purchase success (`purchase_success`) | buy confirmed | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Purchase fail / error (`failed_or_not_allowed`) | insufficient funds / cancel / not allowed | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Upgrade applied (`upgrade_applied`) | boat/skill upgrade bought | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Pad join / leave (`joined_pad`) | step on/off a party pad | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Leader assigned (`leader_assigned`) | first player on an empty pad | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
 | Countdown tick (`timer_countdown`) | each second of launch countdown | <span style="color:#2e9c3f">✅ wired</span> — `LobbyServer` positional on pad |
-| Launch / teleport whoosh | party launches | <span style="color:#c9911d">⏸ pending</span> |
-| Prompt appear / hold-complete | ProximityPrompt | <span style="color:#c9911d">⏸ pending</span> |
-| Footsteps — sand vs wood | material-aware (optional) | <span style="color:#c9911d">⏸ pending</span> |
-| Rank / reward stinger | leaderboard / rank change | <span style="color:#c9911d">⏸ pending</span> |
+| Launch / teleport whoosh (`teleport_woosh`) | party launches | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Prompt appear / hold-complete (`prompt`) | ProximityPrompt | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Footsteps — wood (`footsteps_wood`) | dock / stall decks (material-aware) | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Footsteps — sand (`running_on_sand`) | airfield clearing (material-aware) | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Rank / mission stinger (`rank_completed_or_mission_completed`) | rank-up / mission complete | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
 
 ## 1.13 Music
 
@@ -259,8 +265,28 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Area | Items | Status |
 |---|---|---|
 | Loading screens | lobby + game (built in code) | <span style="color:#2e9c3f">✅ built</span> |
+| Loading background art (`LoadingBackground`) | jungle/river key art, `rbxassetid://73636751330777` | <span style="color:#2e9c3f">✅ wired</span> — fallback ID in `LobbyLoading.local.luau` + `GameLoading.local.luau`; overridable by a `ReplicatedFirst.LoadingBackground` ImageLabel |
 | Teleport / intro sequence art | plane-crash cold-open visuals | ▫ stub |
 | HUD icons / role-suitability icons | per `jungle-style` + STYLEGUIDE | ▫ stub |
+
+## 5.1 Monetization art — Creator Hub product / pass icons (added 2026-07-20)
+
+> These are **Creator Hub thumbnails**, not asset-library decals: they're uploaded in the product/pass
+> settings on create.roblox.com, so they have **no `rbxassetid://`** and are not referenced from code.
+> Art lives in the repo at `assets/Images/Purchase/`. Product IDs are in
+> `ReplicatedStorage/Progression/MonetizationDefs.luau` (identical copy in both trees).
+> Repo files are the large source renders; the Hub thumbnails are the downscaled (512×512) versions.
+> **All 7 icons are set on the Hub — verified 2026-07-20.**
+
+| File | Product / pass | Type | ID | Status |
+|---|---|---|---|---|
+| `10.png` | 10 Gold (49 R$) | dev product | `3610663250` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `25.png` | 25 Gold (99 R$) | dev product | `3610663288` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `60.png` | 60 Gold (199 R$) | dev product | `3610663341` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
+| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | <span style="color:#2e9c3f">✅ icon set on Hub</span> |
 
 # 6) GLOBAL AUDIO
 
