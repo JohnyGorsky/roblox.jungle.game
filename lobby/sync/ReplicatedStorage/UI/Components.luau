@@ -95,6 +95,7 @@ export type IconOptions = {
 	image: string?, -- or a raw rbxassetid (e.g. Theme.productIcon store art)
 	size: UDim2?,
 	chip: boolean?, -- default true
+	round: boolean?, -- circular badge with a gold ring (used for row art that breaks out of the row)
 	layoutOrder: number?,
 	parent: Instance?,
 }
@@ -108,7 +109,12 @@ function Components.icon(opts: IconOptions): Frame
 	holder.BorderSizePixel = 0
 	holder.LayoutOrder = opts.layoutOrder or 0
 
-	if opts.chip ~= false then
+	if opts.round then
+		-- circular badge: a token that can break out of its row and still read as intentional
+		corner(Theme.radius.pill, holder)
+		stroke(Theme.color.gold, Theme.strokeWidth.control, holder)
+		holder.BackgroundTransparency = 0
+	elseif opts.chip ~= false then
 		corner(Theme.radius.control, holder)
 	end
 
@@ -417,24 +423,41 @@ function Components.panel(opts: PanelOptions): Panel
 	bar.BorderSizePixel = 0
 	corner(Theme.radius.panel, bar)
 
+	-- Every panel carries an icon in its title bar, not text alone — it's what makes a panel
+	-- recognisable at a glance before the words are read.
+	local titleX = 0.035
+	if opts.icon then
+		local titleIcon = Components.icon({
+			name = opts.icon,
+			size = UDim2.fromScale(0.07, 0.7),
+			parent = bar,
+		})
+		titleIcon.AnchorPoint = Vector2.new(0, 0.5)
+		titleIcon.Position = UDim2.fromScale(0.025, 0.5)
+		titleX = 0.095
+	end
+
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
 	title.Size = UDim2.fromScale(0.7, 0.72)
-	title.Position = UDim2.fromScale(0.04, 0.14)
+	title.Position = UDim2.fromScale(titleX, 0.14)
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	Components.applyText(title, Theme.text.h1, Theme.font.heading)
 	title.Text = string.upper(opts.title) -- §5: major headings ALL CAPS
 	title.Parent = bar
 
+	-- Close is a utility, not the loudest thing on the panel: kept small and muted so the title reads
+	-- first. Still a comfortable tap target, and tap-outside works as the second way out.
 	local closeBtn = Instance.new("ImageButton")
 	closeBtn.Name = "Close"
 	closeBtn.AnchorPoint = Vector2.new(1, 0.5)
-	closeBtn.Position = UDim2.fromScale(0.98, 0.5)
-	closeBtn.Size = UDim2.fromScale(0.09, 0.66)
+	closeBtn.Position = UDim2.fromScale(0.975, 0.5)
+	closeBtn.Size = UDim2.fromScale(0.055, 0.52)
 	closeBtn.BackgroundColor3 = Theme.color.red
-	closeBtn.BackgroundTransparency = 0.15
+	closeBtn.BackgroundTransparency = 0.45
 	closeBtn.BorderSizePixel = 0
 	closeBtn.Image = Theme.icon.close
+	closeBtn.ImageTransparency = 0.1
 	closeBtn.ScaleType = Enum.ScaleType.Fit
 	corner(Theme.radius.control, closeBtn)
 	local closeRatio = Instance.new("UIAspectRatioConstraint")
@@ -527,16 +550,22 @@ function Components.row(opts: RowOptions): Row
 
 	local textX = 0.02
 	if opts.icon or opts.iconImage then
+		-- The art is the row's selling point (§6.5 "item preview"). It's a circular badge sized LARGER
+		-- than the row so it breaks out top and bottom — which is why the list that hosts these rows
+		-- uses a wider gap (Theme.space.lg) and the row must not clip its children.
 		local ico = Components.icon({
 			name = opts.icon,
 			image = opts.iconImage,
-			size = UDim2.fromScale(0.1, 0.7),
+			size = UDim2.fromScale(0.16, 1.34),
+			round = true,
 			parent = frame,
 		})
 		ico.AnchorPoint = Vector2.new(0, 0.5)
-		ico.Position = UDim2.fromScale(0.01, 0.5)
-		textX = 0.14
+		ico.Position = UDim2.fromScale(0.005, 0.5)
+		ico.ZIndex = 3
+		textX = 0.135
 	end
+	frame.ClipsDescendants = false
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
@@ -685,6 +714,7 @@ function Components.confirm(opts: ConfirmOptions)
 	local panel = Components.panel({
 		name = "Confirm",
 		title = "Confirm purchase",
+		icon = opts.icon or "coin",
 		size = UDim2.fromScale(0.38, 0.42),
 		parent = opts.parent,
 	})

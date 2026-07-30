@@ -27,6 +27,7 @@ local MonetizationDefs = require(ReplicatedStorage:WaitForChild("Progression"):W
 local panel = Components.panel({
 	name = "RobuxShop",
 	title = "Robux shop",
+	icon = "shop",
 	size = UDim2.fromScale(0.54, 0.78),
 	parent = playerGui,
 })
@@ -44,7 +45,8 @@ list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
 local layout = Instance.new("UIListLayout")
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, Theme.space.sm)
+-- wider gap than usual: row art is a circular badge that breaks out above and below its row
+layout.Padding = UDim.new(0, Theme.space.lg)
 layout.Parent = list
 
 list.Parent = panel.content
@@ -77,7 +79,7 @@ local function offer(iconKey: string, name: string, blurb: string, robux: number
 		parent = list,
 		onActivated = onBuy,
 	})
-	row.instance.Size = UDim2.new(1, 0, 0, 64)
+	row.instance.Size = UDim2.new(1, 0, 0, Theme.rowHeight)
 	if not enabled then
 		-- unset product: visibly unavailable rather than a dead button (§6.2 disabled state)
 		row.action.setEnabled(false)

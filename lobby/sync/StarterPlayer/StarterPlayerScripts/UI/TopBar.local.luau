@@ -138,13 +138,14 @@ rightLayout.Parent = right
 
 local goldChip = Components.chip("coin", right)
 goldChip.instance.LayoutOrder = 1
-goldChip.instance.Size = UDim2.fromScale(0.72, 1)
+goldChip.instance.Size = UDim2.fromScale(0.78, 1)
 
--- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience).
+-- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience) —
+-- so it sits BESIDE the balance as a small square, deliberately quieter than the balance itself.
 local plus = Components.button({
 	text = "+",
 	variant = "gold",
-	size = UDim2.fromScale(0.22, 1),
+	size = UDim2.fromScale(0.13, 0.68),
 	layoutOrder = 2,
 	sound = "open",
 	parent = right,
