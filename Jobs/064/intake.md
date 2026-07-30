@@ -96,7 +96,8 @@ intro gameplay), start with **Robux Shop**.
       (`open_close`, `prompt`, `joined_pad`, `leader_assigned`, `teleport_woosh`, `purchase_success`,
       `failed_or_not_allowed`, `upgrade_applied`, `rank_completed_or_mission_completed`, `footsteps_wood`,
       `running_on_sand`); source mp3s in `assets/Objects/Ambient/Sound_wave_2/`. IDs recorded in registry
-      `audio.md` (§ *Lobby SFX batch 2*) + ASSETS.md §1.12. See `Sounds.png`.
+      `audio.md` (§ *Lobby SFX batch 2*) + ASSETS.md §1.12. See `Sounds.png`. All 11 IDs verified in Studio
+      2026-07-30 (`GetProductInfo` → names match, AssetTypeId 3).
       **Uploaded ≠ wired — hooking them into the lobby scripts/GUI is the next audio task.**
 - [x] **Monetization icons LIVE (2026-07-20)** — all 4 gold dev-product + 3 game-pass thumbnails set on the
       Creator Hub from `assets/Images/Purchase/*.png`; each also minted an owned image asset usable in the

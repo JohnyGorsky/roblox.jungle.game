@@ -275,7 +275,8 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 > owned image asset — so each icon **is** usable in-game as `rbxassetid://<icon>` in the shop GUI.
 > Source art: `assets/Images/Purchase/` (large source renders; Hub versions are 512×512).
 > Product/pass IDs live in `ReplicatedStorage/Progression/MonetizationDefs.luau` (identical copy in both
-> trees). Icon IDs verified 2026-07-20 (passes via Roblox product-info API, gold packs by thumbnail).
+> trees). Icon IDs verified 2026-07-30 — gold packs via Studio `GetProductInfo(...).IconImageAssetId`
+> (all 4 match), passes via the Roblox game-pass product-info API.
 
 | File | Product / pass | Type | Product/Pass ID | Icon `rbxassetid` | Status |
 |---|---|---|---|---|---|
