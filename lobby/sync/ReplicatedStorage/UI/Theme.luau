@@ -81,6 +81,12 @@ Theme.space = { xs = 4, sm = 8, md = 12, lg = 16, xl = 24, xxl = 32 }
 Theme.radius = { panel = 12, control = 8, pill = 999 }
 Theme.strokeWidth = { panel = 3, control = 2, hairline = 1 }
 
+-- Height of a list row, in pixels. Offset (not scale) because rows live inside a ScrollingFrame with
+-- AutomaticCanvasSize, which needs a definite height per item. Text inside still uses TextScaled with a
+-- min-size clamp, so it stays legible when the panel narrows on a phone. Verified in the Device
+-- Emulator during the mobile pass — change here, not in a screen.
+Theme.rowHeight = 66
+
 -- ── Motion (STYLEGUIDE §6.2 states, §8) ───────────────────────────────────────────────────────────
 Theme.tween = {
 	fast = TweenInfo.new(0.12, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
@@ -146,6 +152,19 @@ Theme.moduleIcon = {
 
 -- skill group -> icon key (one shop, Boat/Crew groups — plan decision F)
 Theme.groupIcon = { Boat = "boat", Crew = "crew" }
+
+-- Monetization art (registry images.md → "Monetization icons"). These are the Creator Hub product/pass
+-- thumbnails, which also mint owned image assets — so the shop can show the real store art.
+-- Keyed by MonetizationDefs `id` (gold packs) and `key` (passes).
+Theme.productIcon = {
+	pack10 = "rbxassetid://121862847548970",
+	pack25 = "rbxassetid://95542160791148",
+	pack60 = "rbxassetid://74400053482366",
+	pack150 = "rbxassetid://80233861953394",
+	armoredBoat = "rbxassetid://138728521842994",
+	boatPaint = "rbxassetid://70530350071757",
+	cosmeticBundle = "rbxassetid://130780112255781",
+}
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────
 -- `open` and `close` deliberately share one asset (open_close).

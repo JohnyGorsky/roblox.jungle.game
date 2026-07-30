@@ -91,7 +91,8 @@ end
 -- a dark sunken chip instead, which is what makes a bright icon read as deliberate. (ASSETS.md §1.9)
 
 export type IconOptions = {
-	name: string,
+	name: string?, -- a Theme.icon key
+	image: string?, -- or a raw rbxassetid (e.g. Theme.productIcon store art)
 	size: UDim2?,
 	chip: boolean?, -- default true
 	layoutOrder: number?,
@@ -100,7 +101,7 @@ export type IconOptions = {
 
 function Components.icon(opts: IconOptions): Frame
 	local holder = Instance.new("Frame")
-	holder.Name = "Icon_" .. opts.name
+	holder.Name = "Icon_" .. (opts.name or "image")
 	holder.Size = opts.size or UDim2.fromScale(0.12, 0.7)
 	holder.BackgroundColor3 = Theme.color.sunken
 	holder.BackgroundTransparency = (opts.chip == false) and 1 or 0.15
@@ -123,7 +124,7 @@ function Components.icon(opts: IconOptions): Frame
 	image.BackgroundTransparency = 1
 	image.BorderSizePixel = 0
 	image.ScaleType = Enum.ScaleType.Fit
-	image.Image = (Theme.icon :: { [string]: string })[opts.name] or ""
+	image.Image = opts.image or (opts.name and (Theme.icon :: { [string]: string })[opts.name]) or ""
 	image.Parent = holder
 
 	holder.Parent = opts.parent
@@ -500,7 +501,8 @@ export type Row = {
 }
 
 export type RowOptions = {
-	icon: string?,
+	icon: string?, -- Theme.icon key
+	iconImage: string?, -- or raw store art (Theme.productIcon)
 	title: string,
 	blurb: string?,
 	actionText: string,
@@ -523,14 +525,17 @@ function Components.row(opts: RowOptions): Row
 	stroke(Theme.color.woodDark, Theme.strokeWidth.hairline, frame)
 	padding(Theme.space.sm, frame)
 
-	local textX = 0.08
-	if opts.icon then
-		local ico = Components.icon({ name = opts.icon, size = UDim2.fromScale(0.1, 0.7), parent = frame })
+	local textX = 0.02
+	if opts.icon or opts.iconImage then
+		local ico = Components.icon({
+			name = opts.icon,
+			image = opts.iconImage,
+			size = UDim2.fromScale(0.1, 0.7),
+			parent = frame,
+		})
 		ico.AnchorPoint = Vector2.new(0, 0.5)
 		ico.Position = UDim2.fromScale(0.01, 0.5)
 		textX = 0.14
-	else
-		textX = 0.02
 	end
 
 	local title = Instance.new("TextLabel")
