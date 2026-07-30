@@ -120,11 +120,14 @@ rankBar.instance.Size = UDim2.fromScale(0.76, 0.13)
 
 -- ── right cluster: Gold chip + `+` ────────────────────────────────────────────────────────────────
 
+-- The cluster hugs its contents (AutomaticSize.X) so the balance and its `+` stay tight together and the
+-- whole thing grows only as the number does — no fixed slab reserved for a value we don't know yet.
 local right = Instance.new("Frame")
 right.Name = "Currency"
 right.AnchorPoint = Vector2.new(1, 0)
 right.Position = UDim2.fromScale(0.988, 0.02)
-right.Size = UDim2.fromScale(0.22, 0.075)
+right.Size = UDim2.new(0, 0, 0.07, 0)
+right.AutomaticSize = Enum.AutomaticSize.X
 right.BackgroundTransparency = 1
 right.BorderSizePixel = 0
 
@@ -138,14 +141,14 @@ rightLayout.Parent = right
 
 local goldChip = Components.chip("coin", right)
 goldChip.instance.LayoutOrder = 1
-goldChip.instance.Size = UDim2.fromScale(0.78, 1)
+goldChip.instance.Size = UDim2.new(0, 0, 1, 0) -- full cluster height, width from the number
 
--- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience) —
--- so it sits BESIDE the balance as a small square, deliberately quieter than the balance itself.
+-- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience), so it
+-- sits beside the balance as a small square — deliberately quieter than the balance itself.
 local plus = Components.button({
 	text = "+",
 	variant = "gold",
-	size = UDim2.fromScale(0.13, 0.68),
+	size = UDim2.new(0, 0, 0.7, 0),
 	layoutOrder = 2,
 	sound = "open",
 	parent = right,
