@@ -109,13 +109,16 @@ function Components.icon(opts: IconOptions): Frame
 	holder.BorderSizePixel = 0
 	holder.LayoutOrder = opts.layoutOrder or 0
 
-	if opts.round then
-		-- circular badge: a token that can break out of its row and still read as intentional
-		corner(Theme.radius.pill, holder)
-		stroke(Theme.color.gold, Theme.strokeWidth.control, holder)
-		holder.BackgroundTransparency = 0
-	elseif opts.chip ~= false then
-		corner(Theme.radius.control, holder)
+	-- Icons are CIRCULAR BADGES everywhere by default — title bars, rows, anywhere a chip is drawn — so
+	-- the set reads as one system. `round = false` opts a chip back to a rounded rectangle;
+	-- `chip = false` drops the backing entirely (used for icons sitting inside a button).
+	if opts.chip ~= false then
+		local isRound = opts.round ~= false
+		corner(isRound and Theme.radius.pill or Theme.radius.control, holder)
+		if isRound then
+			stroke(Theme.color.gold, Theme.strokeWidth.control, holder)
+			holder.BackgroundTransparency = 0
+		end
 	end
 
 	local ratio = Instance.new("UIAspectRatioConstraint")
@@ -557,7 +560,6 @@ function Components.row(opts: RowOptions): Row
 			name = opts.icon,
 			image = opts.iconImage,
 			size = UDim2.fromScale(0.16, 1.34),
-			round = true,
 			parent = frame,
 		})
 		ico.AnchorPoint = Vector2.new(0, 0.5)
