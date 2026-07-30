@@ -145,15 +145,34 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 > (`GoldHud`, `RobuxShop`, `SkillShop`, `ModulesShop`, `RetentionClient`) + station signs (§1.3) + party
 > pads (§1.4), against STYLEGUIDE §6/§7. IDs go to registry `images.md` + STYLEGUIDE §7 when uploaded.
 
-**Picking rules (matter more than the individual choices):**
+**Two distinct asset classes** (read `assets/Images/GUI_PATTERN.png` — the mockup makes this obvious):
+**(a) mono UI glyphs** → Flaticon, tinted in code · **(b) rendered item art** → generated, palette baked in.
+They are sourced differently and must not be confused. (b) is listed in §1.9b.
+
+**Picking rules for the glyphs (matter more than the individual choices):**
+- **Buy WHITE / MONO, never pre-colored.** In the mockup every glyph is a single-color silhouette — the
+  star, gear, wrench, party-group, whole bottom bar. Color comes from **our palette via `ImageColor3`**,
+  so a pre-colored icon is locked to someone else's palette and can't be re-tinted cleanly.
 - **One pack, one author.** Pick a single Flaticon pack that has *most* of P1, then take every other icon
   from that same author — mixed packs are the #1 way an icon set looks amateur.
 - Style per §7: **simple, bold, slightly 3D/embossed**, readable at **32 px** on a phone. Solid shapes,
   no thin outlines, no long shadows, no flat-minimal line art.
-- Colorable or already in-palette (gold `#D69B22` / cream `#F3E6C2` / green `#4B7A2B`). Prefer a
-  **white/mono silhouette** version too — we tint those in code and they always match.
 - **PNG 512×512, transparent.** Upload in Studio → Asset Manager → Images, then hand me the IDs.
 - Flaticon free tier **requires attribution** — if we skip attribution we need the paid plan (GROUND-RULES §4).
+
+**Tints (STYLEGUIDE §4) — one mono set covers the whole mockup:**
+
+| Tint | Hex | Applied to |
+|---|---|---|
+| Gold | `#D69B22` | star · gold shop sign · gold coin · gold-tier anything |
+| Cream | `#F3E6C2` | default glyph on dark panels — gear, wrench, bottom bar, X, hamburger |
+| Green | `#4B7A2B` | primary / confirm / positive |
+| Blue | `#356B9A` | utility / secondary / small skills |
+| Red | `#A84B3C` | cancel / danger |
+| Party ×4 | gold · green · blue · red | the four launch pads, one each |
+
+> **Currency trap:** the mockup HUD shows 3 chips (gold coin / green cash / blue gem). Per STYLEGUIDE §6.3
+> that illustrates **layout only** — the lobby has **Gold only**. Source **one** currency icon, not three.
 
 ### P1 — chrome + the §7 vocabulary (14 icons; unblocks the whole restyle)
 
@@ -190,6 +209,29 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 **Already covered — do not re-source:** shop product/pass art (§5.1, 7 IDs live) · loading background (§5) ·
 the `LastRiverLogo.png` used by `TeleportGui`.
+
+## 1.9b Upgrade item art — rendered props, NOT flat icons (added 2026-07-30)
+
+> `GUI_PATTERN.png` shows the UPGRADES row as **painted 3-D props at three levels each**, reused in the shop
+> panel (before → after), the buy/confirm popup and the "BOAT UPGRADED!" toast. **Flaticon cannot supply
+> these** — they're ChatGPT/Meshy renders with the palette baked in. Level 1→3 must read as visibly
+> *more* machine (extra cylinders, plating, welded additions), not just recoloured.
+>
+> **Palette to bake in:** Primary Military Olive `#59613B` · Weathered Metal `#4E5246` · Dark Metal `#353A35`
+> · brass/gold fittings `#D69B22`. Faded, never glossy (§4 Military/Metal). Transparent PNG, 512×512,
+> consistent 3/4 view + light direction across all 16 so they line up in a row.
+
+| Item | Levels | Maps to | Status |
+|---|---|---|---|
+| Engine block | 3 | `motors` skill · `motor2` module | ▫ to generate |
+| Hull / boat plating | 3 | `hull` skill · `hullkit` module | ▫ to generate |
+| Fuel tank | 3 | `diesel`/`refuel` skills · `fueltank` module | ▫ to generate |
+| Storage crate | 3 | `cargo` skill · `trailer` module | ▫ to generate |
+| Equipment / turret | 3 | `gun` skill · `gunupgrade` module | ▫ to generate |
+| Gold chest | 1 | buy-popup art for gold packs | ▫ to generate |
+
+**16 renders total.** Not blocking the restyle (panels/buttons/type land first), but blocking the
+shop/upgrade panels looking like the mockup.
 
 **Alternative sources** if Flaticon picking drags: the **Creator Store** has free game-icon packs (I can
 search + present candidates for approval via Studio MCP, per GROUND-RULES §4), and **ChatGPT** can render a
