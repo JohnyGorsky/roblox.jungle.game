@@ -437,7 +437,8 @@ function Components.panel(opts: PanelOptions): Panel
 		})
 		titleIcon.AnchorPoint = Vector2.new(0, 0.5)
 		titleIcon.Position = UDim2.fromScale(0.025, 0.5)
-		titleX = 0.095
+		-- the badge ends at ~0.095; start the title past that so text never touches the icon
+		titleX = 0.135
 	end
 
 	local title = Instance.new("TextLabel")

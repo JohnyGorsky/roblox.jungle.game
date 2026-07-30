@@ -385,8 +385,12 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | <span style="color:#2e9c3f">✅ live on Hub</span> |
 | `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | `130780112255781` | <span style="color:#2e9c3f">✅ live on Hub</span> |
 
-**Not yet used in game:** `RobuxShop.local.luau` still renders text-only rows — wiring these icons into
-the shop rows is a queued UI task (both lobby + game copies).
+**Transparent re-uploads (2026-07-31) — use THESE in game.** The Hub thumbnails above are matted onto an
+opaque square/disc, which renders as a white blob inside the round row badges. Alpha-channel versions were
+uploaded and verified; `Theme.productIcon` points at them. Ids in registry `images.md`.
+
+<span style="color:#2e9c3f">✅ Wired 2026-07-31</span> — the lobby `RobuxShop` now shows real store art per
+row (Job #065 phase 2). The game-place copy is still text-only (out of scope).
 
 # 6) GLOBAL AUDIO
 
