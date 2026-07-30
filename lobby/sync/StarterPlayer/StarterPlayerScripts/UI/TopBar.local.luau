@@ -156,8 +156,11 @@ local plus = Components.button({
 		UIBus.open("robux")
 	end,
 })
+-- height drives the square: the cluster auto-sizes its width, so a Width-dominant aspect would
+-- collapse the button to nothing (see the same note in Components.chip)
 local plusRatio = Instance.new("UIAspectRatioConstraint")
 plusRatio.AspectRatio = 1
+plusRatio.DominantAxis = Enum.DominantAxis.Height
 plusRatio.Parent = plus.instance
 
 right.Parent = gui

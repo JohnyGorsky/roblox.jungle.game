@@ -302,13 +302,17 @@ function Components.chip(iconName: string, parent: Instance?): Chip
 
 	local ico = Components.icon({
 		name = iconName,
-		size = UDim2.fromScale(1, 1), -- square, driven by the chip's height
+		size = UDim2.new(0, 0, 1, 0), -- full chip height; width follows from the aspect below
 		chip = false,
 		layoutOrder = 1,
 		parent = frame,
 	})
-	ico.Size = UDim2.new(0, 0, 1, 0)
-	ico.AutomaticSize = Enum.AutomaticSize.None
+	-- CRITICAL: a UIAspectRatioConstraint defaults to DominantAxis.Width. Inside an auto-sized chip the
+	-- width is 0 at layout time, so the icon would collapse to nothing. Height must drive the square.
+	local icoRatio = ico:FindFirstChildOfClass("UIAspectRatioConstraint")
+	if icoRatio then
+		icoRatio.DominantAxis = Enum.DominantAxis.Height
+	end
 
 	local value = Instance.new("TextLabel")
 	value.Name = "Value"
