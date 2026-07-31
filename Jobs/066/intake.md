@@ -42,7 +42,8 @@ rough footprint. The existing sizes/offsets give us the size brief for free.
 | `GunBase` + `GunBarrel` | box + box | barrel ~5 long | Pintle mount + barrel. The **barrel must stay its own part** — it rotates to aim |
 | `GunSeat` | Seat | seat | Gunner's seat beside the mount |
 | `BowLightHead` | 1.2³ neon | small lamp head | The **lamp** — every boat gets a bow light at night (`NightLight` tag) |
-| Crew seats | — | seat | For the "helpers / fighters" — see open question 3 |
+| `Motor` | **doesn't exist yet** | outboard engine | **New (decision #1)** — the starting boat's "one weak motor" at the stern, sized to match `Motor2` |
+| Crew seats | — | seat | 6 stations, free with the hull (decision #3): driver · gunner · repair · refuel · medic · extra crew |
 
 ### B. Upgrade modules — one mesh each (`ModuleDefs`, 6 total)
 
@@ -50,14 +51,14 @@ Bought once with Gold in the lobby, then **physically appear** on the boat.
 
 | Module id | Name | Part(s) today | Offset | Art brief |
 |---|---|---|---|---|
-| `motor2` | Twin Motors Mount | `Motor2` | (−3.5, 1, 10.5) | 2nd outboard engine at the stern. **The base motor isn't modelled today — open question 1** |
+| `motor2` | Twin Motors Mount | `Motor2` | (−3.5, 1, 10.5) | **Second** outboard engine at the stern, matching the base `Motor` (decision #1 adds that). Owning this = two visible motors |
 | `hullkit` | Reinforced Hull | `HullPlateL` / `HullPlateR` | (±7.3, 0, 0) | Bolted armour plates down both flanks, 20 long |
 | `fueltank` | Extended Fuel Tank | `FuelTankModule` | (4.5, 2.5, 8) | Jerry can / drum, ~2×3×3 |
 | `searchlight` | Searchlight Rig | `SearchlightMast` + `SearchlightHead` | mast (0,5,−7) · head (0,8,−7.6) | Mast + big lamp head. **Two parts** — the head carries the SpotLight |
 | `trailer` | Cargo Trailer | `Trailer` | (0, −0.4, 15.5) | Towed barge behind the boat, ~8×1.5×7 |
 | `gunupgrade` | Mounted Gun Upgrade | `GunBarrelUpgrade` | (0, 3, −3) | Heavier barrel replacing/overlaying the base one |
 
-**Total: ~7 base pieces + 7 module pieces (searchlight is 2) ≈ 14 meshes.**
+**Total: 8 base pieces (incl. the new `Motor`) + 7 module pieces (searchlight is 2) ≈ 15 meshes.**
 
 ## How upgrades impact parts (confirmed in code, not assumed)
 
@@ -109,19 +110,45 @@ not spec**, and three things in it don't exist in this game:
 - **Mobile perf** — 6 players, plus modules, plus a towed barge. Watch part and tri counts (P8).
 - Two trees: the lobby boat is lobby-only; any shared mapping module must be byte-identical in both.
 
-## Open questions
+## Decisions (user, 2026-07-31) — all intake questions resolved
 
-| # | Question |
+| # | Decision |
 |---|---|
-| 1 | **Is there a base motor?** `motor2` is *the second* engine, but no base motor part exists — the starting boat's thrust comes from nothing visible. Add a `Motor` to the base boat (GAME.md says the start boat has "one weak motor"), or leave the stern bare? |
-| 2 | **Gun upgrade:** should `GunBarrelUpgrade` **replace** the base `GunBarrel` visually (hide it), or sit alongside as an extra? |
-| 3 | **How many crew seats on the base boat?** Roles want 4 specialists + helpers, target 4–6 crew, and the mockup shows 6 stations. Free with the hull, or a purchasable seat module (which doesn't exist in `ModuleDefs` today)? |
-| 4 | **One hull mesh, or a hull kit?** One mesh is simpler; a bow/mid/stern kit would let the hull physically grow with upgrades — GAME.md leaves *"whether the hull physically scales"* open. |
-| 5 | **Generation route** — Meshy text-to-3D per part, or ChatGPT concept sheet → Meshy image-to-3D? The latter holds style better across 14 parts that must read as one boat. |
+| 1 | **Add a base `Motor`.** Every boat has one; buying `motor2` gives you **two visible motors**. |
+| 2 | **The gun upgrade is a MESH SWAP, not an addition** — "we will have our own model, so we just replace models". `GunBarrelUpgrade` replaces the base `GunBarrel`'s look; one barrel is visible at any time. |
+| 3 | **All 6 stations ship free with the hull.** No seat module, no paid crew capacity (paid = convenience/cosmetics only, GAME.md). |
+| 4 | **One hull mesh.** Hull scaling stays an open *design* question, not something this job closes off. |
+| 5 | **Concept sheet → image-to-3D.** You render one ChatGPT sheet with every part in our palette, then Meshy image-to-3D per piece, so 14 meshes read as one boat. |
+| 6 | **Mooring slots are generated in code** along the dock / east water lobe (not hand-placed). ⚠️ This is a deliberate exception to the lobby's editor-placed rule — noted below. |
+
+### Consequence of #1 and #2: the part mapping must be DATA, not code
+
+The user also flagged: *"later we can add a different motor (model) so it looks more cool."* Combined with
+the gun being a swap, that means **which mesh represents a part must be swappable without touching logic.**
+
+So the job introduces a shared **`BoatParts`** mapping module — part/module id → mesh asset id + offset +
+scale + collision fidelity — and the boat builders read from it. Dropping in a cooler motor later becomes a
+one-line id change in one file, in both trees, with no gameplay code touched. Without this, every future
+model swap means editing `BoatModules`/`BoatServer` and re-testing physics.
+
+This also gives the **lobby** boat and the **game** boat a single source of truth for what a boat looks
+like, which is the only sane way to keep a showroom honest.
+
+### Consequence of #6: code-generated mooring slots
+
+The lobby is otherwise editor-placed (memory: `lobby-editor-placed-not-scripted`). Generating slots is the
+user's explicit call here, so:
+
+- Slots are derived from the **existing dock and water lobe**, not invented positions — anchor off
+  `AssetLibrary/Structures/Dock` / `Dock.Pier` and the water surface.
+- The generator must be **verified by read-back + screenshot** (memory: `verify-studio-terrain-edits`) and
+  must never place a boat intersecting the dock, another boat, or dry land.
+- If the spacing reads badly in-world, the fallback is hand-placed `BoatSlot_*` anchors — cheap to switch
+  to, since the finder would just prefer them when present.
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
+- [x] Requirements reviewed (this intake) — all 6 decisions locked 2026-07-31
 - [ ] Implementation plan created & agreed
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
