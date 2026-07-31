@@ -166,6 +166,9 @@ the implementation plan, where they're cheaper to answer with a screen in front 
 ## Checklist
 
 - [x] Requirements reviewed (this intake)
-- [x] Implementation plan created — **awaiting go-ahead**
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] Final summary + changelog written — **CLOSED 2026-07-31**
+
+> Deferred items were **carried forward, not dropped** — see `final-summary.md` → *Carried forward*
+> (`TeleportGui`, the 7 upgrade renders, the settings panel, the game-place screens, a real-device check).
