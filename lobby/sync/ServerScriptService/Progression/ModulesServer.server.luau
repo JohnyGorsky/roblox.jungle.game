@@ -44,6 +44,9 @@ rf.OnServerInvoke = function(plr: Player, action: string?, id: string?)
 			return { error = "poor", gold = Profiles.getGold(plr), owned = ownedCopy(prof) }
 		end
 		prof.modules[id] = true
+		-- Job 066: bump a revision counter so anything showing the player's boat can rebuild. Mirrors the
+		-- way Profiles publishes Gold/RiverScore as attributes; keeps LobbyBoat decoupled from this shop.
+		plr:SetAttribute("ModulesRev", ((plr:GetAttribute("ModulesRev") :: number?) or 0) + 1)
 		return { ok = true, gold = Profiles.getGold(plr), owned = ownedCopy(prof) }
 	end
 	return { error = "bad-action" }

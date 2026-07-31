@@ -79,7 +79,11 @@ Art then drops into a proven harness.
 4. [x] **Gun upgrade implemented as a swap** (decision #2): re-skins the existing `GunBarrel` with
        `upgradeLibrary`. Falls back to today's greybox marker part when no art exists, so behaviour is
        unchanged for now.
-5. [ ] **Handling gate — needs you.** Play the **game place** and confirm the boat feels identical.
+5. [x] **Handling gate — PASSED (user, 2026-07-31).** Played the **game place**; the boat feels unchanged
+       with the harness in and the base `Motor` added. The refactor touched physics-owning code, so this
+       was the gate that mattered — art can now drop in without physics risk.
+       *(The lobby place needs no test here: it has no boat until phase 3, and the mirrored `BoatParts`
+       was already confirmed loading there by the smoke test.)*
 
 **Phase 1 verification so far**
 
@@ -97,13 +101,37 @@ Art then drops into a proven harness.
 6. You run Meshy image-to-3D per part and hand me the asset ids.
 7. I fill `BoatParts`, set collision per part, and verify each mesh loads and sits at the right offset.
 
-**Phase 3 · Lobby showroom boat**
+**Phase 3 · Lobby showroom boat** — <span style="color:#2e9c3f">✅ DONE 2026-07-31</span> (greybox; art drops in later)
 
-8. `LobbyBoat.server.luau` — on `PlayerAdded`, build a **static** boat (anchored, no physics, no seats
-   active) from `BoatParts`, showing **that player's owned modules** from their profile.
-9. **Mooring slots generated in code** (intake #6): derive N slots from the existing dock / east water lobe,
-   claim a free one per player, release on leave. Never intersect the dock, another boat, or dry land.
-10. Rebuild that player's boat when they buy a module, so the showroom updates live from the shop.
+8. [x] **`lobby/sync/ServerScriptService/LobbyBoat.server.luau`** — on join, builds a **static** boat
+       (every part `Anchored`, `CanCollide = false`, no constraints, no usable seats) from `BoatParts`,
+       showing that player's owned modules. Layout offsets copied from the game boat so the showroom
+       cannot lie. Owner nameplate above each boat.
+9. [x] **Mooring slots probed from terrain, not hardcoded.** Reads the water voxels around the existing
+       `Pier`, requires the **whole boat footprint** (30×20 with margin) to be over water at a consistent
+       surface height, then sorts candidates nearest-pier-first so the harbour fills tidily.
+       **Hand-placed `BoatSlot_*` parts override the probe** — the documented fallback, already wired.
+10. [x] Rebuild on purchase — `ModulesServer` now bumps a **`ModulesRev`** player attribute (mirroring how
+        `Profiles` publishes Gold/RiverScore), and `LobbyBoat` listens. The shop and the showroom stay
+        decoupled: neither knows about the other.
+
+**Phase 3 verification (Play, lobby place)**
+
+- `[LobbyBoat] probed 8 mooring slot(s) from the dock at (125, −6)` — 8 valid slots found from real terrain.
+- Read-back: hull at **(151, −6.0, 20)**, **material under hull = `Water`**, `Anchored = true`, 10 parts,
+  **37 studs clear of the pier**. Not eyeballed — queried.
+- Screenshot confirms the boat moored in open water beside the dock with its nameplate.
+- Analyzer clean; one dead import (`ModuleDefs`) caught and removed.
+- Camera restored to `Custom` after the screenshot (memory: `screen-capture-locks-camera`).
+
+**Fixed after review — the boat was sitting underwater.** The first build put the hull *centre* at the
+water line, because that is what the game's buoyancy targets. On a 3-stud-tall hull that leaves it flush,
+which is fine for a physics box nobody looks at and wrong for a boat on display.
+
+`LobbyBoat` now has a **`DRAFT`** constant (0.6): the hull bottom sits just under the surface instead.
+Measured after the change — hull bottom **0.6 below** water, hull top **2.4 above**, deck 2.4, gun mount
+5.4. It reads as floating. **`DRAFT` is the knob to retune once the hull mesh lands**, since a mesh with
+real gunwales will want a different value than a plain box.
 
 **Phase 4 · Polish + perf**
 
