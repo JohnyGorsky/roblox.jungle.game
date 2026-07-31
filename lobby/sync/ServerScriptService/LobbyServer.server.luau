@@ -228,6 +228,34 @@ local function removeFromAll(player: Player)
 	end
 end
 
+-- Positional pad audio (Job 065). These are WORLD cues, so they play from the pad itself with rolloff —
+-- unlike interface sounds, which are 2D and go through ReplicatedStorage.UI.UISound. Ids come from
+-- Theme.sound, so no asset id is written down here.
+-- Declared above launch()/playCountdownTick() because both call it.
+local function playAtPad(pad: Pad, soundKey: string, volume: number)
+	local part = pad.part
+	if not part then
+		return
+	end
+	local id = (Theme.sound :: { [string]: string })[soundKey]
+	if not id then
+		warn(`[Lobby] unknown sound key "{soundKey}"`)
+		return
+	end
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = volume
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = 8
+	s.RollOffMaxDistance = 80
+	s.Parent = part
+	s:Play()
+	s.Ended:Once(function()
+		s:Destroy()
+	end)
+	game:GetService("Debris"):AddItem(s, 6)
+end
+
 -- launch "juice": a rising light column + dust burst + brief flash at the pad
 local function playLaunchVFX(pad: Pad)
 	local part = pad.part
@@ -265,6 +293,9 @@ local function launch(pad: Pad)
 		return
 	end
 	pcall(playLaunchVFX, pad)
+	-- the whoosh fires with the VFX, before the teleport call, so the party hears the launch even when
+	-- the teleport itself fails or we're in solo Studio Play
+	playAtPad(pad, "launch", 0.8)
 	if GAME_PLACE <= 0 then
 		warn("[Lobby] set LobbyConfig.GAMEPLAY_PLACE_ID — cannot teleport yet (Studio/placeholder).")
 		return
@@ -299,21 +330,8 @@ local function launch(pad: Pad)
 	end
 end
 
--- positional launch-countdown tick (timer_countdown — registry audio.md)
-local COUNTDOWN_TICK_ID = "rbxassetid://116568191818931"
 local function playCountdownTick(pad: Pad)
-	local part = pad.part
-	if not part then return end
-	local s = Instance.new("Sound")
-	s.SoundId = COUNTDOWN_TICK_ID
-	s.Volume = 0.6
-	s.RollOffMode = Enum.RollOffMode.InverseTapered
-	s.RollOffMinDistance = 8
-	s.RollOffMaxDistance = 80
-	s.Parent = part
-	s:Play()
-	s.Ended:Once(function() s:Destroy() end)
-	game:GetService("Debris"):AddItem(s, 4)
+	playAtPad(pad, "countdown", 0.6)
 end
 
 local function startCountdown(pad: Pad, leader: Player)
@@ -366,6 +384,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 	acc = 0
 	for _, pad in ipairs(pads) do
 		local changed = false
+		local joined = false
+		local leaderBefore = pad.occupants[1]
+
 		for i = #pad.occupants, 1, -1 do
 			local plr = pad.occupants[i]
 			if plr.Parent == nil or not onPad(plr, pad) then
@@ -377,10 +398,23 @@ RunService.Heartbeat:Connect(function(dt: number)
 			if onPad(plr, pad) and not table.find(pad.occupants, plr) then
 				table.insert(pad.occupants, plr)
 				changed = true
+				joined = true
 			end
 		end
+
 		if changed then
 			updateSign(pad)
+
+			-- Job 065 audio (§12: every meaningful action has a sound). Both are positional on the pad,
+			-- so bystanders hear a party forming across the airfield.
+			if joined then
+				playAtPad(pad, "joinPad", 0.5)
+			end
+			local leaderNow = pad.occupants[1]
+			-- only when the LEAD actually changes hands, not on every roster edit
+			if leaderNow and leaderNow ~= leaderBefore then
+				playAtPad(pad, "leader", 0.55)
+			end
 		end
 	end
 end)

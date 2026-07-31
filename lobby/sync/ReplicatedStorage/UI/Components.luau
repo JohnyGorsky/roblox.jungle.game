@@ -184,6 +184,11 @@ function Components.button(opts: ButtonOptions): Button
 	corner(Theme.radius.control, btn)
 	stroke(Theme.color.woodDark, Theme.strokeWidth.control, btn)
 
+	-- keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px)
+	local floor = Instance.new("UISizeConstraint")
+	floor.MinSize = Vector2.new(0, 34)
+	floor.Parent = btn
+
 	-- slight scale-down on press (§6.2) without disturbing layout
 	local scale = Instance.new("UIScale")
 	scale.Scale = 1
@@ -580,6 +585,12 @@ function Components.panel(opts: PanelOptions): Panel
 	local closeRatio = Instance.new("UIAspectRatioConstraint")
 	closeRatio.AspectRatio = 1
 	closeRatio.Parent = closeBtn
+	-- Scale alone let this fall to ~24px on a phone-sized panel, which is not a thumb target. The floor
+	-- keeps it comfortably tappable while the scale keeps it visually quiet on a big screen.
+	-- (roblox-ui: no official minimum exists — this is our floor, to be confirmed on a real device.)
+	local closeFloor = Instance.new("UISizeConstraint")
+	closeFloor.MinSize = Vector2.new(40, 40)
+	closeFloor.Parent = closeBtn
 	closeBtn.Parent = bar
 
 	bar.Parent = frame

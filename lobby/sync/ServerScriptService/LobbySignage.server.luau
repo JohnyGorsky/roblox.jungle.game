@@ -100,12 +100,17 @@ if not stations then
 	return
 end
 
+-- `PadSign` is the LIVE party roster billboard that LobbyServer creates and rewrites every occupancy
+-- tick. It owns its own styling; touching it here would fight that script (and the two run in a
+-- non-deterministic order at startup), so it is explicitly skipped.
+local OWNED_ELSEWHERE: { [string]: boolean } = { PadSign = true }
+
 local styled = 0
 for _, model in ipairs(stations:GetChildren()) do
 	local kind = model:GetAttribute("Station")
 	if typeof(kind) == "string" then
 		for _, d in ipairs(model:GetDescendants()) do
-			if d:IsA("BillboardGui") then
+			if d:IsA("BillboardGui") and not OWNED_ELSEWHERE[d.Name] then
 				if STATION_ICON[kind] then
 					addBadge(d, STATION_ICON[kind], Theme.color.gold)
 					styled += 1

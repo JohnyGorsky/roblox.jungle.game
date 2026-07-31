@@ -174,6 +174,7 @@ Theme.sound = {
 	open = "rbxassetid://89724136900326", -- open_close
 	close = "rbxassetid://89724136900326", -- open_close
 	prompt = "rbxassetid://83771530109851", -- prompt
+	countdown = "rbxassetid://116568191818931", -- timer_countdown (positional, on the pad)
 	joinPad = "rbxassetid://118942668007111", -- joined_pad
 	leader = "rbxassetid://83295373162555", -- leader_assigned
 	launch = "rbxassetid://74173367633003", -- teleport_woosh

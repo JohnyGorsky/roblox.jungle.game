@@ -286,26 +286,33 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 
 ## 1.12 Audio — SFX (events / one-shots)
 
-> **Batch 2 uploaded by user 2026-07-20** — all 11 SFX below now exist as owned Roblox audio (IDs in
+> **Batch 2 uploaded 2026-07-20, <span style="color:#2e9c3f">ALL WIRED 2026-07-31</span> (Job #065).** IDs in
 > registry [`audio.md`](../roblox.workspace/Assets/registry/audio.md) → *Lobby SFX batch 2*; source mp3s in
-> `assets/Objects/Ambient/Sound_wave_2/`). They are **uploaded but not yet wired** — hooking them into the
-> lobby scripts/GUI is the next audio task.
+> `assets/Objects/Ambient/Sound_wave_2/`.
+>
+> **2D vs positional:** interface cues (panel open/close, purchase, fail, upgrade, claim, click) are 2D and
+> play through `ReplicatedStorage.UI.UISound`. **World cues are positional on the object that made them** —
+> pad join / leader / countdown / launch on the pad itself (`LobbyServer`), the prompt cue on the station
+> (`LobbyStations`), footsteps on the character (`Footsteps.local.luau`) — so a party forming is audible
+> across the airfield instead of only in one player's ears.
+>
+> **No asset id is written in a script.** Every one resolves through `Theme.sound`.
 
 | Sound | Trigger | Status |
 |---|---|---|
 | UI click / tap (`ui_mouse_click`) | any button | <span style="color:#2e9c3f">✅ wired</span> — `UIClick.local.luau` |
-| Panel open / close (`open_close`) | shop / skills / bounties / robux | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Purchase success (`purchase_success`) | buy confirmed | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Purchase fail / error (`failed_or_not_allowed`) | insufficient funds / cancel / not allowed | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Upgrade applied (`upgrade_applied`) | boat/skill upgrade bought | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Pad join / leave (`joined_pad`) | step on/off a party pad | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Leader assigned (`leader_assigned`) | first player on an empty pad | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Panel open / close (`open_close`) | shop / skills / bounties / robux | <span style="color:#2e9c3f">✅ wired</span> |
+| Purchase success (`purchase_success`) | buy confirmed | <span style="color:#2e9c3f">✅ wired</span> |
+| Purchase fail / error (`failed_or_not_allowed`) | insufficient funds / cancel / not allowed | <span style="color:#2e9c3f">✅ wired</span> |
+| Upgrade applied (`upgrade_applied`) | boat/skill upgrade bought | <span style="color:#2e9c3f">✅ wired</span> |
+| Pad join / leave (`joined_pad`) | step on/off a party pad | <span style="color:#2e9c3f">✅ wired</span> |
+| Leader assigned (`leader_assigned`) | first player on an empty pad | <span style="color:#2e9c3f">✅ wired</span> |
 | Countdown tick (`timer_countdown`) | each second of launch countdown | <span style="color:#2e9c3f">✅ wired</span> — `LobbyServer` positional on pad |
-| Launch / teleport whoosh (`teleport_woosh`) | party launches | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Prompt appear / hold-complete (`prompt`) | ProximityPrompt | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Footsteps — wood (`footsteps_wood`) | dock / stall decks (material-aware) | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Footsteps — sand (`running_on_sand`) | airfield clearing (material-aware) | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
-| Rank / mission stinger (`rank_completed_or_mission_completed`) | rank-up / mission complete | <span style="color:#c9911d">⏳ uploaded — not wired</span> |
+| Launch / teleport whoosh (`teleport_woosh`) | party launches | <span style="color:#2e9c3f">✅ wired</span> |
+| Prompt appear / hold-complete (`prompt`) | ProximityPrompt | <span style="color:#2e9c3f">✅ wired</span> |
+| Footsteps — wood (`footsteps_wood`) | dock / stall decks (material-aware) | <span style="color:#2e9c3f">✅ wired</span> |
+| Footsteps — sand (`running_on_sand`) | airfield clearing (material-aware) | <span style="color:#2e9c3f">✅ wired</span> |
+| Rank / mission stinger (`rank_completed_or_mission_completed`) | rank-up / mission complete | <span style="color:#2e9c3f">✅ wired</span> |
 
 ## 1.13 Music
 

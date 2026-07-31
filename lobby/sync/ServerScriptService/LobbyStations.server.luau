@@ -10,6 +10,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
+-- Theme is tokens only (no instances), safe on the server; keeps asset ids out of this file (Job 065)
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
+
 local openPanel = ReplicatedStorage:FindFirstChild("OpenPanel")
 if not openPanel then
 	local ev = Instance.new("RemoteEvent")
@@ -88,6 +91,21 @@ local function attach(def)
 	prompt.RequiresLineOfSight = false
 	prompt.MaxActivationDistance = reach
 	prompt.Parent = host
+
+	-- Job 065 (§12 juice): the kiosk answers when you walk up to it. Positional on the station itself,
+	-- so it reads as the building responding rather than a UI blip. Id from Theme.sound.
+	local promptSound = Instance.new("Sound")
+	promptSound.Name = "PromptCue"
+	promptSound.SoundId = Theme.sound.prompt
+	promptSound.Volume = 0.4
+	promptSound.RollOffMode = Enum.RollOffMode.InverseTapered
+	promptSound.RollOffMinDistance = 6
+	promptSound.RollOffMaxDistance = 45
+	promptSound.Parent = host
+
+	prompt.PromptShown:Connect(function()
+		promptSound:Play()
+	end)
 	prompt.Triggered:Connect(function(player: Player)
 		openPanel:FireClient(player, def.id)
 	end)

@@ -334,6 +334,35 @@ content, so it is **lost unless the user saves the place.**
 
 11. Device Emulator pass on every screen — §6.10 is a requirement, not a final polish step.
 
+**Phase 4 status — <span style="color:#2e9c3f">✅ DONE 2026-07-31</span>**
+
+- [x] **All 11 SFX wired.** UI cues 2D via `UISound`; world cues positional on the object that made them
+      (pad join/leader/countdown/launch on the pad, prompt on the station, footsteps on the character).
+      `LobbyServer`'s hardcoded countdown id was folded into `Theme.sound` — **no asset id is written in
+      any script now.**
+- [x] **`Footsteps.local.luau`** (new, `StarterCharacterScripts`) — material-aware: wood on the dock and
+      stall decks, sand everywhere else. One looping Sound whose id swaps with `FloorMaterial`, rather
+      than scheduling a sound per step (which drifts from the animation and churns instances).
+- [x] **Rojo gap fixed:** `lobby/default.project.json` had **no `StarterCharacterScripts` mapping at
+      all**, so anything placed there would never have synced. Added.
+- [x] **Ownership conflict fixed:** `LobbySignage` was also grabbing the live `PadSign` billboards that
+      `LobbyServer` builds and rewrites every occupancy tick (8 → 12 restyled gave it away). The two run
+      in a non-deterministic order at startup, so `PadSign` is now explicitly skipped.
+
+**Mobile pass — measured, not eyeballed.** Instead of judging screenshots, every surface was queried live
+for insets, tap-target size and text clamping:
+
+| Check | Result |
+|---|---|
+| `ScreenInsets` | every gameplay `ScreenGui` on `CoreUISafeInsets` (only the admin dev-tool differs) |
+| Smallest tap target | **23px → 34px**; panel close buttons **24px → ≥40px** |
+| `TextScaled` without a `UITextSizeConstraint` | 1 (admin dev-tool only) |
+
+> **My own regression, caught by measuring.** When the close `X` was called "too big" I shrank it by
+> scale — which took it to ~24px, well under a thumb. `UISizeConstraint` floors now keep buttons small on
+> desktop but never below a usable size. `roblox-ui` is explicit that Roblox publishes no official
+> minimum, so 34/40px is *our* floor and still wants confirming on a real device.
+
 ## What I need from you
 
 - [ ] **Go-ahead on this plan** (or edits).
