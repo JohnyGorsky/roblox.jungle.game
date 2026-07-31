@@ -89,7 +89,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Party pad (launch platform) | 4 (Blue/Red/Green/Yellow) | Build | <span style="color:#2e9c3f">✅ built (v2)</span> | Redesigned from flat discs → raised diamond-plate platform + wood deck, glowing accent center-ring + dark metal `Center` (kept for LobbyServer detection), colored light-beam column, 8 edge lights, rising motes. Station/PadColor/Anchor kept. Group icon ⏸ (needs Flaticon). |
+| Party pad (launch platform) | 4 (Blue/Red/Green/Yellow) | Build | <span style="color:#2e9c3f">✅ built (v2)</span> | Redesigned from flat discs → raised diamond-plate platform + wood deck, glowing accent center-ring + dark metal `Center` (kept for LobbyServer detection), colored light-beam column, 8 edge lights, rising motes. Station/PadColor/Anchor kept. Group icon <span style="color:#2e9c3f">✅ done</span> — `party` badge added to each pad billboard in that pad's colour by `LobbySignage` (Job #065). |
 
 ## 1.5 Water / dock
 
@@ -267,7 +267,7 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | Water shimmer / ripples / foam | river + dock | Build | <span style="color:#2e9c3f">✅ built (dock foam)</span> | foam/shimmer emitter at the dock shore (`AmbientVFX.DockFoam`); river handled in game place |
 | Plane heat-haze / smoke puff | plane | Build | <span style="color:#2e9c3f">✅ built</span> | subtle rising shimmer at both engines |
 | Flag / tarp wind sway | flags, tents | Build | ▫ deferred | needs per-frame cloth anim; low value |
-| Purchase-confirm burst | on buy | Build | ▫ queued | wire with the GUI/shop pass |
+| Purchase-confirm burst | on buy / upgrade / claim | Build | <span style="color:#2e9c3f">✅ built</span> | `Components.burst` — colour wash + rising motes, fired on purchase, upgrade and bounty claim (Job #065) |
 | Leaderboard #1 glow | Top Runs board | Build | <span style="color:#2e9c3f">✅ built</span> | #1 row = gold plate + glowing UIStroke (`RankServer`) |
 
 ## 1.11 Audio — Ambient (looping beds, mostly spatial)
