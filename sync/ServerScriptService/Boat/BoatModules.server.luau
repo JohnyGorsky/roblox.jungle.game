@@ -133,7 +133,11 @@ local function apply()
 	end
 	if crewOwns("trailer") then
 		theBoat:SetAttribute("CargoMax", ((theBoat:GetAttribute("CargoMax") :: number?) or 10) + 10)
-		addPart("Trailer", Vector3.new(8, 1.5, 7), Color3.fromRGB(120, 90, 55), CFrame.new(0, -0.4, 15.5), Enum.Material.WoodPlanks, "trailer")
+		-- Job 066 (finding 0003): this used to sit at (0, −0.4, 15.5) — entirely inside the rear CargoDeck
+		-- footprint (Z 11…27) and 1.4 studs BELOW it, so the 180-Gold upgrade was invisible. It now sits
+		-- ON the rear deck as cargo racks, which is the point of a visible module. Deck top is
+		-- hull.Y/2 - 0.5 + 0.5 = 1.5, so Y 3.0 puts a 3-tall rack on the deck surface.
+		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, 18), Enum.Material.WoodPlanks, "trailer")
 		table.insert(on, "trailer")
 	end
 	if crewOwns("gunupgrade") then

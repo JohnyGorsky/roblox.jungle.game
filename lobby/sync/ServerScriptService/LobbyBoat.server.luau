@@ -231,7 +231,9 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(0, 8, -7.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
-		addPart(model, base, "Trailer", Vector3.new(8, 1.5, 7), CFrame.new(0, -0.4, 15.5), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+		-- cargo racks ON the rear deck, matching BoatModules (finding 0003 — the old position was buried
+		-- under the deck and invisible)
+		addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, 3, 18), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
 	end
 
 	-- a nameplate so a crowded harbour is readable

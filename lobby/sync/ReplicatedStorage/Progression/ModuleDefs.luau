@@ -15,7 +15,11 @@ ModuleDefs.Defs = {
 	hullkit = { name = "Reinforced Hull", cost = 200, blurb = "Armor plating — more boat HP." },
 	searchlight = { name = "Searchlight Rig", cost = 120, blurb = "A spotlight for night runs." },
 	fueltank = { name = "Extended Fuel Tank", cost = 150, blurb = "Bigger tank — fewer stops." },
-	trailer = { name = "Cargo Trailer", cost = 180, blurb = "A towed barge — carry more loot." },
+	-- Job 066: renamed from "Cargo Trailer / A towed barge". Towing was removed in Job 013 (a towed
+	-- second body was jittery per roblox-physics) and replaced by the welded rear deck, so the old
+	-- player-facing text described something the game no longer has. The id stays `trailer` so profiles,
+	-- BoatModules and BoatParts keep working.
+	trailer = { name = "Cargo Racks", cost = 180, blurb = "Deck racks and crates — carry more loot." },
 	gunupgrade = { name = "Mounted Gun Upgrade", cost = 200, blurb = "A stronger mounted turret." },
 } :: { [string]: ModuleDef }
 
