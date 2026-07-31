@@ -55,7 +55,7 @@ Bought once with Gold in the lobby, then **physically appear** on the boat.
 | `hullkit` | Reinforced Hull | `HullPlateL` / `HullPlateR` | (±7.3, 0, 0) | Bolted armour plates down both flanks, 20 long |
 | `fueltank` | Extended Fuel Tank | `FuelTankModule` | (4.5, 2.5, 8) | Jerry can / drum, ~2×3×3 |
 | `searchlight` | Searchlight Rig | `SearchlightMast` + `SearchlightHead` | mast (0,5,−7) · head (0,8,−7.6) | Mast + big lamp head. **Two parts** — the head carries the SpotLight |
-| `trailer` | Cargo Trailer | `Trailer` | (0, −0.4, 15.5) | Towed barge behind the boat, ~8×1.5×7 |
+| `trailer` | Cargo Trailer | `Trailer` | (0, −0.4, 15.5) | ⚠️ **NOT a towed barge** — see the correction below. A **welded** cargo addition behind the stern, ~8×1.5×7 |
 | `gunupgrade` | Mounted Gun Upgrade | `GunBarrelUpgrade` | (0, 3, −3) | Heavier barrel replacing/overlaying the base one |
 
 **Total: 8 base pieces (incl. the new `Motor`) + 7 module pieces (searchlight is 2) ≈ 15 meshes.**
@@ -75,6 +75,27 @@ Modules are **additive, one-time and visible**. `BoatModules.apply()` checks `cr
   heavier barrel — see open question 2.
 - **Skills** (`SkillDefs`, level 1–10) tune numbers only. **No art, no visible change.** A skill must never
   imply a part.
+
+## Correction — there is NO towed trailer (caught by user, 2026-07-31)
+
+An earlier draft of this intake described the `trailer` module as "a towed barge behind the boat", taken
+from `ModuleDefs`' blurb. **Wrong — towing was deliberately removed.**
+
+- **Job #013 final summary:** an earlier towed-trailer version *"was built then replaced"* because a towed
+  second body was *"fiddly/jittery per roblox-physics"*. It became a **massless welded** rear deck.
+- **`CargoServer` header:** *"Cargo … is stored ON the boat — ONE rigid assembly, **no towed body** … a
+  towed second body is the fiddly/jittery path."*
+
+**Two live problems this exposed** (logged as finding **0003**):
+
+1. **The module is invisible.** `Trailer` (8×1.5×7) is welded at Z 15.5, which falls entirely inside the
+   rear `CargoDeck` footprint (Z 11…27) and 1.4 studs below it. A 180-Gold upgrade that cannot be seen
+   directly contradicts GAME.md's "upgrades are physical, visible modules" pillar.
+2. **Its player-facing name lies.** `ModuleDefs` still says *"A towed barge — carry more loot."*
+
+**Art consequence:** do **not** model a towed barge. The cargo upgrade should read as *visible cargo
+capacity added to the existing boat* — raised side racks, stacked crates, a raised rear cargo frame —
+positioned so it is actually visible above the rear deck.
 
 ## Reading the mockup (`assets/Images/boat_ideas.png`)
 
