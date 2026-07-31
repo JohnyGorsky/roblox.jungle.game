@@ -149,6 +149,6 @@ user's explicit call here, so:
 ## Checklist
 
 - [x] Requirements reviewed (this intake) — all 6 decisions locked 2026-07-31
-- [ ] Implementation plan created & agreed
+- [x] Implementation plan created — **awaiting go-ahead**
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
