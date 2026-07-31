@@ -133,6 +133,18 @@ Measured after the change — hull bottom **0.6 below** water, hull top **2.4 ab
 5.4. It reads as floating. **`DRAFT` is the knob to retune once the hull mesh lands**, since a mesh with
 real gunwales will want a different value than a plain box.
 
+**Also fixed after review — players fell through the boat.** I had set `CanCollide = false` on every part
+to stop players shoving the showroom boat around. That reasoning was wrong: the parts are **`Anchored`**,
+so they can't be pushed regardless — the collision was free to keep, and turning it off just made the deck
+non-solid. Now all parts collide. Verified: no part has collision off, a downward raycast **hits
+`CargoDeck` at exactly its top surface (Y = −3.60)**, and the deck sits 2.4 studs above the water line so
+you stand rather than swim.
+
+**Mooring distance — keep it offshore (user, 2026-07-31).** The nearest probed slot is ~37 studs off the
+pier, so boarding means swimming out. Offered to berth the boats against the pier for easier access;
+**user chose to keep them offshore** — the harbour reads better with boats moored out on the water. Do not
+"fix" this later. The `BoatSlot_*` override remains available if that ever changes.
+
 **Phase 4 · Polish + perf**
 
 11. Idle motion — gentle bob/sway on the moored boats (tween, not physics).
