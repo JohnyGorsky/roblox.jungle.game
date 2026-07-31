@@ -65,14 +65,31 @@ Art then drops into a proven harness.
 
 ## Implementation steps
 
-**Phase 1 · Harness, no art yet**
+**Phase 1 · Harness, no art yet** — <span style="color:#2e9c3f">✅ CODE DONE 2026-07-31</span>, awaiting the handling gate
 
-1. `BoatParts.luau` with the schema above, every `mesh` field **empty**. Mirror byte-identically to `sync/`.
-2. Teach `BoatServer` / `BoatModules` / `GunServer` to attach a skin **when a mesh id exists** and do
-   exactly what they do today when it doesn't.
-3. Add the base **`Motor`** part (intake #1) — greybox box at the stern, sized to match `Motor2`.
-4. **Gate:** Play the game place. Handling, buoyancy, thrust, turning and the gun must feel identical, and
-   all four role stations must still register. *No art has changed — so any difference is a regression.*
+1. [x] **`BoatParts.luau`** — 17 part defs + the 6 module→part mappings, every `library` field empty.
+       Mirrored byte-identically into `lobby/sync/` (verified with `diff`).
+2. [x] Skins wired into **4** scripts (one more than planned — `CargoServer` owns the deck and stations):
+       - `BoatServer` → `hull`, `driverSeat`, `motor`
+       - `BoatModules` → all 8 module parts, via a new optional `skinId` on `addPart`
+       - `GunServer` → `gunBase`, `gunSeat`, `gunBarrel`
+       - `CargoServer` → `cargoDeck` (the one part keeping real collision) + fuel/repair stations
+3. [x] Base **`Motor`** added at the stern `(3.5, 1, 10.5)` — mirroring `Motor2` at `(−3.5, 1, 10.5)`, so
+       buying the upgrade gives two matching motors.
+4. [x] **Gun upgrade implemented as a swap** (decision #2): re-skins the existing `GunBarrel` with
+       `upgradeLibrary`. Falls back to today's greybox marker part when no art exists, so behaviour is
+       unchanged for now.
+5. [ ] **Handling gate — needs you.** Play the **game place** and confirm the boat feels identical.
+
+**Phase 1 verification so far**
+
+- Analyzer clean on all 5 edited files, **both trees**. One real bug caught: `CollisionFidelity` is a
+  `MeshPart` property, not `BasePart` — now set only on MeshParts, and skins get `Box` (cheapest) while the
+  deck gets `PreciseConvexDecomposition`.
+- **Runtime smoke test in Studio:** module loads (17 defs, 6 mappings); with no art imported `hasArt` is
+  false for every part; `skin()` returns nil and **leaves the host's `Transparency` at 0**, i.e. the
+  greybox is genuinely preserved; an unknown id warns and returns nil rather than erroring.
+- ⏳ Not yet verified: boat *feel*. That needs the game place open and a human at the wheel.
 
 **Phase 2 · Concept sheet (yours) → meshes**
 
@@ -102,7 +119,7 @@ three boats in `assets/Images/boat_ideas.png` — **one hull that grows, not thr
 
 | # | Part | Size (studs) | Brief |
 |---|---|---|---|
-| 1 | `HullSkin` | **20 L × 14 W** | Open-top riverboat, weathered olive, flat interior floor, rope/tyre fenders. The one hero piece |
+| 1 | `HullSkin` | **22 L × 14 W × 3 H** | Open-top riverboat, weathered olive, flat interior floor, rope/tyre fenders. The one hero piece. *(Exact `HULL_SIZE` from `BoatServer` — the earlier "20" was inferred from the armour plates and was wrong.)* |
 | 2 | `CargoDeck` | deck plate inside hull | Worn wooden planking |
 | 3 | `Motor` | ~2×2×3 | Single small outboard, stern. Humble — this is the "weak" starting engine |
 | 4 | `Motor2` | ~2×2×3 | Its twin, mirrored to port |

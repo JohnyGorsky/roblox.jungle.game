@@ -7,10 +7,13 @@
 
 local Workspace = game:GetService("Workspace")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+-- part→art mapping (Job 066). No-op while no art is imported; the greybox parts below stay as they are.
+local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -36,7 +39,16 @@ local function crewOwns(id: string): boolean
 end
 
 -- weld a massless, non-colliding visible part at an offset from the hull (rides the assembly)
-local function addPart(name: string, size: Vector3, color: Color3, offset: CFrame, mat: Enum.Material?): BasePart
+-- `skinId` (Job 066) is a BoatParts key. When art exists for it, the mesh is welded on and this greybox
+-- box becomes the invisible mount; when it doesn't, the box stays visible exactly as before.
+local function addPart(
+	name: string,
+	size: Vector3,
+	color: Color3,
+	offset: CFrame,
+	mat: Enum.Material?,
+	skinId: string?
+): BasePart
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size
@@ -51,6 +63,9 @@ local function addPart(name: string, size: Vector3, color: Color3, offset: CFram
 	w.Part0 = theHull
 	w.Part1 = p
 	w.Parent = p
+	if skinId then
+		BoatParts.skin(p, skinId)
+	end
 	return p
 end
 
@@ -66,7 +81,7 @@ local function apply()
 	-- every boat gets a basic BOW LIGHT at night (FINDING 0001 — boat was dark when riding). Night-only via
 	-- the NightLight tag (LightController toggles it dusk→dawn). The Searchlight MODULE below is the upgrade.
 	if not theBoat:FindFirstChild("BowLightHead") then
-		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, -10), Enum.Material.Neon)
+		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, -10), Enum.Material.Neon, "bowLight")
 		local blight = Instance.new("SpotLight")
 		blight.Face = Enum.NormalId.Front -- forward / downstream (bow = -Z)
 		blight.Angle = 80 -- wide beam so you can actually see the path (Job 052)
@@ -87,24 +102,24 @@ local function apply()
 	if crewOwns("fueltank") then
 		theBoat:SetAttribute("MaxFuel", 150)
 		theBoat:SetAttribute("Fuel", 150)
-		addPart("FuelTankModule", Vector3.new(2, 3, 3), Color3.fromRGB(210, 180, 60), CFrame.new(4.5, 2.5, 8), Enum.Material.Metal)
+		addPart("FuelTankModule", Vector3.new(2, 3, 3), Color3.fromRGB(210, 180, 60), CFrame.new(4.5, 2.5, 8), Enum.Material.Metal, "fuelTank")
 		table.insert(on, "fueltank")
 	end
 	if crewOwns("hullkit") then
 		theBoat:SetAttribute("MaxHP", 150)
 		theBoat:SetAttribute("HP", 150)
-		addPart("HullPlateL", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(-7.3, 0, 0), Enum.Material.Metal)
-		addPart("HullPlateR", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(7.3, 0, 0), Enum.Material.Metal)
+		addPart("HullPlateL", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(-7.3, 0, 0), Enum.Material.Metal, "hullPlate")
+		addPart("HullPlateR", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(7.3, 0, 0), Enum.Material.Metal, "hullPlate")
 		table.insert(on, "hullkit")
 	end
 	if crewOwns("motor2") then
 		theBoat:SetAttribute("ThrustMul", 1.25)
-		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 1, 10.5), Enum.Material.Metal)
+		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 1, 10.5), Enum.Material.Metal, "motor2")
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
-		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(0, 5, -7), Enum.Material.Metal)
-		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 8, -7.6), Enum.Material.Neon)
+		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(0, 5, -7), Enum.Material.Metal, "searchlightMast")
+		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 8, -7.6), Enum.Material.Neon, "searchlightHead")
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Front -- emits along -Z (forward / downstream)
 		light.Angle = 70
@@ -118,12 +133,22 @@ local function apply()
 	end
 	if crewOwns("trailer") then
 		theBoat:SetAttribute("CargoMax", ((theBoat:GetAttribute("CargoMax") :: number?) or 10) + 10)
-		addPart("Trailer", Vector3.new(8, 1.5, 7), Color3.fromRGB(120, 90, 55), CFrame.new(0, -0.4, 15.5), Enum.Material.WoodPlanks)
+		addPart("Trailer", Vector3.new(8, 1.5, 7), Color3.fromRGB(120, 90, 55), CFrame.new(0, -0.4, 15.5), Enum.Material.WoodPlanks, "trailer")
 		table.insert(on, "trailer")
 	end
 	if crewOwns("gunupgrade") then
 		theBoat:SetAttribute("GunTier", 2)
-		addPart("GunBarrelUpgrade", Vector3.new(0.8, 0.8, 5), Color3.fromRGB(30, 30, 34), CFrame.new(0, 3, -3), Enum.Material.Metal)
+		-- Job 066 decision #2: the upgrade REPLACES the base barrel's model, it does not bolt a second
+		-- barrel on. Once art exists we re-skin the existing GunBarrel with the heavier model; until then
+		-- we keep the greybox marker part so the upgrade is still visible in the greybox build.
+		local barrel = theBoat:FindFirstChild("GunBarrel")
+		local swapped = false
+		if barrel and barrel:IsA("BasePart") then
+			swapped = BoatParts.skin(barrel, "gunBarrel", true) ~= nil
+		end
+		if not swapped then
+			addPart("GunBarrelUpgrade", Vector3.new(0.8, 0.8, 5), Color3.fromRGB(30, 30, 34), CFrame.new(0, 3, -3), Enum.Material.Metal)
+		end
 		table.insert(on, "gunupgrade")
 	end
 

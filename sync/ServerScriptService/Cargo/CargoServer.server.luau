@@ -8,6 +8,9 @@
 -- weapon draws ammo. Server-authoritative. Greybox.
 
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- part→art mapping (Job 066); a no-op until meshes are imported
+local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 
 local CARGO_MAX = 10
 local FUEL_PER_GAS = 40
@@ -43,8 +46,10 @@ dweld.Part0 = hull
 dweld.Part1 = deck
 dweld.Parent = deck
 deck.Parent = boat
+-- the deck is the ONE skin that keeps real collision: players stand on it (BoatParts collision = "deck")
+BoatParts.skin(deck, "cargoDeck")
 
-local function makeStation(name: string, localCF: CFrame, color: Color3, actionText: string): ProximityPrompt
+local function makeStation(name: string, localCF: CFrame, color: Color3, actionText: string, skinId: string?): ProximityPrompt
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = Vector3.new(3, 3, 3)
@@ -58,6 +63,9 @@ local function makeStation(name: string, localCF: CFrame, color: Color3, actionT
 	weld.Part1 = p
 	weld.Parent = p
 	p.Parent = boat
+	if skinId then
+		BoatParts.skin(p, skinId)
+	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = name .. "Prompt"
 	prompt.ActionText = actionText
@@ -70,7 +78,7 @@ local function makeStation(name: string, localCF: CFrame, color: Color3, actionT
 end
 
 -- FUEL station: spend 1 gasoline → refuel the tank (Fuel Handling skill scales fuel/gas — Job 029)
-makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(240, 190, 60), "Refuel").Triggered:Connect(function(player: Player)
+makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(240, 190, 60), "Refuel", "fuelStation").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Gasoline") :: number?) or 0) > 0 then
 		boat:SetAttribute("Gasoline", (boat:GetAttribute("Gasoline") :: number) - 1)
 		local maxF = (boat:GetAttribute("MaxFuel") :: number?) or 100
@@ -81,7 +89,7 @@ makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(24
 end)
 
 -- REPAIR station: spend 1 metal → mend the hull (Field Repair skill scales HP/metal — Job 029)
-makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(120, 200, 130), "Repair").Triggered:Connect(function(player: Player)
+makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(120, 200, 130), "Repair", "repairStation").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Metal") :: number?) or 0) > 0 then
 		boat:SetAttribute("Metal", (boat:GetAttribute("Metal") :: number) - 1)
 		local maxH = (boat:GetAttribute("MaxHP") :: number?) or 100

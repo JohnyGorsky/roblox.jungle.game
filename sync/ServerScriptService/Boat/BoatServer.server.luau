@@ -31,6 +31,8 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
+-- part→art mapping (Job 066). While no art is imported this is a no-op and the boat stays greybox.
+local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 
 -- ── tunables ─────────────────────────────────────────────────────────────
 local WATER_Y = RiverData.WATER_Y  -- water surface (spring target for hull CENTER), from the shared river data
@@ -97,6 +99,27 @@ local function buildBoat(): Model
 	weld.Part0 = hull
 	weld.Part1 = seat
 	weld.Parent = hull
+
+	-- Job 066: art rides on top as welded, massless, non-colliding skins. The hull box remains the
+	-- PrimaryPart with its tuned density and `Root` attachment, so buoyancy/thrust/turning are untouched.
+	-- Base motor (decision #1): every boat has one; `motor2` is the upgrade twin at mirrored X.
+	local motor = Instance.new("Part")
+	motor.Name = "Motor"
+	motor.Size = Vector3.new(2, 2, 3)
+	motor.Color = Color3.fromRGB(40, 40, 46)
+	motor.Material = Enum.Material.Metal
+	motor.Massless = true
+	motor.CanCollide = false
+	motor.CFrame = hull.CFrame * CFrame.new(3.5, 1, 10.5)
+	motor.Parent = model
+	local motorWeld = Instance.new("WeldConstraint")
+	motorWeld.Part0 = hull
+	motorWeld.Part1 = motor
+	motorWeld.Parent = motor
+
+	BoatParts.skin(hull, "hull")
+	BoatParts.skin(seat, "driverSeat")
+	BoatParts.skin(motor, "motor")
 
 	local function force(name: string): VectorForce
 		local f = Instance.new("VectorForce")

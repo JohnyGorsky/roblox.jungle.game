@@ -36,7 +36,7 @@ rough footprint. The existing sizes/offsets give us the size brief for free.
 
 | Part | Today | Size brief | Notes |
 |---|---|---|---|
-| `Hull` | one box | **~20 studs long, ~14 wide** (armour plates sit at ±7.3) | The "boat base". Weathered olive riverboat, open deck, flat interior floor players stand on. |
+| `Hull` | one box | **22 long × 14 wide × 3 tall** (`BoatServer.HULL_SIZE`) | The "boat base". Weathered olive riverboat, open deck, flat interior floor players stand on. |
 | `CargoDeck` | box | deck plate | The **platform** — wooden deck inside the hull |
 | `DriverSeat` | VehicleSeat | seat | **Must stay a `VehicleSeat`** — driving depends on it. Art = seat + the **steering wheel / console** in front of it |
 | `GunBase` + `GunBarrel` | box + box | barrel ~5 long | Pintle mount + barrel. The **barrel must stay its own part** — it rotates to aim |

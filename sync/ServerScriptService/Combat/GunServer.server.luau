@@ -9,6 +9,8 @@
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- part→art mapping (Job 066); a no-op until meshes are imported
+local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
@@ -46,6 +48,7 @@ base.CanCollide = false
 base.CFrame = hull.CFrame * CFrame.new(0, topY + 2, FRONT + 5)
 base.Parent = boat
 weldTo(base)
+BoatParts.skin(base, "gunBase")
 
 -- gun seat, just behind the base (gunner faces the bow)
 local seat = Instance.new("Seat")
@@ -57,6 +60,7 @@ seat.CanCollide = false
 seat.CFrame = hull.CFrame * CFrame.new(0, topY + 1, FRONT + 9)
 seat.Parent = boat
 weldTo(seat)
+BoatParts.skin(seat, "gunSeat")
 
 -- barrel (kinematic — the server sets its CFrame each frame from the aim)
 local barrel = Instance.new("Part")
@@ -68,6 +72,10 @@ barrel.Anchored = true
 barrel.CanCollide = false
 barrel.CFrame = base.CFrame
 barrel.Parent = boat
+-- The barrel is ANCHORED and the server rewrites its CFrame every frame from the aim, so when art lands
+-- verify the skin actually follows the aim (a welded child of a CFrame-driven anchored part is the one
+-- attachment in this job that isn't obviously safe). If it lags, drive the skin's CFrame alongside it.
+BoatParts.skin(barrel, "gunBarrel")
 
 local aimRemote = Instance.new("UnreliableRemoteEvent")
 aimRemote.Name = "GunAim"
