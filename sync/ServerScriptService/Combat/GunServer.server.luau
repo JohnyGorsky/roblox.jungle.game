@@ -62,7 +62,7 @@ seat.Color = Color3.fromRGB(45, 45, 52)
 seat.Massless = true
 seat.CanCollide = false
 -- the gunner sits in the open well aft of the raised foredeck, so this follows the DECK, not GUN_Y
-seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 0.9, FRONT + 10)
+seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 0.15, FRONT + 8)
 seat.Parent = boat
 weldTo(seat)
 BoatParts.skin(seat, "gunSeat")
@@ -75,7 +75,8 @@ barrel.Color = Color3.fromRGB(40, 42, 48)
 barrel.Material = Enum.Material.Metal
 barrel.Anchored = true
 barrel.CanCollide = false
-barrel.CFrame = base.CFrame
+-- the barrel rides ON the mount, not beside it (the aim loop drives it from here)
+barrel.CFrame = base.CFrame * CFrame.new(0, 1.2, 0)
 barrel.Parent = boat
 -- The barrel is ANCHORED and the server rewrites its CFrame every frame from the aim, so when art lands
 -- verify the skin actually follows the aim (a welded child of a CFrame-driven anchored part is the one

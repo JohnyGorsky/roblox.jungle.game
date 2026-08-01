@@ -123,7 +123,7 @@ BoatParts.Defs = {
 	-- axis-aligned, so no rotation. Sized to the host's footprint at the mesh's own height ratio.
 	gunBase = {
 		library = "GunBase",
-		size = Vector3.new(3, 2.26, 2.74),
+		size = Vector3.new(3.45, 2.60, 3.15),
 		collision = "skin",
 	} :: PartDef,
 	-- Barrel. Mesh imported 2.10 × 1.20 × 0.81 with its length on X, so it takes the usual 90° yaw to point
@@ -136,8 +136,8 @@ BoatParts.Defs = {
 	gunBarrel = {
 		library = "GunBarrel",
 		upgradeLibrary = "GunBarrelHeavy",
-		upgradeSize = Vector3.new(4.8, 2.1, 2.0), -- visibly heavier than the base barrel
-		size = Vector3.new(4, 2.0, 1.4),
+		upgradeSize = Vector3.new(5.52, 2.42, 2.30), -- visibly heavier than the base barrel
+		size = Vector3.new(4.6, 2.3, 1.61),
 		offset = CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
 	} :: PartDef,
@@ -147,8 +147,18 @@ BoatParts.Defs = {
 	-- gun mount height and floated 3 studs above the floor.
 	gunSeat = {
 		library = "GunSeat",
-		size = Vector3.new(2.2, 2.0, 1.7),
-		offset = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
+		-- Bigger again (was 2.53 × 2.30 × 1.96) — it read tiny beside a 5-stud character and the 4-tall
+		-- driver's seat next to it.
+		--
+		-- NO YAW, unlike the driver's seat. That mesh is strongly elongated (1.00/0.74/0.65) with its long
+		-- axis running seat→console, so it needs rotating to lie fore-aft. This one is near-cubic
+		-- (1.00/0.89/0.76): its long axis is the seat's WIDTH, so rotating it turned the gunner sideways.
+		-- Left unrotated, X = across the boat and Z = fore-aft, and the gunner faces the bow — and the gun.
+		--
+		-- Lift 0.45 puts the seat's base on the foredeck (~3.5, derived from where the gun mount sits)
+		-- instead of hovering above it.
+		size = Vector3.new(3.6, 3.2, 2.6),
+		offset = CFrame.new(0, 0.45, 0),
 		collision = "skin",
 	} :: PartDef,
 	-- Lamp imported 0.85 × 1.20 × 0.81 — already upright (long axis Y) and already about the size of its
@@ -156,7 +166,7 @@ BoatParts.Defs = {
 	-- lens ends up facing the wrong way, add a yaw here rather than re-exporting.
 	-- Scaled up from its natural 0.85 × 1.20 × 0.81: at that size it was under a stud tall on a 32-stud
 	-- boat and simply read as a speck. No rotation — it imported upright.
-	bowLight = { library = "BowLight", size = Vector3.new(1.7, 2.4, 1.6), collision = "skin" } :: PartDef,
+	bowLight = { library = "BowLight", size = Vector3.new(1.96, 2.76, 1.84), collision = "skin" } :: PartDef,
 
 	-- ── upgrade modules (ModuleDefs — 6, bought once, no tiers) ──────────────────────────────────
 	motor2 = { library = nil, collision = "skin" } :: PartDef, -- boat space (−3.5, 1, 10.5)

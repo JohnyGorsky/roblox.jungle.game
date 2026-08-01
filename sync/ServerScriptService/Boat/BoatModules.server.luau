@@ -75,9 +75,9 @@ local HALF_Z = theHull.Size.Z / 2
 local BOW = -HALF_Z + 1.5    -- just inside the bow
 -- Clear of the gunwale: the visible hull now rises to ~4.5 in hull space, so the old 3.2 buried the
 -- lamp inside the bow structure where nothing could see it.
-local BOW_LIGHT_Y = 4.3
+local BOW_LIGHT_Y = 4.9
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
-local BOW_LIGHT_X = -2.0
+local BOW_LIGHT_X = 0
 local STERN = HALF_Z - 1.5   -- just inside the stern
 local applied = false
 local function apply()
