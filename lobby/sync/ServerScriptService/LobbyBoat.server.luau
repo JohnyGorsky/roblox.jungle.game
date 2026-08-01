@@ -36,12 +36,12 @@ local FRONT_Z = -HULL.Z / 2
 local BOW = FRONT_Z + 1.5
 -- Clear of the gunwale: the visible hull now rises to ~4.5 in hull space, so the old 3.2 buried the
 -- lamp inside the bow structure where nothing could see it.
-local BOW_LIGHT_Y = 5.0
+local BOW_LIGHT_Y = 4.3
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
-local BOW_LIGHT_X = -4.2
+local BOW_LIGHT_X = -2.0
 local STERN = HULL.Z / 2 - 1.5
 -- mount height: the mesh hull has a RAISED foredeck, so the old TOP_Y + 2 buried the gun inside it
-local GUN_Y = TOP_Y + 4.1
+local GUN_Y = TOP_Y + 3.3
 
 -- ── mooring ───────────────────────────────────────────────────────────────────────────────────────
 -- Boats are yawed so their length (local Z) runs along world X, bow pointing +X out to open water.
@@ -220,7 +220,7 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	addPart(model, base, "DriverSeat", Vector3.new(4, 1, 5), CFrame.new(0, 2, 0), Color3.fromRGB(60, 45, 30), Enum.Material.Fabric, "driverSeat")
 	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
 	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, GUN_Y, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")
-	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, TOP_Y + 0.5, FRONT_Z + 9), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
+	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, GUN_Y - 0.9, FRONT_Z + 10), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
 	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(BOW_LIGHT_X, BOW_LIGHT_Y, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
 	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
 	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")

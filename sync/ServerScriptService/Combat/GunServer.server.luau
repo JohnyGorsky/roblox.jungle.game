@@ -31,7 +31,7 @@ local topY = hull.Size.Y / 2
 local FRONT = -hull.Size.Z / 2
 -- Job 066: the gun sat at topY + 2, which was on the deck of the old 3-stud greybox slab but is buried
 -- inside the real hull mesh's raised foredeck. GUN_Y lifts the mount so it stands ON that foredeck.
-local GUN_Y = topY + 4.1
+local GUN_Y = topY + 3.3
  -- boat faces -Z, so the front edge is -Z
 
 local function weldTo(part: BasePart)
@@ -62,7 +62,7 @@ seat.Color = Color3.fromRGB(45, 45, 52)
 seat.Massless = true
 seat.CanCollide = false
 -- the gunner sits in the open well aft of the raised foredeck, so this follows the DECK, not GUN_Y
-seat.CFrame = hull.CFrame * CFrame.new(0, topY + 0.5, FRONT + 9)
+seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 0.9, FRONT + 10)
 seat.Parent = boat
 weldTo(seat)
 BoatParts.skin(seat, "gunSeat")

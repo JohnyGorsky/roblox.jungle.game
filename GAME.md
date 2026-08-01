@@ -223,7 +223,7 @@ gated act that only happens at docks:
 1. **Reach a dock** (the *only* valid disembark points — seeded along the river).
 2. **Tie up the boat** — a hands-on action (rope it to the dock). Only once it's **tied** can the crew
    get out. While tied, the boat sits **anchored** at the dock (safer, but still attackable — someone may
-   stay to guard it + the trailer).
+   stay to guard it + the cargo on deck).
 3. **Trek into the jungle on foot** — the shores are **dense jungle** (trees, foliage, undergrowth), and
    inland from each dock is a **procedurally generated camp** (later: villages, ruins, hunter camps).
 4. **Raid it** — loot **metal / ammo / gasoline / currency**, guarded by land threats (a real fight).
@@ -240,10 +240,10 @@ gated act that only happens at docks:
 **Design impact:**
 - **Docks become the game's hubs**, not fuel pumps — refuel/repair *and* the raid gateway.
 - Adds a whole **on-foot pillar** (walking, jungle exploration, land combat) alongside the boat pillar.
-- **Core tension:** the boat/trailer sit exposed at the dock while you're inland — and at **night** the
+- **Core tension:** the boat sits exposed at the dock while you're inland — and at **night** the
   water's deadly, so you may *want* to be ashore then (flips the day/night calculus).
 
-Ties into: **docks / refuel** (P4), **land threats** (P3/#009), the **trailer + resources** (haul loot
+Ties into: **docks / refuel** (P4), **land threats** (P3/#009), the **cargo deck + resources** (haul loot
 back), **modular boat**, **zones** (P5), and a **generator that grows from one river mode into river +
 jungle + camp modes** (extends #005; see `Planned/`).
 
@@ -282,26 +282,34 @@ jungle + camp modes** (extends #005; see `Planned/`).
   economy; docks/camps stock them, and hauling them back is shared crew work.
 - Likely also **health/bandages** (revive — see "Threats"), and collectibles for score. _(OPEN)_
 
-## Cargo — the towed trailer & on-boat stations
+## Cargo — the rear cargo deck & on-boat stations
 
-_(Added 2026-07-18.)_ Loot isn't consumed instantly — it's **stored and hauled, then used at a spot on
-the boat** (like feeding the Dead Rails firebox):
+_(Added 2026-07-18. **Rewritten 2026-08-01: THERE IS NO TOWED TRAILER.**)_ Loot isn't consumed instantly
+— it's **stored and hauled, then used at a spot on the boat** (like feeding the Dead Rails firebox):
 
-- **A towed trailer** — a raft/barge **roped to the boat** (physics `RopeConstraint`) is the crew's
-  **cargo hold**. Scavenged **gasoline, metal, ammo** (and loot) go INTO the trailer; it follows the
-  boat, can swing/drag as part of the driving feel, and is itself a target threats can attack.
-- **Carry capacity is limited** — the trailer holds only so much, forcing "what do we grab?" choices.
-  Capacity is **expandable via game pass** (fair, non-P2W **convenience** — more slots, not more power)
-  and/or meta upgrades. This is a primary monetization lever.
-- **On-boat STATIONS** — you **take a resource from the trailer and use it at a specific station**:
+> ### ⛔ No trailer, no towed barge — settled, do not re-propose
+> An earlier design had a raft **roped behind the boat** on a `RopeConstraint`. It was built and then
+> **removed in Job #013**: a towed second body was jittery and fragile (see `roblox-physics` — one rigid
+> assembly is bulletproof, a towed body is not). **Job #066 confirmed it stays gone.**
+>
+> **The cargo hold is the boat's own rear `CargoDeck`** — a massless welded extension of the hull, part
+> of the single assembly. That is where resources are stored and where crates/props are placed. Anything
+> that used to be described as "the trailer" means **the rear deck**.
+
+- **The rear cargo deck** is the crew's **cargo hold**. Scavenged **gasoline, metal, ammo** (and loot) go
+  onto the deck; it rides with the boat as one assembly and is exposed to threats like the rest of it.
+- **Carry capacity is limited**, forcing "what do we grab?" choices. Capacity is **expandable via game
+  pass** (fair, non-P2W **convenience** — more slots, not more power) and/or meta upgrades. This is a
+  primary monetization lever.
+- **On-boat STATIONS** — you **take a resource from the deck and use it at a specific station**:
   - **Fuel station** — pour gasoline in to refuel the engine.
   - **Repair station** — spend metal parts to patch the hull (restore boat HP).
   - Gunners draw **ammo** from the shared stock.
   So refuel/repair are **deliberate physical chores at a spot on the boat, under threat** — not instant.
-  _(The current greybox refuels straight from the dock — a simplification of this loot → trailer →
-  station flow, to be built out.)_
+  _(The current greybox refuels straight from the dock — a simplification of this loot → deck → station
+  flow, to be built out.)_
 
-Ties into: **modular boat** (trailer + stations are add-ons), **resources** (gasoline/metal/ammo),
+Ties into: **modular boat** (stations are add-ons), **resources** (gasoline/metal/ammo),
 **inventory/capacity** (game-pass slots), **roles** (a hauler/engineer job), and the **dock/excursion**
 scavenge loop.
 
@@ -378,7 +386,7 @@ Captured so nothing's forgotten; most resolve inside their build phase. ★ = de
 **Go-to-market**
 - ✅ **Name: "Last River"** (working title, locked 2026-07-18). Still need icon/thumbnail — the genre
   spreads via short-form/mobile discovery. (Optional: verify the name isn't taken on Roblox.)
-- Trailer / clip-worthy set-pieces
+- Clip-worthy set-pieces
 
 ## Open questions (resolved 2026-07-19 — see decisions below)
 

@@ -240,12 +240,22 @@ the `LastRiverLogo.png` used by `TeleportGui`.
 | Reinforced Hull (plating) | `hullkit` module | ▫ to generate |
 | Searchlight Rig | `searchlight` module | ▫ to generate |
 | Extended Fuel Tank | `fueltank` module | ▫ to generate |
-| Cargo Trailer (barge) | `trailer` module | ▫ to generate |
+| Cargo capacity | `trailer` module | ▫ to generate — **crates/cargo ON the rear deck. NOT a towed barge** (see the note below) |
 | Mounted Gun Upgrade (turret) | `gunupgrade` module | ▫ to generate |
 | Gold chest | buy-popup art for the 4 gold packs | ▫ to generate |
 
 **7 renders total.** Not blocking the restyle (panels/buttons/type/icons land first); blocks only the
 Boat-Upgrades panel and buy popup looking like the mockup.
+
+> ### ⛔ No trailer / towed barge — settled 2026-08-01
+> The cargo module's shop art shows **crates and cargo on the boat's own rear `CargoDeck`**, which is
+> where cargo actually lives (GAME.md → *Cargo — the rear cargo deck & on-boat stations*). There is no
+> towed body: one was built and removed in Job #013 because a roped second assembly was jittery, and the
+> decision was reconfirmed in Job #066.
+>
+> **No separate 3-D trailer/barge mesh is needed on the boat.** The rear deck already represents the
+> capacity visually. `assets/Images/Boat/_unused/` holds the barge render that was generated before this
+> was settled — do not wire it up.
 
 **Alternative sources** if Flaticon picking drags: the **Creator Store** has free game-icon packs (I can
 search + present candidates for approval via Studio MCP, per GROUND-RULES §4), and **ChatGPT** can render a
