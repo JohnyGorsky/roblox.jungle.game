@@ -1,10 +1,15 @@
 --!strict
--- InventoryHud.local.luau — the 4-slot loadout hotbar (Job 015).
+-- InventoryHud.local.luau — the loadout hotbar (Job 015).
 --
 -- Mobile-first, scale-based. One row of slot buttons at the bottom-left: tap a slot to equip it (one
 -- item active at a time). The active slot is highlighted; guns show their ammo. Reads the player's
 -- replicated inventory attributes (Slot1..N / ActiveSlot / ActiveItem / Ammo*). Keyboard 1-N + Q (drop)
 -- are conveniences for Studio testing. Greybox — the real design system is a later pass.
+--
+-- Job 067: the bar is 4 slots by default and 6 with the Extra Inventory Slots pass. ALL slot buttons are
+-- built up front and the surplus ones are hidden, because `Owns_extraSlots` arrives asynchronously
+-- (UserOwnsGamePassAsync on join) and can land after this script has already drawn — so the bar must
+-- react to it changing rather than sample it once at startup.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +19,11 @@ local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChil
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("InventoryCmd") :: RemoteEvent
-local SLOTS = ItemDefs.SLOT_COUNT
+local MAX_SLOTS = ItemDefs.MAX_SLOTS
+
+local function visibleSlots(): number
+	return ItemDefs.slotsFor(player)
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "InventoryHud"
@@ -56,9 +65,9 @@ carryLabel.Parent = gui
 type SlotUi = { button: TextButton, ammo: TextLabel }
 local slotUis: { SlotUi } = {}
 
-for i = 1, SLOTS do
+for i = 1, MAX_SLOTS do
 	local button = Instance.new("TextButton")
-	button.Size = UDim2.fromScale(1 / SLOTS - 0.02, 1)
+	button.Size = UDim2.fromScale(1 / MAX_SLOTS - 0.02, 1)
 	button.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
 	button.BackgroundTransparency = 0.25
 	button.AutoButtonColor = false
@@ -115,8 +124,15 @@ end
 
 local function refresh()
 	local active = (player:GetAttribute("ActiveSlot") :: number?) or 1
-	for i = 1, SLOTS do
+	local shown = visibleSlots()
+	for i = 1, MAX_SLOTS do
 		local ui = slotUis[i]
+		-- UIListLayout skips invisible children, so hiding the surplus closes the gap rather than
+		-- leaving a hole where slots 5-6 would be.
+		ui.button.Visible = i <= shown
+		if i > shown then
+			continue
+		end
 		local id = (player:GetAttribute("Slot" .. i) :: string?) or ""
 		ui.button.Text = if id == "" then tostring(i) else shortName(id)
 		local isActive = i == active and id ~= ""
@@ -136,12 +152,14 @@ local function refresh()
 end
 
 -- react to any inventory/ammo/state change
-for i = 1, SLOTS do
+for i = 1, MAX_SLOTS do
 	player:GetAttributeChangedSignal("Slot" .. i):Connect(refresh)
 end
 player:GetAttributeChangedSignal("ActiveSlot"):Connect(refresh)
 player:GetAttributeChangedSignal("ActiveItem"):Connect(refresh)
 player:GetAttributeChangedSignal("Busy"):Connect(refresh)
+-- the pass check completes asynchronously on join (and a mid-session purchase fires this too)
+player:GetAttributeChangedSignal("Owns_extraSlots"):Connect(refresh)
 for _, def in pairs(ItemDefs.Items) do
 	if def.ammoAttr then
 		player:GetAttributeChangedSignal(def.ammoAttr):Connect(refresh)
@@ -162,6 +180,10 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		remote:FireServer("equip", 3)
 	elseif key == Enum.KeyCode.Four then
 		remote:FireServer("equip", 4)
+	elseif key == Enum.KeyCode.Five then
+		remote:FireServer("equip", 5)
+	elseif key == Enum.KeyCode.Six then
+		remote:FireServer("equip", 6)
 	elseif key == Enum.KeyCode.Q then
 		remote:FireServer("drop", (player:GetAttribute("ActiveSlot") :: number?) or 1)
 	end

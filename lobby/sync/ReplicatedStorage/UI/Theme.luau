@@ -148,6 +148,7 @@ Theme.moduleIcon = {
 	fueltank = "fuel",
 	trailer = "crate",
 	gunupgrade = "gun",
+	ramps = "boat", -- Job 067: ramp bow / hull shape — it's a hull change, so the hull silhouette reads best
 }
 
 -- skill group -> icon key (one shop, Boat/Crew groups — plan decision F)
@@ -164,7 +165,21 @@ Theme.productIcon = {
 	pack150 = "rbxassetid://133943328068949", -- 150_transparent
 	armoredBoat = "rbxassetid://130910653087108", -- Boat_transparent
 	boatPaint = "rbxassetid://82416796032835", -- Paint_transparent
-	cosmeticBundle = "rbxassetid://95212286807985", -- Cosmetics_transparent
+	selfRevive = "rbxassetid://131281323216251", -- SelfRevive (uploaded 2026-08-01)
+	-- ⚠️ This is the HUB thumbnail ("Game Pass Icon"), not a transparent re-upload like the rows above.
+	-- If it renders as a white blob inside the circular badge, that's the matte — re-upload the source PNG
+	-- with alpha and swap the id here (see ASSETS.md §5.1 "Never swap a Hub id into the GUI").
+	extraSlots = "rbxassetid://130798210334331", -- Game Pass Icon (uploaded 2026-08-02)
+	-- `cosmeticBundle` art removed in Job 067 along with the pass itself — it was live and delivered
+	-- nothing. Its id stays recorded in registry images.md in case the bundle is ever actually built.
+}
+
+-- Fallback icon key for a monetization item with no store art yet (Job 067). Components.icon prefers
+-- `image` and falls back to `name`, so a row can pass BOTH and get real art the moment it is uploaded,
+-- with a sensible vocabulary icon until then — rather than an empty badge.
+Theme.productFallbackIcon = {
+	extraSlots = "crate", -- carrying more
+	selfRevive = "medkit", -- getting back up
 }
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────

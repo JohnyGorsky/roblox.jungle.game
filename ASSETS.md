@@ -376,11 +376,32 @@ boat float, and hosts the `Root` attachment every thrust/turn force uses. Each m
 | `GunBarrelHeavy` | `GunBarrelHeavy` | <span style="color:#2e9c3f">✅ wired</span> | **swaps** the base barrel (never two barrels) |
 | Fuel · Repair · Medic stations | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | medic is game-place only |
 | Searchlight **mast** | — | <span style="color:#2e9c3f">✅ stays a part</span> | a 0.8-stud pole reconstructs badly in Meshy |
+| `RampBow` | — | <span style="color:#c8a13a">⏳ greybox wedge</span> | **Job #067** `ramps` module. Bow ramp / hull-shape kit — a low wedge across the bow, high edge forward, weathered metal to match `HullPlate`. Ships as a `WedgePart` until a mesh exists |
 | Cargo trailer / barge | — | <span style="color:#c93c3c">❌ not needed</span> | no towed body; cargo is the rear deck (GAME.md) |
 | Boat SFX | engine loop, start, on-fire, destroyed, metal hit | <span style="color:#2e9c3f">✅ some exist</span> | in `assets/Objects/Boat/Sounds/` |
 
 > ⚠️ **Imported into the LOBBY place only.** `ServerStorage` is place content and Rojo doesn't sync meshes,
 > so the GAME place needs the same GLBs imported under the same names before its boat shows any art.
+
+### Hull liveries (Boat Paint Pack) — **needs no new textures**
+
+Job #067. Six liveries (olive free + 5 with the pass) recolour the **hull and its armour plates only** —
+never the deck, engines, seats or stations.
+
+**They are not new art, and must not be commissioned as such.** A livery reuses the existing PBR maps:
+
+- Every boat mesh imported with a full `SurfaceAppearance` (ColorMap + Normal + Roughness + Metalness).
+  An **opaque ColorMap completely overrides `BasePart.Color`**, so a naive tint is invisible.
+- **`SurfaceAppearance.ColorMap` cannot be written by a game script** — *"lacking capability Plugin"*, the
+  same gate as `MeshId` and `CollisionFidelity`. It *does* work from the Studio command bar, so testing it
+  there proves nothing.
+- So each paintable library mesh carries a **second, authoring-time appearance** named `PaintablePBR`:
+  identical but with an empty ColorMap. At runtime a livery just destroys the one it doesn't want.
+  Normal/Roughness/Metalness survive, so the repainted hull keeps every rivet, dent and wear patch.
+
+> 🔧 **After importing the boat meshes into a place** (including the GAME place), run once in Studio and
+> **save**: `local BP = require(game.ReplicatedStorage.Boat.BoatParts) print(BP.preparePaintLibrary())`
+> Skipping it doesn't break anything — liveries just render flat, and the server warns once.
 
 # 3) RIVER / WORLD
 
@@ -429,7 +450,9 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | `150.png` | 150 Gold (449 R$) | dev product | `3610663385` | `80233861953394` | **`133943328068949`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 | `Boat.png` | Armored Boat (499 R$) | game pass | `1919001295` | `138728521842994` | **`130910653087108`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 | `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | **`82416796032835`** | <span style="color:#2e9c3f">✅ live + wired</span> |
-| `Cosmetics.png` | Cosmetic Bundle (249 R$) | game pass | `1918077339` | `130780112255781` | **`95212286807985`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `Cosmetics.png` | ~~Cosmetic Bundle (249 R$)~~ | game pass | `1918077339` | `130780112255781` | `95212286807985` | <span style="color:#b0472f">⛔ REMOVED from the in-game shop (Job #067)</span> |
+| `SelfRevive` | Self Revive (20 R$) | dev product | `3612677893` | — | **`131281323216251`** | <span style="color:#2e9c3f">✅ live + wired</span> |
+| — | Extra Inventory Slots (149 R$) | game pass | *not created yet* | — | — | <span style="color:#c8a13a">⏳ needs a Creator Hub pass + art</span> |
 
 > **Why two:** Creator Hub mattes its thumbnails onto an opaque square/disc, so those ids render as a
 > white blob inside the round row badges. The transparent re-uploads (2026-07-31, `*_transparent`) fixed
@@ -437,6 +460,16 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 
 <span style="color:#2e9c3f">✅ Wired 2026-07-31</span> — the lobby `RobuxShop` shows real store art per row
 (Job #065 phase 2). The game-place copy is still text-only (out of scope).
+
+> **Job #067 changes.**
+> · **Cosmetic Bundle** is no longer sold in-game — it was live and delivered nothing (no trails, no wake
+>   FX, no emote; nothing read `Owns_cosmeticBundle`). Its ids stay recorded here in case the three
+>   features are ever built. **The Creator Hub listing is unlisted by hand, separately.**
+> · **Self Revive** created 2026-08-01 and wired to the DOWNED overlay.
+> · **Extra Inventory Slots** is implemented in code and ships with `gamePassId = 0`, which the shop
+>   already renders as "Soon" — it goes live the moment the pass exists on the Hub.
+> · **Boat Paint Pack finally does something** (Job #067): 6 hull liveries. It needs **no new art** —
+>   liveries are a runtime tint over the existing PBR maps, not new textures. See §2.
 
 # 6) GLOBAL AUDIO
 

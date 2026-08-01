@@ -1,5 +1,7 @@
 --!strict
--- InventoryService.luau — authoritative inventory state for the 4-slot loadout (Job 015).
+-- InventoryService.luau — authoritative inventory state for the player loadout (Job 015).
+-- Job 067: the loadout is 4 slots by default and 6 with the Extra Inventory Slots pass, so "the 4-slot
+-- loadout" is no longer true — every bound comes from ItemDefs.slotsFor(player).
 --
 -- SERVER-ONLY shared module (ServerStorage). Both InventoryServer (remotes/seeding) and ExcursionServer
 -- (weapon/ammo crate grants) require it — server-side `require` is cached, so they share this one module.
@@ -15,7 +17,11 @@ local CollectionService = game:GetService("CollectionService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 
-local SLOTS = ItemDefs.SLOT_COUNT
+-- Job 067: the loadout is no longer a fixed 4 — the Extra Inventory Slots pass raises it per player, so
+-- every bound is asked for per player rather than read from one module-level constant.
+local function slotsFor(player: Player): number
+	return ItemDefs.slotsFor(player)
+end
 
 local InventoryService = {}
 
@@ -91,7 +97,10 @@ function InventoryService.seed(player: Player)
 		return
 	end
 	player:SetAttribute("InvSeeded", true)
-	for i = 1, SLOTS do
+	-- Seed to MAX_SLOTS, not to this player's current count. The pass check is async (and can complete
+	-- mid-run), so the extra slot attributes must already exist as "" when it lands — otherwise buying the
+	-- pass would leave slots 5–6 as nil and the hotbar would render holes.
+	for i = 1, ItemDefs.MAX_SLOTS do
 		-- start with the Sword (slot 1) + a Torch (slot 2) for night visibility (Job 037; lootable later)
 		player:SetAttribute(slotAttr(i), if i == 1 then "Sword" elseif i == 2 then "Torch" else "")
 	end
@@ -109,7 +118,7 @@ function InventoryService.equip(player: Player, slot: number)
 		return
 	end
 	slot = math.floor(slot)
-	if slot < 1 or slot > SLOTS then
+	if slot < 1 or slot > slotsFor(player) then
 		return
 	end
 	if player:GetAttribute("ActiveSlot") == slot then
@@ -125,7 +134,7 @@ function InventoryService.drop(player: Player, slot: number)
 		return
 	end
 	slot = math.floor(slot)
-	if slot < 1 or slot > SLOTS then
+	if slot < 1 or slot > slotsFor(player) then
 		return
 	end
 	if (player:GetAttribute(slotAttr(slot)) :: string?) == "Sword" then
@@ -150,8 +159,9 @@ function InventoryService.grant(player: Player, itemId: string): boolean
 	if not def then
 		return false
 	end
+	local slots = slotsFor(player)
 	-- already own it → refill ammo
-	for i = 1, SLOTS do
+	for i = 1, slots do
 		if (player:GetAttribute(slotAttr(i)) :: string?) == itemId then
 			if def.ammoOnLoot then
 				InventoryService.addAmmo(player, itemId, def.ammoOnLoot)
@@ -160,7 +170,7 @@ function InventoryService.grant(player: Player, itemId: string): boolean
 		end
 	end
 	-- first free slot
-	for i = 1, SLOTS do
+	for i = 1, slots do
 		if ((player:GetAttribute(slotAttr(i)) :: string?) or "") == "" then
 			player:SetAttribute(slotAttr(i), itemId)
 			if def.ammoOnLoot then

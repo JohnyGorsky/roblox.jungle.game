@@ -14,6 +14,8 @@ local CollectionService = game:GetService("CollectionService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 -- part→art mapping (Job 066). No-op while no art is imported; the greybox parts below stay as they are.
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
+-- hull liveries (Job 067) — the Boat Paint Pack
+local BoatPaint = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatPaint"))
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -47,9 +49,11 @@ local function addPart(
 	color: Color3,
 	offset: CFrame,
 	mat: Enum.Material?,
-	skinId: string?
+	skinId: string?,
+	-- Job 067: "WedgePart" for the ramp bow, which needs a real slope to read as a ramp in greybox.
+	className: string?
 ): BasePart
-	local p = Instance.new("Part")
+	local p = Instance.new(className or "Part") :: BasePart
 	p.Name = name
 	p.Size = size
 	p.Color = color
@@ -180,6 +184,27 @@ local function apply()
 		end
 		table.insert(on, "gunupgrade")
 	end
+	-- ── RAMP BOW & HULL SHAPE (Job 067) ────────────────────────────────────────────────────────────
+	-- GAME.md promised this module and it did not exist. Both effects are wired to code that already
+	-- runs, so it is felt today rather than being a placeholder:
+	--
+	--   RampBoost         — read by RampTest when it applies a launch (ramps are non-colliding triggers,
+	--                       Job 019). Real ramps are todo 0013; this works the moment they land.
+	--   TurnAuthorityMul  — read by BoatServer. Rudder reaches full authority at a LOWER speed, so the
+	--   CurrentMul          boat bites in slow, twisty water; and the downstream shove is reduced. This is
+	--                       the always-on half — you feel it on every bend of The Rapids, not just on jumps.
+	--
+	-- Deliberately NOT a raw speed or HP buff: modules unlock capability, skills tune numbers.
+	if crewOwns("ramps") then
+		theBoat:SetAttribute("RampBoost", 1.35)
+		theBoat:SetAttribute("TurnAuthorityMul", 1.2)
+		theBoat:SetAttribute("CurrentMul", 0.85)
+		-- Greybox wedge on the bow (no art yet — BoatParts `ramp` has library = nil, the Job 066 pattern).
+		-- A WedgePart so the slope is visible; rotated 180° about Y so the high end faces the bow (−Z).
+		addPart("RampBow", Vector3.new(13, 2.2, 5), Color3.fromRGB(96, 100, 108),
+			CFrame.new(0, 2.6, BOW - 1) * CFrame.Angles(0, math.pi, 0), Enum.Material.DiamondPlate, "ramp", "WedgePart")
+		table.insert(on, "ramps")
+	end
 
 	-- ── skills (Job 024): boat skills at max crew level, applied on top of modules ──────────────────
 	local function maxSkill(id: string): number
@@ -240,7 +265,31 @@ local function apply()
 		addPart("ArmoredProw", Vector3.new(14, 2, 3), Color3.fromRGB(70, 72, 80), CFrame.new(0, 0.3, -11), Enum.Material.DiamondPlate)
 	end
 
-	print(("[BoatModules] applied: %s | skills applied%s"):format(#on > 0 and table.concat(on, ", ") or "none", armored and " | ARMORED" or ""))
+	-- ── HULL LIVERY (Boat Paint Pack, Job 067) ─────────────────────────────────────────────────────
+	-- One boat, up to six players, so SOMEONE's livery has to win. The rule: the first player in join
+	-- order who both owns the pass and has picked a non-default livery. Everyone else's boat is the stock
+	-- olive it has always been, so nobody's boat is changed out from under them by a stranger's purchase
+	-- unless that stranger actually paid for the paint.
+	--
+	-- Runs LAST, after every module part exists, so the hullkit's armour plates get painted too — the hull
+	-- turning navy while its plates stayed olive would look broken.
+	local paintId = BoatPaint.DEFAULT
+	local painter: Player? = nil
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local chosen = BoatPaint.sanitize(plr:GetAttribute("BoatPaint"))
+		if chosen ~= BoatPaint.DEFAULT and BoatPaint.isUnlocked(plr, chosen) then
+			paintId, painter = chosen, plr
+			break
+		end
+	end
+	local painted = BoatPaint.apply(theBoat, paintId, BoatParts.paintableSkinNames())
+
+	print(("[BoatModules] applied: %s | skills applied%s | paint: %s (%d parts%s)"):format(
+		#on > 0 and table.concat(on, ", ") or "none",
+		armored and " | ARMORED" or "",
+		paintId,
+		painted,
+		painter and (", " .. painter.Name) or ""))
 end
 
 if Workspace:GetAttribute("RunStarted") == true then

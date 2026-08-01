@@ -12,7 +12,20 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 local MonetizationDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("MonetizationDefs")) :: any
 
--- ── developer-product receipts (gold packs) ─────────────────────────────────────────────────────
+-- ── utility-product grant hook (Job 067) ─────────────────────────────────────────────────────────
+-- Non-gold developer products (self-revive) are granted by whichever system owns the effect, not here.
+-- That system sets `OnInvoke` on this BindableFunction; we call it with (player, key) and it returns true
+-- if it actually granted. If NOTHING has claimed the hook — which is the normal case in the LOBBY, where
+-- there is no downed state to revive from — the invoke throws and we return NotProcessedYet, so Roblox
+-- retries the receipt later in the place that CAN honour it. The player is never charged for nothing.
+--
+-- A BindableFunction under ServerScriptService (rather than a shared module) because ServerStorage is
+-- mapped in the GAME tree only, and this file is byte-identical in both.
+local grantHook = Instance.new("BindableFunction")
+grantHook.Name = "GrantProduct"
+grantHook.Parent = ServerScriptService
+
+-- ── developer-product receipts (gold packs + utility products) ──────────────────────────────────
 local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	local plr = Players:GetPlayerByUserId(info.PlayerId)
 	if not plr or not Profiles.isReady(plr) then
@@ -28,13 +41,30 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted (idempotent)
 	end
 	local gold = MonetizationDefs.goldForProduct(info.ProductId)
-	if not gold then
-		return Enum.ProductPurchaseDecision.NotProcessedYet -- not one of ours — don't consume
+	if gold then
+		Profiles.addGold(plr, gold)
+		prof.purchaseIds[pkey] = true
+		Profiles.save(plr, false) -- persist promptly (real money)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	Profiles.addGold(plr, gold)
-	prof.purchaseIds[pkey] = true
-	Profiles.save(plr, false) -- persist promptly (real money)
-	return Enum.ProductPurchaseDecision.PurchaseGranted
+
+	-- utility product (self-revive): hand off to whoever owns the effect
+	local key = MonetizationDefs.keyForProduct(info.ProductId)
+	if key then
+		local ok, granted = pcall(function()
+			return grantHook:Invoke(plr, key)
+		end)
+		if not ok or granted ~= true then
+			-- no handler here, or the grant couldn't apply (e.g. they're no longer downed). Do NOT consume
+			-- the receipt — Roblox will retry, and the player keeps what they paid for.
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		prof.purchaseIds[pkey] = true
+		Profiles.save(plr, false)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+
+	return Enum.ProductPurchaseDecision.NotProcessedYet -- not one of ours — don't consume
 end
 MarketplaceService.ProcessReceipt = processReceipt
 

@@ -112,7 +112,10 @@ RunService.Heartbeat:Connect(function()
 		local ready = (os.clock() - (lastLaunch[r] or -100)) > DEBOUNCE
 		if inFootprint and ready and fwd > MIN_SPEED then
 			lastLaunch[r] = os.clock()
-			local launchUp = math.min(LAUNCH_BASE + r.angle * LAUNCH_PER_DEG, LAUNCH_MAX)
+			-- RampBoost (Job 067) = the Ramp Bow & Hull Shape module. Applied BEFORE the cap so the module
+			-- can't launch the boat past what the arc/landing was tuned for. Default 1 = no module.
+			local boost = (boat:GetAttribute("RampBoost") :: number?) or 1
+			local launchUp = math.min((LAUNCH_BASE + r.angle * LAUNCH_PER_DEG) * boost, LAUNCH_MAX)
 			-- LINEAR: keep the boat's horizontal velocity, set a strong upward launch
 			hull.AssemblyLinearVelocity = Vector3.new(vel.X, launchUp, vel.Z)
 			-- ANGULAR: a gentle nose-UP off the ramp (negative right axis), NOT a somersault

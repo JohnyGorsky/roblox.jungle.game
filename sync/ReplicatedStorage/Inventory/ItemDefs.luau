@@ -28,7 +28,24 @@ export type ItemDef = {
 
 local ItemDefs = {}
 
-ItemDefs.SLOT_COUNT = 4
+-- Loadout size. BASE is what everyone gets; the Extra Inventory Slots game pass (Job 067) raises a
+-- player to MAX. Read `ItemDefs.slotsFor(player)` rather than these constants — the count is per-player
+-- now, not global.
+ItemDefs.SLOT_COUNT = 4 -- base (kept as the original name: it is what an unpaid player has)
+ItemDefs.MAX_SLOTS = 6 -- with the Extra Inventory Slots pass
+
+-- How many slots this player has. Convenience only — more room to carry, no damage/health/speed change,
+-- which is what keeps it on the right side of GAME.md's "core power stays earnable" rule.
+--
+-- Reads the `Owns_extraSlots` attribute MonetizationServer publishes. That attribute arrives
+-- ASYNCHRONOUSLY (UserOwnsGamePassAsync on join), so anything that renders slots must react to it
+-- changing rather than sampling it once — see InventoryHud.
+function ItemDefs.slotsFor(player: Player): number
+	if player:GetAttribute("Owns_extraSlots") == true then
+		return ItemDefs.MAX_SLOTS
+	end
+	return ItemDefs.SLOT_COUNT
+end
 
 ItemDefs.Items = {
 	Sword = {

@@ -55,6 +55,10 @@ export type PartDef = {
 	-- "skin" (default) = CanCollide false + Massless true, physics untouched.
 	-- "deck"           = real collision, for surfaces players stand on.
 	collision: Collision?,
+	-- Job 067: does the Boat Paint Pack repaint this part? Only the HULL and its armour plates — the deck
+	-- planking, engines, seats and stations keep their own materials, because a boat whose wooden deck
+	-- turns navy blue reads as a bug rather than a livery. See BoatPaint.
+	paintable: boolean?,
 }
 
 -- Offsets here are relative to the HOST part, not the boat. A module part is already positioned by
@@ -84,6 +88,7 @@ BoatParts.Defs = {
 		size = Vector3.new(32, 6.02, 14), -- local axes: X = mesh length, Z = mesh width
 		offset = CFrame.new(0, (6.02 - 3) / 2, 0) * CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
+		paintable = true, -- the hero surface the Paint Pack sells
 	} :: PartDef,
 	-- The walkable deck — the ONE part that keeps real collision.
 	-- Mesh imported 8.80 × 1.20 × 4.63 with its length already on X, same as the host (14 × 1 × 8), so no
@@ -198,6 +203,7 @@ BoatParts.Defs = {
 		size = Vector3.new(4.6, 2, 0.47), -- natural proportions at 2 studs tall — no stretch
 		offset = CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
+		paintable = true, -- plates are bolted to the hull; they must repaint with it, not stay olive
 	} :: PartDef,
 	-- Fuel drum, lying with its length on X — no rotation needed, it reads fine either way on the deck.
 	fuelTank = {
@@ -214,6 +220,10 @@ BoatParts.Defs = {
 		collision = "skin",
 	} :: PartDef,
 	trailer = { library = nil, collision = "skin" } :: PartDef, -- (0, −0.4, 15.5)
+	-- Job 067: bow ramp / hull-shape kit. No art yet — the same `library = nil` pattern as motor2, so it
+	-- ships as a visible greybox wedge on the bow today and takes a mesh whenever one is generated.
+	-- Paintable: it's a hull surface, so it must repaint with the hull rather than stay olive.
+	ramp = { library = nil, collision = "skin", paintable = true } :: PartDef,
 
 	-- ── role stations (currently coloured boxes; nicer props optional) ───────────────────────────
 	-- Fuel post. Imported 0.72 × 1.20 × 0.72 — a slim upright, already the right way up, so NO rotation.
@@ -254,7 +264,22 @@ BoatParts.moduleToPart = {
 	searchlight = "searchlightMast",
 	trailer = "trailer",
 	gunupgrade = "gunBarrel", -- handled as a swap on the existing barrel
+	ramps = "ramp",
 } :: { [string]: string }
+
+-- Job 067: the set of skin names the Boat Paint Pack may repaint, keyed by the `Skin_<id>` name that
+-- `BoatParts.skin` assigns below. Handing BoatPaint a NAME SET rather than the defs keeps BoatPaint free of
+-- any ServerStorage dependency, so the lobby's paint picker can require it on the CLIENT to read swatch
+-- colours without dragging the art library along.
+function BoatParts.paintableSkinNames(): { [string]: boolean }
+	local names: { [string]: boolean } = {}
+	for id, def in pairs(BoatParts.Defs) do
+		if def.paintable then
+			names["Skin_" .. id] = true
+		end
+	end
+	return names
+end
 
 local function library(): Instance?
 	local node: Instance = ServerStorage
@@ -356,6 +381,65 @@ end
 -- deck people walk on). A skin's own fidelity is irrelevant while it is non-colliding, and for the flat
 -- deck plate a box is the right shape anyway.
 --
+-- ⚙️ RUN ONCE FROM STUDIO (Edit mode / command bar), THEN SAVE THE PLACE.
+--
+--     local BP = require(game.ReplicatedStorage.Boat.BoatParts) print(BP.preparePaintLibrary())
+--
+-- Gives every PAINTABLE library mesh a second SurfaceAppearance named `PaintablePBR` — a copy of the stock
+-- one with an EMPTY ColorMap, so `BasePart.Color` becomes the albedo while the normal / roughness /
+-- metalness maps keep all the weathering detail.
+--
+-- WHY IT HAS TO BE AN AUTHORING STEP: a game script cannot write `SurfaceAppearance.ColorMap` at all —
+-- "lacking capability Plugin", the same gate as MeshId and CollisionFidelity above. Unlike CollisionFidelity
+-- (which is silently ignored outside the Properties panel), this one DOES work from the command bar, so a
+-- one-shot prepare here is a real fix rather than a workaround that quietly does nothing.
+--
+-- At runtime BoatPaint then only DESTROYS whichever appearance it doesn't want, which needs no capability.
+-- Safe to re-run: the old `PaintablePBR` is replaced, not stacked.
+function BoatParts.preparePaintLibrary(): string
+	local lib = library()
+	if not lib then
+		return "no ServerStorage.AssetLibrary.BoatParts folder found"
+	end
+	local BoatPaint = require(script.Parent:WaitForChild("BoatPaint"))
+	local lines = {}
+	for id, def in pairs(BoatParts.Defs) do
+		local name = def.library
+		local part = if def.paintable and name then lib:FindFirstChild(name) else nil
+		if name and part and part:IsA("BasePart") then
+			local existing = part:FindFirstChild(BoatPaint.PAINT_SA_NAME)
+			if existing then
+				existing:Destroy()
+			end
+			local stock = part:FindFirstChildOfClass("SurfaceAppearance")
+			if not stock then
+				table.insert(lines, string.format("%-16s %-22s SKIPPED (no SurfaceAppearance to copy)", id, name))
+				continue
+			end
+			local copy = stock:Clone()
+			copy.Name = BoatPaint.PAINT_SA_NAME
+			local ok, err = pcall(function()
+				copy.ColorMap = ""
+			end)
+			if not ok then
+				copy:Destroy()
+				table.insert(lines, string.format("%-16s %-22s FAILED: %s", id, name, tostring(err)))
+				continue
+			end
+			copy.Parent = part
+			table.insert(lines, string.format("%-16s %-22s ok (normal=%s rough=%s metal=%s kept)", id, name,
+				copy.NormalMap ~= "" and "Y" or "-",
+				copy.RoughnessMap ~= "" and "Y" or "-",
+				copy.MetalnessMap ~= "" and "Y" or "-"))
+		end
+	end
+	if #lines == 0 then
+		return "no paintable library MeshParts matched any Defs entry yet"
+	end
+	table.sort(lines)
+	return table.concat(lines, "\n") .. "\n⚠️ SAVE THE PLACE — these appearances are place content."
+end
+
 -- Kept for the case where a future part genuinely needs precise collision — run it from a real plugin
 -- context, or just set the property by hand and save the place.
 function BoatParts.applyLibraryFidelity(): string

@@ -173,6 +173,9 @@ just a hidden stat bump:
 - **Chairs / stations** — add seats to crew more players and unlock more roles (gunner, spotter…); a
   bigger boat carries a bigger team. (Ties into the swappable-stations model above.)
 - **Ramps / hull shape** — parts that let the boat **launch off jumps** and handle rapids better.
+  ✅ **built as the `ramps` module (Job 067, 170 Gold)**: a bow ramp that boosts ramp launches by 35%
+  (`RampBoost`), plus the half you feel constantly — sharper rudder response at low speed and 15% less
+  current shove, so the boat holds a line through The Rapids. Greybox wedge until a mesh is generated.
 - **Armor** — plating that raises **boat HP** and shrugs off animal/hazard damage.
 - Plus **guns/mounts**, a **searchlight** (night), **fuel-tank capacity**, **storage** — each a visible
   add-on.
@@ -340,13 +343,42 @@ free revive ability.
 > **Design principle:** Dead Rails' monetization works *because it "feels fair."* Paid = convenience +
 > cosmetics, never raw power. We hold to that — it's why the model sells long-term.
 
+### ⚠️ The one documented exception: **Armored Boat** (499 R$)
+
+The rule above was stated twice in this document while we were selling a pass that plainly breaks it, so
+it is written down here rather than left as a quiet contradiction (found in Job 067).
+
+**Armored Boat gives +20% hull HP and +20% weapon damage.** That is raw power, and `MonetizationDefs`
+flags it `power = true`. It is kept for one reason: **the buff applies to the whole crew, not the buyer.**
+One player owning it helps everyone aboard, which reads like *"someone brought good gear"* rather than a
+solo advantage — the same social logic that makes Dead Rails' economy feel fair.
+
+**This does not set a precedent.** Nothing else we sell may be `power = true`. Every other Robux item is
+convenience or cosmetic: hull liveries, extra loadout slots, self-revive.
+
+### What we actually sell (Job 067)
+
+| Item | Type | Effect | Fair? |
+|---|---|---|---|
+| Gold packs ×4 | Dev product | Meta currency — also fully earnable in-game | convenience |
+| **Armored Boat** | Pass, 499 R$ | +20% boat HP & gun damage, **crew-wide** | ⚠️ power — see above |
+| **Boat Paint Pack** | Pass, 99 R$ | 5 hull liveries (olive is free for everyone) | cosmetic |
+| **Extra Inventory Slots** | Pass, 149 R$ | 4 → 6 loadout slots | convenience |
+| **Self Revive** | Dev product, 20 R$ | Get up while downed, at bandage-revive HP | convenience |
+
+**Cosmetic Bundle (249 R$) was removed from the in-game shop in Job 067.** It was live and delivered
+nothing — trails, wake FX and an emote were all unbuilt, and no code ever read `Owns_cosmeticBundle`. If
+those three features are ever actually built, it can come back.
+
 ## Inventory
 
 - Players have an **inventory** of carried items — bandages, fuel cans, ammo, collectibles, scavenged
   loot.
 - It's **capacity-limited** (you can't hoard everything), which creates real choices at docks about
   what to grab/keep.
-- **Extra inventory space is purchasable** (soft currency and/or Robux) — another monetization lever.
+- **Extra inventory space is purchasable** — ✅ **built (Job 067)**: the loadout is **4 slots**, raised to
+  **6** by the *Extra Inventory Slots* game pass (149 R$). Carry capacity only — no damage, health or
+  speed change. `ItemDefs.slotsFor(player)` is the single source of truth; never read `SLOT_COUNT` directly.
 - _OPEN: per-player vs shared boat stash; slot-based vs weight; do fuel/ammo count against it or are
   they separate boat tanks._
 
@@ -362,7 +394,9 @@ Captured so nothing's forgotten; most resolve inside their build phase. ★ = de
 - ★ Boat feel: steering model, buoyancy/physics, collisions, camera
 - ★ Map authoring: handcrafted vs procedural zones, length, checkpoints
 - End-game: what happens after the finish; prestige / replay hook
-- Boat variety & customization (stats, skins)
+- Boat variety & customization (stats, skins) — **skins partly done (Job 067)**: 6 hull liveries via the
+  Boat Paint Pack, chosen in the lobby and shown on the moored showroom boat. Boat *variety* (more than
+  one hull) is still open.
 
 **Systems / tech**
 - ★ Matchmaking: party, friends-only vs fill, join/leave/rejoin mid-run
@@ -399,8 +433,13 @@ Captured so nothing's forgotten; most resolve inside their build phase. ★ = de
       ambush from banks, leashed).
 - [x] **Currency names** → **Gold** (persistent meta) · **Salvage** (in-run) · **River Score** (rank/leaderboard).
 - [x] **Revive rules** → downed player revived by a teammate (1 Bandage); Robux paid self-revive is the safety net.
+      ✅ **self-revive built (Job 067)** — 20 R$ dev product, bought from the DOWNED overlay while bleeding
+      out (not stocked in the lobby). Revives at the same HP a bandage would, and is usable *only* while
+      downed, so it stays convenience rather than an advantage.
 - [ ] Which **pre-run upgrades & skills** exist — largely built (modules + 10-skill tree); refine as we tune.
-- [x] **Robux products** → Gold packs (dev products) + game passes (Armored Boat, Boat Paint, Cosmetic Bundle).
+- [x] **Robux products** → Gold packs (dev products) + passes (Armored Boat, Boat Paint, **Extra Inventory
+      Slots**) + the **Self Revive** dev product. **Cosmetic Bundle removed in Job 067** — it was live and
+      delivered nothing. Full table + the Armored Boat power exception: *Economy & monetization* above.
 
 ### Still to build from these decisions
 - ~~**Medic role**~~ — **DONE (Job 057):** Medic station on the boat → crew heal (3 HP/s) + revive buffs

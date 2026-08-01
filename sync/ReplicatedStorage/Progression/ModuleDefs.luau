@@ -8,7 +8,7 @@ export type ModuleDef = { name: string, cost: number, blurb: string }
 local ModuleDefs = {}
 
 -- display / purchase order
-ModuleDefs.Order = { "motor2", "hullkit", "searchlight", "fueltank", "trailer", "gunupgrade" }
+ModuleDefs.Order = { "motor2", "hullkit", "searchlight", "fueltank", "trailer", "gunupgrade", "ramps" }
 
 ModuleDefs.Defs = {
 	motor2 = { name = "Twin Motors Mount", cost = 150, blurb = "A second engine — more thrust." },
@@ -21,6 +21,12 @@ ModuleDefs.Defs = {
 	-- BoatModules and BoatParts keep working.
 	trailer = { name = "Cargo Racks", cost = 180, blurb = "Deck racks and crates — carry more loot." },
 	gunupgrade = { name = "Mounted Gun Upgrade", cost = 200, blurb = "A stronger mounted turret." },
+	-- Job 067: GAME.md promised "ramps / hull shape — parts that let the boat launch off jumps and handle
+	-- rapids better" and no such module existed, even though the river already places `kind = "ramp"` hooks
+	-- (RiverData) and the boat can already be launched (BoatServer's LaunchUntil window).
+	-- Two effects, both wired to code that exists today — see BoatModules: a bigger launch off ramps, and
+	-- (the benefit you feel on every twisty stretch) sharper rudder response with less current shove.
+	ramps = { name = "Ramp Bow & Hull Shape", cost = 170, blurb = "Bigger jumps, steadier in the rapids." },
 } :: { [string]: ModuleDef }
 
 function ModuleDefs.get(id: string): ModuleDef?

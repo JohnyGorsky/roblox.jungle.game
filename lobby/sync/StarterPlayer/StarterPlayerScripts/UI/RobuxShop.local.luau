@@ -71,6 +71,9 @@ local function offer(iconKey: string, name: string, blurb: string, robux: number
 	order += 1
 	local row = Components.row({
 		iconImage = (Theme.productIcon :: { [string]: string })[iconKey],
+		-- Job 067: a vocabulary icon for anything without store art yet (Extra Inventory Slots), so a new
+		-- product shows a meaningful badge instead of an empty circle. Real art wins when it's uploaded.
+		icon = (Theme.productFallbackIcon :: { [string]: string })[iconKey],
 		title = name,
 		blurb = blurb,
 		actionText = enabled and ("R$ " .. robux) or "Soon",

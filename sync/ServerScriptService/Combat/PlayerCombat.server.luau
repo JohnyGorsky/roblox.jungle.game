@@ -8,6 +8,7 @@
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local MAX_HP = 100
 local REVIVE_HP = 50
@@ -15,6 +16,43 @@ local BLEEDOUT = 30 -- seconds downed before dying
 local REVIVE_HOLD = 3 -- seconds a teammate must hold to revive
 local START_BANDAGES = 3
 local REVIVE_RANGE = 12
+
+-- ── paid self-revive (Job 067) ───────────────────────────────────────────────────────────────────
+-- The downed state has always had this hole in it: a teammate can revive you, and GAME.md promised a paid
+-- self-revive as "the monetized safety net", but nothing implemented it (Job 067 finding 4).
+--
+-- Kept honest as CONVENIENCE, not power: it does exactly what a teammate's bandage does, at the same HP,
+-- and it can ONLY be used while downed — so it can never be a combat advantage. It's for the player who
+-- goes down with nobody in reach.
+--
+-- Each downed character registers its own revive closure here and clears it the moment it comes back up
+-- or dies. MonetizationServer invokes the hook when the receipt clears; if this map has no entry (already
+-- revived, already dead, wrong place) we return false, MonetizationServer returns NotProcessedYet, and
+-- Roblox retries rather than charging for nothing.
+local pendingRevive: { [Player]: () -> () } = {}
+
+local function grantSelfRevive(player: Player): boolean
+	local fn = pendingRevive[player]
+	if not fn then
+		return false
+	end
+	fn()
+	return true
+end
+
+task.spawn(function()
+	local hook = ServerScriptService:WaitForChild("GrantProduct", 30)
+	if not hook or not hook:IsA("BindableFunction") then
+		warn("[PlayerCombat] no GrantProduct hook — paid self-revive will not be grantable")
+		return
+	end
+	hook.OnInvoke = function(player: Player, key: string): boolean
+		if key == "selfRevive" then
+			return grantSelfRevive(player)
+		end
+		return false
+	end
+end)
 
 local function setupCharacter(player: Player, char: Model)
 	local hum = char:WaitForChild("Humanoid") :: Humanoid
@@ -78,6 +116,9 @@ local function setupCharacter(player: Player, char: Model)
 			prompt:Destroy()
 		end
 		clearBleed()
+		-- back up: the paid revive has nothing left to grant, and the HUD's countdown stops
+		pendingRevive[player] = nil
+		char:SetAttribute("BleedOutAt", nil)
 	end
 
 	local function enterDowned()
@@ -129,8 +170,23 @@ local function setupCharacter(player: Player, char: Model)
 			revive(reviver)
 		end)
 
-		bleedThread = task.delay(if medicAboard then BLEEDOUT * 1.6 else BLEEDOUT, function()
+		local bleedFor = if medicAboard then BLEEDOUT * 1.6 else BLEEDOUT
+		-- Job 067: publish the deadline so the DOWNED HUD can count down. `os.time()` (wall clock, seconds)
+		-- rather than os.clock(), because os.clock() is per-machine process time and means nothing on the
+		-- client that has to render the number.
+		char:SetAttribute("BleedOutAt", os.time() + bleedFor)
+
+		-- Job 067: arm the paid self-revive for as long as this player is down. Cleared in revive() and on
+		-- bleed-out, so a receipt that arrives late finds nothing to grant and is retried rather than
+		-- silently consumed.
+		pendingRevive[player] = function()
+			revive(nil) -- nil reviver = no Combat Medic bonus; you get the plain REVIVE_HP, same as a bandage
+		end
+
+		bleedThread = task.delay(bleedFor, function()
 			if char:GetAttribute("Downed") then
+				pendingRevive[player] = nil
+				char:SetAttribute("BleedOutAt", nil)
 				hum.Health = 0 -- bled out → death. During a run RunServer disables respawn → PERMADEATH + spectate (Job 018)
 			end
 		end)
@@ -142,8 +198,15 @@ local function setupCharacter(player: Player, char: Model)
 		end
 	end)
 
-	hum.Died:Connect(clearBleed)
+	hum.Died:Connect(function()
+		clearBleed()
+		pendingRevive[player] = nil -- dead is dead: never grant a paid revive against a corpse
+	end)
 end
+
+Players.PlayerRemoving:Connect(function(plr)
+	pendingRevive[plr] = nil
+end)
 
 local function setupPlayer(player: Player)
 	player:SetAttribute("Bandages", START_BANDAGES)

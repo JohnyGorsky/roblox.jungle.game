@@ -31,6 +31,11 @@ Components.iconBar(playerGui, {
 	{ icon = "star", label = "SKILLS", onActivated = function()
 		UIBus.open("skills")
 	end },
+	-- Job 067: hull liveries. Sits next to BOAT because it's the same object being customised, and ahead
+	-- of the Robux shop because the free default livery makes it useful without spending anything.
+	{ icon = "boat", label = "PAINT", onActivated = function()
+		UIBus.open("paint")
+	end },
 	{ icon = "bounty", label = "BOUNTIES", onActivated = function()
 		UIBus.open("weekly")
 	end },

@@ -307,15 +307,22 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- ThrustMul lets modules (2nd motor, Job 025) / skills (later) tune engine power; default 1
 	local thrustMul = (boat:GetAttribute("ThrustMul") :: number?) or 1
 	thrust.Force = look * (t * ((t >= 0) and THRUST or REVERSE) * thrustMul)
-	-- per-zone flow (Job 048): the Rapids sweep you along faster, the Delta slows — from the shared RiverData
-	current.Force = downstream(pos.Z) * (CURRENT * RiverData.currentMulAt(pos.Z))
+	-- per-zone flow (Job 048): the Rapids sweep you along faster, the Delta slows — from the shared RiverData.
+	-- CurrentMul (Job 067) is the Ramp Bow & Hull Shape module: a shaped hull is shoved around less by the
+	-- current, which is the "handles rapids better" half of what GAME.md promises that module.
+	local currentMul = (boat:GetAttribute("CurrentMul") :: number?) or 1
+	current.Force = downstream(pos.Z) * (CURRENT * RiverData.currentMulAt(pos.Z) * currentMul)
 	drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG) -- horizontal only; Y left to buoyancy
 
 	-- rudder heading: turn rate ∝ signed forward speed (0 when stopped; reverse flips it)
 	-- TurnMul = Rudder Tuning skill (Job 024); StationTurnMul = a seated Driver's handling bonus (Job 034)
 	local turnMul = ((boat:GetAttribute("TurnMul") :: number?) or 1) * ((boat:GetAttribute("StationTurnMul") :: number?) or 1)
 	local fwdSpeed = vel:Dot(look)
-	local authority = math.clamp(fwdSpeed / TURN_FULL_SPEED, -1, 1)
+	-- TurnAuthorityMul (Job 067, ramps module): full rudder authority arrives at a LOWER speed, so the boat
+	-- still bites in slow twisty water instead of washing wide. Divides the speed threshold rather than
+	-- multiplying TURN, so it sharpens low-speed handling without raising the top turn rate.
+	local authSpeed = TURN_FULL_SPEED / ((boat:GetAttribute("TurnAuthorityMul") :: number?) or 1)
+	local authority = math.clamp(fwdSpeed / authSpeed, -1, 1)
 	desiredYaw -= s * TURN * turnMul * authority * dt
 
 	-- attitude. While LAUNCHED (airborne off a ramp) DON'T fight the arc/flip (leveling off). Otherwise keep

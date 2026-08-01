@@ -96,6 +96,9 @@ function Profiles._publish(player: Player)
 	local gold = entry.data.gold or 0
 	player:SetAttribute(ProfileConfig.GOLD_ATTRIBUTE, gold)
 	player:SetAttribute("RiverScore", entry.data.riverScore or 0) -- rank source (Job 026)
+	-- Chosen hull livery (Job 067). Published as an attribute so it replicates to every client for free —
+	-- the boat builders and the lobby picker both read it here rather than round-tripping the profile.
+	player:SetAttribute("BoatPaint", entry.data.paint or "olive")
 	local ls = player:FindFirstChild("leaderstats")
 	if ls then
 		local g = ls:FindFirstChild("Gold")
@@ -235,6 +238,23 @@ function Profiles.trySpendGold(player: Player, amount: number): boolean
 	e.data.gold -= amount
 	Profiles._publish(player)
 	return true
+end
+
+-- Chosen hull livery (Job 067). The CALLER is responsible for validating the id and for checking the Boat
+-- Paint Pack is owned — this only persists and publishes. Returns false if the profile isn't loaded yet.
+function Profiles.setPaint(player: Player, paintId: string): boolean
+	local e = cache[player]
+	if not e then
+		return false
+	end
+	e.data.paint = paintId
+	Profiles._publish(player)
+	return true
+end
+
+function Profiles.getPaint(player: Player): string
+	local e = cache[player]
+	return (e and e.data.paint) or "olive"
 end
 
 return Profiles

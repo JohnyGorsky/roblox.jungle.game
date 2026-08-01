@@ -23,6 +23,7 @@ function ProfileConfig.default(): any
 		riverScore = 0, -- lifetime rank accumulator (filled by #026)
 		modules = {}, -- owned boat modules: { [moduleId] = true } (Job 025)
 		skills = {}, -- skill levels: { [skillId] = level 1..10 } (Job 024)
+		paint = "olive", -- chosen hull livery (Job 067) — BoatPaint.DEFAULT, free for everyone
 		-- retention (Job 028)
 		lastLoginDay = 0, -- integer UTC day number of last daily-reward grant
 		loginStreak = 0,
@@ -63,6 +64,11 @@ function ProfileConfig.migrate(data: any): any
 	end
 	if data.skills == nil then
 		data.skills = {}
+	end
+	-- Job 067. Type-checked, not just nil-checked: this one is written from a client-driven RemoteFunction,
+	-- so a bad value must not be able to persist. BoatPaint.sanitize() re-validates the id itself on use.
+	if type(data.paint) ~= "string" then
+		data.paint = def.paint
 	end
 	if data.lastLoginDay == nil then
 		data.lastLoginDay = 0

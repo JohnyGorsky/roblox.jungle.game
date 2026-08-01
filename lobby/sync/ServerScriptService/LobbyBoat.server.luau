@@ -24,6 +24,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
+-- hull liveries (Job 067) — the Boat Paint Pack
+local BoatPaint = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatPaint"))
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 
 -- ── boat geometry (mirrors the game boat) ─────────────────────────────────────────────────────────
@@ -182,8 +184,10 @@ end
 
 -- ── building one static boat ──────────────────────────────────────────────────────────────────────
 
-local function addPart(model: Model, base: CFrame, name: string, size: Vector3, offset: CFrame, color: Color3, mat: Enum.Material, skinId: string?): BasePart
-	local p = Instance.new("Part")
+-- `className` (Job 067) is "WedgePart" for the ramp bow, which needs a real slope to read as a ramp while
+-- it is still greybox. Everything else is a plain Part.
+local function addPart(model: Model, base: CFrame, name: string, size: Vector3, offset: CFrame, color: Color3, mat: Enum.Material, skinId: string?, className: string?): BasePart
+	local p = Instance.new(className or "Part") :: BasePart
 	p.Name = name
 	p.Size = size
 	p.Color = color
@@ -304,6 +308,23 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		-- under the deck and invisible)
 		addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, 3, BACK_Z), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
 	end
+	if owned.ramps then
+		-- Ramp Bow & Hull Shape (Job 067). Greybox wedge until art exists, mirroring BoatModules — high end
+		-- toward the bow, so it reads as a launch ramp rather than a box.
+		addPart(model, base, "RampBow", Vector3.new(13, 2.2, 5), CFrame.new(0, 2.6, BOW - 1) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(96, 100, 108), Enum.Material.DiamondPlate, "ramp", "WedgePart")
+	end
+
+	-- ── hull livery (Boat Paint Pack, Job 067) ────────────────────────────────────────────────────
+	-- LAST, after every module part exists, so the hullkit's armour plates repaint with the hull.
+	-- This is the showroom half of the pass: pick a livery in the picker and your moored boat changes
+	-- while you watch (the picker bumps ModulesRev, which rebuilds this boat).
+	-- Re-checked against pass ownership here rather than trusted from the profile — a livery could have
+	-- been chosen and the pass later refunded.
+	local chosenPaint = BoatPaint.sanitize(plr:GetAttribute("BoatPaint"))
+	if not BoatPaint.isUnlocked(plr, chosenPaint) then
+		chosenPaint = BoatPaint.DEFAULT
+	end
+	BoatPaint.apply(model, chosenPaint, BoatParts.paintableSkinNames())
 
 	-- a nameplate so a crowded harbour is readable
 	local tag = Instance.new("BillboardGui")

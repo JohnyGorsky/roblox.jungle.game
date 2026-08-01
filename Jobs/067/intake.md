@@ -125,6 +125,9 @@ Armored Boat keeps its power, and which gaps are worth building now vs later.
 ## Checklist
 
 - [x] Audit completed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation plan created & agreed
+- [x] Implementation completed — all 4 findings closed
+- [x] Final summary + changelog written — **CLOSED 2026-08-01**
+
+> Two items need the **user**, not code: create the *Extra Inventory Slots* pass on the Creator Hub, and
+> unlist the *Cosmetic Bundle* listing. See `final-summary.md` → *Outstanding*.
