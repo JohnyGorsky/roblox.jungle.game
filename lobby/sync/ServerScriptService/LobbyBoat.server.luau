@@ -220,7 +220,7 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	addPart(model, base, "DriverSeat", Vector3.new(4, 1, 5), CFrame.new(0, 2, 0), Color3.fromRGB(60, 45, 30), Enum.Material.Fabric, "driverSeat")
 	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
 	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, GUN_Y, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")
-	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, GUN_Y - 0.15, FRONT_Z + 8), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
+	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, GUN_Y - 0.15, FRONT_Z + 10), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
 	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(BOW_LIGHT_X, BOW_LIGHT_Y, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
 	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
 	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")

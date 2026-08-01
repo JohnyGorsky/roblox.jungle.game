@@ -62,7 +62,7 @@ seat.Color = Color3.fromRGB(45, 45, 52)
 seat.Massless = true
 seat.CanCollide = false
 -- the gunner sits in the open well aft of the raised foredeck, so this follows the DECK, not GUN_Y
-seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 0.15, FRONT + 8)
+seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 0.15, FRONT + 10)
 seat.Parent = boat
 weldTo(seat)
 BoatParts.skin(seat, "gunSeat")

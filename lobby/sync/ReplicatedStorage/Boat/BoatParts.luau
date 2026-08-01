@@ -201,9 +201,29 @@ BoatParts.Defs = {
 	trailer = { library = nil, collision = "skin" } :: PartDef, -- (0, −0.4, 15.5)
 
 	-- ── role stations (currently coloured boxes; nicer props optional) ───────────────────────────
-	fuelStation = { library = nil, collision = "skin" } :: PartDef,
-	repairStation = { library = nil, collision = "skin" } :: PartDef,
-	medicStation = { library = nil, collision = "skin" } :: PartDef,
+	-- Fuel post. Imported 0.72 × 1.20 × 0.72 — a slim upright, already the right way up, so NO rotation.
+	-- Host is a 3-cube whose base sits on the rear deck (1.5); a 3-tall skin centres on it exactly.
+	fuelStation = {
+		library = "FuelStation",
+		size = Vector3.new(1.8, 3.0, 1.8), -- natural proportions at 3 studs tall
+		collision = "skin",
+	} :: PartDef,
+	-- Repair toolbox. Imported 1.20 × 1.20 × 0.76 — a square-fronted cabinet, upright, no rotation.
+	-- Slightly shorter than its 3-cube host, so nudged down to keep its base on the deck.
+	repairStation = {
+		library = "RepairStation",
+		size = Vector3.new(2.8, 2.8, 1.8),
+		offset = CFrame.new(0, -0.1, 0),
+		collision = "skin",
+	} :: PartDef,
+	-- Medic crate (GAME place only — CargoServer builds this one). Imported 1.80 × 1.20 × 1.37, a crate
+	-- lying with its length on X. Left unrotated: a crate has no meaningful "front", and after the gunner
+	-- seat I don't add a yaw unless the mesh's shape actually calls for one.
+	medicStation = {
+		library = "MedicStation",
+		size = Vector3.new(2.2, 1.47, 1.67), -- natural proportions
+		collision = "skin",
+	} :: PartDef,
 } :: { [string]: PartDef }
 
 -- Module id (ModuleDefs) → the BoatParts key its art lives under.
