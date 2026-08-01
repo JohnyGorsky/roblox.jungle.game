@@ -205,15 +205,19 @@ BoatParts.Defs = {
 	-- Host is a 3-cube whose base sits on the rear deck (1.5); a 3-tall skin centres on it exactly.
 	fuelStation = {
 		library = "FuelStation",
-		size = Vector3.new(1.8, 3.0, 1.8), -- natural proportions at 3 studs tall
+		size = Vector3.new(2.25, 3.75, 2.25), -- +25%
+		-- DERIVED, not eyeballed: the skin's base is placed exactly on the rear deck's top surface (1.70 in
+		-- hull space, measured from the deck skin). An earlier round of hand-tuned offsets came from a stale
+		-- Play session that was still showing pre-edit values — the arithmetic was right all along.
+		offset = CFrame.new(0, 0.575, 0), -- 1.70 (deck top) + 3.75/2 - 3.00 (host centre)
 		collision = "skin",
 	} :: PartDef,
 	-- Repair toolbox. Imported 1.20 × 1.20 × 0.76 — a square-fronted cabinet, upright, no rotation.
 	-- Slightly shorter than its 3-cube host, so nudged down to keep its base on the deck.
 	repairStation = {
 		library = "RepairStation",
-		size = Vector3.new(2.8, 2.8, 1.8),
-		offset = CFrame.new(0, -0.1, 0),
+		size = Vector3.new(3.5, 3.5, 2.25), -- +25%
+		offset = CFrame.new(0, 0.45, 0), -- 1.70 (deck top) + 3.50/2 - 3.00 (host centre)
 		collision = "skin",
 	} :: PartDef,
 	-- Medic crate (GAME place only — CargoServer builds this one). Imported 1.80 × 1.20 × 1.37, a crate
@@ -221,7 +225,7 @@ BoatParts.Defs = {
 	-- seat I don't add a yaw unless the mesh's shape actually calls for one.
 	medicStation = {
 		library = "MedicStation",
-		size = Vector3.new(2.2, 1.47, 1.67), -- natural proportions
+		size = Vector3.new(2.75, 1.84, 2.09), -- natural proportions, +25% to match the other stations
 		collision = "skin",
 	} :: PartDef,
 } :: { [string]: PartDef }
