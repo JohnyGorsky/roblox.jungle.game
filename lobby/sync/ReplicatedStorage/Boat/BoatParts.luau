@@ -105,6 +105,9 @@ BoatParts.Defs = {
 		-- with the powerhead above the gunwale and the leg reaching into the water, like a real outboard —
 		-- which is why the rear cargo deck was pushed aft to make an engine bay (CargoServer DECK_GAP).
 		size = Vector3.new(7.5, 7.8, 3.3),
+		-- Yaw -90: the mesh's propeller points along +X as imported, i.e. out to starboard. Rotating +X
+		-- onto +Z aims it AFT, which is where a propeller pushes from.
+		offset = CFrame.Angles(0, math.rad(-90), 0),
 		collision = "skin",
 	} :: PartDef,
 	-- Seat + console + steering wheel. Mesh imported 1.36 × 1.00 × 0.88 with its longest axis (X) running

@@ -201,6 +201,32 @@ local function addPart(model: Model, base: CFrame, name: string, size: Vector3, 
 	return p
 end
 
+
+-- Visual mooring ropes bridging the engine bay, so the rear cargo platform reads as ATTACHED to the boat
+-- rather than floating behind it (Job 067). Purely decorative: massless, non-colliding, non-queryable —
+-- the platform is already welded to the hull as one rigid assembly. Nothing is towed here.
+local function makeRope(parent: Instance, hullCF: CFrame, a: Vector3, b: Vector3, name: string)
+	local mid = (a + b) / 2
+	local len = (b - a).Magnitude
+	local rope = Instance.new("Part")
+	rope.Name = name
+	rope.Shape = Enum.PartType.Cylinder -- cylinders run along their X axis
+	rope.Size = Vector3.new(len, 0.45, 0.45)
+	rope.Color = Color3.fromRGB(150, 133, 100)
+	rope.Material = Enum.Material.Fabric
+	-- ANCHORED like every other part on this static boat. Without it the rope simply fell through the
+	-- world and was destroyed — the script ran cleanly and left nothing behind, which looked like the
+	-- code never executing.
+	rope.Anchored = true
+	rope.Massless = true
+	rope.CanCollide = false
+	rope.CanQuery = false
+	rope.CanTouch = false
+	rope.CFrame = CFrame.lookAt(hullCF * mid, hullCF * b) * CFrame.Angles(0, math.rad(90), 0)
+	rope.Parent = parent
+	return rope
+end
+
 local function buildBoat(plr: Player, slot: Slot): Model
 	local prof = Profiles.get(plr)
 	local owned = (prof and prof.modules) or {}
@@ -218,6 +244,10 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	model.PrimaryPart = hull
 
 	addPart(model, base, "CargoDeck", Vector3.new(14, 1, DECK_DEPTH), CFrame.new(0, TOP_Y - 0.5, BACK_Z), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks, "cargoDeck")
+	-- ropes across the engine bay, both sides
+	for _, rx in ipairs({ -6, 6 }) do
+		makeRope(model, base, Vector3.new(rx, 3.6, HULL.Z / 2 + 0.2), Vector3.new(rx, 1.9, BACK_Z - DECK_DEPTH / 2 + 0.4), "MooringRope")
+	end
 	addPart(model, base, "DriverSeat", Vector3.new(4, 1, 5), CFrame.new(0, 2, 0), Color3.fromRGB(60, 45, 30), Enum.Material.Fabric, "driverSeat")
 	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(4, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
 	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, GUN_Y, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")

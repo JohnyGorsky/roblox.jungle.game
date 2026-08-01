@@ -53,6 +53,29 @@ dweld.Part0 = hull
 dweld.Part1 = deck
 dweld.Parent = deck
 deck.Parent = boat
+
+-- Visual mooring ropes bridging the engine bay so the platform reads as attached, not floating (Job 067).
+-- Decorative only — the deck is already welded to the hull as one rigid assembly; nothing is towed.
+for _, rx in ipairs({ -6, 6 }) do
+	local a = Vector3.new(rx, topY + 2.1, hull.Size.Z / 2 + 0.2)
+	local b = Vector3.new(rx, topY + 0.4, backZ - DECK_DEPTH / 2 + 0.4)
+	local mid, len = (a + b) / 2, (b - a).Magnitude
+	local rope = Instance.new("Part")
+	rope.Name = "MooringRope"
+	rope.Shape = Enum.PartType.Cylinder
+	rope.Size = Vector3.new(len, 0.45, 0.45)
+	rope.Color = Color3.fromRGB(150, 133, 100)
+	rope.Material = Enum.Material.Fabric
+	rope.Massless = true
+	rope.CanCollide = false
+	rope.CanQuery = false
+	rope.CFrame = CFrame.lookAt(hull.CFrame * mid, hull.CFrame * b) * CFrame.Angles(0, math.rad(90), 0)
+	rope.Parent = boat
+	local rw = Instance.new("WeldConstraint")
+	rw.Part0 = hull
+	rw.Part1 = rope
+	rw.Parent = rope
+end
 -- the deck is the ONE skin that keeps real collision: players stand on it (BoatParts collision = "deck")
 BoatParts.skin(deck, "cargoDeck")
 
