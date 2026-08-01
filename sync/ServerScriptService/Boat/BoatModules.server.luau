@@ -112,8 +112,24 @@ local function apply()
 	if crewOwns("hullkit") then
 		theBoat:SetAttribute("MaxHP", 150)
 		theBoat:SetAttribute("HP", 150)
-		addPart("HullPlateL", Vector3.new(0.6, 2, theHull.Size.Z - 2), Color3.fromRGB(120, 122, 130), CFrame.new(-7.3, 0, 0), Enum.Material.Metal, "hullPlate")
-		addPart("HullPlateR", Vector3.new(0.6, 2, theHull.Size.Z - 2), Color3.fromRGB(120, 122, 130), CFrame.new(7.3, 0, 0), Enum.Material.Metal, "hullPlate")
+		-- Job 066: TILED plates along the parallel midbody, not one strip down the whole hull. The hull
+		-- tapers fore and aft, so a full-length strip at constant beam hangs in open air at the ends;
+		-- and stretching one 2.76-long plate to 30 smeared its bolt detail. Short plates at their
+		-- modelled size, repeated, fix both.
+		local PLATE_SIDES: { { name: string, x: number } } = { { name = "L", x = -7.1 }, { name = "R", x = 7.1 } }
+		-- Height on the topsides. The hull BOX is only 3 tall but the visible hull mesh rises to ~4.5, so
+		-- plates at box-centre (Y 0) hung off the keel below the waterline. This sits them on the flank.
+		local PLATE_Y = 2.2
+		local PLATE_SEGMENTS = 4
+		local PLATE_LEN = 4.6
+		local span = PLATE_SEGMENTS * PLATE_LEN
+		for i = 1, PLATE_SEGMENTS do
+			local z = -span / 2 + PLATE_LEN * (i - 0.5)
+			for _, side in ipairs(PLATE_SIDES) do
+				addPart("HullPlate" .. side.name .. i, Vector3.new(0.5, 2, PLATE_LEN),
+					Color3.fromRGB(120, 122, 130), CFrame.new(side.x, PLATE_Y, z), Enum.Material.Metal, "hullPlate")
+			end
+		end
 		table.insert(on, "hullkit")
 	end
 	if crewOwns("motor2") then

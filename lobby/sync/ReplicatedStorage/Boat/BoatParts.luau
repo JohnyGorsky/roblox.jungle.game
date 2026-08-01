@@ -121,15 +121,17 @@ BoatParts.Defs = {
 
 	-- ── upgrade modules (ModuleDefs — 6, bought once, no tiers) ──────────────────────────────────
 	motor2 = { library = nil, collision = "skin" } :: PartDef, -- boat space (−3.5, 1, 10.5)
-	-- Armour strip on both flanks (±7.3). Mesh imported 2.76 × 1.20 × 0.28 with its length on X, so it needs
-	-- a 90° yaw to run along the hull (host is 0.6 × 2 × hullLength).
-	-- ⚠️ COMPROMISE: the mesh is a SHORT plate (2.76 long) and the host is a 30-long strip, so this stretches
-	-- it ~11× lengthwise and the bolt detail smears. The better fix is to repeat the plate as several
-	-- segments per flank instead of stretching one — that needs BoatModules/LobbyBoat to emit N parts, so
-	-- it's noted rather than done. Judge it in-game first; at gameplay distance it may well be fine.
+	-- Armour plate on the flanks. Mesh imported 2.76 × 1.20 × 0.28 with its length on X, so it takes a 90°
+	-- yaw to run fore-aft.
+	--
+	-- TILED, NOT STRETCHED. The first attempt scaled ONE plate to the full 30-stud hull length. That was
+	-- wrong twice over: it smeared the bolt detail ~11×, and — worse — a straight strip at constant beam
+	-- doesn't fit a hull that TAPERS, so the ends jutted out into open air like oars. Now several short
+	-- plates at their modelled proportions are placed along the parallel midbody only, where the hull
+	-- sides really are straight. See PLATE_SEGMENTS in BoatModules / LobbyBoat.
 	hullPlate = {
 		library = "HullPlate",
-		size = Vector3.new(30, 2, 0.6), -- local X = mesh length, becomes hull length after the yaw
+		size = Vector3.new(4.6, 2, 0.47), -- natural proportions at 2 studs tall — no stretch
 		offset = CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
 	} :: PartDef,

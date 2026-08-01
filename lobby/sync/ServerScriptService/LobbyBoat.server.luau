@@ -231,8 +231,21 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		addPart(model, base, "Motor2", Vector3.new(2, 2, 3), CFrame.new(-3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor2")
 	end
 	if owned.hullkit then
-		addPart(model, base, "HullPlateL", Vector3.new(0.6, 2, HULL.Z - 2), CFrame.new(-7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
-		addPart(model, base, "HullPlateR", Vector3.new(0.6, 2, HULL.Z - 2), CFrame.new(7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
+		-- tiled along the parallel midbody, mirroring BoatModules (a full-length strip juts past the
+		-- hull's taper at bow and stern, and stretching one short plate smears its detail)
+		local PLATE_SIDES: { { name: string, x: number } } = { { name = "L", x = -7.1 }, { name = "R", x = 7.1 } }
+		-- Height on the topsides. The hull BOX is only 3 tall but the visible hull mesh rises to ~4.5, so
+		-- plates at box-centre (Y 0) hung off the keel below the waterline. This sits them on the flank.
+		local PLATE_Y = 2.2
+		local PLATE_SEGMENTS, PLATE_LEN = 4, 4.6
+		local span = PLATE_SEGMENTS * PLATE_LEN
+		for i = 1, PLATE_SEGMENTS do
+			local z = -span / 2 + PLATE_LEN * (i - 0.5)
+			for _, side in ipairs(PLATE_SIDES) do
+				addPart(model, base, "HullPlate" .. side.name .. i, Vector3.new(0.5, 2, PLATE_LEN),
+					CFrame.new(side.x, PLATE_Y, z), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
+			end
+		end
 	end
 	if owned.fueltank then
 		addPart(model, base, "FuelTankModule", Vector3.new(2, 3, 3), CFrame.new(4.5, 2.5, STERN * 0.75), Color3.fromRGB(210, 180, 60), Enum.Material.Metal, "fuelTank")

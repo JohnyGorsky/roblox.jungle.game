@@ -130,6 +130,13 @@ as the water height. Measured: it reported **−6.00** where the true surface is
 below water (as designed), gunwale 5.42 above, rear deck 2.60 above and dry.
 → Worth remembering for any future terrain-water probing: **voxel centre ≠ water surface.**
 
+**Hull plates: tiled, not stretched (2026-08-01).** First attempt scaled ONE plate mesh to the full hull
+length. Wrong twice over — it smeared the bolt detail ~11×, and a straight strip at constant beam doesn't
+fit a hull that TAPERS, so the ends jutted into open air like oars. Now **4 short plates per flank at their
+modelled proportions** (4.6 long each, 18.4 total) along the parallel midbody only, raised to `PLATE_Y`
+2.2 so they sit on the topsides level with the tyre fenders rather than hanging off the keel.
+Both trees emit them identically. **Lesson: a repeating architectural detail tiles; it never stretches.**
+
 **Phase 2 · Concept sheet (yours) → meshes**
 
 5. I produce the **generation brief** below; you render one ChatGPT sheet with all 15 parts in our palette.
