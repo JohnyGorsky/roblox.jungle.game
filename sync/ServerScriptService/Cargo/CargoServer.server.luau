@@ -29,13 +29,17 @@ boat:SetAttribute("Ammo", 3) -- start with a little ammo (crates); the weapon re
 boat:SetAttribute("Rounds", 0)
 boat:SetAttribute("CargoMax", CARGO_MAX)
 
-local backZ = hull.Size.Z / 2 + 8 -- behind the stern (boat faces -Z, so +Z is the back)
+-- Job 066: the rear deck was 16 long against a 22-long boat — it read as bigger than the boat itself.
+-- Halved to 8, and its centre is now DERIVED so it always sits flush behind the stern whatever the hull
+-- length is (hull grew to 32 in the same change).
+local DECK_DEPTH = 8
+local backZ = hull.Size.Z / 2 + DECK_DEPTH / 2 -- behind the stern (boat faces -Z, so +Z is the back)
 local topY = hull.Size.Y / 2
 
 -- back cargo deck: a MASSLESS welded extension of the hull → adds no mass/inertia, boat feel unchanged
 local deck = Instance.new("Part")
 deck.Name = "CargoDeck"
-deck.Size = Vector3.new(14, 1, 16)
+deck.Size = Vector3.new(14, 1, DECK_DEPTH)
 deck.Color = Color3.fromRGB(120, 85, 55)
 deck.Material = Enum.Material.WoodPlanks
 deck.Massless = true

@@ -39,9 +39,15 @@ export type PartDef = {
 	library: string?,
 	-- Gun only: the model shown INSTEAD of `library` once the upgrade is owned (a swap, not an addition).
 	upgradeLibrary: string?,
-	-- Where the skin sits relative to its host part.
+	-- Where the skin sits relative to its host part. ALSO carries rotation — Meshy exports don't know
+	-- which way our boat faces, and several parts import with their long axis on X while the boat's
+	-- length runs along Z (bow = −Z). A yaw here fixes that without re-exporting anything.
 	offset: CFrame?,
-	-- Uniform scale applied to the cloned mesh.
+	-- Exact size for the skin, in the MESH's own local axes (i.e. before `offset` rotates it). Use this
+	-- when a part must match a known footprint — it's how the hull skin is made to agree with the
+	-- physics box instead of whatever scale Meshy happened to export.
+	size: Vector3?,
+	-- Uniform scale, applied only when `size` is not given.
 	scale: number?,
 	-- "skin" (default) = CanCollide false + Massless true, physics untouched.
 	-- "deck"           = real collision, for surfaces players stand on.
@@ -54,7 +60,28 @@ export type PartDef = {
 BoatParts.Defs = {
 	-- ── base boat ────────────────────────────────────────────────────────────────────────────────
 	-- Hull is 14 wide × 3 tall × 22 long (BoatServer HULL_SIZE). The hero piece.
-	hull = { library = nil, collision = "skin" } :: PartDef,
+	--
+	-- The Meshy export measured 35.06 × 6.60 × 15.33 studs with its LENGTH ON X, so it needs a 90° yaw to
+	-- line up with a boat whose length runs along Z (bow = −Z). Its natural proportions are 2.29 : 1
+	-- (length : width) where the physics box is 1.57 : 1, so a uniform scale to 22 long would leave the
+	-- visible hull only ~9.6 wide inside a 14-wide collision box — you'd stand on water beside it.
+	-- `size` therefore stretches it to the box footprint: 22 long, 14 wide, ~4.1 tall (its own height
+	-- ratio at that length), which keeps visual and collision honest at the cost of a beamier boat.
+	-- Hull skin, at the mesh's TRUE proportions. The import measured 35.06 × 6.60 × 15.33 studs, i.e.
+	-- 2.29:1 length:width, with its length on X — so it needs a 90° yaw to match a boat whose length runs
+	-- along Z. At 32 × 14 the stretch is ZERO (the earlier 22-long hull forced it 46% wider than modelled,
+	-- which is what made it look squat and sunk); height follows at 6.02.
+	--
+	-- The skin is TALLER than the physics box (6.02 vs 3) because the mesh has gunwales the box doesn't
+	-- model. Centring the two would hang the keel 1.5 below the box and the boat would ride swamped, so it
+	-- is lifted by half the difference: the mesh's KEEL sits on the box's bottom face and all the extra
+	-- height becomes freeboard.
+	hull = {
+		library = "Hull",
+		size = Vector3.new(32, 6.02, 14), -- local axes: X = mesh length, Z = mesh width
+		offset = CFrame.new(0, (6.02 - 3) / 2, 0) * CFrame.Angles(0, math.rad(90), 0),
+		collision = "skin",
+	} :: PartDef,
 	-- The walkable deck — the ONE part that keeps real collision.
 	cargoDeck = { library = nil, collision = "deck" } :: PartDef,
 	-- Base motor (Job 066 decision #1): every boat has one. `motor2` is its twin, added by the upgrade.
@@ -153,12 +180,14 @@ function BoatParts.skin(host: BasePart, id: string, useUpgrade: boolean?): BaseP
 	skin.CanQuery = def.collision == "deck"
 	skin.CanTouch = false
 	if skin:IsA("MeshPart") then
-		-- CollisionFidelity only exists on MeshPart. Imported meshes default to Box, which would seal the
-		-- boat shut — so the walkable deck gets precise collision, and skins get the cheapest possible.
-		skin.CollisionFidelity = if def.collision == "deck"
-			then Enum.CollisionFidelity.PreciseConvexDecomposition
-			else Enum.CollisionFidelity.Box
-		if def.scale and def.scale ~= 1 then
+		-- NOTE: CollisionFidelity is NOT set here. A runtime script cannot write it — Roblox gates it
+		-- behind plugin capability ("The current thread cannot write 'CollisionFidelity'"), and the
+		-- attempt throws, taking the whole boat build down with it. It is an AUTHORING-TIME property:
+		-- set it once on each library MeshPart via BoatParts.applyLibraryFidelity() below, run from
+		-- Studio (Edit mode), and it saves with the place.
+		if def.size then
+			skin.Size = def.size -- exact footprint wins over whatever Meshy exported
+		elseif def.scale and def.scale ~= 1 then
 			skin.Size = skin.Size * def.scale
 		end
 	end
@@ -175,6 +204,43 @@ function BoatParts.skin(host: BasePart, id: string, useUpgrade: boolean?): BaseP
 	host.Transparency = 1
 
 	return skin
+end
+
+-- ── authoring-time helper (run from Studio in EDIT mode, not at runtime) ─────────────────────────
+-- Sets CollisionFidelity on every library MeshPart according to its def: the walkable deck gets
+-- PreciseConvexDecomposition, everything else gets Box (cheapest — skins don't collide anyway).
+--
+-- This exists because CollisionFidelity cannot be written by a game script (plugin capability only), yet
+-- imported meshes default to Box and a mesh people must STAND on needs better. Run it once after
+-- importing new art, then SAVE THE PLACE — the property travels with the asset, not with this code.
+--
+-- Returns a human-readable report so the result can be verified rather than assumed.
+function BoatParts.applyLibraryFidelity(): string
+	local lib = library()
+	if not lib then
+		return "no ServerStorage.AssetLibrary.BoatParts folder found"
+	end
+	local lines = {}
+	for id, def in pairs(BoatParts.Defs) do
+		local name = def.library
+		local part = if name then lib:FindFirstChild(name) else nil
+		if name and part and part:IsA("MeshPart") then
+			local want = if def.collision == "deck"
+				then Enum.CollisionFidelity.PreciseConvexDecomposition
+				else Enum.CollisionFidelity.Box
+			local before = part.CollisionFidelity
+			local ok, err = pcall(function()
+				part.CollisionFidelity = want
+			end)
+			table.insert(lines, string.format("%-16s %-22s %s -> %s%s", id, name, tostring(before),
+				tostring(part.CollisionFidelity), ok and "" or (" FAILED: " .. tostring(err))))
+		end
+	end
+	if #lines == 0 then
+		return "no library MeshParts matched any Defs entry yet"
+	end
+	table.sort(lines)
+	return table.concat(lines, "\n")
 end
 
 return BoatParts

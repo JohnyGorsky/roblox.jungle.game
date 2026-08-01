@@ -36,7 +36,12 @@ local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("B
 
 -- ── tunables ─────────────────────────────────────────────────────────────
 local WATER_Y = RiverData.WATER_Y  -- water surface (spring target for hull CENTER), from the shared river data
-local HULL_SIZE = Vector3.new(14, 3, 22) -- length trimmed 28→22 (Job 019) so the driver can see the boat's ends
+-- Job 066: 22 → 32 long. The boat read as too small next to its own rear cargo deck, and 32 × 14 is the
+-- EXACT natural proportion of the imported hull mesh (2.29:1), so the skin no longer has to be stretched
+-- 46% wider than it was modelled — which is what made it look squat and low in the water.
+-- ⚠️ This changes physics: more hull volume and length alters buoyancy, inertia and turning. THRUST /
+-- DRAG / TURN may need retuning, so boat feel must be re-tested in the game place.
+local HULL_SIZE = Vector3.new(14, 3, 32)
 local DENSITY = 0.7
 -- Speed knobs. Top speed ≈ THRUST/DRAG, idle downstream drift ≈ CURRENT/DRAG. THRUST is the natural
 -- target for a future "boat speed upgrade" (multiply it — e.g. THRUST * speedTier — for a faster engine).
@@ -103,6 +108,8 @@ local function buildBoat(): Model
 	-- Job 066: art rides on top as welded, massless, non-colliding skins. The hull box remains the
 	-- PrimaryPart with its tuned density and `Root` attachment, so buoyancy/thrust/turning are untouched.
 	-- Base motor (decision #1): every boat has one; `motor2` is the upgrade twin at mirrored X.
+	-- derived from the hull so it stays at the stern if the hull length ever changes again
+	local sternZ = HULL_SIZE.Z / 2 - 1.5
 	local motor = Instance.new("Part")
 	motor.Name = "Motor"
 	motor.Size = Vector3.new(2, 2, 3)
@@ -110,7 +117,7 @@ local function buildBoat(): Model
 	motor.Material = Enum.Material.Metal
 	motor.Massless = true
 	motor.CanCollide = false
-	motor.CFrame = hull.CFrame * CFrame.new(3.5, 1, 10.5)
+	motor.CFrame = hull.CFrame * CFrame.new(3.5, 1, sternZ)
 	motor.Parent = model
 	local motorWeld = Instance.new("WeldConstraint")
 	motorWeld.Part0 = hull

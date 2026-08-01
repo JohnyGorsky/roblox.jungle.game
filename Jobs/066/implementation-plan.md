@@ -95,6 +95,33 @@ Art then drops into a proven harness.
   greybox is genuinely preserved; an unknown id warns and returns nil rather than erroring.
 - ⏳ Not yet verified: boat *feel*. That needs the game place open and a human at the wheel.
 
+**Phase 2 notes — first real mesh in (2026-07-31)**
+
+**`CollisionFidelity` cannot be set by a runtime script.** My plan said I'd set it in code per part; that was
+wrong. Roblox gates it behind plugin capability, and the write **throws** —
+*"The current thread cannot write 'CollisionFidelity' (lacking capability Plugin)"* — which took down the
+whole `buildBoat` call, so no boat appeared at all. It is an **authoring-time** property.
+→ `skin()` no longer touches it. `BoatParts.applyLibraryFidelity()` added, to be run **from Studio in Edit
+mode** after importing new art (then save the place). Imported meshes default to `Box`, which is already
+what a non-colliding skin wants, so in practice only `CargoDeck` needs it changed.
+→ **Corrected instruction to the user:** they *should* leave fidelity alone, but because it's set on the
+library asset in Studio — not because code does it at runtime.
+
+**Meshes import at an arbitrary scale AND arbitrary orientation.** The hull arrived
+**35.06 × 6.60 × 15.33 studs with its length on X**, where the boat's length runs along Z (bow = −Z). Two
+new `PartDef` fields handle this without re-exporting anything: **`size`** (exact dimensions, in the mesh's
+own local axes) and rotation carried in **`offset`** (a 90° yaw here).
+
+**Proportion mismatch is real and had to be a choice.** The mesh's natural ratio is 2.29 : 1
+(length : width); the physics box is 1.57 : 1. A uniform scale to 22 long would leave a 9.6-wide visible
+hull inside a 14-wide collision box — you'd stand on water beside it. `size` therefore stretches it to the
+box footprint (22 × 4.14 × 14), keeping visual and collision honest at the cost of a beamier boat.
+
+**Verified in Play:** footprint matches the box exactly (22 × 14 world extents on both), the greybox box is
+hidden (`Transparency = 1`), the skin is `CanCollide = false` + `Massless = true`, `SurfaceAppearance`
+(PBR) carried across on the clone, and the skin stands 1.1 studs taller than the box — gunwales rising
+above the physics body, exactly the intent of the skin approach.
+
 **Phase 2 · Concept sheet (yours) → meshes**
 
 5. I produce the **generation brief** below; you render one ChatGPT sheet with all 15 parts in our palette.

@@ -69,7 +69,11 @@ local function addPart(
 	return p
 end
 
--- hull is 14 (X) × 3 (Y) × 22 (Z); front/bow = -Z, stern = +Z
+-- Job 066: the hull grew 22 -> 32 long, so module positions are DERIVED from it rather than hardcoded.
+-- bow = -Z, stern = +Z. Anything that should sit "at the bow" or "at the stern" now follows the hull.
+local HALF_Z = theHull.Size.Z / 2
+local BOW = -HALF_Z + 1.5    -- just inside the bow
+local STERN = HALF_Z - 1.5   -- just inside the stern
 local applied = false
 local function apply()
 	if applied then
@@ -81,7 +85,7 @@ local function apply()
 	-- every boat gets a basic BOW LIGHT at night (FINDING 0001 — boat was dark when riding). Night-only via
 	-- the NightLight tag (LightController toggles it dusk→dawn). The Searchlight MODULE below is the upgrade.
 	if not theBoat:FindFirstChild("BowLightHead") then
-		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, -10), Enum.Material.Neon, "bowLight")
+		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 3.2, BOW), Enum.Material.Neon, "bowLight")
 		local blight = Instance.new("SpotLight")
 		blight.Face = Enum.NormalId.Front -- forward / downstream (bow = -Z)
 		blight.Angle = 80 -- wide beam so you can actually see the path (Job 052)
@@ -102,24 +106,24 @@ local function apply()
 	if crewOwns("fueltank") then
 		theBoat:SetAttribute("MaxFuel", 150)
 		theBoat:SetAttribute("Fuel", 150)
-		addPart("FuelTankModule", Vector3.new(2, 3, 3), Color3.fromRGB(210, 180, 60), CFrame.new(4.5, 2.5, 8), Enum.Material.Metal, "fuelTank")
+		addPart("FuelTankModule", Vector3.new(2, 3, 3), Color3.fromRGB(210, 180, 60), CFrame.new(4.5, 2.5, STERN * 0.75), Enum.Material.Metal, "fuelTank")
 		table.insert(on, "fueltank")
 	end
 	if crewOwns("hullkit") then
 		theBoat:SetAttribute("MaxHP", 150)
 		theBoat:SetAttribute("HP", 150)
-		addPart("HullPlateL", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(-7.3, 0, 0), Enum.Material.Metal, "hullPlate")
-		addPart("HullPlateR", Vector3.new(0.6, 2, 20), Color3.fromRGB(120, 122, 130), CFrame.new(7.3, 0, 0), Enum.Material.Metal, "hullPlate")
+		addPart("HullPlateL", Vector3.new(0.6, 2, theHull.Size.Z - 2), Color3.fromRGB(120, 122, 130), CFrame.new(-7.3, 0, 0), Enum.Material.Metal, "hullPlate")
+		addPart("HullPlateR", Vector3.new(0.6, 2, theHull.Size.Z - 2), Color3.fromRGB(120, 122, 130), CFrame.new(7.3, 0, 0), Enum.Material.Metal, "hullPlate")
 		table.insert(on, "hullkit")
 	end
 	if crewOwns("motor2") then
 		theBoat:SetAttribute("ThrustMul", 1.25)
-		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 1, 10.5), Enum.Material.Metal, "motor2")
+		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 1, STERN), Enum.Material.Metal, "motor2")
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
-		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(0, 5, -7), Enum.Material.Metal, "searchlightMast")
-		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 8, -7.6), Enum.Material.Neon, "searchlightHead")
+		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(0, 5, BOW * 0.6), Enum.Material.Metal, "searchlightMast")
+		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 8, BOW * 0.6 - 0.6), Enum.Material.Neon, "searchlightHead")
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Front -- emits along -Z (forward / downstream)
 		light.Angle = 70
@@ -137,7 +141,7 @@ local function apply()
 		-- footprint (Z 11…27) and 1.4 studs BELOW it, so the 180-Gold upgrade was invisible. It now sits
 		-- ON the rear deck as cargo racks, which is the point of a visible module. Deck top is
 		-- hull.Y/2 - 0.5 + 0.5 = 1.5, so Y 3.0 puts a 3-tall rack on the deck surface.
-		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, 18), Enum.Material.WoodPlanks, "trailer")
+		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 4), Enum.Material.WoodPlanks, "trailer")
 		table.insert(on, "trailer")
 	end
 	if crewOwns("gunupgrade") then

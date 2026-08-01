@@ -27,10 +27,14 @@ local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("B
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 
 -- ── boat geometry (mirrors the game boat) ─────────────────────────────────────────────────────────
-local HULL = Vector3.new(14, 3, 22)
+local HULL = Vector3.new(14, 3, 32) -- Job 066: 22 -> 32, matches BoatServer.HULL_SIZE
 local TOP_Y = HULL.Y / 2 -- 1.5
-local BACK_Z = HULL.Z / 2 + 8 -- 19  (stern side is +Z; the boat faces -Z)
-local FRONT_Z = -HULL.Z / 2 -- -11
+local DECK_DEPTH = 8 -- Job 066: rear deck halved (16 -> 8); it read bigger than the boat
+local BACK_Z = HULL.Z / 2 + DECK_DEPTH / 2 -- flush behind the stern (+Z is the back; the boat faces -Z)
+local FRONT_Z = -HULL.Z / 2
+-- derived bow/stern anchors, mirroring BoatModules so the showroom matches the real boat
+local BOW = FRONT_Z + 1.5
+local STERN = HULL.Z / 2 - 1.5
 
 -- ── mooring ───────────────────────────────────────────────────────────────────────────────────────
 -- Boats are yawed so their length (local Z) runs along world X, bow pointing +X out to open water.
@@ -41,9 +45,9 @@ local MOOR_YAW = math.rad(-90)
 -- surface instead, so the boat reads as floating. This is the knob to retune once the hull mesh lands
 -- (a mesh with real gunwales will want a different draft than a plain box).
 local DRAFT = 0.6
--- Clearance needed once yawed: 22 along X, 14 along Z, plus margin.
-local CLEAR_X, CLEAR_Z = 30, 20
-local SLOT_STEP = 26 -- spacing between candidate slots
+-- Clearance needed once yawed: 32 along X, 14 along Z, plus margin (hull grew in Job 066).
+local CLEAR_X, CLEAR_Z = 40, 22
+local SLOT_STEP = 34 -- spacing between candidate slots (must exceed the 32-long hull)
 local MAX_SLOTS = 8
 local WATER_PROBE_STEP = 4
 
@@ -198,12 +202,12 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	local hull = addPart(model, base, "Hull", HULL, CFrame.new(), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks, "hull")
 	model.PrimaryPart = hull
 
-	addPart(model, base, "CargoDeck", Vector3.new(14, 1, 16), CFrame.new(0, TOP_Y - 0.5, BACK_Z), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks, "cargoDeck")
+	addPart(model, base, "CargoDeck", Vector3.new(14, 1, DECK_DEPTH), CFrame.new(0, TOP_Y - 0.5, BACK_Z), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks, "cargoDeck")
 	addPart(model, base, "DriverSeat", Vector3.new(4, 1, 5), CFrame.new(0, 2, 0), Color3.fromRGB(60, 45, 30), Enum.Material.Fabric, "driverSeat")
-	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(3.5, 1, 10.5), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
+	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
 	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, TOP_Y + 2, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")
 	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, TOP_Y + 1, FRONT_Z + 9), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
-	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 3.2, -10), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
+	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 3.2, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
 	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
 	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")
 
@@ -217,23 +221,23 @@ local function buildBoat(plr: Player, slot: Slot): Model
 
 	-- ── owned modules, same offsets as the game boat ──────────────────────────────────────────────
 	if owned.motor2 then
-		addPart(model, base, "Motor2", Vector3.new(2, 2, 3), CFrame.new(-3.5, 1, 10.5), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor2")
+		addPart(model, base, "Motor2", Vector3.new(2, 2, 3), CFrame.new(-3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor2")
 	end
 	if owned.hullkit then
-		addPart(model, base, "HullPlateL", Vector3.new(0.6, 2, 20), CFrame.new(-7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
-		addPart(model, base, "HullPlateR", Vector3.new(0.6, 2, 20), CFrame.new(7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
+		addPart(model, base, "HullPlateL", Vector3.new(0.6, 2, HULL.Z - 2), CFrame.new(-7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
+		addPart(model, base, "HullPlateR", Vector3.new(0.6, 2, HULL.Z - 2), CFrame.new(7.3, 0, 0), Color3.fromRGB(120, 122, 130), Enum.Material.Metal, "hullPlate")
 	end
 	if owned.fueltank then
-		addPart(model, base, "FuelTankModule", Vector3.new(2, 3, 3), CFrame.new(4.5, 2.5, 8), Color3.fromRGB(210, 180, 60), Enum.Material.Metal, "fuelTank")
+		addPart(model, base, "FuelTankModule", Vector3.new(2, 3, 3), CFrame.new(4.5, 2.5, STERN * 0.75), Color3.fromRGB(210, 180, 60), Enum.Material.Metal, "fuelTank")
 	end
 	if owned.searchlight then
-		addPart(model, base, "SearchlightMast", Vector3.new(0.8, 6, 0.8), CFrame.new(0, 5, -7), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
-		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(0, 8, -7.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
+		addPart(model, base, "SearchlightMast", Vector3.new(0.8, 6, 0.8), CFrame.new(0, 5, BOW * 0.6), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
+		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(0, 8, BOW * 0.6 - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
 		-- cargo racks ON the rear deck, matching BoatModules (finding 0003 — the old position was buried
 		-- under the deck and invisible)
-		addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, 3, 18), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+		addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, 3, BACK_Z), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
 	end
 
 	-- a nameplate so a crowded harbour is readable
