@@ -83,6 +83,10 @@ local BOW_LIGHT_Y = 4.9
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
 local BOW_LIGHT_X = 0
 local STERN = HALF_Z + 1     -- ON the transom (inside the hull the engine hides behind the gunwale)
+-- Searchlight mast: PORT side, beside the helm (Job 067). Not on the centreline — that put it inside the
+-- gun. Kept as named constants because two parts (mast + head) must stay together.
+local SEARCHLIGHT_X = -4.8
+local SEARCHLIGHT_Z = -1.5
 local applied = false
 local function apply()
 	if applied then
@@ -147,8 +151,15 @@ local function apply()
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
-		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(0, 5, BOW * 0.6), Enum.Material.Metal, "searchlightMast")
-		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(0, 8, BOW * 0.6 - 0.6), Enum.Material.Neon, "searchlightHead")
+		-- ⚠️ Job 067: the mast used to stand at z = BOW * 0.6 ≈ −8.7 ON THE CENTRELINE — which is INSIDE the
+		-- gun. The mount sits at z −11 and its barrel skin spans z −13.8…−8.3, so the barrel passed straight
+		-- through the mast and the lamp hung directly over the gunner's sights. Measured, not eyeballed.
+		--
+		-- It now stands to PORT beside the helm (the user asked for it "aside" as far back as Job 066):
+		-- clear of the driver's console (x ±1.8, z ±2.75), clear of the crew seats (z 2.7…5.3) and well
+		-- clear of the gun. Still forward-facing, so the beam does what it always did.
+		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(SEARCHLIGHT_X, 5, SEARCHLIGHT_Z), Enum.Material.Metal, "searchlightMast")
+		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6), Enum.Material.Neon, "searchlightHead")
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Front -- emits along -Z (forward / downstream)
 		light.Angle = 70
@@ -166,7 +177,12 @@ local function apply()
 		-- footprint (Z 11…27) and 1.4 studs BELOW it, so the 180-Gold upgrade was invisible. It now sits
 		-- ON the rear deck as cargo racks, which is the point of a visible module. Deck top is
 		-- hull.Y/2 - 0.5 + 0.5 = 1.5, so Y 3.0 puts a 3-tall rack on the deck surface.
-		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 7), Enum.Material.WoodPlanks, "trailer")
+		-- Job 067: was ONE 9 × 3 × 6 slab, which read as a featureless box dumped on the deck. Now built
+		-- from the shared rack layout in BoatParts (crates in the deck corners + a transom frame), so it
+		-- looks like cargo capacity and matches the lobby showroom piece for piece.
+		for _, piece in ipairs(BoatParts.cargoRackPieces(HALF_Z)) do
+			addPart(piece.name, piece.size, piece.color, piece.offset, piece.material)
+		end
 		table.insert(on, "trailer")
 	end
 	if crewOwns("gunupgrade") then

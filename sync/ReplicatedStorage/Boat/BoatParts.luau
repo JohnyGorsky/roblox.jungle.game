@@ -256,6 +256,54 @@ BoatParts.Defs = {
 	} :: PartDef,
 } :: { [string]: PartDef }
 
+-- ── Cargo Racks greybox (Job 067) ────────────────────────────────────────────────────────────────
+-- The `trailer` module still has NO mesh, and it used to be built as ONE 9 × 3 × 6 slab dropped on the
+-- rear deck. It read exactly like what it was — a featureless brown box ("why big box at the back?"). A
+-- 180-Gold upgrade has to look like something.
+--
+-- So until art exists it is built from these pieces, which read as **racks + crates** at a glance. Shared
+-- by BoatModules (game) and LobbyBoat (lobby) so the showroom can never disagree with the real boat.
+--
+-- Layout, in HULL SPACE (bow = −Z), derived from the hull rather than hardcoded (Job 066's lesson):
+--   · rear deck is centred at z = halfZ + 7 and spans 8 studs deep, 14 wide
+--   · the four crates sit in the deck CORNERS, so they clear the role stations at (±4, 3, deck centre) —
+--     the stations occupy the middle 3 studs of z, the crates sit outside it
+--   · one stacked crate + an open frame across the transom give it a silhouette from a distance
+export type RackPiece = { name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material }
+
+local WOOD = Color3.fromRGB(122, 92, 58)
+local WOOD_DARK = Color3.fromRGB(96, 72, 46)
+local RACK_METAL = Color3.fromRGB(88, 90, 98)
+
+function BoatParts.cargoRackPieces(halfZ: number): { RackPiece }
+	local backZ = halfZ + 7 -- rear deck centre, same derivation both builders use
+	local deckTop = 1.7 -- measured off the deck SKIN, not the greybox host (the skin sits 0.2 proud)
+	local fore, aft = backZ - 2.6, backZ + 2.6 -- corner rows, clear of the stations in the middle
+	local crate = Vector3.new(2.2, 2.0, 2.2)
+	local crateY = deckTop + crate.Y / 2
+	local pieces: { RackPiece } = {}
+	local function add(name: string, size: Vector3, x: number, y: number, z: number, color: Color3, mat: Enum.Material)
+		table.insert(pieces, { name = name, size = size, offset = CFrame.new(x, y, z), color = color, material = mat })
+	end
+	local n = 0
+	for _, z in ipairs({ fore, aft }) do
+		for _, x in ipairs({ -5.4, 5.4 }) do
+			n += 1
+			add("CargoCrate" .. n, crate, x, crateY, z, n % 2 == 0 and WOOD or WOOD_DARK, Enum.Material.WoodPlanks)
+		end
+	end
+	-- one crate stacked on the port-aft corner: breaks the flat top line so the module reads from the dock
+	add("CargoCrate5", Vector3.new(1.8, 1.8, 1.8), -5.4, crateY + crate.Y / 2 + 0.9, aft, WOOD, Enum.Material.WoodPlanks)
+	-- open frame across the transom — the "rack" half of "deck racks and crates"
+	-- named fields, not a {string, number} tuple — Luau strict mode can't index a mixed-type array
+	local posts: { { name: string, x: number } } = { { name = "L", x = -6.4 }, { name = "R", x = 6.4 } }
+	for _, side in ipairs(posts) do
+		add("CargoRackPost" .. side.name, Vector3.new(0.3, 3.2, 0.3), side.x, deckTop + 1.6, backZ + 3.7, RACK_METAL, Enum.Material.Metal)
+	end
+	add("CargoRackRail", Vector3.new(13.1, 0.3, 0.3), 0, deckTop + 3.0, backZ + 3.7, RACK_METAL, Enum.Material.Metal)
+	return pieces
+end
+
 -- Module id (ModuleDefs) → the BoatParts key its art lives under.
 BoatParts.moduleToPart = {
 	motor2 = "motor2",

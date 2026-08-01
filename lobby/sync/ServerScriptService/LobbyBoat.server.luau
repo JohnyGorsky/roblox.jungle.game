@@ -43,6 +43,10 @@ local BOW_LIGHT_Y = 4.9
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
 local BOW_LIGHT_X = 0
 local STERN = HULL.Z / 2 + 1 -- ON the transom; inside the hull the engine hides behind the gunwale
+-- Searchlight mast: PORT side, beside the helm (Job 067). NOT on the centreline — that put it inside the
+-- gun. Must match BoatModules; kept as constants because the mast and head have to move together.
+local SEARCHLIGHT_X = -4.8
+local SEARCHLIGHT_Z = -1.5
 -- mount height: the mesh hull has a RAISED foredeck, so the old TOP_Y + 2 buried the gun inside it
 local GUN_Y = TOP_Y + 3.3
 
@@ -300,13 +304,19 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		addPart(model, base, "FuelTankModule", Vector3.new(2, 3, 3), CFrame.new(4.5, 2.5, STERN * 0.75), Color3.fromRGB(210, 180, 60), Enum.Material.Metal, "fuelTank")
 	end
 	if owned.searchlight then
-		addPart(model, base, "SearchlightMast", Vector3.new(0.8, 6, 0.8), CFrame.new(0, 5, BOW * 0.6), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
-		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(0, 8, BOW * 0.6 - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
+		-- ⚠️ Job 067: was z = BOW * 0.6 ≈ −8.7 on the CENTRELINE, i.e. inside the gun — the mount is at
+		-- z −11 with a barrel skin spanning −13.8…−8.3, so the barrel ran through the mast and the lamp
+		-- hung over the gunner's sights. Now to PORT beside the helm; see BoatModules for the full note.
+		addPart(model, base, "SearchlightMast", Vector3.new(0.8, 6, 0.8), CFrame.new(SEARCHLIGHT_X, 5, SEARCHLIGHT_Z), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
+		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
-		-- cargo racks ON the rear deck, matching BoatModules (finding 0003 — the old position was buried
-		-- under the deck and invisible)
-		addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, 3, BACK_Z), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+		-- Job 067: was ONE 9 × 3 × 6 slab and read as a featureless brown box on the deck. Now the shared
+		-- rack layout from BoatParts — crates in the deck corners (clear of the stations) plus a transom
+		-- frame — so the showroom shows the same thing the real boat gets, piece for piece.
+		for _, piece in ipairs(BoatParts.cargoRackPieces(HULL.Z / 2)) do
+			addPart(model, base, piece.name, piece.size, piece.offset, piece.color, piece.material)
+		end
 	end
 	if owned.ramps then
 		-- Ramp Bow & Hull Shape (Job 067). Greybox wedge until art exists, mirroring BoatModules — high end
