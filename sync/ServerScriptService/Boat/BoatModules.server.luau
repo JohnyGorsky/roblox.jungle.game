@@ -78,7 +78,7 @@ local BOW = -HALF_Z + 1.5    -- just inside the bow
 local BOW_LIGHT_Y = 4.9
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
 local BOW_LIGHT_X = 0
-local STERN = HALF_Z - 1.5   -- just inside the stern
+local STERN = HALF_Z + 0.5   -- ON the transom (inside the hull the engine hides behind the gunwale)
 local applied = false
 local function apply()
 	if applied then
@@ -139,7 +139,7 @@ local function apply()
 	end
 	if crewOwns("motor2") then
 		theBoat:SetAttribute("ThrustMul", 1.25)
-		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 3.5, STERN), Enum.Material.Metal, "motor2")
+		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 3.0, STERN), Enum.Material.Metal, "motor2")
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
