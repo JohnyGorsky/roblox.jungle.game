@@ -452,7 +452,7 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | `Paint.png` | Boat Paint Pack (99 R$) | game pass | `1919355255` | `70530350071757` | **`82416796032835`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 | `Cosmetics.png` | ~~Cosmetic Bundle (249 R$)~~ | game pass | `1918077339` | `130780112255781` | `95212286807985` | <span style="color:#b0472f">⛔ REMOVED from the in-game shop (Job #067)</span> |
 | `SelfRevive` | Self Revive (20 R$) | dev product | `3612677893` | — | **`131281323216251`** | <span style="color:#2e9c3f">✅ live + wired</span> |
-| — | Extra Inventory Slots (149 R$) | game pass | `1935044952` | `130798210334331` | ⚠️ *reusing the Hub icon* | <span style="color:#c8a13a">⏳ live + wired — needs a transparent re-upload</span> |
+| — | Extra Inventory Slots (149 R$) | game pass | `1935044952` | `130798210334331` | **`130798210334331`** *(same id — this Hub upload has alpha)* | <span style="color:#2e9c3f">✅ live + wired</span> |
 
 > **Why two:** Creator Hub mattes its thumbnails onto an opaque square/disc, so those ids render as a
 > white blob inside the round row badges. The transparent re-uploads (2026-07-31, `*_transparent`) fixed
@@ -466,10 +466,10 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 >   FX, no emote; nothing read `Owns_cosmeticBundle`). Its ids stay recorded here in case the three
 >   features are ever built. **The Creator Hub listing is unlisted by hand, separately.**
 > · **Self Revive** created 2026-08-01 and wired to the DOWNED overlay.
-> · **Extra Inventory Slots** created 2026-08-02 (`1935044952`, 149 R$) and wired. ⚠️ It is currently the
->   **only row pointing at a Hub icon**, because no transparent version has been uploaded — that is exactly
->   the case that produced white blobs in the round badges before (see the "Why two" note above). Check the
->   row in Play; if it blobs, re-upload the source PNG with alpha and swap the id in `Theme.productIcon`.
+> · **Extra Inventory Slots** created 2026-08-02 (`1935044952`, 149 R$) and wired. It is the **one row that
+>   uses its Hub id in-game**, and that is fine here — *verified in Play*, this upload carries alpha and
+>   renders correctly in the round badge. So "never swap a Hub id into the GUI" is really *"check the
+>   matte first"*: the 2026-07-20 batch was matted, this one isn't.
 > · **Boat Paint Pack finally does something** (Job #067): 6 hull liveries. It needs **no new art** —
 >   liveries are a runtime tint over the existing PBR maps, not new textures. See §2.
 

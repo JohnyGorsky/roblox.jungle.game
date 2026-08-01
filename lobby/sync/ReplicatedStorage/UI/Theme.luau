@@ -166,9 +166,9 @@ Theme.productIcon = {
 	armoredBoat = "rbxassetid://130910653087108", -- Boat_transparent
 	boatPaint = "rbxassetid://82416796032835", -- Paint_transparent
 	selfRevive = "rbxassetid://131281323216251", -- SelfRevive (uploaded 2026-08-01)
-	-- ⚠️ This is the HUB thumbnail ("Game Pass Icon"), not a transparent re-upload like the rows above.
-	-- If it renders as a white blob inside the circular badge, that's the matte — re-upload the source PNG
-	-- with alpha and swap the id here (see ASSETS.md §5.1 "Never swap a Hub id into the GUI").
+	-- The only row that uses its HUB id in-game. Normally that's the thing to avoid (the 2026-07-20 Hub
+	-- uploads are matted onto an opaque disc and render as white blobs in these round badges) — but this
+	-- one carries alpha, verified in Play 2026-08-02, so it needs no transparent re-upload.
 	extraSlots = "rbxassetid://130798210334331", -- Game Pass Icon (uploaded 2026-08-02)
 	-- `cosmeticBundle` art removed in Job 067 along with the pass itself — it was live and delivered
 	-- nothing. Its id stays recorded in registry images.md in case the bundle is ever actually built.
