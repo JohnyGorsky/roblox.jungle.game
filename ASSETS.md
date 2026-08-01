@@ -97,7 +97,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 |---|---|---|---|---|
 | Dock / jetty | 1 | Store (Sxphies `3023220773`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/Dock` at east water; `Pier` part kept for soundscape |
 | Winch / mooring post | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood post + metal cap + rope, at the dock end (`Scenery.Details.MooringPost`) |
-| Boat (moored display) | 1 | cross-ref gameplay | ▫ queued | real boat is BoatServer's; lobby shows it moored (`boat_ideas.png`) |
+| Boat (moored display) | 1 per player | Build + Meshy | <span style="color:#2e9c3f">✅ done (Job #066)</span> | `LobbyBoat.server.luau` spawns a STATIC boat per joining player in probed harbour water, showing that player's owned modules — a showroom for the Boat Upgrades shop. Full art (§2). |
 
 ## 1.6 Structures / scenery
 
@@ -352,10 +352,35 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 
 # 2) BOAT
 
-| Area | Items | Status | Notes |
+**Art done (Job #066, 2026-08-01).** 15 meshes, ChatGPT concept renders → Meshy image-to-3D. Source images
+in `assets/Images/Boat/`, GLBs in `assets/Images/Boat/Objects/`, mesh + texture ids in registry
+[`meshes.md`](../roblox.workspace/Assets/registry/meshes.md).
+
+**How the art attaches — read before touching boat visuals.** Meshes are **skins over greybox hosts**, not
+replacements. `Hull` stays a plain box: it is the `PrimaryPart`, carries the tuned density that makes the
+boat float, and hosts the `Root` attachment every thrust/turn force uses. Each mesh is welded on as a
+`CanCollide = false`, `Massless = true` child, so **art can never retune physics**. The mapping lives in
+`ReplicatedStorage.Boat.BoatParts` (byte-identical in both trees) — changing a model is one id in one file.
+
+| Part | Mesh | Status | Notes |
 |---|---|---|---|
-| Boat visuals | hull / motor / searchlight / upgrade-module parts | ▫ stub | populate as boat/gameplay job sources them |
+| `Hull` | `Hull` | <span style="color:#2e9c3f">✅ wired</span> | 32 × 14 — the mesh's exact natural ratio, so zero stretch |
+| `CargoDeck` | `CargoDeck` | <span style="color:#2e9c3f">✅ wired</span> | rear deck; **this is the cargo area — there is no trailer** |
+| `DriverSeat` | `DriverSeat` | <span style="color:#2e9c3f">✅ wired</span> | seat + console + wheel; stays a `VehicleSeat` |
+| `Motor` | `Motor` | <span style="color:#2e9c3f">✅ wired</span> | base engine (new in #066); `motor2` reuses the same mesh |
+| `GunBase` · `GunBarrel` · `GunSeat` | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | barrel rides **on** the mount; seat 5 studs aft |
+| `BowLightHead` | `BowLight` | <span style="color:#2e9c3f">✅ wired</span> | on the centreline — off-centre it hangs past the bow taper |
+| Crew seats ×4 | reuses `GunSeat` | <span style="color:#2e9c3f">✅ wired</span> | real `Seat`s in game so passengers aren't thrown off |
+| `HullPlate` | `HullPlate` | <span style="color:#2e9c3f">✅ wired</span> | **tiled ×4 per flank** — a full-length strip smears and overhangs the taper |
+| `FuelTankModule` · `SearchlightHead` | 2 meshes | <span style="color:#2e9c3f">✅ wired</span> | appear only when their module is owned |
+| `GunBarrelHeavy` | `GunBarrelHeavy` | <span style="color:#2e9c3f">✅ wired</span> | **swaps** the base barrel (never two barrels) |
+| Fuel · Repair · Medic stations | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | medic is game-place only |
+| Searchlight **mast** | — | <span style="color:#2e9c3f">✅ stays a part</span> | a 0.8-stud pole reconstructs badly in Meshy |
+| Cargo trailer / barge | — | <span style="color:#c93c3c">❌ not needed</span> | no towed body; cargo is the rear deck (GAME.md) |
 | Boat SFX | engine loop, start, on-fire, destroyed, metal hit | <span style="color:#2e9c3f">✅ some exist</span> | in `assets/Objects/Boat/Sounds/` |
+
+> ⚠️ **Imported into the LOBBY place only.** `ServerStorage` is place content and Rojo doesn't sync meshes,
+> so the GAME place needs the same GLBs imported under the same names before its boat shows any art.
 
 # 3) RIVER / WORLD
 
