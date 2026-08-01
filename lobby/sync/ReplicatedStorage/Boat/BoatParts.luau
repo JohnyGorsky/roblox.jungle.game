@@ -110,14 +110,34 @@ BoatParts.Defs = {
 		offset = CFrame.new(0, 1.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
 	} :: PartDef,
-	gunBase = { library = nil, collision = "skin" } :: PartDef,
-	-- decision #2: the upgrade REPLACES this barrel's model rather than adding a second one
-	gunBarrel = { library = nil, upgradeLibrary = nil, collision = "skin" } :: PartDef,
+	-- Pintle mount. Mesh imported 1.59 × 1.20 × 1.45 — near-cubic like its 3 × 2 × 3 host and already
+	-- axis-aligned, so no rotation. Sized to the host's footprint at the mesh's own height ratio.
+	gunBase = {
+		library = "GunBase",
+		size = Vector3.new(3, 2.26, 2.74),
+		collision = "skin",
+	} :: PartDef,
+	-- Barrel. Mesh imported 2.10 × 1.20 × 0.81 with its length on X, so it takes the usual 90° yaw to point
+	-- down the boat's Z. `upgradeLibrary` is decision #2: the gunupgrade SWAPS this model rather than
+	-- bolting on a second barrel.
+	-- SIZED TO THE MESH, NOT THE HOST. The host barrel is 8 studs long (GunServer) purely as an aim pivot;
+	-- filling that length stretched the 2.1-long mesh ~3.8× and it read as a thin rod skewering the bow.
+	-- The skin is now ~4 long at near-natural proportions, so it looks like a mounted MG. The host stays
+	-- 8 — it is invisible and its length only affects the aim maths, not the silhouette.
+	gunBarrel = {
+		library = "GunBarrel",
+		upgradeLibrary = nil, -- set to "GunBarrelHeavy" once that mesh is imported
+		size = Vector3.new(4, 2.0, 1.4),
+		offset = CFrame.Angles(0, math.rad(90), 0),
+		collision = "skin",
+	} :: PartDef,
 	gunSeat = { library = nil, collision = "skin" } :: PartDef,
 	-- Lamp imported 0.85 × 1.20 × 0.81 — already upright (long axis Y) and already about the size of its
 	-- 1.2-cube host, so it needs neither scaling nor rotation. Left at natural size deliberately; if the
 	-- lens ends up facing the wrong way, add a yaw here rather than re-exporting.
-	bowLight = { library = "BowLight", collision = "skin" } :: PartDef,
+	-- Scaled up from its natural 0.85 × 1.20 × 0.81: at that size it was under a stud tall on a 32-stud
+	-- boat and simply read as a speck. No rotation — it imported upright.
+	bowLight = { library = "BowLight", size = Vector3.new(1.7, 2.4, 1.6), collision = "skin" } :: PartDef,
 
 	-- ── upgrade modules (ModuleDefs — 6, bought once, no tiers) ──────────────────────────────────
 	motor2 = { library = nil, collision = "skin" } :: PartDef, -- boat space (−3.5, 1, 10.5)

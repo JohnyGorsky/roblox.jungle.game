@@ -34,7 +34,12 @@ local BACK_Z = HULL.Z / 2 + DECK_DEPTH / 2 -- flush behind the stern (+Z is the 
 local FRONT_Z = -HULL.Z / 2
 -- derived bow/stern anchors, mirroring BoatModules so the showroom matches the real boat
 local BOW = FRONT_Z + 1.5
+-- Clear of the gunwale: the visible hull now rises to ~4.5 in hull space, so the old 3.2 buried the
+-- lamp inside the bow structure where nothing could see it.
+local BOW_LIGHT_Y = 5.0
 local STERN = HULL.Z / 2 - 1.5
+-- mount height: the mesh hull has a RAISED foredeck, so the old TOP_Y + 2 buried the gun inside it
+local GUN_Y = TOP_Y + 4.1
 
 -- ── mooring ───────────────────────────────────────────────────────────────────────────────────────
 -- Boats are yawed so their length (local Z) runs along world X, bow pointing +X out to open water.
@@ -212,15 +217,15 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	addPart(model, base, "CargoDeck", Vector3.new(14, 1, DECK_DEPTH), CFrame.new(0, TOP_Y - 0.5, BACK_Z), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks, "cargoDeck")
 	addPart(model, base, "DriverSeat", Vector3.new(4, 1, 5), CFrame.new(0, 2, 0), Color3.fromRGB(60, 45, 30), Enum.Material.Fabric, "driverSeat")
 	addPart(model, base, "Motor", Vector3.new(2, 2, 3), CFrame.new(3.5, 1, STERN), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, "motor")
-	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, TOP_Y + 2, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")
-	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, TOP_Y + 1, FRONT_Z + 9), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
-	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 3.2, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
+	addPart(model, base, "GunBase", Vector3.new(3, 2, 3), CFrame.new(0, GUN_Y, FRONT_Z + 5), Color3.fromRGB(70, 72, 80), Enum.Material.Metal, "gunBase")
+	addPart(model, base, "GunSeat", Vector3.new(3, 1, 3), CFrame.new(0, GUN_Y - 1, FRONT_Z + 9), Color3.fromRGB(45, 45, 52), Enum.Material.Fabric, "gunSeat")
+	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, BOW_LIGHT_Y, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
 	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
 	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")
 
 	-- the gun barrel: swapped model when the upgrade is owned (decision #2), never two barrels
 	local hasGunUpgrade = owned.gunupgrade == true
-	local barrel = addPart(model, base, "GunBarrel", Vector3.new(0.8, 0.8, 8), CFrame.new(0, TOP_Y + 2, FRONT_Z + 5 - 4), Color3.fromRGB(40, 42, 48), Enum.Material.Metal, nil)
+	local barrel = addPart(model, base, "GunBarrel", Vector3.new(0.8, 0.8, 8), CFrame.new(0, GUN_Y, FRONT_Z + 5 - 2), Color3.fromRGB(40, 42, 48), Enum.Material.Metal, nil)
 	if not BoatParts.skin(barrel, "gunBarrel", hasGunUpgrade) and hasGunUpgrade then
 		barrel.Size = Vector3.new(1.1, 1.1, 9) -- no art yet: read the upgrade as a visibly bigger barrel
 		barrel.Color = Color3.fromRGB(30, 30, 34)

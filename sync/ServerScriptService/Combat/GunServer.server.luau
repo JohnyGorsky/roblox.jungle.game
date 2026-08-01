@@ -28,7 +28,11 @@ end
 local boat = Workspace:WaitForChild("Boat")
 local hull = boat:WaitForChild("Hull") :: BasePart
 local topY = hull.Size.Y / 2
-local FRONT = -hull.Size.Z / 2 -- boat faces -Z, so the front edge is -Z
+local FRONT = -hull.Size.Z / 2
+-- Job 066: the gun sat at topY + 2, which was on the deck of the old 3-stud greybox slab but is buried
+-- inside the real hull mesh's raised foredeck. GUN_Y lifts the mount so it stands ON that foredeck.
+local GUN_Y = topY + 4.1
+ -- boat faces -Z, so the front edge is -Z
 
 local function weldTo(part: BasePart)
 	local w = Instance.new("WeldConstraint")
@@ -45,7 +49,7 @@ base.Color = Color3.fromRGB(70, 72, 80)
 base.Material = Enum.Material.Metal
 base.Massless = true
 base.CanCollide = false
-base.CFrame = hull.CFrame * CFrame.new(0, topY + 2, FRONT + 5)
+base.CFrame = hull.CFrame * CFrame.new(0, GUN_Y, FRONT + 5)
 base.Parent = boat
 weldTo(base)
 BoatParts.skin(base, "gunBase")
@@ -57,7 +61,7 @@ seat.Size = Vector3.new(3, 1, 3)
 seat.Color = Color3.fromRGB(45, 45, 52)
 seat.Massless = true
 seat.CanCollide = false
-seat.CFrame = hull.CFrame * CFrame.new(0, topY + 1, FRONT + 9)
+seat.CFrame = hull.CFrame * CFrame.new(0, GUN_Y - 1, FRONT + 9)
 seat.Parent = boat
 weldTo(seat)
 BoatParts.skin(seat, "gunSeat")
