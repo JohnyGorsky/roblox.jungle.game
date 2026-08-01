@@ -170,6 +170,10 @@ user's explicit call here, so:
 ## Checklist
 
 - [x] Requirements reviewed (this intake) — all 6 decisions locked 2026-07-31
-- [x] Implementation plan created — **awaiting go-ahead**
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation plan created & agreed
+- [x] Implementation completed (lobby scope)
+- [x] Final summary + changelog written — **CLOSED 2026-08-01**
+
+> Two items **carried forward, not dropped** — see `final-summary.md` → *Carried forward*:
+> importing the 15 GLBs into the **game place**, and **re-testing boat handling** after the hull grew
+> 22 → 32 studs. The second is the only change in this job that affects how the boat plays.
