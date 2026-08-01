@@ -138,12 +138,17 @@ lobby `UI/PaintShop.local.luau` · game `UI/DownedHud.local.luau`
 
 ## Outstanding — needs the user
 
-1. **Create the Extra Inventory Slots game pass** (149 R$) and put its id in `MonetizationDefs.GamePasses`
-   in **both** trees. Ships as `0` = "Soon" until then, so nothing breaks.
+1. ~~Create the Extra Inventory Slots game pass~~ — ✅ **done 2026-08-02** (`1935044952`, 149 R$), wired in
+   both trees and confirmed live via `GetProductInfo` (name and price match the code).
+   ⚠️ Its icon is the **Hub thumbnail** (`130798210334331`) — the only row not using a transparent upload.
+   Check it in Play; if it renders as a white blob in the round badge, re-upload with alpha.
 2. **Unlist the Cosmetic Bundle** on the Creator Hub. It is out of the game; the listing is still up.
 3. **Save the lobby place** — `PaintablePBR` is place content.
 4. **Run `preparePaintLibrary()` in the GAME place** after importing the boat GLBs there (still carried
    forward from Job 066).
+
+> Self Revive was likewise created during the job (`3612677893`, 20 R$) and confirmed live. It correctly
+> uses the **transparent** upload `131281323216251`, not the Hub copy `124951966292519`.
 
 ## Carried forward from Job 066 (still open)
 
