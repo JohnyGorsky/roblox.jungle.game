@@ -211,7 +211,12 @@ BoatParts.Defs = {
 		size = Vector3.new(2.5, 1.5, 1.5), -- natural proportions
 		collision = "skin",
 	} :: PartDef,
-	searchlightMast = { library = nil, collision = "skin" } :: PartDef, -- (0, 5, −7)
+	-- Job 067: art generated. ⚠️ `size` is deliberately UNSET until the import is MEASURED — the concept
+	-- render came out ~3:1 tall:wide (a stocky riveted pedestal, kept deliberately: a 0.8-stud pole is the
+	-- geometry Meshy reconstructs worst). Sizing it to the old 0.8 × 6 host would stretch it 2.5× and smear
+	-- every rivet, which is exactly the mistake the hull plates taught us. Size to the MESH, then move the
+	-- boat around it. Expect roughly 1.7 × 5.5 × 1.7.
+	searchlightMast = { library = "SearchlightMast", collision = "skin" } :: PartDef,
 	-- Searchlight lamp. ⚠️ The imported asset is spelled "SearchLightHead" (capital L) — this string must
 	-- match the library child exactly, so it is deliberately NOT normalised to our camelCase key.
 	searchlightHead = {
@@ -219,11 +224,17 @@ BoatParts.Defs = {
 		size = Vector3.new(2.2, 2.4, 1.94),
 		collision = "skin",
 	} :: PartDef,
-	trailer = { library = nil, collision = "skin" } :: PartDef, -- (0, −0.4, 15.5)
-	-- Job 067: bow ramp / hull-shape kit. No art yet — the same `library = nil` pattern as motor2, so it
-	-- ships as a visible greybox wedge on the bow today and takes a mesh whenever one is generated.
-	-- Paintable: it's a hull surface, so it must repaint with the hull rather than stay olive.
-	ramp = { library = nil, collision = "skin", paintable = true } :: PartDef,
+	-- Cargo Racks. Job 067: art generated (lashed crates in an olive angle-iron rack with a back rail).
+	-- ⚠️ `size` UNSET pending measurement — the render is ~2.5 : 1 : 1.8, chunkier than the 4.3 : 1 : 2.7
+	-- the rear deck was laid out for, so at natural proportions it will be TALLER and DEEPER than the old
+	-- 9 × 3 × 6 slab. The three role stations share that deck and will need moving forward around it.
+	-- Until the mesh is imported, `cargoRackPieces` below builds the greybox stand-in.
+	trailer = { library = "CargoRacks", collision = "skin" } :: PartDef,
+	-- Bow ramp / hull-shape kit (the `ramps` module). Job 067: art generated.
+	-- ⚠️ `size` UNSET pending measurement — the render's footprint is near-square where the bow has room
+	-- for ~2.6:1, and the gun mount sits at z −11, so the depth decides whether it clears the gun or the
+	-- hull tip. Measure, then place. Paintable: it's a hull surface, so it repaints with the hull.
+	ramp = { library = "RampBow", collision = "skin", paintable = true } :: PartDef,
 
 	-- ── role stations (currently coloured boxes; nicer props optional) ───────────────────────────
 	-- Fuel post. Imported 0.72 × 1.20 × 0.72 — a slim upright, already the right way up, so NO rotation.

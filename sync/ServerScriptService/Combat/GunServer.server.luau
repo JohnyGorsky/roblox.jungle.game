@@ -91,6 +91,7 @@ fireRemote.Name = "GunFire"
 fireRemote.Parent = ReplicatedStorage
 
 local gunnerYaw, gunnerPitch = 0, 0
+local lastPublishedYaw = math.huge -- forces the first publish (Job 067 — see the Heartbeat loop)
 local lastFire = 0
 
 local function humOf(player: Player): Humanoid?
@@ -122,6 +123,17 @@ RunService.Heartbeat:Connect(function()
 		gunnerYaw, gunnerPitch = 0, 0 -- recentre when nobody's manning it
 	end
 	barrel.CFrame = aimCFrame() * CFrame.new(0, 0, -barrel.Size.Z / 2)
+
+	-- Job 067: publish the yaw so the SEARCHLIGHT module can sweep with the gun (BoatModules reads it).
+	-- An attribute rather than a direct reference, so the turret and the light stay decoupled — same
+	-- pattern as ModulesRev and StationMedic.
+	--
+	-- Only written when it actually MOVES: attributes replicate, and setting one every Heartbeat would be
+	-- 60 replicated writes a second for a value that is usually unchanged.
+	if math.abs(gunnerYaw - lastPublishedYaw) > 0.005 then
+		lastPublishedYaw = gunnerYaw
+		boat:SetAttribute("GunYaw", gunnerYaw)
+	end
 end)
 
 local function enemyFrom(inst: Instance?): Model?

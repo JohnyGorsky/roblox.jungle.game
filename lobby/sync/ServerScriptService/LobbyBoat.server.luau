@@ -311,11 +311,16 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
-		-- Job 067: was ONE 9 × 3 × 6 slab and read as a featureless brown box on the deck. Now the shared
-		-- rack layout from BoatParts — crates in the deck corners (clear of the stations) plus a transom
-		-- frame — so the showroom shows the same thing the real boat gets, piece for piece.
-		for _, piece in ipairs(BoatParts.cargoRackPieces(HULL.Z / 2)) do
-			addPart(model, base, piece.name, piece.size, piece.offset, piece.color, piece.material)
+		if BoatParts.hasArt("trailer") then
+			-- Real mesh: ONE host + skin, like every other part. ⚠️ Host size/position are PROVISIONAL —
+			-- they must be re-measured against the imported mesh and the role stations moved to suit.
+			addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+		else
+			-- No mesh yet: greybox stand-in from the shared layout, so the showroom and the real boat show
+			-- the same thing piece for piece. This whole branch disappears once the art is imported.
+			for _, piece in ipairs(BoatParts.cargoRackPieces(HULL.Z / 2)) do
+				addPart(model, base, piece.name, piece.size, piece.offset, piece.color, piece.material)
+			end
 		end
 	end
 	if owned.ramps then

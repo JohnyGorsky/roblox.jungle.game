@@ -106,6 +106,29 @@ long you had. There is now a red vignette, a bleed-out countdown that pulses in 
 `PlayerCombat` publishes `BleedOutAt` as an `os.time()` wall-clock deadline — not `os.clock()`, which is
 per-process and meaningless to the client that has to render the number.
 
+## 7. Follow-ups raised by the user during the job
+
+**The searchlight was standing inside the gun.** Measured, not eyeballed: the mount sits at `z −11` with a
+barrel skin spanning `z −13.8…−8.3`, and the mast stood at `z −8.7` on the same centreline. It now stands
+to port beside the helm, verified clear of the gun, driver and crew seats.
+
+**Two lamps did the same thing.** The free bow light and the 120-Gold Searchlight module both pointed
+straight ahead all night, so the module was worth +35 range and a little brightness — and `HasSearchlight`
+was set but **read by nothing**, so it had no gameplay effect at all. The beam now **sweeps with the
+mounted gun's yaw**, giving the gunner a night role and the module a reason to exist. Yaw only (following
+elevation would point it at the sky); recentres forward when the turret is unmanned. The bow light stays
+on regardless.
+
+Driven kinematically from the hull CFrame like `GunServer` drives the barrel. `GunServer` publishes
+`GunYaw` on the boat — only when it changes, since attributes replicate and a per-Heartbeat write would be
+60 replicated writes a second for a usually-static value.
+
+**Invented greybox was removed as a practice.** The user's instruction — *"if you need models just say, do
+not invent things"* — after I fabricated a grey mast, a grey rack frame and a grey ramp wedge. Three
+meshes were commissioned instead (`SearchlightMast`, `CargoRacks`, `RampBow`); `BoatParts` now names them,
+so the stand-ins vanish automatically on import. **`size` is deliberately left unset on all three** so they
+arrive at natural scale and the boat is fitted around them, rather than stretching art to fit a host.
+
 ## Files changed
 
 **New** — `ReplicatedStorage/Boat/BoatPaint.luau` (both trees) · lobby `Progression/PaintServer.server.luau` ·

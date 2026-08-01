@@ -179,6 +179,11 @@ just a hidden stat bump:
 - **Armor** — plating that raises **boat HP** and shrugs off animal/hazard damage.
 - Plus **guns/mounts**, a **searchlight** (night), **fuel-tank capacity**, **storage** — each a visible
   add-on.
+  - **Searchlight sweeps with the mounted gun (Job 067).** Every boat has a free forward bow light; the
+    120-Gold module adds a longer, brighter beam that **follows the gunner's aim**, so manning the turret
+    at night lights up whatever you're pointing at. Before this both lamps pointed forward and the module
+    was worth +35 range — and `HasSearchlight` was read by nothing at all. The bow light stays on either
+    way: buying an upgrade must never make part of your boat darker.
 
 Start = small & humble; end = a full custom boat. The run should feel like it **grows with you**, and
 this is the meta economy's main sink. Ties into persistent **boat upgrades** bought with meta currency

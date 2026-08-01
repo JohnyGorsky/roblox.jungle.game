@@ -6,6 +6,7 @@
 -- tune" — deeper stat tuning is the skill tree (#024). Server-authoritative. Greybox parts (art later).
 
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -87,6 +88,55 @@ local STERN = HALF_Z + 1     -- ON the transom (inside the hull the engine hides
 -- gun. Kept as named constants because two parts (mast + head) must stay together.
 local SEARCHLIGHT_X = -4.8
 local SEARCHLIGHT_Z = -1.5
+-- ── searchlight tracking (Job 067) ───────────────────────────────────────────────────────────────
+-- THE PROBLEM IT SOLVES: the free bow light and the 120-Gold Searchlight module both pointed straight
+-- ahead, dusk to dawn. The upgrade amounted to +35 range and a bit more brightness — and `HasSearchlight`
+-- was set but read by nothing at all, so the module had no gameplay effect whatsoever. A spotlight you
+-- cannot point isn't a searchlight; it's a brighter headlight.
+--
+-- Now the beam SWEEPS WITH THE MOUNTED GUN. Whoever mans the turret lights up whatever they're aiming at,
+-- which gives the gunner a real job at night and makes the module obviously worth buying. The bow light
+-- stays on regardless — buying an upgrade must never make any part of your boat darker.
+--
+-- Driven kinematically from the hull CFrame + the gunner's yaw, exactly the way GunServer drives the
+-- barrel: the head is ANCHORED and its hull weld removed, because a welded part can't be rotated
+-- independently of the assembly it rides.
+--
+-- YAW ONLY, no pitch: following the gunner's elevation would point the beam at the sky the moment they
+-- aimed at a bank. When nobody mans the gun, GunServer recentres the yaw to 0 and the beam returns to
+-- straight ahead.
+local function trackSearchlight(head: BasePart)
+	local hullWeld = head:FindFirstChildOfClass("WeldConstraint") -- the weld addPart made to the hull
+	if hullWeld then
+		hullWeld:Destroy()
+	end
+	head.Anchored = true
+	local mount = CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6)
+
+	-- The MESH is welded to the head, and GunServer already warns that a welded child of a CFrame-driven
+	-- anchored part is the one attachment here that isn't obviously safe. Rather than find out at night on
+	-- a moving boat, the skin is driven explicitly alongside its host — one extra CFrame write per frame,
+	-- and the lamp can't lag or detach from its own beam. Its local offset is captured ONCE, up front.
+	local skin = head:FindFirstChild("Skin_searchlightHead")
+	local skinLocal: CFrame? = nil
+	if skin and skin:IsA("BasePart") then
+		skin.Anchored = true
+		skinLocal = head.CFrame:ToObjectSpace(skin.CFrame)
+	end
+
+	RunService.Heartbeat:Connect(function()
+		if not head.Parent or not theHull.Parent then
+			return
+		end
+		local yaw = (theBoat:GetAttribute("GunYaw") :: number?) or 0
+		local cf = theHull.CFrame * mount * CFrame.Angles(0, yaw, 0)
+		head.CFrame = cf
+		if skin and skinLocal and skin.Parent then
+			(skin :: BasePart).CFrame = cf * skinLocal
+		end
+	end)
+end
+
 local applied = false
 local function apply()
 	if applied then
@@ -169,6 +219,7 @@ local function apply()
 		CollectionService:AddTag(light, "NightLight")
 		light.Parent = head
 		theBoat:SetAttribute("HasSearchlight", true)
+		trackSearchlight(head)
 		table.insert(on, "searchlight")
 	end
 	if crewOwns("trailer") then
@@ -177,11 +228,16 @@ local function apply()
 		-- footprint (Z 11…27) and 1.4 studs BELOW it, so the 180-Gold upgrade was invisible. It now sits
 		-- ON the rear deck as cargo racks, which is the point of a visible module. Deck top is
 		-- hull.Y/2 - 0.5 + 0.5 = 1.5, so Y 3.0 puts a 3-tall rack on the deck surface.
-		-- Job 067: was ONE 9 × 3 × 6 slab, which read as a featureless box dumped on the deck. Now built
-		-- from the shared rack layout in BoatParts (crates in the deck corners + a transom frame), so it
-		-- looks like cargo capacity and matches the lobby showroom piece for piece.
-		for _, piece in ipairs(BoatParts.cargoRackPieces(HALF_Z)) do
-			addPart(piece.name, piece.size, piece.color, piece.offset, piece.material)
+		if BoatParts.hasArt("trailer") then
+			-- Real mesh: ONE host + skin. ⚠️ Host size/position PROVISIONAL until measured against the
+			-- import; the role stations share this deck and will need moving around it.
+			addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 7), Enum.Material.WoodPlanks, "trailer")
+		else
+			-- No mesh yet: greybox stand-in from the shared layout in BoatParts, matching the lobby
+			-- showroom piece for piece. This branch disappears once the art is imported.
+			for _, piece in ipairs(BoatParts.cargoRackPieces(HALF_Z)) do
+				addPart(piece.name, piece.size, piece.color, piece.offset, piece.material)
+			end
 		end
 		table.insert(on, "trailer")
 	end
