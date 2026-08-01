@@ -95,7 +95,21 @@ BoatParts.Defs = {
 	} :: PartDef,
 	-- Base motor (Job 066 decision #1): every boat has one. `motor2` is its twin, added by the upgrade.
 	motor = { library = nil, collision = "skin" } :: PartDef,
-	driverSeat = { library = nil, collision = "skin" } :: PartDef, -- seat + console + steering wheel
+	-- Seat + console + steering wheel. Mesh imported 1.36 × 1.00 × 0.88 with its longest axis (X) running
+	-- seat→console, i.e. fore-aft — so it needs the same 90° yaw as the hull to line up with a boat whose
+	-- length is on Z. Scaled to ~3.5 studs tall, which reads correctly next to a 5-stud character.
+	--
+	-- The host is only a 1-tall seat pad (it stays a VehicleSeat — driving depends on that), so centring
+	-- would bury the console in the deck. Lifted so the mesh's BASE sits on the pad's top face.
+	-- Scaled up ~15% from the first pass (4.75 × 3.5 × 3.08) — it read slightly small for a driving
+	-- position next to a 5-stud character. The lift keeps the base exactly on the deck: host pad centre is
+	-- at hull-space Y 2, deck top at 1.5, so a 4.0-tall seat needs its centre at 3.5, i.e. +1.5.
+	driverSeat = {
+		library = "DriverSeat",
+		size = Vector3.new(5.5, 4.0, 3.55), -- local X = fore-aft, becomes boat Z after the yaw
+		offset = CFrame.new(0, 1.5, 0) * CFrame.Angles(0, math.rad(90), 0),
+		collision = "skin",
+	} :: PartDef,
 	gunBase = { library = nil, collision = "skin" } :: PartDef,
 	-- decision #2: the upgrade REPLACES this barrel's model rather than adding a second one
 	gunBarrel = { library = nil, upgradeLibrary = nil, collision = "skin" } :: PartDef,
