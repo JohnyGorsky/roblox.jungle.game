@@ -206,10 +206,11 @@ BoatParts.Defs = {
 	fuelStation = {
 		library = "FuelStation",
 		size = Vector3.new(2.25, 3.75, 2.25), -- +25%
-		-- DERIVED, not eyeballed: the skin's base is placed exactly on the rear deck's top surface (1.70 in
-		-- hull space, measured from the deck skin). An earlier round of hand-tuned offsets came from a stale
-		-- Play session that was still showing pre-edit values — the arithmetic was right all along.
-		offset = CFrame.new(0, 0.575, 0), -- 1.70 (deck top) + 3.75/2 - 3.00 (host centre)
+		-- Derived from the deck: base = deck top (1.70, measured off the deck skin) — then dropped 0.3,
+		-- because the mesh's geometry sits a little above its own bounding-box floor, so a box-flush base
+		-- still reads as hovering. 0.3 is the whole correction; an earlier attempt at ~1.2 came from a stale
+		-- Play session and buried them.
+		offset = CFrame.new(0, 0.275, 0), -- deck-top derivation minus 0.3: the mesh sits slightly high in its box
 		collision = "skin",
 	} :: PartDef,
 	-- Repair toolbox. Imported 1.20 × 1.20 × 0.76 — a square-fronted cabinet, upright, no rotation.
@@ -217,7 +218,7 @@ BoatParts.Defs = {
 	repairStation = {
 		library = "RepairStation",
 		size = Vector3.new(3.5, 3.5, 2.25), -- +25%
-		offset = CFrame.new(0, 0.45, 0), -- 1.70 (deck top) + 3.50/2 - 3.00 (host centre)
+		offset = CFrame.new(0, 0.15, 0), -- deck-top derivation minus 0.3: the mesh sits slightly high in its box
 		collision = "skin",
 	} :: PartDef,
 	-- Medic crate (GAME place only — CargoServer builds this one). Imported 1.80 × 1.20 × 1.37, a crate
