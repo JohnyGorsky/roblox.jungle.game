@@ -59,10 +59,15 @@ folder = Instance.new("Folder")
 folder.Name = "LobbyBoats"
 folder.Parent = Workspace
 
--- Water surface height at (x, z), or nil if there's no water there.
+-- Water SURFACE height at (x, z), or nil if there's no water there.
+--
+-- Terrain voxels are 4 studs, and a voxel is only PARTLY full at the surface — its `occupancy` says how
+-- much. An earlier version returned the topmost water voxel's CENTRE, which sat the whole boat up to two
+-- studs too low: the interior deck ended up under the real waterline and water visibly washed through the
+-- hull. Use the voxel's base plus its occupancy to get the actual surface.
 local function waterTopAt(x: number, z: number): number?
 	local region = Region3.new(Vector3.new(x - 2, -60, z - 2), Vector3.new(x + 2, 60, z + 2)):ExpandToGrid(4)
-	local ok, mat = pcall(function()
+	local ok, mat, occ = pcall(function()
 		return Workspace.Terrain:ReadVoxels(region, WATER_PROBE_STEP)
 	end)
 	if not ok or not mat then
@@ -71,7 +76,9 @@ local function waterTopAt(x: number, z: number): number?
 	local top: number? = nil
 	for y = 1, #mat[1] do
 		if mat[1][y][1] == Enum.Material.Water then
-			top = -60 + (y - 0.5) * WATER_PROBE_STEP
+			local base = -60 + (y - 1) * WATER_PROBE_STEP -- bottom face of this voxel
+			local fill = (occ and occ[1] and occ[1][y] and occ[1][y][1]) or 1
+			top = base + fill * WATER_PROBE_STEP
 		end
 	end
 	return top

@@ -83,7 +83,16 @@ BoatParts.Defs = {
 		collision = "skin",
 	} :: PartDef,
 	-- The walkable deck — the ONE part that keeps real collision.
-	cargoDeck = { library = nil, collision = "deck" } :: PartDef,
+	-- Mesh imported 8.80 × 1.20 × 4.63 with its length already on X, same as the host (14 × 1 × 8), so no
+	-- rotation is needed. Its natural ratio (1.90:1) is close to the host's (1.75:1), so stretching to the
+	-- host footprint barely distorts it. Lifted 0.1 so the skin's top face lines up with the greybox top —
+	-- this is the surface players actually stand on.
+	cargoDeck = {
+		library = "CargoDeck",
+		size = Vector3.new(14, 1.2, 8),
+		offset = CFrame.new(0, 0.1, 0),
+		collision = "deck",
+	} :: PartDef,
 	-- Base motor (Job 066 decision #1): every boat has one. `motor2` is its twin, added by the upgrade.
 	motor = { library = nil, collision = "skin" } :: PartDef,
 	driverSeat = { library = nil, collision = "skin" } :: PartDef, -- seat + console + steering wheel
@@ -91,11 +100,25 @@ BoatParts.Defs = {
 	-- decision #2: the upgrade REPLACES this barrel's model rather than adding a second one
 	gunBarrel = { library = nil, upgradeLibrary = nil, collision = "skin" } :: PartDef,
 	gunSeat = { library = nil, collision = "skin" } :: PartDef,
-	bowLight = { library = nil, collision = "skin" } :: PartDef,
+	-- Lamp imported 0.85 × 1.20 × 0.81 — already upright (long axis Y) and already about the size of its
+	-- 1.2-cube host, so it needs neither scaling nor rotation. Left at natural size deliberately; if the
+	-- lens ends up facing the wrong way, add a yaw here rather than re-exporting.
+	bowLight = { library = "BowLight", collision = "skin" } :: PartDef,
 
 	-- ── upgrade modules (ModuleDefs — 6, bought once, no tiers) ──────────────────────────────────
 	motor2 = { library = nil, collision = "skin" } :: PartDef, -- boat space (−3.5, 1, 10.5)
-	hullPlate = { library = nil, collision = "skin" } :: PartDef, -- both flanks, ±7.3
+	-- Armour strip on both flanks (±7.3). Mesh imported 2.76 × 1.20 × 0.28 with its length on X, so it needs
+	-- a 90° yaw to run along the hull (host is 0.6 × 2 × hullLength).
+	-- ⚠️ COMPROMISE: the mesh is a SHORT plate (2.76 long) and the host is a 30-long strip, so this stretches
+	-- it ~11× lengthwise and the bolt detail smears. The better fix is to repeat the plate as several
+	-- segments per flank instead of stretching one — that needs BoatModules/LobbyBoat to emit N parts, so
+	-- it's noted rather than done. Judge it in-game first; at gameplay distance it may well be fine.
+	hullPlate = {
+		library = "HullPlate",
+		size = Vector3.new(30, 2, 0.6), -- local X = mesh length, becomes hull length after the yaw
+		offset = CFrame.Angles(0, math.rad(90), 0),
+		collision = "skin",
+	} :: PartDef,
 	fuelTank = { library = nil, collision = "skin" } :: PartDef, -- (4.5, 2.5, 8)
 	searchlightMast = { library = nil, collision = "skin" } :: PartDef, -- (0, 5, −7)
 	searchlightHead = { library = nil, collision = "skin" } :: PartDef, -- (0, 8, −7.6)
@@ -206,15 +229,18 @@ function BoatParts.skin(host: BasePart, id: string, useUpgrade: boolean?): BaseP
 	return skin
 end
 
--- ── authoring-time helper (run from Studio in EDIT mode, not at runtime) ─────────────────────────
--- Sets CollisionFidelity on every library MeshPart according to its def: the walkable deck gets
--- PreciseConvexDecomposition, everything else gets Box (cheapest — skins don't collide anyway).
+-- ── authoring-time helper ────────────────────────────────────────────────────────────────────────
+-- ⚠️ LIMITED USE. CollisionFidelity turned out to be unwritable from a game script AND silently ignored
+-- from the Studio command bar / MCP Edit context (the assignment "succeeds" and the value does not
+-- change). In practice it can only be set in the **Properties panel** or in the 3D Importer.
 --
--- This exists because CollisionFidelity cannot be written by a game script (plugin capability only), yet
--- imported meshes default to Box and a mesh people must STAND on needs better. Run it once after
--- importing new art, then SAVE THE PLACE — the property travels with the asset, not with this code.
+-- That is fine, because it does not actually matter here: every mesh is a SKIN over a greybox host, and
+-- the HOST carries the collision (a clean box, which is also the cheapest and most stable option for a
+-- deck people walk on). A skin's own fidelity is irrelevant while it is non-colliding, and for the flat
+-- deck plate a box is the right shape anyway.
 --
--- Returns a human-readable report so the result can be verified rather than assumed.
+-- Kept for the case where a future part genuinely needs precise collision — run it from a real plugin
+-- context, or just set the property by hand and save the place.
 function BoatParts.applyLibraryFidelity(): string
 	local lib = library()
 	if not lib then

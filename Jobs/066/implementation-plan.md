@@ -122,6 +122,14 @@ hidden (`Transparency = 1`), the skin is `CanCollide = false` + `Massless = true
 (PBR) carried across on the clone, and the skin stands 1.1 studs taller than the box — gunwales rising
 above the physics body, exactly the intent of the skin approach.
 
+**The waterline bug — every boat sat 2 studs too low.** Reported as *"water is going through"*: the
+interior deck was under the surface. Cause was in `LobbyBoat.waterTopAt`, not the art — terrain voxels are
+4 studs and only PARTLY filled at the surface, and the probe returned the topmost water voxel's **centre**
+as the water height. Measured: it reported **−6.00** where the true surface is **−4.00**.
+→ Now reads the voxel's base plus its **occupancy**, giving the real surface. After the fix: keel 0.60
+below water (as designed), gunwale 5.42 above, rear deck 2.60 above and dry.
+→ Worth remembering for any future terrain-water probing: **voxel centre ≠ water surface.**
+
 **Phase 2 · Concept sheet (yours) → meshes**
 
 5. I produce the **generation brief** below; you render one ChatGPT sheet with all 15 parts in our palette.
