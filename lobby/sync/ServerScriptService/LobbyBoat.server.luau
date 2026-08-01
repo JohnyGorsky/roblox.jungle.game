@@ -268,8 +268,10 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		end
 	end
 	addPart(model, base, "BowLightHead", Vector3.new(1.2, 1.2, 1.2), CFrame.new(BOW_LIGHT_X, BOW_LIGHT_Y, BOW), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "bowLight")
-	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
-	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")
+	-- Job 067: moved from the deck CENTRE to its forward edge, so the Cargo Racks mesh can own the aft
+	-- half. x +/-4.5 leaves the centre clear for the Medic station the game place also builds there.
+	addPart(model, base, "Fuel Station", Vector3.new(3, 3, 3), CFrame.new(-4.5, TOP_Y + 1.5, BACK_Z - 2.5), Color3.fromRGB(240, 190, 60), Enum.Material.Metal, "fuelStation")
+	addPart(model, base, "Repair Station", Vector3.new(3, 3, 3), CFrame.new(4.5, TOP_Y + 1.5, BACK_Z - 2.5), Color3.fromRGB(120, 200, 130), Enum.Material.Metal, "repairStation")
 
 	-- the gun barrel: swapped model when the upgrade is owned (decision #2), never two barrels
 	local hasGunUpgrade = owned.gunupgrade == true
@@ -307,14 +309,18 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		-- ⚠️ Job 067: was z = BOW * 0.6 ≈ −8.7 on the CENTRELINE, i.e. inside the gun — the mount is at
 		-- z −11 with a barrel skin spanning −13.8…−8.3, so the barrel ran through the mast and the lamp
 		-- hung over the gunner's sights. Now to PORT beside the helm; see BoatModules for the full note.
-		addPart(model, base, "SearchlightMast", Vector3.new(0.8, 6, 0.8), CFrame.new(SEARCHLIGHT_X, 5, SEARCHLIGHT_Z), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
-		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
+		-- Job 067: the mesh is a 4.53-tall PEDESTAL, not a 6-tall pole, so the host follows the mesh and
+		-- the lamp comes down to sit ON it (base 1.6 = deck, top 6.14; head centred 7.2 overlaps the post).
+		addPart(model, base, "SearchlightMast", Vector3.new(1.7, 4.53, 1.7), CFrame.new(SEARCHLIGHT_X, 3.87, SEARCHLIGHT_Z), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
+		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 7.2, SEARCHLIGHT_Z - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
 		if BoatParts.hasArt("trailer") then
 			-- Real mesh: ONE host + skin, like every other part. ⚠️ Host size/position are PROVISIONAL —
 			-- they must be re-measured against the imported mesh and the role stations moved to suit.
-			addPart(model, base, "Trailer", Vector3.new(9, 3, 6), CFrame.new(0, TOP_Y + 1.5, BACK_Z), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+			-- AFT half of the rear deck; the stations moved forward to BACK_Z - 2.5 to make room.
+			-- Base sits on the deck: deck top 1.7 + half the 2.80-tall mesh = 3.10.
+			addPart(model, base, "Trailer", Vector3.new(7.5, 2.8, 4.92), CFrame.new(0, 3.10, BACK_Z + 1.5), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
 		else
 			-- No mesh yet: greybox stand-in from the shared layout, so the showroom and the real boat show
 			-- the same thing piece for piece. This whole branch disappears once the art is imported.
@@ -326,7 +332,9 @@ local function buildBoat(plr: Player, slot: Slot): Model
 	if owned.ramps then
 		-- Ramp Bow & Hull Shape (Job 067). Greybox wedge until art exists, mirroring BoatModules — high end
 		-- toward the bow, so it reads as a launch ramp rather than a box.
-		addPart(model, base, "RampBow", Vector3.new(13, 2.2, 5), CFrame.new(0, 2.6, BOW - 1) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(96, 100, 108), Enum.Material.DiamondPlate, "ramp", "WedgePart")
+		-- Square-footprint mesh (6 x 6), so it rides LOW on the foredeck and passes under the gun base
+		-- rather than trying to fit forward of it. See BoatParts.ramp.
+		addPart(model, base, "RampBow", Vector3.new(6, 1.71, 6), CFrame.new(0, 2.6, BOW + 1.3), Color3.fromRGB(96, 100, 108), Enum.Material.DiamondPlate, "ramp")
 	end
 
 	-- ── hull livery (Boat Paint Pack, Job 067) ────────────────────────────────────────────────────

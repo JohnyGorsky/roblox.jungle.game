@@ -108,7 +108,7 @@ local function makeStation(name: string, localCF: CFrame, color: Color3, actionT
 end
 
 -- FUEL station: spend 1 gasoline → refuel the tank (Fuel Handling skill scales fuel/gas — Job 029)
-makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(240, 190, 60), "Refuel", "fuelStation").Triggered:Connect(function(player: Player)
+makeStation("Fuel Station", CFrame.new(-4.5, topY + 1.5, backZ - 2.5), Color3.fromRGB(240, 190, 60), "Refuel", "fuelStation").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Gasoline") :: number?) or 0) > 0 then
 		boat:SetAttribute("Gasoline", (boat:GetAttribute("Gasoline") :: number) - 1)
 		local maxF = (boat:GetAttribute("MaxFuel") :: number?) or 100
@@ -119,7 +119,7 @@ makeStation("Fuel Station", CFrame.new(-4, topY + 1.5, backZ), Color3.fromRGB(24
 end)
 
 -- REPAIR station: spend 1 metal → mend the hull (Field Repair skill scales HP/metal — Job 029)
-makeStation("Repair Station", CFrame.new(4, topY + 1.5, backZ), Color3.fromRGB(120, 200, 130), "Repair", "repairStation").Triggered:Connect(function(player: Player)
+makeStation("Repair Station", CFrame.new(4.5, topY + 1.5, backZ - 2.5), Color3.fromRGB(120, 200, 130), "Repair", "repairStation").Triggered:Connect(function(player: Player)
 	if ((boat:GetAttribute("Metal") :: number?) or 0) > 0 then
 		boat:SetAttribute("Metal", (boat:GetAttribute("Metal") :: number) - 1)
 		local maxH = (boat:GetAttribute("MaxHP") :: number?) or 100
@@ -139,7 +139,10 @@ do
 	m.Material = Enum.Material.Metal
 	m.Massless = true
 	m.CanCollide = false
-	m.CFrame = hull.CFrame * CFrame.new(0, topY + 1.5, backZ + 3)
+	-- Job 067: all three stations moved to the FORWARD edge of the rear deck (was Fuel/Repair at the
+	-- centre and Medic 3 studs aft) so the Cargo Racks mesh can own the aft half. Three across at
+	-- x -4.5 / 0 / +4.5 fits the 14-wide deck with no overlap.
+	m.CFrame = hull.CFrame * CFrame.new(0, topY + 1.5, backZ - 2.5)
 	local w = Instance.new("WeldConstraint")
 	w.Part0 = hull
 	w.Part1 = m

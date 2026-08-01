@@ -375,9 +375,9 @@ boat float, and hosts the `Root` attachment every thrust/turn force uses. Each m
 | `FuelTankModule` · `SearchlightHead` | 2 meshes | <span style="color:#2e9c3f">✅ wired</span> | appear only when their module is owned |
 | `GunBarrelHeavy` | `GunBarrelHeavy` | <span style="color:#2e9c3f">✅ wired</span> | **swaps** the base barrel (never two barrels) |
 | Fuel · Repair · Medic stations | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | medic is game-place only |
-| Searchlight **mast** | — | <span style="color:#2e9c3f">✅ stays a part</span> | a 0.8-stud pole reconstructs badly in Meshy. **Job #067: moved to PORT beside the helm** — on the centreline it stood *inside* the gun barrel |
-| Cargo Racks (`trailer`) | — | <span style="color:#c8a13a">⏳ greybox racks</span> | **Job #067.** No mesh. Was one 9×3×6 slab and read as a plain box; now crates in the deck corners + a transom frame (`BoatParts.cargoRackPieces`). **A mesh would help most here** — brief: open steel rack + lashed wooden crates on a deck, ~13 wide × 3 tall × 8 deep |
-| `RampBow` | — | <span style="color:#c8a13a">⏳ greybox wedge</span> | **Job #067** `ramps` module. Bow ramp / hull-shape kit — a low wedge across the bow, high edge forward, weathered metal to match `HullPlate`. Ships as a `WedgePart` until a mesh exists |
+| Searchlight **mast** | `SearchlightMast` | <span style="color:#2e9c3f">✅ wired</span> | **Job #067.** Now a chunky riveted **pedestal** (1.7 x 4.53) — a 0.8-stud pole reconstructs badly in Meshy, which is why it was a plain box before. Also **moved to PORT beside the helm**: on the centreline it stood *inside* the gun barrel |
+| Cargo Racks (`trailer`) | `CargoRacks` | <span style="color:#2e9c3f">✅ wired</span> | **Job #067.** 7.5 x 2.80 x 4.92 on the **aft half** of the rear deck; the three role stations moved forward to `backZ - 2.5` to make room. `cargoRackPieces` is the greybox fallback if the mesh is ever missing |
+| `RampBow` | `RampBow` | <span style="color:#2e9c3f">✅ wired</span> | **Job #067** `ramps` module. ⚠️ Imported with a **square footprint** (4.21 x 1.20 x 4.21), so at 6 wide it is also 6 deep — it rides LOW on the foredeck (y 1.74…3.45) and passes **under** the gun base (y 3.8…5.8) rather than in front of it. Paintable |
 | Cargo trailer / barge | — | <span style="color:#c93c3c">❌ not needed</span> | no towed body; cargo is the rear deck (GAME.md) |
 | Boat SFX | engine loop, start, on-fire, destroyed, metal hit | <span style="color:#2e9c3f">✅ some exist</span> | in `assets/Objects/Boat/Sounds/` |
 

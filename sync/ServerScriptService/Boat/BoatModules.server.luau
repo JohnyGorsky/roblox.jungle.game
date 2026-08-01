@@ -88,6 +88,10 @@ local STERN = HALF_Z + 1     -- ON the transom (inside the hull the engine hides
 -- gun. Kept as named constants because two parts (mast + head) must stay together.
 local SEARCHLIGHT_X = -4.8
 local SEARCHLIGHT_Z = -1.5
+-- Lamp height. ONE constant, because the tracking loop below rebuilds the head's CFrame every frame — if
+-- it disagreed with where the head was first placed, the loop would silently snap the lamp somewhere else.
+-- 7.2 sits it on top of the 4.53-tall pedestal (deck 1.6 → post top 6.14), overlapping slightly.
+local SEARCHLIGHT_HEAD_Y = 7.2
 -- ── searchlight tracking (Job 067) ───────────────────────────────────────────────────────────────
 -- THE PROBLEM IT SOLVES: the free bow light and the 120-Gold Searchlight module both pointed straight
 -- ahead, dusk to dawn. The upgrade amounted to +35 range and a bit more brightness — and `HasSearchlight`
@@ -111,7 +115,7 @@ local function trackSearchlight(head: BasePart)
 		hullWeld:Destroy()
 	end
 	head.Anchored = true
-	local mount = CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6)
+	local mount = CFrame.new(SEARCHLIGHT_X, SEARCHLIGHT_HEAD_Y, SEARCHLIGHT_Z - 0.6)
 
 	-- The MESH is welded to the head, and GunServer already warns that a welded child of a CFrame-driven
 	-- anchored part is the one attachment here that isn't obviously safe. Rather than find out at night on
@@ -208,8 +212,10 @@ local function apply()
 		-- It now stands to PORT beside the helm (the user asked for it "aside" as far back as Job 066):
 		-- clear of the driver's console (x ±1.8, z ±2.75), clear of the crew seats (z 2.7…5.3) and well
 		-- clear of the gun. Still forward-facing, so the beam does what it always did.
-		addPart("SearchlightMast", Vector3.new(0.8, 6, 0.8), Color3.fromRGB(60, 60, 66), CFrame.new(SEARCHLIGHT_X, 5, SEARCHLIGHT_Z), Enum.Material.Metal, "searchlightMast")
-		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(SEARCHLIGHT_X, 8, SEARCHLIGHT_Z - 0.6), Enum.Material.Neon, "searchlightHead")
+		-- Job 067: the mesh is a 4.53-tall PEDESTAL, not a 6-tall pole, so the host follows the mesh and the
+		-- lamp comes down to sit ON it (base 1.6 = deck, top 6.14; head centred 7.2 overlaps into the post).
+		addPart("SearchlightMast", Vector3.new(1.7, 4.53, 1.7), Color3.fromRGB(60, 60, 66), CFrame.new(SEARCHLIGHT_X, 3.87, SEARCHLIGHT_Z), Enum.Material.Metal, "searchlightMast")
+		local head = addPart("SearchlightHead", Vector3.new(2, 2, 2), Color3.fromRGB(245, 245, 210), CFrame.new(SEARCHLIGHT_X, SEARCHLIGHT_HEAD_Y, SEARCHLIGHT_Z - 0.6), Enum.Material.Neon, "searchlightHead")
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Front -- emits along -Z (forward / downstream)
 		light.Angle = 70
@@ -231,7 +237,9 @@ local function apply()
 		if BoatParts.hasArt("trailer") then
 			-- Real mesh: ONE host + skin. ⚠️ Host size/position PROVISIONAL until measured against the
 			-- import; the role stations share this deck and will need moving around it.
-			addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 7), Enum.Material.WoodPlanks, "trailer")
+			-- AFT half of the rear deck; CargoServer moved the three stations forward to make room.
+			-- Base on the deck: deck top 1.7 + half the 2.80-tall mesh = 3.10.
+			addPart("Trailer", Vector3.new(7.5, 2.8, 4.92), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3.10, HALF_Z + 8.5), Enum.Material.WoodPlanks, "trailer")
 		else
 			-- No mesh yet: greybox stand-in from the shared layout in BoatParts, matching the lobby
 			-- showroom piece for piece. This branch disappears once the art is imported.
@@ -273,8 +281,10 @@ local function apply()
 		theBoat:SetAttribute("CurrentMul", 0.85)
 		-- Greybox wedge on the bow (no art yet — BoatParts `ramp` has library = nil, the Job 066 pattern).
 		-- A WedgePart so the slope is visible; rotated 180° about Y so the high end faces the bow (−Z).
-		addPart("RampBow", Vector3.new(13, 2.2, 5), Color3.fromRGB(96, 100, 108),
-			CFrame.new(0, 2.6, BOW - 1) * CFrame.Angles(0, math.pi, 0), Enum.Material.DiamondPlate, "ramp", "WedgePart")
+		-- Square-footprint mesh (6 x 6), so it rides LOW on the foredeck and passes UNDER the gun base
+		-- rather than trying to fit forward of it. See BoatParts.ramp.
+		addPart("RampBow", Vector3.new(6, 1.71, 6), Color3.fromRGB(96, 100, 108),
+			CFrame.new(0, 2.6, BOW + 1.3), Enum.Material.DiamondPlate, "ramp")
 		table.insert(on, "ramps")
 	end
 

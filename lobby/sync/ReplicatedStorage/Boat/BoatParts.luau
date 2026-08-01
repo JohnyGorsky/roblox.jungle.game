@@ -211,12 +211,15 @@ BoatParts.Defs = {
 		size = Vector3.new(2.5, 1.5, 1.5), -- natural proportions
 		collision = "skin",
 	} :: PartDef,
-	-- Job 067: art generated. ⚠️ `size` is deliberately UNSET until the import is MEASURED — the concept
-	-- render came out ~3:1 tall:wide (a stocky riveted pedestal, kept deliberately: a 0.8-stud pole is the
-	-- geometry Meshy reconstructs worst). Sizing it to the old 0.8 × 6 host would stretch it 2.5× and smear
-	-- every rivet, which is exactly the mistake the hull plates taught us. Size to the MESH, then move the
-	-- boat around it. Expect roughly 1.7 × 5.5 × 1.7.
-	searchlightMast = { library = "SearchlightMast", collision = "skin" } :: PartDef,
+	-- Riveted searchlight PEDESTAL, deliberately stocky — a 0.8-stud pole is the geometry Meshy
+	-- reconstructs worst, which is why this part was a plain box until Job 067.
+	-- Imported 0.45 × 1.20 × 0.45 = 1 : 2.67 : 1, so at 1.7 wide it stands 4.53 tall. ZERO stretch; the old
+	-- 0.8 × 6 host would have squeezed it 2.1× and smeared every rivet.
+	searchlightMast = {
+		library = "SearchlightMast",
+		size = Vector3.new(1.7, 4.53, 1.7),
+		collision = "skin",
+	} :: PartDef,
 	-- Searchlight lamp. ⚠️ The imported asset is spelled "SearchLightHead" (capital L) — this string must
 	-- match the library child exactly, so it is deliberately NOT normalised to our camelCase key.
 	searchlightHead = {
@@ -224,17 +227,27 @@ BoatParts.Defs = {
 		size = Vector3.new(2.2, 2.4, 1.94),
 		collision = "skin",
 	} :: PartDef,
-	-- Cargo Racks. Job 067: art generated (lashed crates in an olive angle-iron rack with a back rail).
-	-- ⚠️ `size` UNSET pending measurement — the render is ~2.5 : 1 : 1.8, chunkier than the 4.3 : 1 : 2.7
-	-- the rear deck was laid out for, so at natural proportions it will be TALLER and DEEPER than the old
-	-- 9 × 3 × 6 slab. The three role stations share that deck and will need moving forward around it.
-	-- Until the mesh is imported, `cargoRackPieces` below builds the greybox stand-in.
-	trailer = { library = "CargoRacks", collision = "skin" } :: PartDef,
-	-- Bow ramp / hull-shape kit (the `ramps` module). Job 067: art generated.
-	-- ⚠️ `size` UNSET pending measurement — the render's footprint is near-square where the bow has room
-	-- for ~2.6:1, and the gun mount sits at z −11, so the depth decides whether it clears the gun or the
-	-- hull tip. Measure, then place. Paintable: it's a hull surface, so it repaints with the hull.
-	ramp = { library = "RampBow", collision = "skin", paintable = true } :: PartDef,
+	-- Cargo Racks — lashed crates in an olive angle-iron rack with a back rail.
+	-- Imported 3.22 × 1.20 × 2.11 = 2.68 : 1 : 1.76, chunkier than the 4.3 : 1 : 2.7 the rear deck was laid
+	-- out for. Rather than flatten the art, the BOAT moved: at 7.5 wide it is 2.80 tall × 4.92 deep and
+	-- takes the AFT half of the rear deck, and the three role stations moved to the forward edge to suit
+	-- (CargoServer / LobbyBoat). Sized at 7.5 rather than the full 14 so the deck still reads as a deck.
+	trailer = {
+		library = "CargoRacks",
+		size = Vector3.new(7.5, 2.80, 4.92),
+		collision = "skin",
+	} :: PartDef,
+	-- Bow ramp / hull-shape kit (the `ramps` module).
+	-- ⚠️ Imported 4.21 × 1.20 × 4.21 — a SQUARE footprint, where the bow wanted something wide and shallow.
+	-- Since the mesh is as deep as it is wide, size drives placement: at 6 wide it is also 6 DEEP, and the
+	-- gun mount sits at z −11. It therefore rides LOW on the foredeck (y 1.75…3.46) and passes UNDER the
+	-- gun base (y 3.8…5.8) rather than trying to fit in front of it. Verified by AABB test, not by eye.
+	ramp = {
+		library = "RampBow",
+		size = Vector3.new(6, 1.71, 6),
+		collision = "skin",
+		paintable = true,
+	} :: PartDef,
 
 	-- ── role stations (currently coloured boxes; nicer props optional) ───────────────────────────
 	-- Fuel post. Imported 0.72 × 1.20 × 0.72 — a slim upright, already the right way up, so NO rotation.
