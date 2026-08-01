@@ -124,6 +124,29 @@ local function buildBoat(): Model
 	motorWeld.Part1 = motor
 	motorWeld.Parent = motor
 
+	-- Crew seats (Job 066): driver + gunner + 4 = the 4-6 crew GAME.md targets. REAL Seats, because a
+	-- physics boat pitches and turns — a standing passenger slides and can go overboard, a seated one is
+	-- welded in place. Massless so they add no mass to the tuned assembly. Two per side, leaving a
+	-- walkway down the centre; no station bonus attaches to them (helpers are the flexible crew).
+	local CREW_SEAT_X, CREW_SEAT_Z = 4.5, { 4, 9 }
+	for _, sz in ipairs(CREW_SEAT_Z) do
+		for _, sx in ipairs({ -CREW_SEAT_X, CREW_SEAT_X }) do
+			local crew = Instance.new("Seat")
+			crew.Name = "CrewSeat"
+			crew.Size = Vector3.new(3, 1, 3)
+			crew.Color = Color3.fromRGB(45, 45, 52)
+			crew.Material = Enum.Material.Fabric
+			crew.Massless = true
+			crew.CFrame = hull.CFrame * CFrame.new(sx, 2, sz)
+			crew.Parent = model
+			local cw = Instance.new("WeldConstraint")
+			cw.Part0 = hull
+			cw.Part1 = crew
+			cw.Parent = crew
+			BoatParts.skin(crew, "crewSeat")
+		end
+	end
+
 	BoatParts.skin(hull, "hull")
 	BoatParts.skin(seat, "driverSeat")
 	BoatParts.skin(motor, "motor")

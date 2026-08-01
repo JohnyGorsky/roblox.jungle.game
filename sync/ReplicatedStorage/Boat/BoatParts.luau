@@ -161,6 +161,15 @@ BoatParts.Defs = {
 		offset = CFrame.new(0, 0.45, 0),
 		collision = "skin",
 	} :: PartDef,
+	-- Crew seats for the "helpers/fighters" — the rest of the party (GAME.md roles). Same mesh as the
+	-- gunner's seat, but its own def because the well floor (1.5) is 2 studs below the raised foredeck the
+	-- gunner sits on, so the lift differs. Host sits at y 2, so +1.1 puts a 3.2-tall seat base on the deck.
+	crewSeat = {
+		library = "GunSeat",
+		size = Vector3.new(3.6, 3.2, 2.6),
+		offset = CFrame.new(0, 1.1, 0),
+		collision = "skin",
+	} :: PartDef,
 	-- Lamp imported 0.85 × 1.20 × 0.81 — already upright (long axis Y) and already about the size of its
 	-- 1.2-cube host, so it needs neither scaling nor rotation. Left at natural size deliberately; if the
 	-- lens ends up facing the wrong way, add a yaw here rather than re-exporting.

@@ -137,6 +137,34 @@ modelled proportions** (4.6 long each, 18.4 total) along the parallel midbody on
 2.2 so they sit on the topsides level with the tyre fenders rather than hanging off the keel.
 Both trees emit them identically. **Lesson: a repeating architectural detail tiles; it never stretches.**
 
+**Phase 2 art pass — <span style="color:#2e9c3f">✅ LOBBY BOAT COMPLETE 2026-08-01</span>**
+
+15 meshes imported and wired; **zero greybox left on the lobby boat**. Plus 4 crew seats added (below).
+
+**What the art pass actually taught us** — worth reading before wiring any future mesh:
+
+1. **Every offset in the old code was tuned against a 3-stud greybox slab.** The real hull has a **raised
+   foredeck**, so the bow light, gun mount and gunner seat all ended up buried inside it. All three are
+   now named constants (`GUN_Y`, `BOW_LIGHT_X/Y`) rather than magic numbers.
+2. **A mesh's longest axis is not automatically its "forward".** The driver's seat is elongated
+   seat→console so it needs a 90° yaw; the gunner's seat is near-cubic and its long axis is the seat's
+   *width*, so the same yaw turned the gunner sideways. **Check what the axis represents; don't copy a
+   rotation from the previous part.**
+3. **A repeating detail tiles; it never stretches.** One hull plate scaled to full length smeared its
+   bolts *and* hung past the hull's taper. Four short plates along the parallel midbody fixed both.
+4. **Size the skin to the MESH, not the host.** The gun barrel stretched to its 8-stud host read as a rod
+   skewering the bow. The host is only an aim pivot — invisible — so the skin is sized to the model.
+5. **A mesh's geometry can sit high inside its bounding box.** The deck stations needed a −0.3 hand
+   correction on top of the derived maths.
+6. **Restart Play before judging any edit.** A stale session cost a full round-trip: it showed the
+   stations floating while the data said sunk, and I "corrected" them a full stud in the wrong direction.
+
+**Crew seats (user decision, 2026-08-01):** driver + gunner + **4 crew seats** = the 4–6 crew GAME.md
+targets. **Real `Seat` objects in the game place** — a physics boat pitches and banks, so a standing
+passenger slides and can go overboard while a seated one is welded. `Massless`, so the tuned assembly is
+unchanged, and no station bonus attaches (helpers are the flexible crew per the role model). Static props
+on the showroom boat, which has no working seats by design.
+
 **Phase 2 · Concept sheet (yours) → meshes**
 
 5. I produce the **generation brief** below; you render one ChatGPT sheet with all 15 parts in our palette.
