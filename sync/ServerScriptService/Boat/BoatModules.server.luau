@@ -76,6 +76,8 @@ local BOW = -HALF_Z + 1.5    -- just inside the bow
 -- Clear of the gunwale: the visible hull now rises to ~4.5 in hull space, so the old 3.2 buried the
 -- lamp inside the bow structure where nothing could see it.
 local BOW_LIGHT_Y = 5.0
+-- off the centreline: on it, the lamp sits directly in front of the gun barrel
+local BOW_LIGHT_X = -4.2
 local STERN = HALF_Z - 1.5   -- just inside the stern
 local applied = false
 local function apply()
@@ -88,7 +90,7 @@ local function apply()
 	-- every boat gets a basic BOW LIGHT at night (FINDING 0001 — boat was dark when riding). Night-only via
 	-- the NightLight tag (LightController toggles it dusk→dawn). The Searchlight MODULE below is the upgrade.
 	if not theBoat:FindFirstChild("BowLightHead") then
-		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(0, BOW_LIGHT_Y, BOW), Enum.Material.Neon, "bowLight")
+		local head = addPart("BowLightHead", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(245, 245, 210), CFrame.new(BOW_LIGHT_X, BOW_LIGHT_Y, BOW), Enum.Material.Neon, "bowLight")
 		local blight = Instance.new("SpotLight")
 		blight.Face = Enum.NormalId.Front -- forward / downstream (bow = -Z)
 		blight.Angle = 80 -- wide beam so you can actually see the path (Job 052)

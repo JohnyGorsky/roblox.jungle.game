@@ -47,6 +47,9 @@ export type PartDef = {
 	-- when a part must match a known footprint — it's how the hull skin is made to agree with the
 	-- physics box instead of whatever scale Meshy happened to export.
 	size: Vector3?,
+	-- Size used when the UPGRADE model is shown instead (gun only). Without this the heavy barrel would be
+	-- forced into the base barrel's dimensions and wouldn't read as an upgrade.
+	upgradeSize: Vector3?,
 	-- Uniform scale, applied only when `size` is not given.
 	scale: number?,
 	-- "skin" (default) = CanCollide false + Massless true, physics untouched.
@@ -94,7 +97,13 @@ BoatParts.Defs = {
 		collision = "deck",
 	} :: PartDef,
 	-- Base motor (Job 066 decision #1): every boat has one. `motor2` is its twin, added by the upgrade.
-	motor = { library = nil, collision = "skin" } :: PartDef,
+	-- Outboard motor, imported upright (longest axis Y) so it needs no rotation. Its host sits at the
+	-- transom with the leg reaching toward the water, which is what an outboard does.
+	motor = {
+		library = "Motor",
+		size = Vector3.new(2.5, 2.6, 1.1), -- natural proportions at ~2.6 tall
+		collision = "skin",
+	} :: PartDef,
 	-- Seat + console + steering wheel. Mesh imported 1.36 × 1.00 × 0.88 with its longest axis (X) running
 	-- seat→console, i.e. fore-aft — so it needs the same 90° yaw as the hull to line up with a boat whose
 	-- length is on Z. Scaled to ~3.5 studs tall, which reads correctly next to a 5-stud character.
@@ -126,12 +135,22 @@ BoatParts.Defs = {
 	-- 8 — it is invisible and its length only affects the aim maths, not the silhouette.
 	gunBarrel = {
 		library = "GunBarrel",
-		upgradeLibrary = nil, -- set to "GunBarrelHeavy" once that mesh is imported
+		upgradeLibrary = "GunBarrelHeavy",
+		upgradeSize = Vector3.new(4.8, 2.1, 2.0), -- visibly heavier than the base barrel
 		size = Vector3.new(4, 2.0, 1.4),
 		offset = CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
 	} :: PartDef,
-	gunSeat = { library = nil, collision = "skin" } :: PartDef,
+	-- Gunner's seat. Longest axis X runs front-to-back like the driver's, so it takes the same 90° yaw.
+	-- The gunner sits in the OPEN WELL aft of the raised foredeck, so the host now follows the deck
+	-- (topY + 0.5) and the skin lifts just 0.5 to put a 2-tall seat base flat on it. It previously used the
+	-- gun mount height and floated 3 studs above the floor.
+	gunSeat = {
+		library = "GunSeat",
+		size = Vector3.new(2.2, 2.0, 1.7),
+		offset = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
+		collision = "skin",
+	} :: PartDef,
 	-- Lamp imported 0.85 × 1.20 × 0.81 — already upright (long axis Y) and already about the size of its
 	-- 1.2-cube host, so it needs neither scaling nor rotation. Left at natural size deliberately; if the
 	-- lens ends up facing the wrong way, add a yaw here rather than re-exporting.
@@ -155,9 +174,20 @@ BoatParts.Defs = {
 		offset = CFrame.Angles(0, math.rad(90), 0),
 		collision = "skin",
 	} :: PartDef,
-	fuelTank = { library = nil, collision = "skin" } :: PartDef, -- (4.5, 2.5, 8)
+	-- Fuel drum, lying with its length on X — no rotation needed, it reads fine either way on the deck.
+	fuelTank = {
+		library = "FuelTank",
+		size = Vector3.new(2.5, 1.5, 1.5), -- natural proportions
+		collision = "skin",
+	} :: PartDef,
 	searchlightMast = { library = nil, collision = "skin" } :: PartDef, -- (0, 5, −7)
-	searchlightHead = { library = nil, collision = "skin" } :: PartDef, -- (0, 8, −7.6)
+	-- Searchlight lamp. ⚠️ The imported asset is spelled "SearchLightHead" (capital L) — this string must
+	-- match the library child exactly, so it is deliberately NOT normalised to our camelCase key.
+	searchlightHead = {
+		library = "SearchLightHead",
+		size = Vector3.new(2.2, 2.4, 1.94),
+		collision = "skin",
+	} :: PartDef,
 	trailer = { library = nil, collision = "skin" } :: PartDef, -- (0, −0.4, 15.5)
 
 	-- ── role stations (currently coloured boxes; nicer props optional) ───────────────────────────
@@ -244,8 +274,9 @@ function BoatParts.skin(host: BasePart, id: string, useUpgrade: boolean?): BaseP
 		-- attempt throws, taking the whole boat build down with it. It is an AUTHORING-TIME property:
 		-- set it once on each library MeshPart via BoatParts.applyLibraryFidelity() below, run from
 		-- Studio (Edit mode), and it saves with the place.
-		if def.size then
-			skin.Size = def.size -- exact footprint wins over whatever Meshy exported
+		local wantSize = (useUpgrade and def.upgradeSize) or def.size
+		if wantSize then
+			skin.Size = wantSize -- exact footprint wins over whatever Meshy exported
 		elseif def.scale and def.scale ~= 1 then
 			skin.Size = skin.Size * def.scale
 		end
