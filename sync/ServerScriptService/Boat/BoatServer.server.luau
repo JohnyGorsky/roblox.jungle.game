@@ -110,7 +110,7 @@ local function buildBoat(): Model
 	-- Base motor (decision #1): every boat has one; `motor2` is the upgrade twin at mirrored X.
 	-- derived from the hull so it stays at the stern if the hull length ever changes again
 	-- ON the transom, not inside the hull: the hull sides rise to ~4.5 and hid the engine completely.
-	local sternZ = HULL_SIZE.Z / 2 + 0.5
+	local sternZ = HULL_SIZE.Z / 2 + 1
 	local motor = Instance.new("Part")
 	motor.Name = "Motor"
 	motor.Size = Vector3.new(2, 2, 3)
@@ -119,7 +119,7 @@ local function buildBoat(): Model
 	motor.Massless = true
 	motor.CanCollide = false
 	-- y 3.5, not 1: the hull mesh's sides rise to ~4.5, so at deck level the engine was hidden inside
-		motor.CFrame = hull.CFrame * CFrame.new(3.5, 3.0, sternZ)
+		motor.CFrame = hull.CFrame * CFrame.new(4, 1, sternZ)
 	motor.Parent = model
 	local motorWeld = Instance.new("WeldConstraint")
 	motorWeld.Part0 = hull

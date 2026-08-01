@@ -101,7 +101,10 @@ BoatParts.Defs = {
 	-- transom with the leg reaching toward the water, which is what an outboard does.
 	motor = {
 		library = "Motor",
-		size = Vector3.new(2.5, 2.6, 1.1), -- natural proportions at ~2.6 tall
+		-- 3x the first pass (2.5 × 2.6 × 1.1): it read as a toy on a 32-stud boat. Mounted on the transom
+		-- with the powerhead above the gunwale and the leg reaching into the water, like a real outboard —
+		-- which is why the rear cargo deck was pushed aft to make an engine bay (CargoServer DECK_GAP).
+		size = Vector3.new(7.5, 7.8, 3.3),
 		collision = "skin",
 	} :: PartDef,
 	-- Seat + console + steering wheel. Mesh imported 1.36 × 1.00 × 0.88 with its longest axis (X) running

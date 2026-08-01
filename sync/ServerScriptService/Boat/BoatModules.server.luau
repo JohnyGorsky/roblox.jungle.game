@@ -78,7 +78,7 @@ local BOW = -HALF_Z + 1.5    -- just inside the bow
 local BOW_LIGHT_Y = 4.9
 -- off the centreline: on it, the lamp sits directly in front of the gun barrel
 local BOW_LIGHT_X = 0
-local STERN = HALF_Z + 0.5   -- ON the transom (inside the hull the engine hides behind the gunwale)
+local STERN = HALF_Z + 1     -- ON the transom (inside the hull the engine hides behind the gunwale)
 local applied = false
 local function apply()
 	if applied then
@@ -139,7 +139,7 @@ local function apply()
 	end
 	if crewOwns("motor2") then
 		theBoat:SetAttribute("ThrustMul", 1.25)
-		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 3.0, STERN), Enum.Material.Metal, "motor2")
+		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-4, 1, STERN), Enum.Material.Metal, "motor2")
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
@@ -162,7 +162,7 @@ local function apply()
 		-- footprint (Z 11…27) and 1.4 studs BELOW it, so the 180-Gold upgrade was invisible. It now sits
 		-- ON the rear deck as cargo racks, which is the point of a visible module. Deck top is
 		-- hull.Y/2 - 0.5 + 0.5 = 1.5, so Y 3.0 puts a 3-tall rack on the deck surface.
-		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 4), Enum.Material.WoodPlanks, "trailer")
+		addPart("Trailer", Vector3.new(9, 3, 6), Color3.fromRGB(120, 90, 55), CFrame.new(0, 3, HALF_Z + 7), Enum.Material.WoodPlanks, "trailer")
 		table.insert(on, "trailer")
 	end
 	if crewOwns("gunupgrade") then

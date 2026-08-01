@@ -33,7 +33,10 @@ boat:SetAttribute("CargoMax", CARGO_MAX)
 -- Halved to 8, and its centre is now DERIVED so it always sits flush behind the stern whatever the hull
 -- length is (hull grew to 32 in the same change).
 local DECK_DEPTH = 8
-local backZ = hull.Size.Z / 2 + DECK_DEPTH / 2 -- behind the stern (boat faces -Z, so +Z is the back)
+-- Job 066/067: DECK_GAP leaves an engine bay between the transom and the cargo platform, so the 3x
+-- transom-mounted motors do not pass through the deck.
+local DECK_GAP = 3
+local backZ = hull.Size.Z / 2 + DECK_GAP + DECK_DEPTH / 2 -- behind the stern (+Z is the back)
 local topY = hull.Size.Y / 2
 
 -- back cargo deck: a MASSLESS welded extension of the hull → adds no mass/inertia, boat feel unchanged
