@@ -117,7 +117,8 @@ local function buildBoat(): Model
 	motor.Material = Enum.Material.Metal
 	motor.Massless = true
 	motor.CanCollide = false
-	motor.CFrame = hull.CFrame * CFrame.new(3.5, 1, sternZ)
+	-- y 3.5, not 1: the hull mesh's sides rise to ~4.5, so at deck level the engine was hidden inside
+		motor.CFrame = hull.CFrame * CFrame.new(3.5, 3.5, sternZ)
 	motor.Parent = model
 	local motorWeld = Instance.new("WeldConstraint")
 	motorWeld.Part0 = hull

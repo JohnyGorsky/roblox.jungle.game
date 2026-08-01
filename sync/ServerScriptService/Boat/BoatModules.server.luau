@@ -139,7 +139,7 @@ local function apply()
 	end
 	if crewOwns("motor2") then
 		theBoat:SetAttribute("ThrustMul", 1.25)
-		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 1, STERN), Enum.Material.Metal, "motor2")
+		addPart("Motor2", Vector3.new(2, 2, 3), Color3.fromRGB(40, 40, 46), CFrame.new(-3.5, 3.5, STERN), Enum.Material.Metal, "motor2")
 		table.insert(on, "motor2")
 	end
 	if crewOwns("searchlight") then
