@@ -1,7 +1,7 @@
 # TODO 0025: OPTIONAL (Job 068 A3): Reconcile MonetizationDefs robux prices against the Creator Hub
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — Done in Job 069, 2026-08-02. FIRST, the snapshot: all 8 ids verified live via GetProductInfo and ALL 8 MATCH -- gold packs 49/99/199/449, Self Revive 20, Armored Boat 499, Boat Paint 99, Extra Slots 149. Nothing was mispriced. SECOND, the mechanism, which is why this todo existed: the three passes use MANAGED PRICING, so Roblox can move a price without touching our code and nothing would tell us. RobuxShop now fetches the real price per row via GetProductInfo(...).PriceInRobux and falls back to MonetizationDefs.robux when the call fails. Deliberately NON-BLOCKING: the panel builds and opens on the def price immediately and each row corrects itself when its own lookup lands, because a web call must never gate the UI. Cached per session. RACE HANDLED: the price fetch re-runs the same refresh() the ownership listener uses, never setText directly -- both are async, and if a late price wrote the button itself it could overwrite OWNED on a pass the player already has, turning a settled row back into a buy button. VERIFIED in Play: all 8 rows print correct prices, and the three owned passes still resolve to OWNED/Active=false once ownership lands. Analyzer clean.
 **Created:** 2026-08-02 10:50:56
 
 Audit Job 068, gap A3. The robux field in MonetizationDefs is what the shop row PRINTS; the Hub is what the player is CHARGED. Nothing reconciles them, and Extra Inventory Slots has managed pricing enabled. A mismatch shows a wrong price, not a wrong charge. One-time GetProductInfo reconciliation pass; cheap, low risk.

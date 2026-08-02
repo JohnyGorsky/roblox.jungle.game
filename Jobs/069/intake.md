@@ -276,6 +276,77 @@ Step 2 is the direction that matters: it is exactly what `MonetizationServer` do
 > value set inside one `execute_luau` context. All changes were Play-session only and were discarded
 > when Play stopped.
 
+---
+
+# Optional-queue pass (2026-08-02, same job)
+
+Worked one at a time, each described and approved before implementation.
+
+## ✅ `todo/0039` + `todo/0040` — Lighting
+
+**0039 — two stray post-effects.** Root cause was **drift, not design**: `lobby_atmosphere.luau`
+find-or-creates *by name*, so two hand-added effects survived every re-run. They were not equivalent —
+stray `SunRays` ran at Intensity **0.01** (invisible; deleted), while stray `Bloom` at Intensity 1 /
+Threshold 2 was doing most of the visible highlight glow, so deleting it would have quietly dimmed the
+lobby. It was **adopted** instead: renamed `JungleBloomHighlight`, values kept exactly, and authored in
+the build script beside `JungleBloom`. Active full-screen passes **5 → 4**, look unchanged.
+
+The build script now carries a **drift check** that `warn()`s listing any unauthored `PostEffect`, so
+this cannot silently recur. *(Requires a place save.)*
+
+**0040 — not applicable; the instruction was obsolete.** Studio no longer exposes a `Technology`
+dropdown. Live read confirms the modern controls: `LightingStyle = Realistic`, `ShadowSoftness = 0.2`,
+`PrioritizeLightingQuality = true` — `ShadowSoftness` only exists on the Future path, so the lobby was
+already there. `ASSETS.md` §1.14's "set it by hand" line is struck out.
+
+*Left alone by user ruling:* the duplicate `Scenery.Logs` folder and the empty `Upgrades` folder.
+
+## ✅ `todo/0026` — Jungle day ambience 2 layered in
+
+`120011248667884` was uploaded, owned, and read by nothing while `ASSETS.md` claimed it was wired.
+Now a second 2D bed at **0.14** against bed 1's **0.22** — deliberately lopsided so it *thickens* the
+bed rather than doubling the birdsong. Verified in Play: both playing, looped, correct volumes.
+
+Useful detail found while verifying: loop lengths are **70.2 s** and **154.2 s** — not simple
+multiples, so the two drift continuously and the combined bed never audibly repeats.
+
+**Still unjudged: whether it sounds good.** I cannot hear it. Volume is the single knob and bed 2 is
+the first thing to drop if the mix reads busy; the code comment says so.
+
+## ✅ `todo/0025` — live prices instead of hardcoded ones
+
+All 8 ids verified against the Hub — **all matched**. But the todo existed for the *mechanism*: the
+three passes use **managed pricing**, so Roblox can move a price without touching our code and nothing
+would tell us.
+
+`RobuxShop` now reads `GetProductInfo(...).PriceInRobux` per row, falling back to
+`MonetizationDefs.robux`. **Non-blocking** — the panel opens on the def price and each row corrects
+itself when its lookup lands, because a web call must never gate the UI. Cached per session.
+
+**Race handled:** the price fetch re-runs the *same* `refresh()` the ownership listener uses, never
+`setText` directly. Both are async; if a late price wrote the button itself it could overwrite `OWNED`
+on a pass the player already owns, turning a settled row back into a buy button.
+
+## ✅ NEW — the ownership check was gated behind a DataStore round-trip
+
+**Found by the `0025` Play test, not on any list.** At 4 s after joining, owned passes still showed
+**live buy buttons**; they only flipped to OWNED by ~12 s. Not a regression — A1's listener worked
+exactly as designed — but it meant a multi-second window where a player who owns a pass is shown a buy
+button for it. That is the same real-money problem A1 set out to fix, narrowed to a time window.
+
+`MonetizationServer.checkPasses` blocked on `Profiles.isReady` (up to 20 s) **before** checking
+ownership — but ownership writes only a **player attribute**, never the profile. The dependency was
+vestigial. Removed, and the three `UserOwnsGamePassAsync` calls now run **in parallel** rather than
+back to back (three round-trips of exposure → one). `ProcessReceipt` keeps its profile wait, which it
+genuinely needs because it writes gold.
+
+**Verified in Play:** all three attributes were already present before a client poll could even start
+(vs. absent at 4 s before). ⚠️ *Caveat:* Roblox may cache `UserOwnsGamePassAsync` between sessions, so
+that measurement could be flattered — but the change stands on its own merits: a provably unnecessary
+wait removed and three serial web calls parallelised.
+
+---
+
 ## Status — code work complete
 
 | Remaining | Owner |

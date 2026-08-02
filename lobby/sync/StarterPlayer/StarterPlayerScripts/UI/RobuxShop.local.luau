@@ -100,11 +100,49 @@ local function offer(iconKey: string, name: string, blurb: string, robux: number
 	return row
 end
 
+-- ── live prices (Job #069) ────────────────────────────────────────────────────────────────────────
+-- `MonetizationDefs.robux` is what this shop PRINTS; the Creator Hub is what the player is actually
+-- CHARGED — and all three passes have MANAGED PRICING enabled, so Roblox can move a price without
+-- anyone touching our code. All 8 were verified in sync on 2026-08-02, but that is a snapshot, not a
+-- guarantee: nothing would tell us if one drifted, and the player would just see a wrong number.
+--
+-- So ask the Hub for the real price, and fall back to the def when the call fails.
+--
+-- DELIBERATELY NON-BLOCKING. `GetProductInfo` is a web call and must never gate the UI, so the panel
+-- builds and opens immediately showing the def price, and each row corrects itself when its own
+-- lookup lands. Fetched once per session and cached — reopening the shop refetches nothing.
+local livePrice: { [string]: number } = {}
+
+local function fetchPrice(key: string, id: number, infoType: Enum.InfoType, apply: () -> ())
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfo(id, infoType)
+		end)
+		if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then
+			if livePrice[key] ~= info.PriceInRobux then
+				livePrice[key] = info.PriceInRobux
+				apply()
+			end
+		end
+	end)
+end
+
+-- what a row should print: the Hub price once we have it, otherwise the hardcoded def
+local function priceText(key: string, fallback: number): string
+	return "R$ " .. (livePrice[key] or fallback)
+end
+
 header("Gold packs")
 for _, p in ipairs(MonetizationDefs.GoldPacks) do
-	offer(p.id, p.name, "+" .. p.gold .. " Gold", p.robux, p.productId > 0, function()
+	local live = p.productId > 0
+	local row = offer(p.id, p.name, "+" .. p.gold .. " Gold", p.robux, live, function()
 		MarketplaceService:PromptProductPurchase(player, p.productId)
 	end)
+	if live then
+		fetchPrice(p.id, p.productId, Enum.InfoType.Product, function()
+			row.action.setText(priceText(p.id, p.robux))
+		end)
+	end
 end
 
 header("Passes")
@@ -129,12 +167,17 @@ for _, gp in ipairs(MonetizationDefs.GamePasses) do
 				row.action.setText("OWNED")
 				row.action.setEnabled(false)
 			else
-				row.action.setText("R$ " .. gp.robux)
+				row.action.setText(priceText(gp.key, gp.robux))
 				row.action.setEnabled(true)
 			end
 		end
 		refresh()
 		player:GetAttributeChangedSignal(attr):Connect(refresh)
+		-- The price lookup re-runs the SAME `refresh`, never `setText` directly. Both are async and
+		-- race: if a late price wrote the button itself it could overwrite OWNED on a pass the player
+		-- already has, turning a settled row back into a buy button. Routing both through one function
+		-- that re-decides from scratch makes the order they land in irrelevant.
+		fetchPrice(gp.key, gp.gamePassId, Enum.InfoType.GamePass, refresh)
 	end
 end
 
