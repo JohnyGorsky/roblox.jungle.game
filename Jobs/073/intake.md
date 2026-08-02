@@ -223,7 +223,12 @@ are new audio you uploaded while the job was open, so they were wired here rathe
 - [x] Boat engine + hit sounds wired and registered (Part 5)
 - [x] ASSETS.md §1.11/§2/§3.1/§6.1 + STYLEGUIDE §8 + registry `audio.md` updated
 - [x] Final summary + changelog
-- [ ] 🔴 **You**: set `Lighting.LightingStyle = Realistic` by hand in Studio and save the place — a script
-      cannot write it (see final summary)
-- [ ] 🔴 **You**: `night_starts` is blocked by audio moderation and needs a re-upload (TODO 0044)
-- [ ] You: eyeball the night brightness in-game and say if it should be darker
+- [x] `Lighting.LightingStyle = Realistic` set by hand and the place saved — verified live; the baked
+      Edit-time rig survived the save. (A script cannot write it — see final summary)
+- [x] `night_starts` resolved — took three assets; `night_starts_2` `75443344927115` plays, and was
+      verified firing on a real dusk flip (TODO 0044 closed)
+
+**✅ Job closed 2026-08-02.** The night-brightness judgement is deliberately deferred to
+[`Planned/camp-night-practicals.md`](../../Planned/camp-night-practicals.md) rather than left open here:
+the palette is knowingly lifted because the world has no light objects yet, and lowering it only makes
+sense in the same job that adds the camp practicals.

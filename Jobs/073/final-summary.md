@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Completed**: 2026-08-02
-**Status**: ✅ Completed — **one manual Studio step outstanding** (`LightingStyle`, see below)
+**Status**: ✅ **Closed** — everything shipped and verified, including the manual `LightingStyle` step
 
 ## What was asked
 
@@ -196,17 +196,30 @@ read `applied at 16.10h` on a run that starts at 06:30. It now waits briefly for
 attribute `DayNightServer` publishes, so the **first** frame is right rather than corrected half a second
 later. Falls back to the property if no `DayNightServer` exists.
 
-## 🔴 One manual step remains — `LightingStyle`
+## ✅ The one manual step — `LightingStyle` — done
 
-**`Lighting.LightingStyle` cannot be set by a script.** The game place is `Soft`; the lobby is `Realistic`.
-Refused even from the Studio command bar, which is a *privileged* context — the same capability gate the old
-`Technology` property hit (Job #069). `ShadowSoftness 0.2` **is** writable; `PrioritizeLightingQuality` is
-also refused but the game place is already `true`, so that one is harmless.
+**`Lighting.LightingStyle` cannot be set by a script.** The game place was `Soft`; the lobby is
+`Realistic`. Refused even from the Studio command bar, which is a *privileged* context — the same
+capability gate the old `Technology` property hit (Job #069). `ShadowSoftness 0.2` **is** writable;
+`PrioritizeLightingQuality` is also refused but the game place was already `true`, so that one was harmless.
 
-> **Studio → `Lighting` → Properties → `LightingStyle` → `Realistic`, then save the place.**
+The user set it by hand and saved the place. **Verified live 2026-08-02:**
 
-`AtmosphereRig.apply()` returns it in a `REFUSED:` list on every single run, so it cannot be quietly
-forgotten.
+```
+LightingStyle              Enum.LightingStyle.Realistic
+ShadowSoftness             0.2
+PrioritizeLightingQuality  true
+ClockTime 16.10 | GeoLat 25 | Brightness 2.70 | Ambient (74,72,56) | Outdoor (104,106,80)
+post-effects: JungleSunRays, JungleBloom, DepthOfField(off), JungleBloomHighlight, JungleCC
+water: (24,78,86) | transparency 0.30 | reflectance 0.03
+```
+
+So the baked Edit-time rig survived the save too, and the game place now matches the lobby on both the
+palette **and** the lighting path.
+
+> ⚠️ **`AtmosphereRig.apply()` still reports `LightingStyle` in its `REFUSED:` list on every run** — that is
+> correct and deliberate, not a leftover. If the place is ever reset or re-created, this is the one value
+> that has to be set by hand again, and the log line is the reminder.
 
 ## Verification
 
@@ -245,9 +258,14 @@ forgotten.
       reasserting `HP` and enemies were biting, so test writes interleaved with replication. A limitation
       of the test, not of the code.)*
 - [x] `tools/luau-analyze.sh` clean over the whole GAME tree after every change
-- [ ] **User to set `LightingStyle = Realistic` by hand and save the place**
-- [ ] User to eyeball the night palette in-game and say whether it wants to be darker (it is knowingly
-      lifted — see `Planned/camp-night-practicals.md`)
+- [x] ✅ **`LightingStyle = Realistic` set by hand and the place saved** — verified live, and the baked
+      Edit-time rig survived the save
+**Job closed 2026-08-02.** Every checklist item above is done. One aesthetic judgement is deliberately
+left open rather than blocking the job: the night palette is **knowingly lifted** to keep the camp
+navigable while the world has no light objects in it, so whether it should sit darker is a call to make
+once camp practicals exist. That is already the first task of
+[`Planned/camp-night-practicals.md`](../../Planned/camp-night-practicals.md), which must lower the palette
+in the same job that adds the lights — the two only make sense together.
 
 ## Out of scope — filed, not done
 
