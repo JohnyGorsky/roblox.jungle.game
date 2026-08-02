@@ -192,17 +192,38 @@ Run the rig's values into the Edit datamodel via MCP so the **editor** matches t
 and screenshots happen under stock grey), read the properties back, and screenshot. Then Play and check
 both palettes and the audio mix across a dusk transition.
 
+---
+
+# Part 5 — Added mid-job at your request
+
+These arrived during the playtest. The first was a defect in existing code and was fixed here; the rest
+are new audio you uploaded while the job was open, so they were wired here rather than deferred.
+
+| # | Ask | Outcome |
+|---|---|---|
+| 5 | *"what are these random graybox trees???? do not use them anymore here in spawn area"* | **Fixed.** `FoliageServer` was streaming greybox through the hand-built camp. Exclusion zone measured from `SpawnBase` itself |
+| 6 | *"remove that medic label"* | **Filed as TODO 0042** — you asked for it as a todo |
+| 7 | *"remove that graybox robux shop, we have real in lobby, use the same"* | **Filed as TODO 0043** — you asked for it as a todo |
+| 8 | `boat_engine_starts` + `speed_boat_loop` — *"boat sound must increase when full trottle, and stop when boat stopped, so it must be live sound"* | **Wired.** New `BoatSound.local.luau` |
+| 9 | `boat_hit` — *"sound when boat is hit (our boat)"* | **Wired** into the same script, hooked to the boat's `HP` attribute dropping so it covers enemy bites *and* river obstacles from one place |
+
 ## Checklist
 
 - [x] Live game + lobby lighting/water/audio state read and diffed
 - [x] Base-camp audio anchors surveyed (no fire pit, no lights, dock parts unnamed)
 - [x] Run length + clock maths worked out
 - [x] Decisions taken (Part 2)
-- [ ] Step 1 — clock re-paced to 06:30 start, long day / short night
-- [ ] Step 2 — `AtmosphereServer` day/night rig + water
-- [ ] Step 3 — `GameSoundscape` beds, wind, cicadas, dock water, crossfade, stingers
-- [ ] Step 4 — applied in Edit, read back + screenshot
-- [ ] Verified in Play — day palette, night palette, dusk transition, audio mix
-- [ ] `battle_starts` + camp night practicals filed to `Planned/`
-- [ ] ASSETS.md §1.11/§1.13/§1.14/§6 + STYLEGUIDE §8 updated
-- [ ] Final summary + changelog
+- [x] Step 1 — clock re-paced to 06:30 start, long day / short night
+- [x] Step 2 — `AtmosphereRig` + `AtmosphereServer` day/night rig + water
+- [x] Step 3 — `GameSoundscape` beds, wind, cicadas, dock water, crossfade, stingers
+- [x] Step 4 — applied in Edit, read back + screenshot
+- [x] Verified in Play — day palette, **night palette and audio mix hit their targets exactly**, midnight
+      wrap clean, greybox exclusion holds
+- [x] `battle_starts` + camp night practicals filed to `Planned/`
+- [x] Boat engine + hit sounds wired and registered (Part 5)
+- [x] ASSETS.md §1.11/§2/§3.1/§6.1 + STYLEGUIDE §8 + registry `audio.md` updated
+- [x] Final summary + changelog
+- [ ] 🔴 **You**: set `Lighting.LightingStyle = Realistic` by hand in Studio and save the place — a script
+      cannot write it (see final summary)
+- [ ] 🔴 **You**: `night_starts` is blocked by audio moderation and needs a re-upload (TODO 0044)
+- [ ] You: eyeball the night brightness in-game and say if it should be darker

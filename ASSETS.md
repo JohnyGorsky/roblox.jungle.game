@@ -482,6 +482,15 @@ clock and the lobby is frozen at 16:10.
 | Day/night clock re-pace | `sync/ServerScriptService/World/DayNightServer.server.luau` | <span style="color:#2e9c3f">✅ done</span> | Was a uniform 24 h per 4 real minutes from 08:00 → night fell **1 min 50 s** into a ~12 min run, three cycles per run. Now starts **06:30** with a **non-linear** clock: 13 daylight hours over 480 s, 11 night hours over 180 s → night falls **462 s** in. ⚠️ `EnemyServer` scales spawn rate + bite damage off `Phase`, so these two constants are a **balance** lever |
 | Night practicals (fire pit, lanterns) | — | <span style="color:#c93c3c">❌ not built</span> | **0 `Light` objects exist in the whole game Workspace.** So the night palette is deliberately lifted higher than it should be, just to keep the camp navigable — global ambient doing a job that belongs to practicals. → `Planned/camp-night-practicals.md`, which must also bring the palette back down |
 
+## 3.2 Weapon audio (uploaded 2026-08-02, NOT wired)
+
+| Sound | rbxassetid | Status | Notes |
+|---|---|---|---|
+| `gun_shot` | `138178318678571` | <span style="color:#f0a020">⚠️ uploaded + owned, **not wired**</span> | **Deliberately deferred.** Uploaded while Job #073 (ambient) was open; the user's call was *"Do not add sound yet, because this will be seperate task, just list it in file."* It belongs with the weapon/turret work — `sync/ServerScriptService/Combat/GunServer.server.luau` and `WeaponServer` — not with an ambient job. Wants to be **positional on the barrel**, with a fire-rate-aware cooldown so sustained fire doesn't stack one `Sound` per bullet |
+
+> Still unuploaded weapon/boat audio, local mp3s only: `assets/Objects/Boat/Sounds/boat_on_fire.mp3`,
+> `boat_destroyed.mp3`, `metal_hit_1_sec.mp3`. Alligator SFX exist in `assets/Objects/Monsters/`.
+
 # 4) ENEMIES / CHARACTERS
 
 | Area | Items | Status | Notes |
