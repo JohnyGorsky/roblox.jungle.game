@@ -313,7 +313,7 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | Sound | Where | Status | Notes |
 |---|---|---|---|
 | Jungle day ambience **1** | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | birds + insects loop (`116462724806689`) |
-| Jungle day ambience **2** | — | <span style="color:#c9911d">⏸ uploaded, NOT wired</span> | `120011248667884` is owned and in the registry but **read by nothing** — `LobbySoundscape` plays ambience 1 only. This row previously claimed both were wired (`todo/0026`) |
+| Jungle day ambience **2** | 2D bed | <span style="color:#2e9c3f">✅ wired (#069)</span> | `120011248667884`, **layered under bed 1** at vol 0.14 vs 0.22 — deliberately lopsided so it thickens the bed instead of doubling the birdsong. Loop lengths 154.2 s vs 70.2 s are not simple multiples, so the two drift and the bed never audibly repeats. **Volume is the knob: if it ever sounds busy, drop bed 2 first.** Was uploaded-but-unused for months while this row claimed it was wired |
 | Wind / breeze | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | light layer |
 | Water lapping (`water-splashes`) | @ `Dock.Dock.Pier` | <span style="color:#2e9c3f">✅ wired (fixed #069)</span> | positional. ⚠️ **It never actually played until Job #069** — the lookup was a non-recursive `Dock:FindFirstChild("Pier")`, but the Store dock nests a level deeper, so it returned nil and no sound was ever created while this row read "✅ wired". Now a recursive find; verified in Play as `water×1` |
 | Campfire crackle (`crackle-campfire`) | @ both `FirePit`s | <span style="color:#2e9c3f">✅ wired</span> | positional |
@@ -364,7 +364,9 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 
 | Rig | Status | Notes |
 |---|---|---|
-| Warm-afternoon jungle rig | <span style="color:#2e9c3f">✅ applied</span> | Atmosphere haze (Density 0.40/Haze 2.7), warm ColorCorrection, Bloom, SunRays, muted-teal water. `lobby/build/lobby_atmosphere.luau` / STYLEGUIDE §8. Set `Lighting.Technology = Future` in Studio. **Save the place or it resets.** |
+| Warm-afternoon jungle rig | <span style="color:#2e9c3f">✅ applied</span> | Atmosphere haze (Density 0.40/Haze 2.7), warm `JungleCC`, **two blooms** (`JungleBloom` soft + `JungleBloomHighlight` punch), `JungleSunRays`, muted-teal water. `lobby/build/lobby_atmosphere.luau` / STYLEGUIDE §8. **Save the place or it resets.** |
+| ~~Set `Lighting.Technology = Future`~~ | <span style="color:#2e9c3f">✅ n/a (obsolete)</span> | **Corrected 2026-08-02.** Studio no longer exposes a `Technology` dropdown — it is gone from the Lighting panel and unreadable from a script context. The modern controls are `LightingStyle` (**Realistic**), `ShadowSoftness` (**0.2**) and `PrioritizeLightingQuality` (**true**) — verified in the place; that *is* the Future path. **Nothing to set by hand.** |
+| Post-effect budget | <span style="color:#2e9c3f">✅ 4 active passes</span> | Job #069 deleted a stray `SunRays` (Intensity **0.01** — invisible, but still a full-screen pass) and adopted the working stray `Bloom` into the rig as `JungleBloomHighlight`. **Every enabled `PostEffect` is a full-screen pass**; `lobby_atmosphere.luau` now warns on any unauthored one, because the two strays went unnoticed for several jobs |
 
 ### Open questions (lobby)
 

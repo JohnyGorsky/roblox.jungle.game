@@ -12,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 local ID = {
 	LobbyMusic     = "rbxassetid://135826546197884", -- lobby_intro_music
 	Ambience1      = "rbxassetid://116462724806689", -- Jungle day ambience 1 (birds+insects bed)
+	Ambience2      = "rbxassetid://120011248667884", -- Jungle day ambience 2 (bed variant, layered under 1)
 	Wind           = "rbxassetid://93331028777865",  -- wind-breeze
 	Water          = "rbxassetid://115704936377395", -- water-splashes (positional @ dock/shore)
 	Campfire       = "rbxassetid://113774133604878", -- crackle-campfire (positional @ fire pits)
@@ -63,8 +64,19 @@ root.Parent = SoundService
 local music = makeSound(ID.LobbyMusic, { Volume = 0.35, SoundGroup = musicGroup })
 music.Name = "Music"; music.Parent = root; music:Play()
 
+-- TWO ambience beds, layered (Job #069). Bed 2 was uploaded long ago and read by nothing while
+-- ASSETS.md claimed both were wired.
+--
+-- ⚠️ VOLUME IS THE KNOB, AND IT IS DELIBERATELY LOPSIDED. Bed 2 sits well under bed 1 (0.14 vs
+-- 0.22) so it THICKENS the bed rather than doubling the birdsong — two full-volume wildlife loops
+-- read as two tracks fighting, not as a richer jungle. The two loops are different lengths, so they
+-- drift in and out of phase; that is what keeps the bed from sounding like a short repeating clip,
+-- but it also means the mix is never identical twice. If it ever sounds busy, drop bed 2 first.
 local ambience = makeSound(ID.Ambience1, { Volume = 0.22, SoundGroup = ambientGroup })
-ambience.Name = "Ambience"; ambience.Parent = root; ambience:Play()
+ambience.Name = "Ambience1"; ambience.Parent = root; ambience:Play()
+
+local ambience2 = makeSound(ID.Ambience2, { Volume = 0.14, SoundGroup = ambientGroup })
+ambience2.Name = "Ambience2"; ambience2.Parent = root; ambience2:Play()
 
 local wind = makeSound(ID.Wind, { Volume = 0.15, SoundGroup = ambientGroup })
 wind.Name = "Wind"; wind.Parent = root; wind:Play()
@@ -154,5 +166,5 @@ task.spawn(function()
 	end
 end)
 
-print(("[LobbySoundscape] ready — music+ambience+wind (2D), water×%d, campfire×%d, rope×%d, cicadas looping")
+print(("[LobbySoundscape] ready — music+ambience×2+wind (2D), water×%d, campfire×%d, rope×%d, cicadas looping")
 	:format(waterCount, fireCount, ropeCount))

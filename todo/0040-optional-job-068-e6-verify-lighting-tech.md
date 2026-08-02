@@ -1,7 +1,7 @@
 # TODO 0040: OPTIONAL (Job 068 E6): Verify Lighting.Technology = Future by eye and SAVE the place
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — NOT APPLICABLE -- the instruction was obsolete, verified 2026-08-02 from a user screenshot of the Lighting panel plus a live property read. Studio no longer exposes a Technology dropdown: it is absent from the Lighting Properties panel and unreadable from a script context ("lacking capability RobloxScript"). What the place actually has are the modern unified-lighting controls, all read live: LightingStyle = Enum.LightingStyle.Realistic, ShadowSoftness = 0.2, PrioritizeLightingQuality = true. ShadowSoftness in particular only exists on the Future path, so the lobby is already there. There was never anything to set. ASSETS.md 1.14 has been corrected -- its "Set Lighting.Technology = Future in Studio" line is struck out and replaced with the modern property set, so nobody chases this again. The "save the place or it resets" warning on that row STANDS and is unrelated.
 **Created:** 2026-08-02 11:32:49
 
 Found by the Job 068 live sweep, 2026-08-02. Lighting.Technology CANNOT be read from the MCP execution context ("lacking capability RobloxScript"), so the sweep could not confirm it. ASSETS.md 1.14 requires Future and warns "Save the place or it resets". Check it by eye in Studio Lighting properties. All the rig OBJECTS are confirmed present (Sky, Atmosphere, ColorCorrection JungleCC, Bloom, SunRays, DepthOfField) and the water is tinted muted teal (24,78,86), so only the Technology enum and the saved-state are unverified. Whether the rig is persisted is only answerable by reopening the place.

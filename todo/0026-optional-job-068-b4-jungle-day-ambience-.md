@@ -1,7 +1,7 @@
 # TODO 0026: OPTIONAL (Job 068 B4): Jungle day ambience 2 is uploaded but never wired
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — Done in Job 069, 2026-08-02. Jungle day ambience 2 (120011248667884) is now layered as a second 2D bed in LobbySoundscape at vol 0.14 against bed 1s 0.22 -- deliberately lopsided so it THICKENS the bed rather than doubling the birdsong (two full-volume wildlife loops read as two tracks fighting). Both beds renamed Ambience1/Ambience2 for clarity; nothing referenced the old "Ambience" name. VERIFIED in a live Play session: both Sounds exist, IsPlaying=true, looped, at the intended volumes, and the console reports "music+ambience x2+wind (2D)". Useful detail found while verifying: the loop lengths are 70.2s and 154.2s -- NOT simple multiples, so the two drift continuously and the combined bed never audibly repeats, which is the main risk with layering two beds. STILL UNJUDGED: whether it actually SOUNDS good. I cannot hear it. The volume is the single knob and bed 2 should be the first thing dropped if the mix reads busy; the comment in LobbySoundscape says so. ASSETS.md 1.11 updated from the false "1 & 2 wired" claim to an accurate row. USER MUST LISTEN in Play to confirm the mix.
 **Created:** 2026-08-02 10:50:56
 
 Audit Job 068, gap B4. ASSETS.md 1.11 claims "Jungle day ambience 1 AND 2 -- wired". LobbySoundscape defines and plays Ambience1 only. Ambience 2 exists in the shared registry (audio.md, 120011248667884, "ambient bed variant") and is dead weight. Either wire it as a second layered bed or correct the doc row. A single bed sounds fine today, hence optional.
