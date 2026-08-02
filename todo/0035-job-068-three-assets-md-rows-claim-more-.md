@@ -5,3 +5,25 @@
 **Created:** 2026-08-02 10:51:17
 
 Audit Job 068, doc corrections needed regardless of which gaps get built. (1) Section 1.11 says "Jungle day ambience 1 AND 2 -- wired"; only ambience 1 is wired (see gap B4 todo). (2) Section 1.6 says Weekly = "coming soon" placeholder; there is no placeholder in code, the board is empty (see gap B1 todo). (3) Section 1.9 lists the lobby screens as GoldHud/RobuxShop/SkillShop/ModulesShop/RetentionClient -- it omits PaintShop, TopBar, AdminClient and EntryBar, which all exist and consume icons (and GoldHud was REPLACED by TopBar in Job 065).
+
+## Updated by the Job #068 live sweep + user rulings (2026-08-02)
+
+Item (2) above is **WRONG and must not be actioned** — the sweep found the placeholder does exist
+(`Leaderboard_Weekly.Board.BoardGui` → "WEEKLY TOP RUNS" + "coming soon"). It is editor-placed, which
+is why no script references it. §1.6 was accurate. See `todo/0021`.
+
+**Corrections to make, revised list:**
+
+1. §1.11 — *"Jungle day ambience 1 **& 2** ✅ wired"* → **only ambience 1 is wired.** (`todo/0026`)
+2. ~~§1.6 Weekly placeholder~~ — **withdrawn, the doc was right.**
+3. §1.9 — screen list omits `PaintShop`, `TopBar`, `AdminClient`, `EntryBar`; and `GoldHud` was
+   replaced by `TopBar` in Job 065.
+4. **§1.3 last row** — *"Sign boards (per station) · 4+ · ▫ queued"* → **done.** All four stations have
+   a real 3-D `EntrySign` (Board 8×3×0.4 on two Posts). Also make the four §1.3 station rows
+   consistent: two mention "entry sign" in their notes and two don't, which is exactly what caused the
+   audit to report a false gap. See `todo/0018`.
+5. **§1.8 "Airfield star (spawn)"** — currently *"⏸ pending (you)"* → **done by design.** User ruled
+   2026-08-02 that the existing cream disc IS the intended spawn marker; no painted star decal is
+   needed. Same for the runway markings. See `todo/0022` / `todo/0036`.
+6. **§1.11 water row** — *"Water lapping @ `Dock.Pier` ✅ wired"* → **it never attaches** (wrong lookup
+   path). Correct once `todo/0037` is fixed.

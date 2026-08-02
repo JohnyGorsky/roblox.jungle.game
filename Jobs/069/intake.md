@@ -21,11 +21,16 @@ once the user accepts it.* One task at a time.
 |---|---|---|---|---|
 | 1 | **A1** — `RobuxShop` shows a buy button for passes the player already owns | `0019` | code | ✅ **done** |
 | 2 | **D1** — `LobbyConfig.PAD_COUNT = 3` is dead and wrong (4 pads) | `0023` | code | ✅ **done** |
-| 3 | **E1** — greybox `RunwayMarkings` double-paints the real runway; `Spawn.Pad` | `0036` | live/place | ▫ |
-| 4 | **E2** — dock water-lapping sound never attaches | `0037` | code | ▫ |
-| 5 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ |
+| ~~3~~ | ~~**E1** — `RunwayMarkings` + `Spawn.Pad`~~ | `0036` | — | ❌ **not a gap** — intended design (user) |
+| 3 | **E2** — dock water-lapping sound never attaches | `0037` | code | ▫ awaiting description + approval |
+| 4 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ |
 | — | **A2** — unlist Cosmetic Bundle on the Creator Hub | `0020` | **user** | ▫ |
-| — | **B3** — spawn star still greybox (reopened by the sweep) | `0022` | **user** | ⚠️ needs the user's answer |
+| ~~—~~ | ~~**B3** — spawn star still greybox~~ | `0022` | — | ❌ **not a gap** — intended design (user) |
+
+> **User ruling 2026-08-02:** *"spawn pads and runway is ok. Design is ok."* — `Spawn.Star`,
+> `Spawn.Pad` and `RunwayMarkings` are all kept as-is. They remain byte-identical to the greybox
+> originals, so they are recorded on the **confirmed-intentional list** in `Jobs/068/intake.md` Part E
+> to stop a future sweep re-flagging them.
 
 ---
 

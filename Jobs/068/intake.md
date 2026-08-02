@@ -334,7 +334,26 @@ if the lobby place grows a lot.
 (`Crate`/`Barrel`/`TentFloor`/`TentRoof`/`Logs`/`Sandbag`) · the neon `Flame` parts · all 30 greybox
 foliage clumps (`Trunk`/`Canopy`/`Bush`) · greybox watchtower geometry. **`LOBBY_BLOCKOUT` absent.**
 
-## E1 🔴 — Greybox that IS still in the place
+## ✅ CONFIRMED-INTENTIONAL LIST — do not re-flag these
+
+**User ruling, 2026-08-02: *"spawn pads and runway is ok. Design is ok."*** All three E1 objects are
+the **intended design**, not leftovers. Nothing is deleted; `todo/0036` and `todo/0022` are closed as
+not-gaps.
+
+| Object | Ruling |
+|---|---|
+| `Stations.Spawn.Star` | **KEEP.** The cream disc is the intended spawn marker. The §1.8 painted military star is **not** needed — no decal to generate. This also settles the E-CONFLICT below. |
+| `Stations.Spawn.Pad` | **KEEP.** Intended sand spawn disc. |
+| `Scenery.RunwayMarkings` | **KEEP.** Reads as deliberate markings over the user-made `RunWay` tiles, not a double-paint. |
+
+> ⚠️ **Trap for any future sweep.** All three still match the `greybox_placement.luau` signature
+> *exactly* (name + size + colour + material) — they were never modified, they were simply judged
+> good. **A re-run of this sweep will flag all three again as false positives.** Check this list first.
+>
+> The lesson generalises: signature-matching finds *unchanged* parts, which is not the same as
+> *unwanted* parts. The sweep can only ever produce candidates for a human ruling.
+
+## ~~E1~~ 🔴 → ✅ *(withdrawn — see the ruling above)* Greybox still present in the place
 
 | Object | Evidence | Note |
 |---|---|---|
@@ -342,7 +361,16 @@ foliage clumps (`Trunk`/`Canopy`/`Bush`) · greybox watchtower geometry. **`LOBB
 | `Stations.Spawn.Pad` | `2 × 26 × 26`, colour **(200,163,106) = SAND exactly**, Sand material | The `:54` original |
 | `Scenery.RunwayMarkings` | 13 parts (9 `Dash` + 4 `Threshold`), first Dash at `z −360` | **Double-painted, confirmed.** The 5 user `RunWay` tiles span `z −154 → −485` — the greybox dashes sit on top of the real runway |
 
-## E-CONFLICT 🔴 — the spawn star was reported fixed, but is unchanged
+## ✅ E-CONFLICT — RESOLVED 2026-08-02: there was no conflict, only a wrong expectation
+
+The user's ruling above settles it. The star **is** unchanged greybox — and that is correct, because
+the cream disc is the intended spawn marker. My desk audit assumed §1.8's *"painted military star —
+⏸ pending (you)"* meant the current disc was a placeholder awaiting art. It wasn't; the design moved
+on and the doc row didn't. `todo/0022` is closed as a not-gap.
+
+Original conflict text, kept for the record:
+
+## ~~E-CONFLICT~~ 🔴 — ~~the spawn star was reported fixed, but is unchanged~~
 
 The user reported B3 fixed on 2026-08-02 and `todo/0022` was resolved on that basis. **The live place
 disagrees**: `Spawn.Star` is the exact greybox cylinder, same size, same CREAM colour, same material,
@@ -468,9 +496,9 @@ a task.
 | A2 | Cosmetic Bundle Hub listing still live (Job 067 carry-over) | **user** | `0020` | open |
 | ~~B1~~ | ~~`Leaderboard_Weekly` empty board~~ | — | `0021` | ❌ **withdrawn** — placeholder exists, editor-placed |
 | ~~B2~~ | ~~Bounties + BoatUpgrades lack an entry sign~~ | — | `0018` | ❌ **withdrawn** — all 4 stations have one |
-| B3 | Spawn "airfield star" is a greybox cream cylinder | user art | `0022` | ⚠️ **REOPENED** — live place shows it unchanged |
-| D1 | `LobbyConfig.PAD_COUNT = 3` — dead and wrong (there are 4) | code | `0023` | open |
-| E1 | Greybox `RunwayMarkings` double-paints the real runway (+ `Spawn.Pad`) | live | `0036` | open |
+| ~~B3~~ | ~~Spawn "airfield star" is greybox~~ | — | `0022` | ❌ **withdrawn** — intended design (user, 2026-08-02) |
+| D1 | `LobbyConfig.PAD_COUNT = 3` — dead and wrong (there are 4) | code | `0023` | ✅ **fixed** (Job 069) |
+| ~~E1~~ | ~~Greybox `RunwayMarkings` + `Spawn.Pad`~~ | — | `0036` | ❌ **withdrawn** — intended design (user, 2026-08-02) |
 | E2 | Dock water-lapping sound never attaches (`Dock.Dock.Pier` nesting) | code | `0037` | open |
 | E3 | Three models named `Watchtower_NW` — four towers, spec says two | live | `0038` | open |
 

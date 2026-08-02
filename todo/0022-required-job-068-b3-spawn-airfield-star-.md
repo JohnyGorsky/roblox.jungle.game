@@ -1,7 +1,7 @@
 # TODO 0022: REQUIRED (Job 068 B3): Spawn airfield star is still a greybox cream cylinder
 
 **Project:** `roblox.jungle`
-**Status:** REOPENED (2026-08-02) — the live sweep found it unchanged. See below.
+**Status:** resolved (2026-08-02) — NOT A GAP -- confirmed intentional by the user, 2026-08-02 ("spawn pads and runway is ok, design is ok"). This closes the contradiction the sweep opened: the live Stations.Spawn.Star IS byte-for-byte the greybox cylinder (2.2x11x11, CREAM 243,230,194, SmoothPlastic, no decal child), and that is FINE -- the cream disc is the intended spawn marker, not a placeholder awaiting the painted military star. No decal needs generating and nothing needs deleting. ASSETS.md 1.8 row "Airfield star (spawn)" must move off "pending (you)" to done-by-design (folded into doc-correction todo 0035). IMPORTANT FOR FUTURE SWEEPS: this part still matches the greybox signature and will be re-flagged as a false positive; it is on the confirmed-intentional list in Jobs/068/intake.md Part E.
 **Created:** 2026-08-02 10:50:31
 
 ## ⚠️ Reopened by the Job #068 live greybox sweep (2026-08-02)
