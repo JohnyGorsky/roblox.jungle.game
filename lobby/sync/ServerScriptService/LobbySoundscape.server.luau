@@ -119,13 +119,24 @@ if scenery then
 			fireCount += 1
 		end
 	end
-	-- subtle rope/rigging creak at the watchtowers
-	for _, name in ipairs({ "Watchtower_NW", "Watchtower_NE" }) do
-		local m = scenery:FindFirstChild(name)
-		local part = m and (m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true))
-		if part then
-			attachPositional(part, ID.RopeCreak, 0.25)
-			ropeCount += 1
+	-- Subtle rope/rigging creak at EVERY watchtower (Job 069, audit Job 068 gap E3).
+	--
+	-- This was a hardcoded { "Watchtower_NW", "Watchtower_NE" } driven by FindFirstChild, which returns
+	-- only the FIRST match per name. The place has FOUR towers and THREE of them are named
+	-- "Watchtower_NW" (two flank the southern approach) — so two towers were silent, and which one got
+	-- the sound depended on child order.
+	--
+	-- Scanning by name PREFIX fixes that without renaming or moving anything: the towers are intended
+	-- scenery and are left untouched. It also means a fifth tower placed in the editor creaks
+	-- automatically with no script edit — the same find-by-name-and-attach rule the rest of the lobby
+	-- follows (memory: lobby-editor-placed-not-scripted).
+	for _, m in ipairs(scenery:GetChildren()) do
+		if m:IsA("Model") and m.Name:match("^Watchtower") then
+			local part = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
+			if part then
+				attachPositional(part, ID.RopeCreak, 0.25)
+				ropeCount += 1
+			end
 		end
 	end
 end

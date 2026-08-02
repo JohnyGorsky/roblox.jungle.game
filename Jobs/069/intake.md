@@ -23,7 +23,7 @@ once the user accepts it.* One task at a time.
 | 2 | **D1** — `LobbyConfig.PAD_COUNT = 3` is dead and wrong (4 pads) | `0023` | code | ✅ **done** |
 | ~~3~~ | ~~**E1** — `RunwayMarkings` + `Spawn.Pad`~~ | `0036` | — | ❌ **not a gap** — intended design (user) |
 | 3 | **E2** — dock water-lapping sound never attaches | `0037` | code | ✅ **done** |
-| 4 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ awaiting description + approval |
+| 4 | **E3** — three models named `Watchtower_NW` | `0038` | code | ✅ **done** (no place change) |
 | — | **A2** — unlist Cosmetic Bundle on the Creator Hub | `0020` | **user** | ▫ |
 | ~~—~~ | ~~**B3** — spawn star still greybox~~ | `0022` | — | ❌ **not a gap** — intended design (user) |
 
@@ -171,6 +171,74 @@ rather than the main deck slab. Immaterial for the audio — it sits at the dock
 The script prints its own counts, so the check is concrete:
 **`[LobbySoundscape] ready — … water×1`** (it currently reports `water×0`).
 
+---
+
+## ✅ Task 4 — E3: only 2 of 4 watchtowers creaked
+
+**File:** `lobby/sync/ServerScriptService/LobbySoundscape.server.luau` (LOBBY tree only).
+**No place change. Nothing renamed, moved or deleted.**
+
+### The finding, and the ruling that reshaped the fix
+
+The sweep found **four** towers where §1.6 specifies two, three of them named `Watchtower_NW` (two
+flanking the southern approach). My first proposal was to rename the southern pair to `_SW`/`_SE`.
+
+**The user ruled the towers are intended** — *"4 are intended, do not delete any game assets… all
+scenery is how it should be."* That turned out to make the fix **better**, not merely smaller: it
+forced the problem back into the script, where it actually belonged.
+
+### What was wrong
+
+```lua
+for _, name in ipairs({ "Watchtower_NW", "Watchtower_NE" }) do
+    local m = scenery:FindFirstChild(name)
+```
+
+A hardcoded two-name list plus `FindFirstChild`, which returns only the **first** match per name. With
+three towers sharing `Watchtower_NW`, **two of the four were silent**, and which one won depended on
+child order — arbitrary and invisible.
+
+### What changed
+
+Scan `Scenery` for **Models whose name starts with `Watchtower`** and attach the creak to each.
+
+- Duplicate names stop mattering — the script no longer cares.
+- **A fifth tower placed in the editor creaks automatically, no script edit** — the user's stated goal,
+  and the same find-by-name-and-attach rule the rest of the lobby follows
+  (memory: `lobby-editor-placed-not-scripted`).
+- The naming oddity (two southern towers still called `_NW`) is left alone: cosmetic, and the scenery
+  is signed off.
+
+### Verified live (Studio MCP, read-only)
+
+| Check | Result |
+|---|---|
+| OLD rule | attaches to **2** of 4 |
+| NEW rule | attaches to **4** — NE `(96,−115)`, NW `(−88,−110)`, NW `(34,151)`, NW `(−63,153)` |
+| Each hit resolves to a BasePart | ✅ all four → `Base` |
+| False positives | none — only `Model`s are matched, every hit is a real tower |
+| `luau-analyze.sh` | no diagnostics |
+
+**Cost:** two extra looping positional sounds (volume 0.25, rolloff 10–120). Negligible, but it is a
+real +2 rather than a free change.
+
+### NOT verified — needs a Rojo sync + Play
+
+Concrete check, from the script's own print: **`rope×4`** (currently `rope×2`).
+
+---
+
+## Status
+
+**All four code tasks are done and analyzer-clean.** Three of the four were verified against the live
+place; none has been heard or seen in a running game yet.
+
+| Remaining | Owner |
+|---|---|
+| **Rojo sync + Play** — confirm `water×1`, `rope×4`, and an owned pass reading `OWNED` | user + Claude |
+| **A2** — unlist the Cosmetic Bundle on the Creator Hub (`todo/0020`) | **user** |
+| **ASSETS.md doc corrections** (`todo/0035`, now 8 items) | queued |
+
 ## Checklist
 
 - [x] Task 1 (A1) implemented + analyzer clean
@@ -178,5 +246,6 @@ The script prints its own counts, so the check is concrete:
 - [x] Task 2 (D1) implemented + verified by grep and analyzer
 - [x] Task 3 (E2) implemented + lookup verified against the live tree
 - [ ] Task 3 verified in Play (expect `water×1`)
-- [ ] Task 4 (E3) described, approved, implemented
+- [x] Task 4 (E3) implemented + verified against the live tree
+- [ ] Task 4 verified in Play (expect `rope×4`)
 - [ ] Final summary + changelog

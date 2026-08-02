@@ -25,5 +25,13 @@ is why no script references it. §1.6 was accurate. See `todo/0021`.
 5. **§1.8 "Airfield star (spawn)"** — currently *"⏸ pending (you)"* → **done by design.** User ruled
    2026-08-02 that the existing cream disc IS the intended spawn marker; no painted star decal is
    needed. Same for the runway markings. See `todo/0022` / `todo/0036`.
-6. **§1.11 water row** — *"Water lapping @ `Dock.Pier` ✅ wired"* → **it never attaches** (wrong lookup
-   path). Correct once `todo/0037` is fixed.
+6. **§1.11 water row** — *"Water lapping @ `Dock.Pier` ✅ wired"* → it **never attached** (wrong lookup
+   path). Fixed in Job 069 (`todo/0037`); the row is now true, but note the real path is
+   `Scenery.Dock.Dock.Pier` and the lookup is recursive.
+7. **§1.6 "Watchtower | 2"** → **4.** The place has four towers and the user confirmed all four are
+   intended (2026-08-02). Note in the row that three of them are *named* `Watchtower_NW` — the two
+   southern ones kept that name deliberately, and `LobbySoundscape` now finds towers by the
+   `^Watchtower` name prefix rather than by exact name, so the duplication is harmless.
+   See `todo/0038`.
+8. **§1.11 rope-creak row** — currently *"@ watchtowers"*; it attached to **2 of 4** until Job 069.
+   Now all four.
