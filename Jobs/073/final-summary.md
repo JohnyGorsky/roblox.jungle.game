@@ -223,7 +223,10 @@ forgotten.
 - [x] `[GameSoundscape] live — birds×2 + wind + cicadas (2D beds), water×1, phase stingers armed` — after
       the wake, not over the loading mask or the plane cabin
 - [x] All beds + dock water `IsLoaded true`; `DockWater` positional at `BoatPlace` (−149, 15.7, −270)
-- [x] `Phase` listener fires the crossfade and both stingers
+- [x] **The real dusk flip, caught live:** the night stinger fired and *played* —
+      `PhaseStinger id 75443344927115 · IsLoaded true · len 11.0 · IsPlaying true` — and the crossfade was
+      sampled **mid-flight**: `Ambience1 0.148` (0.22→0.06), `Ambience2 0.090` (0.14→0.03),
+      `Wind 0.173` (0.15→0.20), `Cicadas 0.175` (0.04→0.34)
 - [x] `[Foliage] spawn-base exclusion: X -636..124 Z -593..49 (1557 parts, +40 margin)` — **0 greybox parts
       inside it**, greybox now begins at Z 5 (exactly where the generated river starts), all 45 hand-placed
       camp models intact
@@ -254,6 +257,6 @@ forgotten.
 | Camp night practicals (fire pit, lanterns) | `Planned/camp-night-practicals.md` | **0 `Light` objects exist in the whole game Workspace.** The night palette is knowingly lifted just to keep the camp navigable — global ambient doing a practicals job, which is the "lit evenly" failure §8 forbids. That job must bring the palette back **down** |
 | Remove the MEDIC billboard | TODO 0042 | User asked for it as a todo. `CargoServer` ~line 177 |
 | Real Robux shop in the game place | TODO 0043 | User asked for it as a todo. The lobby's `RobuxShop.local.luau` already has real store art |
-| `night_starts` re-upload | TODO 0044 | Needs a Creator Hub action, not code |
+| ~~`night_starts` re-upload~~ | TODO 0044 **resolved** | Took three assets; `night_starts_2` `75443344927115` plays. Verified firing on a real dusk flip |
 | Dark slab under the boat hull | TODO 0045 | Investigated, not fixed. **Ruled out** stray world geometry (radius query returned only the player; five downward rays hit only Terrain), so it is a boat part — and the only dark diamond-plate parts on the boat are the **armour plating** (`ArmoredHullL/R`, plain Parts `0.8 × 2.4 × 22` at local x ±7.4). Three reasons it reads wrong are in the todo, incl. that it's a bare Part so the Paint Pack never recolours it. Needs a visual confirm — the boat had moved on before I could re-photograph the frame |
 | `gun_shot` wiring | ASSETS.md §3.2 + registry | Your call: *"Do not add sound yet, because this will be seperate task, just list it in file."* Recorded in both, wired nowhere; belongs with `GunServer`/`WeaponServer` |
