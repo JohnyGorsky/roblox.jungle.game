@@ -335,7 +335,7 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | Wind / breeze | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | light layer |
 | Water lapping (`water-splashes`) | @ `Dock.Dock.Pier` | <span style="color:#2e9c3f">✅ wired (fixed #069)</span> | positional. ⚠️ **It never actually played until Job #069** — the lookup was a non-recursive `Dock:FindFirstChild("Pier")`, but the Store dock nests a level deeper, so it returned nil and no sound was ever created while this row read "✅ wired". Now a recursive find; verified in Play as `water×1` |
 | Campfire crackle (`crackle-campfire`) | @ both `FirePit`s | <span style="color:#2e9c3f">✅ wired</span> | positional |
-| Cicadas / wildlife | 2D one-shots | <span style="color:#2e9c3f">✅ wired</span> | every ~18–44s |
+| Cicadas / wildlife | 2D one-shots | <span style="color:#f0a020">⚠️ wired, but STACKING</span> | fired as a one-shot every ~18–44 s — but the clip is **71.4 s long** (measured live, Job #073), so each copy is still playing when the next starts and the lobby runs ~2 overlapping cicada loops at all times. Not audibly broken, which is why it went unnoticed, but it is not what the code intends. The GAME place hit the same trap harder and fixed it by making cicadas a **crossfading bed** (§6.1) — the lobby should follow |
 | Rope creak (`rope_creak`) | @ **all 4** watchtowers | <span style="color:#2e9c3f">✅ wired (fixed #069)</span> | positional loop in `LobbySoundscape`. ⚠️ **Reached only 2 of the 4 towers until Job #069** — a hardcoded `{ "Watchtower_NW", "Watchtower_NE" }` + `FindFirstChild` returns the FIRST match per name, and three towers share the name. Now scans by `^Watchtower` prefix, so a newly placed tower creaks with no script edit; verified in Play as `rope×4` |
 
 ## 1.12 Audio — SFX (events / one-shots)
@@ -458,6 +458,28 @@ never the deck, engines, seats or stations.
 | Set-pieces | waterfalls, ramps, dam blockages | ▫ stub |
 | Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | ▫ stub |
 | Zone dressing / day-night set-pieces | per-zone props + lighting | ▫ stub |
+| **GAME-place ambient rig** | lighting + water + soundscape | <span style="color:#2e9c3f">✅ done (#073)</span> — see §3.1 |
+
+## 3.1 GAME place ambient — lighting, water, soundscape (Job #073)
+
+Before #073 the GAME place ran **stock Roblox lighting** (`Ambient`/`OutdoorAmbient` both grey
+`(70,70,70)`, no `ColorCorrection` at all, `GeographicLatitude 0`, grey Atmosphere with `Glare 0/Haze 0`,
+`Terrain.WaterReflectance` **1** — a mirror river) and had **no ambient audio whatsoever**
+(`SoundService` with zero children).
+
+The lobby's look was ported over, but **day/night-aware** rather than baked, because the game runs a real
+clock and the lobby is frozen at 16:10.
+
+| Piece | Where | Status | Notes |
+|---|---|---|---|
+| Lighting / atmosphere / water rig | `sync/ReplicatedStorage/World/AtmosphereRig.luau` | <span style="color:#2e9c3f">✅ done</span> | **The values live here, in ONE module**, not baked into the place — so no "save the place or it resets" debt. Day palette is the lobby's accepted values verbatim; dawn / morning / dusk / night are keyframes lerped off `ClockTime`. Driven by `sync/ServerScriptService/World/AtmosphereServer.server.luau` |
+| Edit-time bake | same module | <span style="color:#2e9c3f">✅ done</span> | So the editor isn't grey while building: `print(require(game.ReplicatedStorage.World.AtmosphereRig).apply(16.1))` in the command bar, then set `ClockTime` by hand (the module never writes it — `DayNightServer` owns it) |
+| 🔴 `Lighting.LightingStyle = Realistic` | **BY HAND in Studio** | <span style="color:#c93c3c">❌ manual — still `Soft`</span> | **The one value a script cannot deliver.** Refused even from the privileged command bar, same capability gate as the old `Technology`. Studio → `Lighting` → Properties → `LightingStyle` = **Realistic**, then **save the place**. `apply()` returns it in a `REFUSED:` list so it can't be silently forgotten. (`ShadowSoftness 0.2` ✅ writable; `PrioritizeLightingQuality` refused but already `true`) |
+| Post-effect budget | `Lighting` | <span style="color:#2e9c3f">✅ 4 active passes</span> | Same budget as the lobby. The game place shipped with **the same two strays Job #069 removed from the lobby** — a `Bloom` byte-identical to `JungleBloomHighlight`, and a `SunRays` at Intensity **0.01**. The rig **adopts and renames** them rather than adding alongside, which would have left 6 passes with 2 doing nothing. Drift check ported too |
+| Water | `Terrain` | <span style="color:#2e9c3f">✅ done</span> | `WaterColor (24,78,86)`, `Transparency 0.30`, **`Reflectance 0.03`** (was `1`), `WaveSize 0.15`, `WaveSpeed 10` |
+| Ambient soundscape | `sync/ServerScriptService/World/GameSoundscape.server.luau` | <span style="color:#2e9c3f">✅ done</span> | 4 crossfading 2D beds + positional dock water + the two phase stingers. See §6 |
+| Day/night clock re-pace | `sync/ServerScriptService/World/DayNightServer.server.luau` | <span style="color:#2e9c3f">✅ done</span> | Was a uniform 24 h per 4 real minutes from 08:00 → night fell **1 min 50 s** into a ~12 min run, three cycles per run. Now starts **06:30** with a **non-linear** clock: 13 daylight hours over 480 s, 11 night hours over 180 s → night falls **462 s** in. ⚠️ `EnemyServer` scales spawn rate + bite damage off `Phase`, so these two constants are a **balance** lever |
+| Night practicals (fire pit, lanterns) | — | <span style="color:#c93c3c">❌ not built</span> | **0 `Light` objects exist in the whole game Workspace.** So the night palette is deliberately lifted higher than it should be, just to keep the camp navigable — global ambient doing a job that belongs to practicals. → `Planned/camp-night-practicals.md`, which must also bring the palette back down |
 
 # 4) ENEMIES / CHARACTERS
 
@@ -525,3 +547,39 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | Area | Items | Status | Notes |
 |---|---|---|---|
 | Cross-place music / SFX | combat, per-zone ambience | ▫ stub | existing uploads in registry `audio.md` |
+
+## 6.1 GAME place soundscape (Job #073)
+
+Wired by `sync/ServerScriptService/World/GameSoundscape.server.luau`. Ids live in ONE table at the top of
+that script — **no asset id inline**, same rule as `PlaneServer` and the lobby's `Theme.sound`. Buses:
+`GameMusic` / `GameAmbient` / `GameSFX` `SoundGroup`s.
+
+**No looping music bed by design** — `lobby_intro_music` stays the lobby's signature. The run is scored by
+the jungle plus two stingers on the day/night flip.
+
+**It holds silent until `Workspace.IntroWake`** and fades in over 2 s as the crew comes round, so birdsong
+never plays under the plane cabin or over the loading mask (the bug Job #072 shipped once).
+
+| Sound | Role | Day vol | Night vol | Status |
+|---|---|---|---|---|
+| `Jungle day ambience 1` | 2D bed — birds + insects | 0.22 | 0.06 | <span style="color:#2e9c3f">✅ wired</span> |
+| `Jungle day ambience 2` | 2D bed — thickener (deliberately lopsided under bed 1, per lobby #069) | 0.14 | 0.03 | <span style="color:#2e9c3f">✅ wired</span> |
+| `wind-breeze` | 2D bed — comes forward at night to carry what the birds were carrying | 0.15 | 0.20 | <span style="color:#2e9c3f">✅ wired</span> |
+| `cicadas` | 2D bed — **takes over at night; this is what makes night read as night** | 0.04 | 0.34 | <span style="color:#2e9c3f">✅ wired</span> |
+| `water-splashes` | positional @ `SpawnBase.Dock.BoatPlace` | 0.5 | 0.5 | <span style="color:#2e9c3f">✅ wired</span> |
+| `morning_starts` | 2D stinger on `Phase` → day | — | — | <span style="color:#2e9c3f">✅ wired</span> — unused since #064 until now |
+| `night_starts` | 2D stinger on `Phase` → night | — | — | <span style="color:#2e9c3f">✅ wired</span> — unused since #064 until now |
+| `battle_starts` | combat stinger | — | — | <span style="color:#c93c3c">❌ not wired, on purpose</span> — `EnemyServer` is a continuous trickle spawner with no wave/encounter/aggro-start concept, so there is no moment to fire on. → `Planned/combat-encounter-stinger.md` |
+
+> ⚠️ **`cicadas` is a crossfading BED here, not a one-shot — and the lobby has a latent bug because of it.**
+> The clip is **71.4 s long** (read live in Play). `LobbySoundscape` fires it as an "occasional one-shot"
+> every 18–44 s, so each copy is still playing when the next starts — the lobby is already stacking ~2.
+> The original plan for this place (one-shots every 6–16 s at night) would have layered **six or seven**
+> concurrent 71-second cicada loops into a wall of noise. One crossfading bed cannot stack, costs one
+> `Sound` instead of N, and is what a night jungle actually sounds like.
+> **The lobby still has the stacking** — different place, not touched from here.
+
+> ⚠️ **The dock water anchor is `Dock.BoatPlace`, not a `Pier`.** The lobby finds its anchor with
+> `Dock:FindFirstChild("Pier", true)`; that cannot work in the game place, whose dock model is 60-odd parts
+> **every one of which is literally named `Part`**. `BoatPlace` is the one stable, named, editor-placed part
+> on the waterline (it is what `BoatServer` moors to, #072) — move it in the editor and the sound follows.

@@ -224,13 +224,30 @@ end
 -- ── stingers on the day/night flip ──────────────────────────────────────────────────────────
 -- `morning_starts` / `night_starts` have been uploaded and owned since Job #064 and read by nothing;
 -- the registry and LobbySoundscape both record them as belonging to THIS place. This is that wiring.
-local function stinger(id: string)
+local STINGER_MAX = 20 -- seconds; the longest stinger we own is 13 s
+
+local function stinger(id: string, label: string)
 	local s = makeSound(id, { Looped = false, Volume = 0.5, SoundGroup = musicGroup })
 	s.Name = "PhaseStinger"
 	s.Parent = root
 	s:Play()
 	s.Ended:Once(function()
 		s:Destroy()
+	end)
+	-- ⚠️ SAFETY NET, and it is not hypothetical. `Ended` never fires for a Sound whose asset fails to
+	-- load, so `Ended:Once` alone leaks one Sound into the folder on EVERY phase flip, forever.
+	-- Observed in Play: `night_starts` (99602574849976) returns "Asset is not approved for the
+	-- requester" — the id is right and the asset is owned (GetProductInfo confirms name + AssetTypeId 3
+	-- + creator), Roblox audio moderation just hasn't approved that one upload. Warn loudly rather than
+	-- failing silently, because a stinger that doesn't play is invisible in a log.
+	task.delay(STINGER_MAX, function()
+		if s.Parent then
+			if not s.IsLoaded then
+				warn(("[GameSoundscape] stinger '%s' (%s) never loaded — asset unapproved or moderated. "):format(label, id)
+					.. "Check its moderation status on the Creator Hub and re-upload if rejected.")
+			end
+			s:Destroy()
+		end
 	end)
 end
 
@@ -242,9 +259,9 @@ Workspace:GetAttributeChangedSignal("Phase"):Connect(function()
 	-- sunrise cue underneath a stalling engine.
 	if not live then return end
 	if phase == "night" then
-		stinger(SFX.night)
+		stinger(SFX.night, "night_starts")
 	elseif phase == "day" then
-		stinger(SFX.morning)
+		stinger(SFX.morning, "morning_starts")
 	end
 end)
 

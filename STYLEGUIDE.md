@@ -296,6 +296,26 @@ The screen must stay **clean and uncluttered while playing.** The player fights 
 **Night: warm practical pools of light.**
 - Lanterns warm amber; torches warm orange; mechanical equipment small blue/green indicator lights;
   shops warm internal glow. **Small pools of light — do NOT light the whole jungle evenly.**
+- **Canonical night values** (Job #073, tuned by screenshot over the game's spawn base):
+  `Brightness 1.5` (this is *moonlight* — the sun is down; the moon is still the light source even though
+  its disc is hidden), `Ambient (44,50,64)`, `OutdoorAmbient (66,76,96)`, `ExposureCompensation 0.26`,
+  `EnvironmentDiffuseScale 0.85`, `Atmosphere` `Density 0.34 / Color (60,72,92) / Decay (30,40,60) /
+  Glare 0.05 / Haze 1.2`, `ColorCorrection` `Tint (200,214,250) / Saturation −0.04 / Contrast 0.12`.
+- ⚠️ **`ExposureCompensation` and `EnvironmentDiffuseScale` are time-of-day values, not constants.** Carrying
+  the daytime `0.12 / 0.5` into night gives a genuinely pitch-black screen — measured, not theorised.
+- ⚠️ **These night numbers are knowingly TOO BRIGHT, and are debt.** The game world has **no light objects in
+  it at all** yet, so the global ambient is standing in for practicals — which is exactly the "lit evenly"
+  failure this section forbids. When camp practicals get built, the palette must come **down** in the same
+  job (`Planned/camp-night-practicals.md`).
+
+**Where the values live.**
+- **Lobby** (static, frozen at 16:10): `lobby/build/lobby_atmosphere.luau`, baked into the place.
+- **Game** (day/night-aware): `sync/ReplicatedStorage/World/AtmosphereRig.luau` — one module, in git, with
+  the day palette equal to the lobby's values verbatim and dawn/morning/dusk/night as lerped keyframes.
+  Prefer this shape for any new place; a baked place is how the lobby earned its "save it or it resets" warning.
+- 🔴 **`Lighting.LightingStyle = Realistic` cannot be set by a script** — refused even from the privileged
+  command bar, the same gate the old `Technology` hit. It must be set by hand in Studio's Lighting
+  properties and the place saved. `ShadowSoftness 0.2` *is* scriptable.
 
 ### VFX — the world is alive (particles & emitters everywhere)
 
