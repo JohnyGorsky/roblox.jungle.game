@@ -1,8 +1,8 @@
 # Final Summary — Job #067
 
 **Project**: `roblox.jungle`
-**Completed**: 2026-08-01
-**Status**: ✅ Completed — **two Creator Hub items outstanding, see below**
+**Completed**: 2026-08-02
+**Status**: ✅ Completed — **closed 2026-08-02.** Scope delivered in full; see *Outstanding* and *Not verified* for what deliberately did not fit inside this job.
 
 Audited whether `SkillDefs` / `ModuleDefs` / `MonetizationDefs` actually deliver the progression `GAME.md`
 describes, then built every gap the audit found. All four findings are closed.
@@ -133,18 +133,29 @@ verified by scanning for hosts that are still visible and have no skin.
 
 **Invented greybox was removed as a practice.** The user's instruction — *"if you need models just say, do
 not invent things"* — after I fabricated a grey mast, a grey rack frame and a grey ramp wedge. Three
-meshes were commissioned instead (`SearchlightMast`, `CargoRacks`, `RampBow`); `BoatParts` now names them,
-so the stand-ins vanish automatically on import. **`size` is deliberately left unset on all three** so they
-arrive at natural scale and the boat is fitted around them, rather than stretching art to fit a host.
+meshes were commissioned instead and **imported 2026-08-02**: `SearchlightMast`, `CargoRacks`, `RampBow`.
+
+Each is sized to its OWN natural proportions — **zero stretch on all three** — and the boat was moved
+around them rather than the art squeezed into existing hosts:
+
+| Mesh | Imported | Used at | Consequence for the boat |
+|---|---|---|---|
+| `SearchlightMast` | 0.45 × 1.20 × 0.45 | 1.70 × 4.53 × 1.70 | A stocky **pedestal**, not a mast — a 0.8-stud pole is what Meshy reconstructs worst |
+| `CargoRacks` | 3.22 × 1.20 × 2.11 | 7.50 × 2.80 × 4.92 | Owns the **aft half** of the rear deck; all three role stations moved forward to `backZ − 2.5` |
+| `RampBow` | 4.21 × 1.20 × **4.21** | 8.00 × 2.28 × 8.00 | **Square footprint** — as deep as it is wide, which the 5 studs of bow ahead of the gun can't hold, so it rides low and passes **under** the gun base, overhanging the bow by 3 studs |
+
+Two corrections after seeing it in-world: the racks **floated** (the mesh sits ~0.7 high inside its own
+bounding box — the same correction the deck stations needed in Job 066, and unmeasurable at runtime because
+a skin can't be raycast), and the lamp sat **off-centre** on a post that is now 1.7 wide rather than 0.8.
 
 ## Files changed
 
 **New** — `ReplicatedStorage/Boat/BoatPaint.luau` (both trees) · lobby `Progression/PaintServer.server.luau` ·
 lobby `UI/PaintShop.local.luau` · game `UI/DownedHud.local.luau`
 **Changed** — `MonetizationDefs` · `MonetizationServer` · `ProfileConfig` · `Profiles` · `ModuleDefs` ·
-`BoatParts` (both trees) · `BoatModules` · `BoatServer` · `RampTest` · `PlayerCombat` · `ItemDefs` ·
-`InventoryService` · `InventoryHud` · lobby `LobbyBoat` · lobby `Theme` · lobby `RobuxShop` · lobby
-`EntryBar` · `GAME.md` · `ASSETS.md` · registry `images.md`
+`BoatParts` (both trees) · `BoatModules` · `BoatServer` · `GunServer` · `CargoServer` · `RampTest` ·
+`PlayerCombat` · `ItemDefs` · `InventoryService` · `InventoryHud` · lobby `LobbyBoat` · lobby `Theme` ·
+lobby `RobuxShop` · lobby `EntryBar` · `GAME.md` · `ASSETS.md` · registry `images.md` · registry `meshes.md`
 
 ## Verification
 
@@ -154,8 +165,15 @@ lobby `UI/PaintShop.local.luau` · game `UI/DownedHud.local.luau`
       livery RGB. Screenshot confirms deck/engines/seats untouched.
 - [x] **Round-tripped**: `olive → navy → olive` restores the authored art exactly (the rebuild clones a
       fresh skin), and a **hostile value** (`"notacolour"`) sanitizes to the default instead of erroring.
-- [x] Library prep verified present on `Hull` and `HullPlate` after returning to Edit.
-- [x] Camera reset to `Custom` after the screenshot.
+- [x] Library prep verified present on `Hull`, `HullPlate` and `RampBow` after returning to Edit.
+- [x] **Every new mesh measured against the hull by AABB test in a fresh session, not eyeballed** — ramp vs
+      gun base / barrel / bow light / hull, racks vs both stations, mast and lamp vs driver and gun: all
+      clear. The one flagged contact (racks vs deck) measured **0.0000 studs** of interpenetration — the
+      rack resting on the deck, which is correct.
+- [x] **No part of the boat is greybox**, verified by scanning for visible hosts with no skin.
+- [x] Mooring ropes re-measured after lengthening: 3.62 → **6.02**, now buried 0.86 into the transom and
+      1.46 into the deck rather than stopping on both surfaces.
+- [x] Camera reset to `Custom` after every screenshot.
 
 ### Not verified — stated plainly
 
@@ -166,6 +184,12 @@ lobby `UI/PaintShop.local.luau` · game `UI/DownedHud.local.luau`
   seen in-world — it needs a player who owns `hullkit`.
 - **The ramps module's handling change hasn't been felt**, only wired. It rides on the same untested
   re-tune as Job 066's hull-length change.
+- **The searchlight's gun-tracking has not been seen running.** It is GAME-place code and Studio had the
+  lobby open throughout; it also needs a night run with someone in the gunner's seat. The lamp's mesh is
+  driven explicitly rather than trusting its weld, precisely because that path is unproven.
+- **The ramp's underside sits 0.06 studs above the waterline.** Deliberate (the user asked for it lower)
+  and it reads as a ramp meeting the water, but it will touch the surface when the boat pitches. Raise it
+  ~0.5 if that reads badly in motion.
 
 ## Outstanding — needs the user
 
@@ -183,5 +207,22 @@ lobby `UI/PaintShop.local.luau` · game `UI/DownedHud.local.luau`
 
 ## Carried forward from Job 066 (still open)
 
-Importing the 15 GLBs into the **game place**, and **re-testing boat handling** after the hull grew
-22 → 32 studs — now with the `ramps` module's handling multipliers on top.
+Importing the boat meshes into the **game place** — now **18**, not 15 — and **re-testing boat handling**
+after the hull grew 22 → 32 studs, now with the `ramps` module's handling multipliers on top. The game
+place is still fully greybox; `BoatParts` is byte-identical in both trees, so the art works the moment the
+meshes land, followed by one `preparePaintLibrary()` run and a save.
+
+## Lessons worth keeping
+
+1. **The Studio command bar holds plugin capability; a game script does not.** Testing a gated property
+   write there proves nothing — see the ColorMap story above.
+2. **Rojo does not sync into a running Play session.** Edits made while Play is up land in the Edit tree
+   only, so measuring the running session returns stale values. Stop → let it sync → restart. Cost two
+   cycles here before it was recognised.
+3. **`require` caches per Luau context**, including Studio's Edit session — `preparePaintLibrary()` kept
+   skipping `RampBow` because the session held the pre-edit module. Requiring a **clone** bypasses it.
+4. **Meshes sit high inside their own bounding boxes.** A box-flush base still reads as floating, and a
+   skin can't be raycast, so this is tuned by eye every time. Third occurrence now (deck stations,
+   cargo racks).
+5. **Check the mesh's footprint before planning placement.** `RampBow` came back square when the bow needed
+   wide-and-shallow, which changed where it could go, not just how big it was.

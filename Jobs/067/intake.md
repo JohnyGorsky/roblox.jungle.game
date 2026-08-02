@@ -129,5 +129,8 @@ Armored Boat keeps its power, and which gaps are worth building now vs later.
 - [x] Implementation completed — all 4 findings closed
 - [x] Final summary + changelog written — **CLOSED 2026-08-01**
 
-> Two items need the **user**, not code: create the *Extra Inventory Slots* pass on the Creator Hub, and
-> unlist the *Cosmetic Bundle* listing. See `final-summary.md` → *Outstanding*.
+> **Closed 2026-08-02.** The *Extra Inventory Slots* pass and the *Self Revive* product were created during
+> the job and are wired + verified live. Three boat meshes were commissioned and imported on top of the
+> original scope. Still on the user: **unlist the Cosmetic Bundle** on the Creator Hub, **save the lobby
+> place**, and the Job 066 carry-over of importing the boat meshes into the **game place**.
+> See `final-summary.md` → *Outstanding*, *Not verified* and *Lessons worth keeping*.
