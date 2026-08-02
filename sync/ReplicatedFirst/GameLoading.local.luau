@@ -275,3 +275,14 @@ TweenService:Create(tip, info, { TextTransparency = 1 }):Play()
 task.wait(FADE_TIME)
 setCoreGui(true)
 gui:Destroy()
+
+-- Tell the server the mask is genuinely GONE, so the intro cinematic can start on a visible scene
+-- instead of playing its opening seconds behind this screen (Job #072). Best-effort: if the remote is
+-- missing (no intro in this place), we simply don't report and PlaneServer falls through on its timeout.
+task.spawn(function()
+	local rs = game:GetService("ReplicatedStorage")
+	local remote = rs:FindFirstChild("IntroLoaded") or rs:WaitForChild("IntroLoaded", 10)
+	if remote and remote:IsA("RemoteEvent") then
+		remote:FireServer()
+	end
+end)

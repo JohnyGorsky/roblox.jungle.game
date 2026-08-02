@@ -2,11 +2,12 @@
 -- PlaneServer.server.luau — plane-crash cold open (Job 044 → rewritten for the hand-built spawn base, Job 072).
 --
 -- The opening beat: the crew rides the plane in, the engine fails, it dives, and it crashes at the spawn
--- base — then they wake in the wreckage. Runs BEHIND the loading-screen mask:
+-- base — then they wake in the wreckage.
 --   1. Claim the intro (Workspace.IntroActive) so PlayerCombat doesn't place players yet.
---   2. HIDE the hand-placed wreck and fly a CLONE of it in from SpawnBase.Dock.PlacePlace, seats and all.
---   3. Hover while the readiness gate holds (Workspace.IntroReady — Job 043).
---   4. On IntroReady: cruise, then engine failure → smoking dive.
+--   2. HIDE the hand-placed wreck and fly a CLONE of it in along the SpawnBase.Dock.PlacePlace line.
+--   3. Hover, hidden, while the readiness gate holds (Workspace.IntroReady — Job 043).
+--   4. ⚠️ WAIT FOR THE LOADING SCREEN TO ACTUALLY BE GONE (not merely IntroReady — see the wait below),
+--      then fly a LEVEL cruise, then the engine fails and only THEN does the nose drop.
 --   5. Impact: fade to black, destroy the flying clone, REVEAL the real wreck with fire + smoke, lay the
 --      crew out at SpawnBase.SpawnLocation, fade back in on the crash scene, then they come round.
 --
@@ -48,6 +49,19 @@ Workspace:SetAttribute("IntroActive", true)
 local fadeRemote = Instance.new("RemoteEvent")
 fadeRemote.Name = "IntroFade"
 fadeRemote.Parent = ReplicatedStorage
+
+-- Clients report here once their loading screen is actually GONE (GameLoading fires it after the fade
+-- completes and the GUI is destroyed). See the wait below for why IntroReady alone is not enough.
+local loadedRemote = Instance.new("RemoteEvent")
+loadedRemote.Name = "IntroLoaded"
+loadedRemote.Parent = ReplicatedStorage
+local loaded: { [Player]: boolean } = {}
+loadedRemote.OnServerEvent:Connect(function(plr: Player)
+	loaded[plr] = true
+end)
+Players.PlayerRemoving:Connect(function(plr)
+	loaded[plr] = nil
+end)
 
 -- ── the hand-built spawn base ────────────────────────────────────────────────────────────────────────
 local spawnBase = Workspace:WaitForChild("SpawnBase", 20)
@@ -151,6 +165,24 @@ local function flightCF(pos: Vector3, pitch: number, roll: number): CFrame
 	return CFrame.lookAt(pos, pos + flatDir) * CFrame.Angles(pitch, 0, roll) * CFrame.Angles(0, 0, MESH_ROLL)
 end
 
+-- ── flight profile ───────────────────────────────────────────────────────────────────────────────────
+-- Defined up here because the plane is BUILT at HOVER_POS.
+--   · the cruise HOLDS ALTITUDE — all 227 studs of height loss belong to the dive
+--   · PlacePlace → impact is only ~459 studs of ground track, so cruising that alone would be ~14
+--     studs/s, which reads as hovering. The spawn is therefore backed up along your flight line so the
+--     plane has a real run-in and passes OVER PlacePlace a few seconds in. PlacePlace defines the LINE
+--     and ALTITUDE of the approach, which is what "fly in from this direction" means.
+local CRUISE_TIME = 10
+local DESCENT_TIME = 9
+local CRUISE_SPEED = 45 -- studs/s
+local CRUISE_FRACTION = 0.3 -- where along the track the engine gives out
+local CRUISE_END = Vector3.new(
+	START_POS.X + (IMPACT_POS.X - START_POS.X) * CRUISE_FRACTION,
+	START_POS.Y, -- <- held: level flight
+	START_POS.Z + (IMPACT_POS.Z - START_POS.Z) * CRUISE_FRACTION
+)
+local HOVER_POS = CRUISE_END - flatDir * (CRUISE_SPEED * CRUISE_TIME)
+
 local flyer: Model
 do
 	local src = wreck :: Instance
@@ -180,7 +212,7 @@ end
 if flyer.PrimaryPart == nil then
 	flyer.PrimaryPart = flyer:FindFirstChildWhichIsA("BasePart", true)
 end
-flyer:PivotTo(flightCF(START_POS, 0, 0))
+flyer:PivotTo(flightCF(HOVER_POS, 0, 0))
 flyer.Parent = Workspace
 
 -- engine drone rides the plane's own position so it grows as the plane closes in
@@ -281,8 +313,10 @@ task.spawn(function()
 		local dt = task.wait()
 		t += dt
 		local bob = math.sin(t * 0.8) * 4
-		local yaw = math.rad(math.sin(t * 0.4) * 4)
-		flyer:PivotTo(flightCF(START_POS + Vector3.new(0, bob, 0), 0, 0) * CFrame.Angles(0, yaw, 0))
+		-- gentle BANK, not a yaw tacked on after flightCF: anything applied after the mesh-roll
+		-- correction rotates about an axis that is no longer world-up, so a "yaw" there pitches the nose.
+		local bank = math.rad(math.sin(t * 0.4) * 3)
+		flyer:PivotTo(flightCF(HOVER_POS + Vector3.new(0, bob, 0), 0, bank))
 	end
 end)
 
@@ -294,11 +328,32 @@ else
 	task.wait(2)
 end
 
--- ── CRUISE: level flight along the first half of the path ────────────────────────────────────────────
-local CRUISE_TIME = 10
-local DESCENT_TIME = 9 -- Job #072: 9 s, so the 513-stud approach reads as a glide (~57 studs/s) not a drop
-local CRUISE_END = START_POS:Lerp(IMPACT_POS, 0.45)
+-- ⚠️ IntroReady ONLY MEANS THE SERVER IS READY — it is not the moment the player can see anything.
+-- After it flips, GameLoading still runs out MIN_SHOWN (1.5 s), a 0.25 s settle and a 0.6 s fade before
+-- destroying the mask. Starting the cruise here flew the opening seconds behind the loading screen, so
+-- players were dropped into a flight already in progress. Wait for every present client to report its
+-- loader gone, with a timeout so one slow machine can't stall everyone else's run.
+local LOAD_TIMEOUT = 12
+do
+	local t0 = os.clock()
+	while os.clock() - t0 < LOAD_TIMEOUT do
+		local present = Players:GetPlayers()
+		local all = #present > 0
+		for _, p in ipairs(present) do
+			if not loaded[p] then
+				all = false
+				break
+			end
+		end
+		if all then
+			break
+		end
+		task.wait(0.1)
+	end
+	task.wait(0.5) -- a beat on the revealed scene before anything moves
+end
 
+-- ── CRUISE: genuinely LEVEL flight (profile defined near the top) ────────────────────────────────────
 hovering = false
 task.wait()
 

@@ -194,10 +194,75 @@ a small domestic fire and reads far too thin for a burning aircraft. Keep it as 
 [`audio.md`](../../roblox.workspace/Assets/registry/audio.md) and are wired through `Theme.sound`-style
 lookup — **no asset id written into a script**.
 
+---
+
+# Part 6 — Build log
+
+## ✅ Step 1 — `StagingServer` bound to SpawnBase
+
+Greybox hub generation removed (`HubPlatform`, `PlaneWreck`, `Jetty` all gone). `HubSpawn` now published
+from `SpawnLocation`; mooring geometry derived from `Dock.BoatPlace` and the dock's own facing rather
+than an assumed +X bank. **Halts loudly** if a helper is missing instead of regenerating a hub 300 studs
+away in the river.
+
+Verified in Play: `HubSpawn = −265, 21.5, −311`; no greybox left; winch at −166, 16, −280.
+
+## ✅ Step 2 — boat spawns at the dock
+
+`BoatServer.START` reads `Dock.BoatPlace`. Verified: hull at −166, 13, −270, **4 studs** from the marker,
+floating, `Tied = true`. Removes the ~19 s self-sail from Z 40 that step 1 alone would have left.
+
+Unlike staging, this one **falls back** to the old mid-channel spawn if the helper is missing — a boat in
+the wrong place is recoverable, a run with no boat is not.
+
+## ✅ Kiosk fix
+
+`StartShopServer` used a fixed `+Z` offset from the hub and so landed **inside the plane wreck**. It now
+derives the offset direction *away from the wreck*, so it stays clear if either is moved later.
+Verified: −255, 20, −318, outside the plane's bounds, touching nothing.
+
+## ✅ Steps 3–5 — the crash cold open
+
+`PlaneServer` rewritten: clones `SpawnBase.Plane` and flies it `PlacePlace → wreck` (513 studs, 26.4°
+descent), 10 s cruise + 9 s dive, with all 8 sounds. Impact fades to black, destroys the clone, reveals
+the real wreck, and lights it up.
+
+### 🔴 Two real bugs caught before shipping
+
+**1. The plane flew knife-edge.** The user spotted it: *"we flied wrong angle, like sideways."* The mesh
+is baked a **quarter-turn inside its part** — at roll 0 the wings are vertical and the star roundels face
+sideways. Diagnosed by levelling clones at 0 / ±41.5 / ±90° and photographing them head-on down the
+flight line; only **−90°** gives wings level with nacelles beneath and tailplane up. Applied as
+`MESH_ROLL`, composed *last* so it spins about the fuselage axis after pitch and roll.
+
+This also explains the wreck's odd −41.5° part roll: 90 − 41.5 ≈ 48° of visual bank, i.e. tipped onto a
+wingtip — exactly right for a crash.
+
+**2. The hidden wreck kept its collision.** The analyzer flagged
+`d.CanCollide = hidden and false or o.c` as always taking the second branch — an and-or can never yield
+`false`. Players would have walked into an invisible plane. Replaced with if-expressions.
+
+### Verified in Play (post-impact state)
+
+- wreck revealed — transparency **0**, `CanCollide true`
+- **3 Fire · 3 Smoke · 3 PointLight · 2 Sound** attached
+- burn→settle worked: after 45 s the fire is `enabled false`, lights at 0, smoke settled to opacity 0.22,
+  `fire_sound` ducked to 0.12 — the smoke column still marks the camp
+- crew woke at **−270, 22, −314** (SpawnLocation), walkSpeed restored
+- flight orientation verified by placing a clone with the **shipped** `flightCF` and photographing it
+
 ## Checklist
 
 - [x] Helper objects + current system read
-- [ ] Sounds sourced by the user (Part 4)
+- [x] Sounds sourced by the user (Part 4) — all 8, registered in `audio.md`
+- [x] Staging bound to SpawnBase
+- [x] Boat spawn moved
+- [x] Intro flies the real plane model
+- [x] Wreck hidden → revealed on impact
+- [x] Fire + smoke VFX
+- [x] Verified in Play
+- [ ] User watches the full cold-open end to end
+- [ ] Final summary + changelog
 - [ ] Plan agreed (Part 2) + open questions answered
 - [ ] Staging bound to SpawnBase
 - [ ] Boat spawn moved

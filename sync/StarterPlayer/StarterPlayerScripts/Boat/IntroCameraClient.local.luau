@@ -31,9 +31,10 @@ local function charRoot(): BasePart?
 end
 
 local wakeStart: number? = nil
+local smoothPos: Vector3? = nil
 
 local conn
-conn = RunService.RenderStepped:Connect(function()
+conn = RunService.RenderStepped:Connect(function(dt: number)
 	if not Workspace:GetAttribute("IntroActive") then
 		-- intro over → restore the normal camera and stop
 		camera.CameraType = Enum.CameraType.Custom
@@ -65,9 +66,33 @@ conn = RunService.RenderStepped:Connect(function()
 
 	local plane = Workspace:FindFirstChild("IntroPlane")
 	if plane and plane:IsA("Model") and plane.PrimaryPart then
-		-- chase the plane: trail behind (-Z, its travel is +Z), off to the side and above, looking at it
-		local pos = plane:GetPivot().Position
-		camera.CFrame = CFrame.lookAt(pos + Vector3.new(40, 16, -48), pos)
+		-- ⚠️ The offset MUST be derived from the plane's travel direction, not hardcoded. It used to be
+		-- a fixed world `Vector3.new(40, 16, -48)`, correct only while the plane flew along +Z. The
+		-- flight now runs +X toward the spawn base, so that offset sat the camera AHEAD of the plane and
+		-- produced a close-up down the wing.
+		--
+		-- `GetPivot().LookVector` is safe to use as "forward" even though the model carries a −90° mesh
+		-- roll: rolling about local Z leaves the Z axis (and therefore LookVector) untouched.
+		local cf = plane:GetPivot()
+		local fwd = cf.LookVector
+		local flat = Vector3.new(fwd.X, 0, fwd.Z)
+		fwd = if flat.Magnitude > 0.01 then flat.Unit else fwd
+		local right = fwd:Cross(Vector3.yAxis)
+		right = if right.Magnitude > 0.01 then right.Unit else Vector3.xAxis
+
+		local target = cf.Position
+		local want = target - fwd * 62 + Vector3.yAxis * 20 + right * 26 -- behind, above, off the shoulder
+		-- frame-rate-independent smoothing (skill §: never a constant alpha)
+		local alpha = 1 - math.exp(-3.5 * math.min(dt, 0.1))
+		local prev = smoothPos
+		if prev then
+			smoothPos = prev:Lerp(want, alpha)
+		else
+			smoothPos = want
+		end
+
+		camera.CFrame = CFrame.lookAt(smoothPos :: Vector3, target)
+		camera.Focus = CFrame.new(target)
 	end
 	-- (plane not built yet & not waking → leave the camera as-is; the loading mask covers this)
 end)
