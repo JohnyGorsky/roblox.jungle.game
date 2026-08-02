@@ -1,7 +1,7 @@
 # TODO 0019: REQUIRED (Job 068 A1): Lobby RobuxShop shows a buy button for passes the player already owns
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — Fixed in Job 069 and VERIFIED IN A LIVE PLAY SESSION, 2026-08-02. RobuxShop pass rows now read Owns_<key> and flip to a disabled OWNED; gold packs deliberately excluded (repeatable products). Play results: all three passes owned on the test account -> Row_Armored Boat / Row_Boat Paint Pack / Row_Extra Inventory Slots all text="OWNED" Active=false, while the four gold packs stayed live at R$ 49/99/199/449. Dynamic flip proven BOTH ways WITHOUT reopening the panel: server cleared Owns_armoredBoat -> row returned to "R$ 499" Active=true while Boat Paint Pack correctly stayed OWNED (so it is per-row, not global); server set it back to true -> row returned to OWNED Active=false. That second direction is the one that matters -- it is exactly what MonetizationServer does on PromptGamePassPurchaseFinished, so a purchase now updates the row live. Analyzer clean.
 **Created:** 2026-08-02 10:50:30
 
 Audit Job 068, gap A1. RobuxShop.local.luau:100 gates each pass row on `gamePassId > 0` -- "does this product exist", never "does this player own it". MonetizationServer already sets Owns_<key> on the player and this screen never reads it, so an owner of Armored Boat still sees a live R$ 499 button; only Roblox dialog tells them. It is the ONLY lobby shop with no owned state (ModulesShop=OWNED, SkillShop=MAX, RetentionClient=CLAIMED, PaintShop locks swatches). The `check` icon was sourced for exactly this (ASSETS.md 1.9 row 8). Open question: disable the row with a check badge, or hide owned passes entirely?
