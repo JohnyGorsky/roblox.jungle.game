@@ -301,6 +301,18 @@ local function freeSeat(): Seat?
 	return nil
 end
 
+-- Pin a passenger into their seat for the duration of the flight. Pressing jump normally UNSEATS a
+-- character, so players could bail out mid-air and fall to the jungle. Disabling the Jumping state is
+-- what actually stops the eject (JumpHeight/JumpPower alone do not — the seat exit is driven by the jump
+-- INPUT, not by the jump force), and the client sinks the input too so it never even fires.
+-- `Seated` is the backstop: if anything does shake them loose while the intro is running, re-seat them.
+local function lockPassenger(hum: Humanoid)
+	hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+	hum.JumpHeight = 0
+	hum.JumpPower = 0
+	hum.WalkSpeed = 0
+end
+
 local function seatCharacter(char: Model)
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not hum then
@@ -319,6 +331,23 @@ local function seatCharacter(char: Model)
 		end
 		if s.Occupant == nil and hum.Parent then
 			s:Sit(hum)
+			lockPassenger(hum)
+		end
+	end)
+
+	hum.Seated:Connect(function(active: boolean)
+		if active then
+			return
+		end
+		-- only while we're still airborne: IntroWake is the crash, after which they're MEANT to be loose
+		if Workspace:GetAttribute("IntroActive") ~= true or Workspace:GetAttribute("IntroWake") == true then
+			return
+		end
+		task.wait()
+		local again = freeSeat()
+		if again and hum.Parent and Workspace:GetAttribute("IntroActive") == true then
+			again:Sit(hum)
+			lockPassenger(hum)
 		end
 	end)
 end
@@ -468,18 +497,59 @@ if anchor then
 	fireSnd:Play()
 	soundAt(anchor, SFX.debris, false, 0.8):Play()
 
-	local _, wsize = (wreck :: Model):GetBoundingBox()
+	-- ⚠️ MEASURE THE REAL WORLD AABB, AND PARENT BEFORE POSITIONING. Two bugs lived here:
+	--
+	-- 1. `a.WorldPosition = …` ran while the Attachment still had NO parent, so the engine stored it as
+	--    a LOCAL position and then re-anchored it to `anchor.CFrame` on parenting. The emitters landed
+	--    ~200 studs away and 220 studs UP (measured live: wreck at −303,28,−288 · fire at −512,249,−593),
+	--    which is why the crash site never caught fire even though the Fire/Smoke objects all existed.
+	--    Parent FIRST, then set WorldPosition.
+	--
+	-- 2. The offsets were derived from `GetBoundingBox()` in the wreck's own frame, which says nothing
+	--    useful here: the wreck lies nose-down with the tail in the air, so its oriented box
+	--    (88.2 × 34.3 × 95.0) bears no relation to how it occupies the world (X 89 · Y 85 · Z 95,
+	--    spanning Y −15 up to Y 70). `GetExtentsSize()` is no help — it reports the ORIENTED size too.
+	--    So the world AABB is measured from the part corners and the flames are placed in world space.
+	local minv = Vector3.new(math.huge, math.huge, math.huge)
+	local maxv = Vector3.new(-math.huge, -math.huge, -math.huge)
+	local function envelop(p: BasePart)
+		for _, sx in { -0.5, 0.5 } do
+			for _, sy in { -0.5, 0.5 } do
+				for _, sz in { -0.5, 0.5 } do
+					local c = p.CFrame * (p.Size * Vector3.new(sx, sy, sz))
+					minv = Vector3.new(math.min(minv.X, c.X), math.min(minv.Y, c.Y), math.min(minv.Z, c.Z))
+					maxv = Vector3.new(math.max(maxv.X, c.X), math.max(maxv.Y, c.Y), math.max(maxv.Z, c.Z))
+				end
+			end
+		end
+	end
+	if wreck:IsA("BasePart") then
+		envelop(wreck)
+	end
+	for _, d in ipairs((wreck :: Instance):GetDescendants()) do
+		if d:IsA("BasePart") then
+			envelop(d)
+		end
+	end
+
+	local centre = (minv + maxv) * 0.5
+	local span = maxv - minv
+	-- Sit the flames near the SAND LINE, not the box centre. The nose is buried, so the box centre is
+	-- close to ground level anyway, but the fire has to start outside the hull or it just burns inside
+	-- an opaque mesh and reads as nothing at all.
+	local baseY = minv.Y + span.Y * 0.45
 	local spots = {
-		Vector3.new(0, 0, -wsize.Z * 0.18),
-		Vector3.new(-wsize.X * 0.16, 0, 0),
-		Vector3.new(wsize.X * 0.16, 0, 0),
+		Vector3.new(centre.X, baseY, centre.Z),
+		Vector3.new(centre.X + span.X * 0.18, baseY + span.Y * 0.10, centre.Z + span.Z * 0.10),
+		Vector3.new(centre.X - span.X * 0.16, baseY + span.Y * 0.05, centre.Z - span.Z * 0.14),
 	}
+
 	local fires, smokes, lights = {}, {}, {}
-	for i, off in ipairs(spots) do
+	for i, wp in ipairs(spots) do
 		local a = Instance.new("Attachment")
 		a.Name = "CrashFX" .. i
-		a.WorldPosition = wreckCF * off
-		a.Parent = anchor
+		a.Parent = anchor -- parent FIRST — see the note above
+		a.WorldPosition = wp
 
 		local f = Instance.new("Fire")
 		f.Heat = 14
@@ -561,6 +631,9 @@ for _, plr in Players:GetPlayers() do
 		hum.PlatformStand = false
 		hum.WalkSpeed = 16
 		hum.JumpHeight = 7.2
+		hum.JumpPower = 50
+		-- hand jumping back: `lockPassenger` disabled the state to stop them bailing out mid-flight
+		hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
 	end
 end
 
