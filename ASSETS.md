@@ -15,6 +15,20 @@ weathered) + **[STYLEGUIDE.md](STYLEGUIDE.md)**.
 - **Exact asset IDs / license / scan state live in the shared cross-game registry** →
   [`../roblox.workspace/Assets/registry/`](../roblox.workspace/Assets/registry/) (`models.md`, `meshes.md`,
   `images.md`, `audio.md`, `animations.md`, `ui.md`). **Grep the registry before sourcing anything new.**
+- **Every id the LOBBY place actually uses** → **[LOBBY-ASSET-INVENTORY.md](LOBBY-ASSET-INVENTORY.md)**
+  (Job #069). A reuse manifest for the GAME place: 188 live ids + 53 declared in scripts, grouped by
+  audio / UI / boat / hero props / store components, with what transfers and what must be re-imported.
+
+> ### ⚠️ This file describes INTENT. The place is the ground truth.
+> The Job #068 audit reported **four gaps that did not exist**, every one of them by trusting a row
+> here — or the absence of a script reference — instead of looking at the place. **The lobby is
+> editor-placed** (memory: `lobby-editor-placed-not-scripted`), so:
+> - *"No script references it"* does **not** mean *"it isn't there."* The Weekly board's placeholder
+>   and all four station entry signs exist in the editor and are referenced by no script.
+> - A row whose notes **omit** something is not evidence the thing is missing.
+>
+> **Before reporting anything here as missing, check the place.** And when you finish a piece of work,
+> update the row — three of those false findings trace to rows that were simply never updated.
 - Third-party inserts are **script-scanned before use** (`roblox-assets`; foliage/props must have 0 scripts).
   Rejected assets are logged so we don't re-source them.
 - **Localize what we reuse:** approved third-party models are copied into a clean-named library folder in the
@@ -80,10 +94,15 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Station | Object | Source | Status | Notes |
 |---|---|---|---|---|
 | `SkillTrainer` | wooden stall + counter + sign | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy stall (blue awning + chalkboard); Station attr + Anchor/prompt transferred, grounded, entry sign, localized to `AssetLibrary/Structures/SkillTrainer` |
-| `Bounties` | board stand / stall | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/Bounties` |
+| `Bounties` | board stand / stall | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, **entry sign**, localized to `AssetLibrary/Structures/Bounties`. Mesh `119564283624615` — named `Boutnies` *(sic)* in the place |
 | `RobuxShop` | small kiosk | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy hut/kiosk; Station attr + Anchor/prompt transferred, grounded, entry sign, localized to `AssetLibrary/Structures/RobuxShop` |
-| `BoatUpgrades` | mechanic rig/bench at the dock | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, localized to `AssetLibrary/Structures/BoatUpgrades` |
-| Sign boards (per station) | 4+ | Build + Flaticon | ▫ queued | wood/metal, icon + ALL-CAPS (styleguide §20) |
+| `BoatUpgrades` | mechanic rig/bench at the dock | Meshy (user) | <span style="color:#2e9c3f">✅ swapped</span> | user Meshy object; Station attr + Anchor/prompt transferred, grounded, **entry sign**, localized to `AssetLibrary/Structures/BoatUpgrades`. Mesh `118860073556013` |
+| Sign boards (per station) | 4 | Build | <span style="color:#2e9c3f">✅ built (all 4)</span> | Verified in the place by the Job #068 sweep: every station has an `EntrySign` — a `Board` (8×3×0.4, WoodPlanks) on two `Post`s — reading SKILL TRAINER / BOUNTIES / ROBUX SHOP / BOAT UPGRADES |
+
+> **Why the four rows above now all say "entry sign".** Until 2026-08-02 only two of them mentioned it,
+> and the Job #068 audit read that asymmetry as a build gap and reported a false finding. All four
+> stations had signs the whole time. **A note that omits something is not evidence the thing is
+> missing** — keep these rows symmetric.
 
 ## 1.4 Party / launch pads (interactive)
 
@@ -103,9 +122,9 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Object | Qty | Source | Status | Notes |
 |---|---|---|---|---|
-| Watchtower | 2 | Store (RangerTower `81318418778699`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/RangerTower` @0.7 → `Watchtower_NW/NE` |
+| Watchtower | **4** | Store (RangerTower `81318418778699`) | <span style="color:#2e9c3f">✅ placed</span> | `AssetLibrary/Structures/RangerTower` @0.7. **Four towers, all intended** (user, 2026-08-02): NE `(96,−115)`, NW `(−88,−110)`, plus two flanking the southern approach `(34,151)` and `(−63,153)`. ⚠️ **Three of them are named `Watchtower_NW`** — deliberate, left as-is; `LobbySoundscape` finds towers by the `^Watchtower` name **prefix** (Job #069), so duplicate names are harmless. Do not write a find-by-exact-name against these |
 | Welcome sign | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | wood + gold trim; SurfaceGui "WELCOME TO JUNGLE AIRFIELD" (Special Elite, cream+stroke) on both faces |
-| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | <span style="color:#2e9c3f">✅ built</span> | wood + gold/blue trim; `RankServer` rewired to fill editor `Leaderboard_TopRuns` (find-by-name) with live Top-10; Weekly = "coming soon" placeholder (no weekly data yet) |
+| Leaderboard board | 2 (Top Runs, Weekly) | Build + SurfaceGui | <span style="color:#2e9c3f">✅ built</span> | wood + gold/blue trim; `RankServer` rewired to fill editor `Leaderboard_TopRuns` (find-by-name) with live Top-10. **Weekly = "coming soon" placeholder** — verified present 2026-08-02 (`BoardGui` → "WEEKLY TOP RUNS" + "coming soon"). ⚠️ It is **editor-placed, not scripted**, so grepping the source for `Leaderboard_Weekly` finds only the line that creates the geometry — that is what made the Job #068 audit wrongly report the board as empty. A real weekly board still needs a weekly `OrderedDataStore` + rollover |
 | Tents / tarps | 3–4 | Store | <span style="color:#2e9c3f">✅ (2 placed)</span> | olive canvas (see camp props); more optional |
 | Cargo netting | 2 | Build | <span style="color:#2e9c3f">✅ built</span> | draped rope nets between posts (`Scenery.Details.CargoNet`) |
 | Windsock | 1 | Build | <span style="color:#2e9c3f">✅ built</span> | pole + orange/white bands, by the runway (`Scenery.Details.Windsock`) |
@@ -135,15 +154,21 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 
 | Object | Source | Status | Notes |
 |---|---|---|---|
-| Airfield star (spawn) | ChatGPT/Flaticon → decal | <span style="color:#c9911d">⏸ pending</span> | painted military star |
-| Runway "27" + stripes | user | <span style="color:#2e9c3f">✅ done (user)</span> | airfield/runway done by user |
+| Airfield star (spawn) | — | <span style="color:#2e9c3f">✅ done (by design)</span> | **No decal needed.** User ruled 2026-08-02 that the existing cream disc IS the intended spawn marker — the painted military star was dropped. ⚠️ `Spawn.Star` + `Spawn.Pad` still match the `greybox_placement.luau` signature exactly, so a greybox sweep will re-flag them: they are on the **confirmed-intentional list** in `Jobs/068/intake.md` Part E |
+| Runway "27" + stripes | user | <span style="color:#2e9c3f">✅ done (user)</span> | airfield/runway done by user — 6 `RunWay` tiles, mesh `114620021340964`, spanning z −154 → −485. The greybox `Scenery.RunwayMarkings` (9 `Dash` + 4 `Threshold`) sits over them and is **kept deliberately** (user, 2026-08-02); it is on the confirmed-intentional list in `Jobs/068/intake.md` Part E, so a greybox sweep will re-flag it |
 | Path decals (sand/dirt/tire tracks) | ChatGPT → decal | <span style="color:#c9911d">⏸ pending</span> | curved paths connecting zones (styleguide §24) |
 
 ## 1.9 UI icons (signs + HUD) — sourcing list (LOBBY scope, drawn up 2026-07-30)
 
 > **This is the shopping list that gates the lobby GUI job.** Derived from the actual lobby screens
-> (`GoldHud`, `RobuxShop`, `SkillShop`, `ModulesShop`, `RetentionClient`) + station signs (§1.3) + party
-> pads (§1.4), against STYLEGUIDE §6/§7. IDs go to registry `images.md` + STYLEGUIDE §7 when uploaded.
+> + station signs (§1.3) + party pads (§1.4), against STYLEGUIDE §6/§7. IDs go to registry `images.md`
+> + STYLEGUIDE §7 when uploaded.
+>
+> **Current lobby screens (corrected 2026-08-02).** The original list read
+> *`GoldHud`, `RobuxShop`, `SkillShop`, `ModulesShop`, `RetentionClient`* and is now out of date:
+> **`GoldHud` was REPLACED by `TopBar`** in Job #065, and four screens were missing. The real set is
+> **`TopBar` · `EntryBar` · `RobuxShop` · `SkillShop` · `ModulesShop` · `PaintShop` · `RetentionClient`
+> · `AdminClient`** (+ `TeleportGui`, `LobbyLoading`, `UIClick`). All consume `Theme.icon`.
 
 **Two distinct asset classes** (read `assets/Images/GUI_PATTERN.png` — the mockup makes this obvious):
 **(a) mono UI glyphs** → Flaticon, tinted in code · **(b) rendered item art** → generated, palette baked in.
@@ -287,12 +312,13 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 
 | Sound | Where | Status | Notes |
 |---|---|---|---|
-| Jungle day ambience 1 & 2 | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | birds + insects loop |
+| Jungle day ambience **1** | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | birds + insects loop (`116462724806689`) |
+| Jungle day ambience **2** | — | <span style="color:#c9911d">⏸ uploaded, NOT wired</span> | `120011248667884` is owned and in the registry but **read by nothing** — `LobbySoundscape` plays ambience 1 only. This row previously claimed both were wired (`todo/0026`) |
 | Wind / breeze | 2D bed | <span style="color:#2e9c3f">✅ wired</span> | light layer |
-| Water lapping (`water-splashes`) | @ `Dock.Pier` | <span style="color:#2e9c3f">✅ wired</span> | positional |
+| Water lapping (`water-splashes`) | @ `Dock.Dock.Pier` | <span style="color:#2e9c3f">✅ wired (fixed #069)</span> | positional. ⚠️ **It never actually played until Job #069** — the lookup was a non-recursive `Dock:FindFirstChild("Pier")`, but the Store dock nests a level deeper, so it returned nil and no sound was ever created while this row read "✅ wired". Now a recursive find; verified in Play as `water×1` |
 | Campfire crackle (`crackle-campfire`) | @ both `FirePit`s | <span style="color:#2e9c3f">✅ wired</span> | positional |
 | Cicadas / wildlife | 2D one-shots | <span style="color:#2e9c3f">✅ wired</span> | every ~18–44s |
-| Rope creak (`rope_creak`) | @ watchtowers | <span style="color:#2e9c3f">✅ wired</span> | positional loop in `LobbySoundscape` |
+| Rope creak (`rope_creak`) | @ **all 4** watchtowers | <span style="color:#2e9c3f">✅ wired (fixed #069)</span> | positional loop in `LobbySoundscape`. ⚠️ **Reached only 2 of the 4 towers until Job #069** — a hardcoded `{ "Watchtower_NW", "Watchtower_NE" }` + `FindFirstChild` returns the FIRST match per name, and three towers share the name. Now scans by `^Watchtower` prefix, so a newly placed tower creaks with no script edit; verified in Play as `rope×4` |
 
 ## 1.12 Audio — SFX (events / one-shots)
 
