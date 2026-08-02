@@ -205,7 +205,8 @@ from `SpawnLocation`; mooring geometry derived from `Dock.BoatPlace` and the doc
 than an assumed +X bank. **Halts loudly** if a helper is missing instead of regenerating a hub 300 studs
 away in the river.
 
-Verified in Play: `HubSpawn = −265, 21.5, −311`; no greybox left; winch at −166, 16, −280.
+Verified in Play: `HubSpawn = −265, 21.5, −311`; no greybox left. *(The winch this step built was later
+removed entirely — see "The boat is the marker" below.)*
 
 ## ✅ Step 2 — boat spawns at the dock
 
@@ -371,6 +372,47 @@ jumpStateEnabled=true, Sit=false` — controls fully handed back.
 The glowing red patch on the sand is **terrain painted `CrackedLava`** (19 voxels). Confirmed by the user
 as deliberate scorch under the wreck — leave it.
 
+### 🔴 The boat hung in the air, and the tow went with the fix
+
+*"see how it floats?"* — the moored boat sat with its keel **above** the waterline. It read as a buoyancy
+bug and was not one.
+
+**The mooring rope was holding it up.** `RopeConstraint Length=11.46` against a live distance of `11.48`
+— taut. The winch post sat at Y 17.2, ~5 studs above the water, and the rope had been cut from the hull's
+**build-time** position (`WATER_Y + 2`). The moment buoyancy tried to lower the boat the distance to the
+winch grew past the rope length, so the rope suspended it like a crane. Two false leads on the way:
+`BoatPlace` looked like a shelf under the hull (a raycast hits it because rays use `CanQuery`, not
+`CanCollide` — it was already non-collidable), and a first fix measuring to the *floating* position was
+still wrong because staging then drives the boat out to `startPos = dockedPos + awayDir * REEL_OFFSET`,
+away from the winch, re-shortening the rope by ~3 studs.
+
+**The user's call replaced the whole mechanism** — *"you place boat exactly where that boat place is,
+also you follow rotation of that object… remove tow to pier, because no towing to pier is required."*
+
+- `BoatServer` takes `BoatPlace`'s **yaw** as well as its position (`START_CF`), yaw only — never the
+  marker's pitch/roll, or the hull would start listing and `AlignOrientation` would fight it upright.
+  The old heading came from `CFrame.lookAt(START, START + downstream(START.Z))`, which is only right out
+  on the generated river; at the sculpted spawn base the tangent is a flat +Z, which parked the boat
+  crosswise across a pier that runs at −47°.
+- `StagingServer`: `REEL_OFFSET` gone (`startPos = dockedPos`), winch post gone, rope gone, `reel()` /
+  `refreshRope()` / `mooringLength()` / the `docked` stage all gone. The untie prompt moved onto the
+  hull and goes straight to **"Untie rope — START"**; `UntieButton` still covers the seated driver.
+  Dead code removed with it: the `block()` helper and the `dockModel` lookup.
+- `StagingHint` banner → *"Board the boat & untie to START"*.
+
+Verified live against the marker transform the user had just set:
+
+```
+BoatPlace  -149.00, -269.84  yaw -115.8
+hull       -149.00, -269.84  yaw -115.8
+OFFSET      0.00 studs,  yaw diff 0.0 deg
+keel Y 10.48 -> -1.52 vs water   (sitting IN the water)
+ropes on boat = 0 · winch post = gone · StagingArea children = 0
+```
+
+**`Dock.BoatPlace` is now the single control** — drag or rotate it in the editor and the moored boat
+follows. Nothing computes a berth.
+
 ### 🟡 Open — the crash lighting may be too hot
 
 Three `PointLight`s at `Brightness 4 · Range 42` overlap on the wreck. In the verification screenshot the
@@ -404,6 +446,9 @@ but it may be worth dropping to ~2 brightness or two lights. Not changed — the
 - [x] Crash fire + smoke actually land on the wreck (parenting order + world AABB)
 - [x] Input locked in flight — crew can't jump out, controls returned at the wake
 - [x] `CrackedLava` patch confirmed intentional scorch
-- [ ] User re-checks: engine-sound timing, seated crew, fire/smoke, in-flight input lock
+- [x] Boat sits exactly on `Dock.BoatPlace` — position **and** rotation (0.00 studs / 0.0° offset)
+- [x] Boat floats properly — the mooring rope, not buoyancy, was suspending it
+- [x] Tow-to-pier removed — no winch, no rope, no reel; untie is one step on the hull
+- [ ] User re-checks: engine-sound timing, seated crew, fire/smoke, in-flight input lock, boat mooring
 - [ ] Decide whether the crash point-lights are too bright (3 × Brightness 4 · Range 42)
 - [ ] Final summary + changelog
