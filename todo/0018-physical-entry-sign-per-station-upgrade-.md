@@ -6,7 +6,30 @@
 
 Every station/upgrade (SkillTrainer, Bounties, RobuxShop, BoatUpgrades, party pads, boat-upgrade modules) needs its OWN physical entry sign that says what it is — a real 3D signboard (posts + board + engraved/SurfaceGui text in jungle-style Special Elite, cream + stroke) placed at the station like an outpost sign you walk up to. NOT a flat decal, and NOT just the distance-culled BillboardGui label. Should read clearly and match the weathered wood/metal look. Ref: user screenshot of Bounties board 2026-07-20.
 
-## Narrowed by the Job #068 lobby audit (2026-08-02) — gap B2, **REQUIRED**
+## ✅ Station half DONE — corrected by the Job #068 live sweep (2026-08-02)
+
+**The narrowing written below was wrong and is superseded by this block.** The live place has an
+`EntrySign` on **all four** stations, each a real 3-D signboard (`Board` 8×3×0.4 WoodPlanks on two
+`Post`s 0.6×4.5×0.6 Wood) — exactly what this todo asked for:
+
+| Station | EntrySign | Text |
+|---|---|---|
+| `SkillTrainer` | ✅ | "SKILL TRAINER" |
+| `Bounties` | ✅ | "BOUNTIES" |
+| `RobuxShop` | ✅ | "ROBUX SHOP" |
+| `BoatUpgrades` | ✅ | "BOAT UPGRADES" |
+
+The desk audit inferred a gap from `ASSETS.md` §1.3's per-row notes, where two rows mention an entry
+sign and two don't. That asymmetry is a **doc-writing inconsistency, not a build gap**. §1.3's last
+row (*"Sign boards (per station) · ▫ queued"*) should be marked done — folded into `todo/0035`.
+
+**What is still open on this todo:** the OPTIONAL remainder — signs for the **party pads** and the
+**boat-upgrade modules**. The pads carry colour, a light column and a party badge, so they read fine
+without one.
+
+---
+
+## ~~Narrowed by the Job #068 lobby audit (2026-08-02) — gap B2, REQUIRED~~ *(superseded — see above)*
 
 Not a duplicate todo: this one already owns the work, and the audit scoped down what is actually left.
 

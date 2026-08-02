@@ -17,6 +17,29 @@ Every gap is marked **🔴 REQUIRED** or **🟡 OPTIONAL**.
 **Scope decision (user, 2026-08-02): audit only.** The deliverable is this report plus queued
 `todo/`, `findings/` and follow-up job intakes. **No lobby code or place changes in this job.**
 
+---
+
+## ▶ RESUME HERE (session restarted 2026-08-02 to pick up the Studio MCP)
+
+Parts A–D are **done**. All gaps are filed (`todo/0019`–`0035`). All decisions are settled (see
+*Decisions* below). The session was restarted because the Studio MCP showed Connected in the UI but its
+tools were never registered in the running session, so `execute_luau` was unreachable.
+
+**Next action: run the Part E greybox sweep via MCP**, then close this job.
+
+- **Sweep spec** — Part E below has the full per-object table (name, `greybox_placement.luau` line,
+  expected replacement, priority). Read-only: no `Destroy`, no property writes, no place save needed.
+- **⚠️ Whitelist these five** — they are greybox parts that scripts find *by name*, so the report must
+  never recommend deleting them: `PartyPad_*.Center` · `Dock.Pier` · both `FirePit`s ·
+  `Leaderboard_TopRuns.Board` · the `Watchtower_NW`/`_NE` **model names**.
+- **Also verify live**: `Lighting.Technology == Future` + atmosphere rig actually *saved*; boat meshes
+  imported and `preparePaintLibrary()` run; `Spawn.Star` genuinely gone (confirms the user's B3 fix);
+  stray parts outside `LOBBY_GREYBOX` / a surviving `LOBBY_BLOCKOUT` folder.
+
+**Then**, task by task — describing each and waiting for the user's acceptance before touching anything
+— in this agreed severity order: **A1 → B1 → D1 → B2 → A2**. Those fixes belong to a NEW follow-up job,
+not this one.
+
 ## Method — and what is *not* yet verified
 
 - **Verified against code**, file by file: all 48 files under `lobby/` (both `lobby/sync/` and
@@ -111,7 +134,20 @@ Cosmetic Bundle's lingering Hub listing (A2).
 
 ## Gaps
 
-### 🔴 B1 — REQUIRED · `Leaderboard_Weekly` is an empty board (§1.6)
+### ✅ ~~B1~~ — **WITHDRAWN by the live sweep.** The placeholder exists; my desk read was wrong
+
+`Leaderboard_Weekly.Board.BoardGui` contains a `Frame` + two TextLabels: **"WEEKLY TOP RUNS"** and
+**"coming soon"**. `ASSETS.md` §1.6 was accurate and this desk finding was not.
+
+**Why the grep missed it:** the placeholder is **editor-placed, not scripted** — exactly the lobby's
+own stated convention (memory: `lobby-editor-placed-not-scripted`). Grepping the source tree for
+`Leaderboard_Weekly` therefore proves only that no *script* writes it, which is not the same as the
+board being empty. I treated a code-absence as a world-absence. The board reads correctly to a player
+today; the real weekly `OrderedDataStore` remains future work, unchanged.
+
+Original (incorrect) finding, kept for the record:
+
+### 🔴 ~~B1~~ — ~~REQUIRED · `Leaderboard_Weekly` is an empty board (§1.6)~~
 
 `greybox_placement.luau:157` builds it. **Nothing anywhere reads it** — `grep Leaderboard_Weekly`
 returns exactly one hit, the line that creates it. `RankServer` binds only `Leaderboard_TopRuns`
@@ -122,7 +158,27 @@ the board carries only the greybox `lbl()` billboard reading **"WEEKLY"** over a
 walks up to a titled, framed, empty board. Required because it reads as broken, and the fix is either a
 one-line SurfaceGui or deleting the board.
 
-### 🔴 B2 — REQUIRED · Station entry signs (§1.3, last row · open `todo/0018`)
+### ✅ ~~B2~~ — **WITHDRAWN by the live sweep. All four stations already have an entry sign**
+
+| Station | `EntrySign` | Sign text |
+|---|---|---|
+| `SkillTrainer` | ✅ | "SKILL TRAINER" |
+| `Bounties` | ✅ | "BOUNTIES" |
+| `RobuxShop` | ✅ | "ROBUX SHOP" |
+| `BoatUpgrades` | ✅ | "BOAT UPGRADES" |
+
+Each is a real 3-D signboard — a `Board` part (`8 × 3 × 0.4`, WoodPlanks) on two `Post`s
+(`0.6 × 4.5 × 0.6`, Wood) — which is exactly what `todo/0018` asked for.
+
+**Why I got it wrong:** I inferred the gap from `ASSETS.md` §1.3's per-row *notes*, where two rows say
+*"…grounded, entry sign, localized"* and two say only *"…grounded, localized"*. That asymmetry is a
+**doc-writing inconsistency, not a build gap** — the signs were made for all four. A note that omits
+something is not evidence the thing is missing. `ASSETS.md` §1.3's last row (*"Sign boards (per
+station) · ▫ queued"*) should be marked done.
+
+Original (incorrect) finding, kept for the record:
+
+### 🔴 ~~B2~~ — ~~REQUIRED · Station entry signs (§1.3, last row · open `todo/0018`)~~
 
 `ASSETS.md` §1.3 row *"Sign boards (per station) · 4+ · ▫ queued"*. Two of the four stations got an
 entry sign during their Meshy swap (SkillTrainer, RobuxShop); **Bounties and BoatUpgrades did not** —
@@ -262,10 +318,89 @@ if the lobby place grows a lot.
 
 ---
 
-# Part E — Greybox sweep ⏳ *blocked on Studio*
+# Part E — Greybox sweep ✅ *RUN 2026-08-02*
 
-**Status: NOT VERIFIED.** Studio MCP is not connected in this session. Per the user's decision this
-half runs live via MCP once the LOBBY place is open. Until then, *"no greybox left"* cannot be claimed.
+**Status: COMPLETE.** Read-only sweep run via Studio MCP `execute_luau` against the live
+**Last River COOP lobby** place (Edit mode, single Studio instance). No writes, no deletions.
+
+## E-RESULTS — headline
+
+**The lobby is ~95% de-greyboxed.** Of 3,810 BaseParts under `LOBBY_GREYBOX`
+(775 MeshPart · 720 WedgePart · 102 UnionOperation · 2,212 Part), the greybox signature survives in
+**three places only**. Everything else is genuinely replaced.
+
+**Confirmed GONE** (matched zero parts): the entire greybox Plane (13 parts) · Pilot (3) · both stalls
+(18) · RobuxShop kiosk (3) · BoatUpgrades bench (4) · greybox dock + `Winch` (10) · every camp prop
+(`Crate`/`Barrel`/`TentFloor`/`TentRoof`/`Logs`/`Sandbag`) · the neon `Flame` parts · all 30 greybox
+foliage clumps (`Trunk`/`Canopy`/`Bush`) · greybox watchtower geometry. **`LOBBY_BLOCKOUT` absent.**
+
+## E1 🔴 — Greybox that IS still in the place
+
+| Object | Evidence | Note |
+|---|---|---|
+| `Stations.Spawn.Star` | `2.2 × 11 × 11`, colour **(243,230,194) = CREAM exactly**, SmoothPlastic, tr 0, **0 children** | Byte-for-byte the `greybox_placement.luau:55` original. **No decal, no texture, nothing applied.** See E-CONFLICT below. |
+| `Stations.Spawn.Pad` | `2 × 26 × 26`, colour **(200,163,106) = SAND exactly**, Sand material | The `:54` original |
+| `Scenery.RunwayMarkings` | 13 parts (9 `Dash` + 4 `Threshold`), first Dash at `z −360` | **Double-painted, confirmed.** The 5 user `RunWay` tiles span `z −154 → −485` — the greybox dashes sit on top of the real runway |
+
+## E-CONFLICT 🔴 — the spawn star was reported fixed, but is unchanged
+
+The user reported B3 fixed on 2026-08-02 and `todo/0022` was resolved on that basis. **The live place
+disagrees**: `Spawn.Star` is the exact greybox cylinder, same size, same CREAM colour, same material,
+with no child Decal or Texture. Either the fix went to a different place/session, or it was made and
+not saved. `todo/0022` must be reopened unless the user says otherwise.
+
+## E2 🔴 — NEW: the dock water sound never attaches
+
+`LobbySoundscape:100-104` does `Scenery.Dock:FindFirstChild("Pier")`. The Store dock is nested one
+level deeper — the real path is **`Scenery.Dock.Dock.Pier`** — so that lookup returns **`nil`**,
+`waterCount` stays `0`, and **no water-lapping loop is ever created.**
+
+`ASSETS.md` §1.11 claims *"Water lapping (`water-splashes`) @ `Dock.Pier` — ✅ wired"*. It is not.
+Invisible from disk; only the live tree shows it. One-line fix (`FindFirstChild("Pier", true)`).
+
+## E3 🔴 — NEW: three models named `Watchtower_NW` (four towers total)
+
+| Model | Position |
+|---|---|
+| `Watchtower_NE` | `(96, 28, −115)` ✅ |
+| `Watchtower_NW` | `(−88, 28, −110)` ✅ the intended NW |
+| `Watchtower_NW` | `(34, 28, 151)` ⚠️ **south** |
+| `Watchtower_NW` | `(−63, 28, 153)` ⚠️ **south** |
+
+`ASSETS.md` §1.6 specifies **2** watchtowers. Two extra southern towers carry the NW name.
+`LobbySoundscape:114` resolves `Watchtower_NW` by name and attaches the rope creak to whichever it
+finds first — so two of the four are silent, and which one gets the sound is arbitrary.
+
+## E4 🟡 — NEW: duplicate `Logs` folder + stacked post-effects + empty folder
+
+- **Two `Scenery.Logs` folders** (6 and 8 children = 14 logs). §1.1 specifies `LogMossy ×2`, "6 near
+  the tree line" — so the 8-child folder looks like an accidental second copy.
+- **Lighting has doubled post-effects**: `Bloom` **and** `JungleBloom` (both `BloomEffect`),
+  `SunRays` **and** `JungleSunRays` (both `SunRaysEffect`). Two of each stack, which is a real
+  mobile-perf and look cost. Full children: `Sky`, `Atmosphere`, `DepthOfField`, `JungleCC`, +
+  those four.
+- **`LOBBY_GREYBOX.Upgrades` is an empty folder.**
+
+## E5 ✅ — Verified good
+
+- **Boat art + paint library**: `ServerStorage.AssetLibrary.BoatParts` has **18 MeshParts** and
+  **3 `PaintablePBR` appearances** → **`preparePaintLibrary()` HAS been run**. Liveries will render
+  properly in the lobby, not flat. `ReplicatedStorage.Boat.BoatParts` present.
+- **Lighting rig objects all present** (Sky, Atmosphere, ColorCorrection, Bloom, SunRays), water
+  tinted muted teal `(24,78,86)`.
+- **All five load-bearing greybox parts intact**: `PartyPad_*.Center` (now `0.5 × 9 × 9` Metal, pad
+  v2), both `FirePit`s, `Leaderboard_TopRuns.Board`, and both watchtower model names resolve to a
+  BasePart. **Nothing in this report recommends deleting them.**
+
+## E6 ⏸ — Could not verify from here
+
+`Lighting.Technology` **cannot be read** from the MCP execution context (*"lacking capability
+RobloxScript"*). §1.14 requires `Future`. **Check by eye in Studio's Lighting properties.** Whether
+the rig is *saved* into the place is likewise only answerable by reopening it.
+
+---
+
+## Original sweep spec (kept for reference)
 
 The risk is specific: `lobby/build/greybox_placement.luau` **builds** the stand-ins, and every
 replacement since has been *"localized to `AssetLibrary/…` and placed"* — a phrasing that does not
@@ -322,26 +457,61 @@ Four greybox parts are wired by name and must survive or be re-pointed. This is 
 
 # Summary — the gap list
 
-## 🔴 Required (7)
+Every gap is filed in `todo/`. **A4 is deliberately not filed** — it is a "don't "fix" this" note, not
+a task.
 
-| # | Gap | Kind |
-|---|---|---|
-| A1 | `RobuxShop` shows a buy button for passes the player already owns | code |
-| A2 | Cosmetic Bundle Hub listing still live (Job 067 carry-over) | **user** |
-| B1 | `Leaderboard_Weekly` is a framed, titled, empty board | code |
-| B2 | Bounties + BoatUpgrades have no physical entry sign (`todo/0018`) | build |
-| B3 | Spawn "airfield star" is still a greybox cream cylinder | **user art** |
-| D1 | `LobbyConfig.PAD_COUNT = 3` — dead and wrong (there are 4) | code |
-| E | **The whole greybox sweep** — unverified until Studio is open | live |
+## 🔴 Required — **post-sweep** (6 open, 2 withdrawn)
+
+| # | Gap | Kind | Todo | State |
+|---|---|---|---|---|
+| A1 | `RobuxShop` shows a buy button for passes the player already owns | code | `0019` | open → disabled row + `OWNED` badge |
+| A2 | Cosmetic Bundle Hub listing still live (Job 067 carry-over) | **user** | `0020` | open |
+| ~~B1~~ | ~~`Leaderboard_Weekly` empty board~~ | — | `0021` | ❌ **withdrawn** — placeholder exists, editor-placed |
+| ~~B2~~ | ~~Bounties + BoatUpgrades lack an entry sign~~ | — | `0018` | ❌ **withdrawn** — all 4 stations have one |
+| B3 | Spawn "airfield star" is a greybox cream cylinder | user art | `0022` | ⚠️ **REOPENED** — live place shows it unchanged |
+| D1 | `LobbyConfig.PAD_COUNT = 3` — dead and wrong (there are 4) | code | `0023` | open |
+| E1 | Greybox `RunwayMarkings` double-paints the real runway (+ `Spawn.Pad`) | live | `0036` | open |
+| E2 | Dock water-lapping sound never attaches (`Dock.Dock.Pier` nesting) | code | `0037` | open |
+| E3 | Three models named `Watchtower_NW` — four towers, spec says two | live | `0038` | open |
+
+## What the sweep changed about this audit
+
+Running it was worth it in both directions. It **withdrew 2 of my 6 required findings** and **added 3
+new ones I could not have seen from disk** — including E2, a genuinely broken sound.
+
+Both withdrawals came from the same mistake, worth naming so it isn't repeated: **I treated evidence
+from the source tree as evidence about the world.** The lobby is explicitly editor-placed
+(memory: `lobby-editor-placed-not-scripted`), so "no script references it" and "it isn't there" are
+different claims — and for B1 and B2 the second one was false.
+
+↗ **B2 was folded into the existing `todo/0018`**, not filed as a duplicate. 0018 already owned
+"a physical entry sign per station"; the audit narrowed it — SkillTrainer and RobuxShop got theirs
+during their Meshy swap, Bounties and BoatUpgrades did not. Pads/modules stay optional there.
 
 ## 🟡 Optional (11)
 
-A3 price reconciliation · A4 self-revive visibility (no action) · B4 ambience 2 unwired · B5 camp prop
-long tail · B6 ground path decals · B7 torch flame (blocked) + wind sway (deferred) · B8 countdown
-music layer · B9 the 7 upgrade renders (blocked on generation) · C1 starting gear unsold · C2 friends
-leaderboard · D2/D3 perf micro-notes
+| # | Gap | Todo |
+|---|---|---|
+| A3 | Reconcile `MonetizationDefs` prices against the Hub | `0025` |
+| A4 | Self Revive invisible in lobby — **correct by design, no action** | — |
+| B4 | Jungle day ambience 2 uploaded but unwired | `0026` |
+| B5 | Camp prop long tail (fuel can, lanterns, fine detail) | `0027` |
+| B6 | Ground path decals | `0028` |
+| B7 | Torch flame (blocked on B5) + wind sway (deferred) | `0029` |
+| B8 | Countdown / launch music layer | `0030` |
+| B9 | The 7 upgrade renders (blocked on generation) | `0031` |
+| C1 | Starting gear never sold | `0032` |
+| C2 | Friends leaderboard unbuilt | `0033` |
+| D2/D3 | Perf micro-notes (no action now) | `0034` |
 
-## Doc corrections `ASSETS.md` needs regardless
+## Queue housekeeping done by this audit
+
+- **`todo/0016` resolved** — *"Grant purchasable inventory slots + cosmetic visuals"* was superseded by
+  Job 067 and is now stale on all three counts: extra slots are granted (`ItemDefs.slotsFor`), Boat
+  Paint applies real visuals (6 liveries), and the Cosmetic Bundle is no longer ownership-only because
+  it is no longer sold. Its one live remnant is the manual Hub unlisting, now `todo/0020`.
+
+## Doc corrections `ASSETS.md` needs regardless — `todo/0035`
 
 Three rows currently claim more than the code does:
 
@@ -350,18 +520,21 @@ Three rows currently claim more than the code does:
 - §1.9 — the screen list omits `PaintShop`, `TopBar`, `AdminClient`, `EntryBar`, which all exist and
   consume icons.
 
-## Open questions for the plan
+## Decisions — settled 2026-08-02
 
-1. **`Leaderboard_Weekly`** — build a real weekly board (needs a weekly `OrderedDataStore` + rollover),
-   ship a genuine "coming soon" face, or remove the board until there's data?
-2. **A1's owned state** — just disable the row with a `check` badge, or hide owned passes entirely?
-3. **B3's spawn star** — generate the decal, or drop the star and let the sand pad stand alone?
-4. **Sweep aggressiveness** — flag-and-report only, or also propose deletions for the follow-up job?
+| # | Question | Decision |
+|---|---|---|
+| 1 | `Leaderboard_Weekly` | **Ship a genuine "coming soon" face.** A styled SurfaceGui, matching what §1.6 already claims exists. Keeps the geometry and the symmetry with the Top Runs board opposite it; the real weekly `OrderedDataStore` + rollover waits until runs are actually happening. |
+| 2 | A1 owned state | **Disabled row + `OWNED` badge**, using the `check` icon sourced for it. Matches `ModulesShop`/`SkillShop`/`RetentionClient`. The player keeps seeing what they own — that visibility is part of what they paid for — rather than the row vanishing. |
+| 3 | B3 spawn star | ✅ **Fixed by the user directly in the place, 2026-08-02.** `todo/0022` resolved. Not independently verified — the Part E sweep will flag `Spawn.Star` if anything still matches the greybox signature, so this closes for real there. §1.8's row needs its status changed off *"pending (you)"* (folded into `todo/0035`). |
+| 4 | Sequencing | **Sweep first, then one fixes job.** Part E runs live via MCP and closes out this audit; the required fixes then go into a single follow-up job scoped with the sweep results already known — so greybox work lands in the same job rather than re-scoping it afterwards. |
+| 5 | Sweep aggressiveness | **Flag and report only.** This is an audit-only job — no deletions here. The sweep output becomes the follow-up job's work list. |
 
 ## Checklist
 
 - [x] Desk audit completed (Parts A–D)
+- [x] Gaps filed to `todo/` (0019–0035; B2 → existing 0018; 0016 + 0022 resolved)
+- [x] Open questions decided (above)
 - [ ] Live greybox sweep completed (Part E) — **needs Studio + MCP**
-- [ ] Implementation plan created & agreed
-- [ ] Findings/todos filed + follow-up job intakes opened
 - [ ] Final summary + changelog written
+- [ ] Follow-up "required fixes" job opened, scoped by the sweep
