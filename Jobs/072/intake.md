@@ -323,11 +323,59 @@ confirms nobody is visible outside the aircraft.
 **The rule this keeps re-teaching:** with `MESH_FIX` in the pivot, *nothing* may reason about the
 aircraft from `flyer:GetPivot()` or `GetBoundingBox()` — go through `bodyCF()`.
 
-### 🟡 Noted, not touched — red patch at the crash site
+### 🔴 The wreck never caught fire — two bugs in one block
 
-The glowing red/magenta patch on the sand is **terrain painted `CrackedLava`** (19 voxels), not a part.
-Hand-painted terrain is the human's call, so it was left exactly as-is — flagging in case it is leftover
-marker paint from Job #071 rather than intentional scorch.
+*"no smoke and fire yet, will it be added now?"* The `Fire`/`Smoke` objects existed all along (an earlier
+check counted 3 + 3), they were just nowhere near the crash. Measured live: **wreck at −303, 28, −288 ·
+emitters at −512, 249, −593** — 200 studs away and 220 studs in the air.
+
+**1. Parenting order.** The docs confirm `Fire` renders on a `BasePart` *or* an `Attachment`, so the
+parent type was never the problem. The order was:
+
+```lua
+a.WorldPosition = wreckCF * off   -- Attachment has NO parent yet -> stored as a LOCAL position
+a.Parent = anchor                 -- now reinterpreted as an offset from anchor.CFrame
+```
+
+Parent **first**, then set `WorldPosition`.
+
+**2. The offsets were meaningless anyway.** They came from `GetBoundingBox()` in the wreck's own frame,
+but the wreck lies nose-down with the tail in the air, so its oriented box (88.2 × 34.3 × 95.0) says
+nothing about how it occupies the world — the real AABB is X 89 · Y **85** · Z 95, spanning Y −15 to
+Y 70. `GetExtentsSize()` is no help: it returned the *oriented* size (34.3 tall) too. The world AABB is
+now measured from the part corners and the flames placed in world space, near the sand line so they
+start outside the hull instead of burning invisibly inside an opaque mesh.
+
+Verified live — emitters now 4 / 19 / 19 studs from the wreck, and the screenshot shows flame, a smoke
+plume and firelight on the hull.
+
+### 🔴 Players could bail out of the plane mid-flight
+
+*"players can jump out of plane while flying, disable input till we land."* Jump unseats a character, so
+the crew could step out at altitude. Locked from both ends:
+
+- **Server** (`lockPassenger`) — `SetStateEnabled(Jumping, false)` plus `JumpHeight/JumpPower/WalkSpeed`
+  zeroed. The state toggle is the part that matters: seat-exit is driven by the jump **input**, not by
+  the jump force, so zeroing `JumpPower` alone does *not* stop it. A `Humanoid.Seated` watcher re-seats
+  anyone who comes loose while `IntroActive` and not yet `IntroWake`.
+- **Client** (`IntroInputLock.local.luau`, new) — sinks `Enum.PlayerActions.CharacterJump` and the four
+  movement actions at High priority. Using `PlayerActions` rather than raw `KeyCode`s means it also
+  covers gamepad and the mobile touch buttons.
+
+Both release at the wake-up. Verified live: in flight `Sit=true, jumpStateEnabled=false`, and **forcing
+`Humanoid.Jump = true` did not unseat**. After the wake: `WalkSpeed=16, JumpHeight=7.2,
+jumpStateEnabled=true, Sit=false` — controls fully handed back.
+
+### 🟢 Confirmed intentional — red patch at the crash site
+
+The glowing red patch on the sand is **terrain painted `CrackedLava`** (19 voxels). Confirmed by the user
+as deliberate scorch under the wreck — leave it.
+
+### 🟡 Open — the crash lighting may be too hot
+
+Three `PointLight`s at `Brightness 4 · Range 42` overlap on the wreck. In the verification screenshot the
+plane's green camo reads as bright yellow and the sand around it is blown out. It plainly says "on fire",
+but it may be worth dropping to ~2 brightness or two lights. Not changed — the user has not seen it yet.
 
 ### Verified in Play (post-impact state)
 
@@ -353,6 +401,9 @@ marker paint from Job #071 rather than intentional scorch.
 - [x] Engine sound moved behind the loading gate
 - [x] Seats rebuilt in the body frame — crew rides inside, upright, facing forward
 - [x] User watched the cold open — *"all feel great"*
-- [ ] User re-checks the engine-sound timing and the seated crew
-- [ ] Decide whether the `CrackedLava` patch at the crash site is intentional
+- [x] Crash fire + smoke actually land on the wreck (parenting order + world AABB)
+- [x] Input locked in flight — crew can't jump out, controls returned at the wake
+- [x] `CrackedLava` patch confirmed intentional scorch
+- [ ] User re-checks: engine-sound timing, seated crew, fire/smoke, in-flight input lock
+- [ ] Decide whether the crash point-lights are too bright (3 × Brightness 4 · Range 42)
 - [ ] Final summary + changelog
