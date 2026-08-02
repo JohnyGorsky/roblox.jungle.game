@@ -19,8 +19,8 @@
 -- completely, so no yaw/roll blending is needed — and blending 84° of yaw in the last second would have
 -- read as a spin, not a crash.
 --
--- The model's nose is local −Z (verified from above in Studio), which is exactly what `CFrame.lookAt`
--- points along its target direction — so no 180° flip constant is needed.
+-- The model's nose is local **+X**, not the usual −Z, so `CFrame.lookAt` alone poses it wrong. See
+-- `MESH_FIX` below for the measured correction and why it has to be applied innermost.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
@@ -148,22 +148,34 @@ local delta = IMPACT_POS - START_POS
 local flatDir = Vector3.new(delta.X, 0, delta.Z)
 flatDir = if flatDir.Magnitude > 0.01 then flatDir.Unit else Vector3.new(0, 0, -1)
 
--- ⚠️ THE MESH IS BAKED A QUARTER-TURN INSIDE ITS PART.
--- `CFrame.lookAt` correctly points the part's −Z along the flight path (the nose IS −Z), but at roll 0
--- the aircraft flies KNIFE-EDGE: wings vertical, star roundels facing sideways. Verified in Studio by
--- levelling clones at 0 / ±41.5 / ±90 and photographing them head-on down the flight line — only −90°
--- puts the wings horizontal with the engine nacelles under them and the tailplane up.
+-- ⚠️ THE MESH DOES NOT USE THE STANDARD ROBLOX AXES. Its nose is local **+X** and its belly local −Z —
+-- NOT the usual nose = −Z. Measured in Studio, not guessed: a clone posed with plain `CFrame.lookAt` and
+-- no correction hangs NOSE STRAIGHT DOWN, and `flatDir:Dot(cf.RightVector)` comes back 1.000.
 --
--- This also explains the wreck's odd −41.5° part roll: the resting pose is 90 − 41.5 ≈ 48° of visual
--- bank, i.e. tipped onto a wingtip — which is exactly how a crashed plane should sit.
+-- `MESH_FIX` is the one rotation that maps mesh axes onto flight axes (nose forward, wings level, gear
+-- down). It MUST be applied INNERMOST — i.e. last in the multiply chain:
 --
--- Applied LAST so it spins the aircraft about its own fuselage axis, after pitch and roll have been
--- applied in the world-aligned flight frame.
-local MESH_ROLL = math.rad(-90)
+--     lookAt(...) * CFrame.Angles(pitch, 0, roll) * MESH_FIX      ✅ pitch/roll act in the FLIGHT frame
+--     lookAt(...) * CFrame.Angles(pitch, 0, roll + MESH_ROLL)     ❌ roll then swings the NOSE, not the wings
+--
+-- The earlier version folded the correction into the roll term, which is why the plane flew at a wrong
+-- attitude for the whole cold open: with the nose on local +X, rotating about local Z moves the nose
+-- instead of banking the aircraft. Verified in Studio at (pitch 0, roll 0), (0, +25°) and (−20°, +15°),
+-- photographed from the side against a horizon bar and from behind — level is level, bank is bank, and
+-- a NEGATIVE pitch is nose-down.
+--
+-- This also explains the wreck's odd −41.5° part roll: measured against the corrected frame the resting
+-- pose is tipped onto a wingtip, which is exactly how a crashed plane should sit.
+local MESH_FIX = CFrame.Angles(math.rad(90), 0, 0) * CFrame.Angles(0, 0, math.rad(-90))
 
 local function flightCF(pos: Vector3, pitch: number, roll: number): CFrame
-	return CFrame.lookAt(pos, pos + flatDir) * CFrame.Angles(pitch, 0, roll) * CFrame.Angles(0, 0, MESH_ROLL)
+	return CFrame.lookAt(pos, pos + flatDir) * CFrame.Angles(pitch, 0, roll) * MESH_FIX
 end
+
+-- The chase camera must NOT re-derive "forward" from the plane's pivot — with the nose on local +X,
+-- `LookVector` points straight up. Publish the flight heading instead: one authority, no baked-axis
+-- knowledge duplicated in the client.
+Workspace:SetAttribute("IntroPlaneDir", flatDir)
 
 -- ── flight profile ───────────────────────────────────────────────────────────────────────────────────
 -- Defined up here because the plane is BUILT at HOVER_POS.
