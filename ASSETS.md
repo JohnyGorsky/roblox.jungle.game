@@ -156,7 +156,7 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 |---|---|---|---|
 | Airfield star (spawn) | — | <span style="color:#2e9c3f">✅ done (by design)</span> | **No decal needed.** User ruled 2026-08-02 that the existing cream disc IS the intended spawn marker — the painted military star was dropped. ⚠️ `Spawn.Star` + `Spawn.Pad` still match the `greybox_placement.luau` signature exactly, so a greybox sweep will re-flag them: they are on the **confirmed-intentional list** in `Jobs/068/intake.md` Part E |
 | Runway "27" + stripes | user | <span style="color:#2e9c3f">✅ done (user)</span> | airfield/runway done by user — 6 `RunWay` tiles, mesh `114620021340964`, spanning z −154 → −485. The greybox `Scenery.RunwayMarkings` (9 `Dash` + 4 `Threshold`) sits over them and is **kept deliberately** (user, 2026-08-02); it is on the confirmed-intentional list in `Jobs/068/intake.md` Part E, so a greybox sweep will re-flag it |
-| Path decals (sand/dirt/tire tracks) | ChatGPT → decal | <span style="color:#c9911d">⏸ pending</span> | curved paths connecting zones (styleguide §24) |
+| Path decals (sand/dirt/tire tracks) | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | Not needed: the terrain already separates the zones (sand clearing, worn track, grass ring, material transitions) and the built directional signpost (§1.6) covers wayfinding. Sat pending 2026-07-20 → 08-02 unmissed. **If new players ever do get lost, the no-art fix is a terrain material change, not a decal** |
 
 ## 1.9 UI icons (signs + HUD) — sourcing list (LOBBY scope, drawn up 2026-07-30)
 
