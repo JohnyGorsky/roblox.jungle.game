@@ -1,10 +1,13 @@
 --!strict
--- StagingServer.server.luau — crash-site hub + moored-boat rope START gate (Job 016).
+-- StagingServer.server.luau — crash-site hub + moored-boat START gate (Job 016, retooled in Job 072).
 --
--- Inserts a STAGING phase in front of the river run (same place, phased). Players spawn at a greybox
--- crash-site hub (see PlayerCombat), the boat sits MOORED (anchored + tied) with a visible rope, and all
--- threats/progression are gated behind Workspace.RunStarted. Anyone can UNTIE the rope to start: the boat
--- is released and the run begins. Boat driving is unchanged after start.
+-- Inserts a STAGING phase in front of the river run (same place, phased). Players spawn at the hand-built
+-- SpawnBase (see PlayerCombat), the boat sits MOORED exactly where `Dock.BoatPlace` is placed, and all
+-- threats/progression are gated behind Workspace.RunStarted. Anyone can UNTIE to start: the boat is
+-- released and the run begins. Boat driving is unchanged after start.
+--
+-- ⚠️ `Dock.BoatPlace` IS THE CONTROL. Move or rotate that marker in the editor and the moored boat
+-- follows — position and heading both. Nothing here computes a berth. There is no winch and no tow.
 --
 -- Hand-built vs procedural (GROUND-RULES §2): the greybox hub here is a PLACEHOLDER — the human will
 -- hand-build the real crash-site hub + startup river; a later job points the procedural generator at
@@ -54,8 +57,6 @@ if not (spawnBase and dockFolder and spawnMarker and boatPlace) then
 		.. "No hub will be generated and the run cannot stage.")
 	return
 end
-local dockModel = dockFolder:FindFirstChild("Dock")
-
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
 end
@@ -74,21 +75,12 @@ pcall(function()
 end)
 boat:SetAttribute("Tied", true)
 
+-- Kept (empty) so anything still looking up Workspace.StagingArea finds it. Nothing is built into it any
+-- more: the greybox hub/wreck/jetty went in Job 072 when SpawnBase replaced them, and the winch post
+-- went with the tow.
 local area = Instance.new("Folder")
 area.Name = "StagingArea"
 area.Parent = Workspace
-
-local function block(name: string, size: Vector3, color: Color3, cf: CFrame, mat: Enum.Material?): Part
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Anchored = true
-	p.Size = size
-	p.Color = color
-	p.Material = mat or Enum.Material.SmoothPlastic
-	p.CFrame = cf
-	p.Parent = area
-	return p
-end
 
 -- ---- the boat's docked + start positions, from the hand-placed helpers ----
 -- NOTHING is generated here any more: the greybox HubPlatform, the greybox PlaneWreck and the greybox
@@ -97,22 +89,17 @@ local halfBeam = hull.Size.X / 2
 local halfLen = hull.Size.Z / 2
 local hullBottomY = WATER_Y + 2 - hull.Size.Y / 2
 
--- Docked = exactly where you put BoatPlace, snapped to the boat's float height.
+-- ⚠️ THE BOAT SITS EXACTLY WHERE `BoatPlace` IS — position AND rotation. That marker is the single
+-- control: drag it or spin it in the editor and the moored boat follows, no code change needed.
+-- (BoatServer reads the same helper for the hull's spawn CFrame, yaw included.)
+--
+-- There is NO reel-in any more. The boat used to spawn `REEL_OFFSET = 26` studs off along the dock→
+-- BoatPlace line and be winched to the pier a few studs per pull. That is gone: towing added a chore
+-- before every run, and the offset was also what kept knocking the mooring maths out — the rope was cut
+-- for the build-time spot and then went taut once the drive pulled the boat out to its hold position,
+-- leaving the whole boat hanging in the air above the water.
 local dockedPos = Vector3.new(boatPlace.Position.X, WATER_Y + 2, boatPlace.Position.Z)
-
--- It starts moored OFF the dock and is reeled in. "Off" = further along the line from the dock model
--- to BoatPlace, so the boat always approaches the jetty head-on however the dock happens to be rotated
--- (the old code assumed a +X bank, which a hand-placed dock cannot be relied on to match).
-local REEL_OFFSET = 26
-local awayDir = Vector3.new(1, 0, 0)
-if dockModel then
-	local d = dockedPos - dockModel:GetPivot().Position
-	local flat = Vector3.new(d.X, 0, d.Z)
-	if flat.Magnitude > 1 then
-		awayDir = flat.Unit
-	end
-end
-local startPos = dockedPos + awayDir * REEL_OFFSET
+local startPos = dockedPos
 
 -- SAFETY PROBE (kept from the procedural version, and it still matters). A boat docked with part of
 -- its hull buried in the bank is fine while held, but on release the collision blows the assembly into
@@ -162,8 +149,10 @@ hold.PlaneVelocity = Vector2.zero -- zero horizontal velocity = hold position (c
 hold.MaxForce = 1000000 -- beat the boat's constant Current force
 hold.Parent = hull
 
--- drive the boat's horizontal position to (moorX, moorZ): set a planar velocity toward it, ease near it.
-local REEL_SPEED = 16 -- studs/s reel-in
+-- Hold the boat's horizontal position at (moorX, moorZ): planar velocity toward it, eased near it.
+-- The boat now spawns ON this spot, so in practice this only cancels the river current's drift — but the
+-- correction is kept so a shove from a player or an enemy cannot walk the boat off its berth.
+local HOLD_SPEED = 16 -- studs/s max correction
 local moorX, moorZ = startPos.X, startPos.Z
 do
 	local RunService = game:GetService("RunService")
@@ -179,7 +168,7 @@ do
 		if d < 0.3 then
 			hold.PlaneVelocity = Vector2.zero
 		else
-			local s = math.min(REEL_SPEED, d * 3)
+			local s = math.min(HOLD_SPEED, d * 3)
 			hold.PlaneVelocity = Vector2.new(ex / d * s, ez / d * s)
 		end
 	end)
@@ -194,69 +183,27 @@ print(("[Staging] bound to SpawnBase — wake at %d,%d,%d · boat docks at %d,%d
 	math.floor(dockedPos.X), math.floor(dockedPos.Z)))
 
 -- No greybox jetty: SpawnBase.Dock.Dock is the real one, and players walk that to board.
--- The winch is still built, because it hosts the reel/untie prompt and the rope anchor — but it now
--- sits just off the docked boat, on the dock side, instead of at a computed jetty tip.
-local winchPos = dockedPos - awayDir * (halfBeam + 4) + Vector3.new(0, 2.2, 0)
-local post = block("Winch", Vector3.new(3, 3, 3), Color3.fromRGB(210, 120, 40), CFrame.new(winchPos), Enum.Material.Metal)
-post.CanCollide = false
-local a0 = Instance.new("Attachment")
-a0.Parent = hull
-local a1 = Instance.new("Attachment")
-a1.Parent = post -- parent first, then set world position
-a1.WorldPosition = post.Position + Vector3.new(0, 1, 0)
-local rope = Instance.new("RopeConstraint")
-rope.Attachment0 = a0
-rope.Attachment1 = a1
-rope.Length = (a0.WorldPosition - a1.WorldPosition).Magnitude
-rope.Thickness = 0.15
-rope.Visible = true
-rope.Color = BrickColor.new("Brown")
-rope.Parent = hull
-
--- prompt: PULL (reel the boat to the pier) → then UNTIE (launch)
+--
+-- No winch post and no rope. The greybox orange winch block stood in the water beside the boat purely to
+-- host the reel prompt and anchor the tow rope; with the tow gone there is nothing for it to do, and the
+-- rope was actively harmful (it is what suspended the boat above the waterline). The boat is held in
+-- place by the `Moor` LinearVelocity above, which is invisible and cannot fight buoyancy on Y.
+--
+-- The untie prompt now lives ON THE BOAT, so there is still a world-space way to start the run for a
+-- player who is not seated. `UntieButton` (Job 030) remains the seated-driver path — both call startRun.
 local prompt = Instance.new("ProximityPrompt")
 prompt.Name = "MooringPrompt"
-prompt.ActionText = "Pull rope"
-prompt.ObjectText = "Winch"
+prompt.ActionText = "Untie rope — START"
+prompt.ObjectText = "Boat"
 prompt.HoldDuration = 0.4
 prompt.RequiresLineOfSight = false
 prompt.MaxActivationDistance = 24
-prompt.Parent = post
+prompt.Parent = hull
 
-local PULL_STEP = 8 -- studs reeled per pull
-local DOCK_DIST = 3 -- within this of the dock = docked
 local started = false
-local docked = false
-local reeling = false
-
-local function refreshRope()
-	rope.Length = math.max(1, (a0.WorldPosition - a1.WorldPosition).Magnitude)
-end
-
-local function reel()
-	if reeling or docked then
-		return
-	end
-	reeling = true
-	-- move the HOLD TARGET (X/Z) a step toward the dock; the AlignPosition glides the (dynamic) boat to it,
-	-- so a player standing on the boat rides along — no teleporting, no anchoring.
-	local flat = Vector3.new(dockedPos.X - moorX, 0, dockedPos.Z - moorZ)
-	local stepDist = math.min(PULL_STEP, flat.Magnitude)
-	local nt = Vector3.new(moorX, 0, moorZ) + (if flat.Magnitude > 0.01 then flat.Unit else Vector3.zero) * stepDist
-	moorX, moorZ = nt.X, nt.Z
-	refreshRope()
-	task.wait(0.35) -- let the boat glide to the new target
-	refreshRope()
-	if (Vector3.new(moorX - dockedPos.X, 0, moorZ - dockedPos.Z)).Magnitude <= DOCK_DIST then
-		docked = true
-		prompt.ActionText = "Untie rope — START"
-		print("[Staging] boat docked — board it, then untie to start")
-	end
-	reeling = false
-end
 
 local function startRun()
-	if started or not docked then
+	if started then
 		return
 	end
 	if ((boat:GetAttribute("OnBoatCount") :: number?) or 0) < 1 then
@@ -268,34 +215,18 @@ local function startRun()
 	-- so there is no anchor→unanchor transition to explode. The current + driver take over cleanly.
 	hold:Destroy()
 	boat:SetAttribute("Tied", false)
-	rope:Destroy()
-	a0:Destroy()
-	a1:Destroy()
 	prompt:Destroy()
 	Workspace:SetAttribute("HubSpawn", nil)
-	-- leave the greybox hub standing behind (the crew has sailed off on the boat)
-	print("[Staging] rope untied — RUN STARTED")
+	-- leave the hub standing behind (the crew has sailed off on the boat)
+	print("[Staging] untied — RUN STARTED")
 end
 
-prompt.Triggered:Connect(function()
-	if not docked then
-		reel()
-	else
-		startRun()
-	end
-end)
+prompt.Triggered:Connect(startRun)
 
--- GUI untie button (Job 030): a seated driver can reel/start without reaching the winch prompt.
--- Same progression as the prompt (pull to dock → untie to start). Staging only acts before the run starts.
+-- GUI untie button (Job 030): a seated driver starts without reaching the boat's prompt.
+-- Staging only acts before the run starts.
 untieRemote.OnServerEvent:Connect(function()
-	if started then
-		return
-	end
-	if not docked then
-		reel()
-	else
-		startRun()
-	end
+	startRun()
 end)
 
 -- accurate "on boat" test: raycast straight down from the player and only count a hit on a BOAT part.
