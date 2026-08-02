@@ -1,7 +1,7 @@
 # TODO 0020: REQUIRED (Job 068 A2): Unlist the Cosmetic Bundle on the Creator Hub -- USER ACTION
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — DONE by the user, 2026-08-02 -- verified from a Creator Hub game-pass listing screenshot. Cosmetic Bundle (pass 1918077339) now shows Current price = Offsale, so it can no longer be purchased. That was the actual goal: Job 067 removed it from MonetizationDefs (stopping this client prompting it), but the live Hub listing was still buyable until now. Together those close the last real-money exposure found by the Job 068 audit -- a 249 R$ pass that delivered nothing (no trails, no wake FX, no emote; nothing in either tree ever read Owns_cosmeticBundle). Its ids stay recorded in ASSETS.md 5.1 in case the three features are ever actually built. The other three passes remain Enabled and correct: Extra Inventory Slots 1935044952, Boat Paint Pack 1919355255, Armored Boat 1919001295.
 **Created:** 2026-08-02 10:50:30
 
 Audit Job 068, gap A2. Carry-over from Job 067. Removing it from MonetizationDefs stopped THIS client prompting it, but the 249 R$ Hub listing is a manual step and is still recorded as outstanding in Jobs/067/final-summary.md. Until it is unlisted, a pass that delivers nothing (no trails, no wake FX, no emote -- nothing ever read Owns_cosmeticBundle) is still buyable from the store page. Verification only, no code. Ids stay recorded in ASSETS.md 5.1 in case the three features are ever built.

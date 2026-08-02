@@ -228,24 +228,66 @@ Concrete check, from the script's own print: **`rope×4`** (currently `rope×2`)
 
 ---
 
-## Status
+---
 
-**All four code tasks are done and analyzer-clean.** Three of the four were verified against the live
-place; none has been heard or seen in a running game yet.
+# ✅ PLAY VERIFICATION — all four fixes confirmed running (2026-08-02)
+
+Rojo had already synced all three files into the place (confirmed by `script_grep` before testing).
+Studio Play started via MCP; results read from the real server console and the real client GUI, not
+inferred.
+
+## Audio — one console line proves two fixes
+
+```
+[LobbySoundscape] ready — music+ambience+wind (2D), water×1, campfire×2, rope×4, cicadas looping
+```
+
+| | Before | After |
+|---|---|---|
+| **E2** dock water | `water×0` | **`water×1`** ✅ |
+| **E3** watchtowers | `rope×2` (of 4 towers) | **`rope×4`** ✅ |
+| campfires (untouched) | `campfire×2` | `campfire×2` — no regression |
+
+The same run also printed **`[Lobby] party system bound to 4 editor launch pads`**, independently
+confirming D1's premise: the place has 4 pads, and the deleted `PAD_COUNT = 3` was wrong.
+
+## A1 — owned passes, tested in both directions
+
+Initial state (test account owns all three passes):
+
+| Row | Text | Active |
+|---|---|---|
+| `Row_Armored Boat` | `OWNED` | `false` ✅ |
+| `Row_Boat Paint Pack` | `OWNED` | `false` ✅ |
+| `Row_Extra Inventory Slots` | `OWNED` | `false` ✅ |
+| `Row_10/25/60/150 Gold` | `R$ 49/99/199/449` | `true` ✅ — correctly excluded |
+
+Then the **live flip**, driven from the server and read on the client, **without reopening the panel**:
+
+1. Server `SetAttribute("Owns_armoredBoat", nil)` → row became **`R$ 499`, `Active = true`**, while
+   `Row_Boat Paint Pack` **stayed OWNED** — proving the refresh is per-row, not global.
+2. Server `SetAttribute("Owns_armoredBoat", true)` → row returned to **`OWNED`, `Active = false`**.
+
+Step 2 is the direction that matters: it is exactly what `MonetizationServer` does on
+`PromptGamePassPurchaseFinished`, so **a completed purchase now updates the row live**.
+
+> Method note: the attribute was driven from the **Server** datamodel and read from the **Client**
+> datamodel — a shared `Instance`, per the `studio-mcp-testing-gotchas` rule, rather than trusting a
+> value set inside one `execute_luau` context. All changes were Play-session only and were discarded
+> when Play stopped.
+
+## Status — code work complete
 
 | Remaining | Owner |
 |---|---|
-| **Rojo sync + Play** — confirm `water×1`, `rope×4`, and an owned pass reading `OWNED` | user + Claude |
 | **A2** — unlist the Cosmetic Bundle on the Creator Hub (`todo/0020`) | **user** |
-| **ASSETS.md doc corrections** (`todo/0035`, now 8 items) | queued |
+| **ASSETS.md doc corrections** (`todo/0035`, 8 rows) | queued |
+| `Lighting.Technology` eyeball check (`todo/0040`) | **user** |
 
 ## Checklist
 
-- [x] Task 1 (A1) implemented + analyzer clean
-- [ ] Task 1 verified in Play (needs Rojo sync)
-- [x] Task 2 (D1) implemented + verified by grep and analyzer
-- [x] Task 3 (E2) implemented + lookup verified against the live tree
-- [ ] Task 3 verified in Play (expect `water×1`)
-- [x] Task 4 (E3) implemented + verified against the live tree
-- [ ] Task 4 verified in Play (expect `rope×4`)
+- [x] Task 1 (A1) implemented, analyzer clean, **verified in Play (both directions)**
+- [x] Task 2 (D1) implemented, verified by grep + analyzer, premise confirmed in Play (4 pads)
+- [x] Task 3 (E2) implemented, analyzer clean, **verified in Play (`water×1`)**
+- [x] Task 4 (E3) implemented, analyzer clean, **verified in Play (`rope×4`)**
 - [ ] Final summary + changelog
