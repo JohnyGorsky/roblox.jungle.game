@@ -140,16 +140,31 @@ but it cannot stack and costs one `Sound` instead of N.
 ⚠️ **The lobby has the same latent bug** (18–44 s gap, ~2 copies overlapping at all times). Not touched
 from here — different place — but recorded in ASSETS.md §1.11 so it isn't rediscovered.
 
-### 🔴 `night_starts` cannot be played at all — and the failure would have leaked a Sound every flip
+### 🔴 `night_starts` cannot be played at all — two uploads blocked — and the failure would have leaked a Sound every flip
 
 Play log: `Failed to load sound rbxassetid://99602574849976: Asset is not approved for the requester`,
 with `IsLoaded` stuck false.
 
 **The id is not wrong.** `GetProductInfo` returns name `night_starts`, `AssetTypeId 3`, creator
-`johnygorsky10`. Nor is it a per-experience permission pattern — `morning_starts`, `battle_starts`, all
-four beds and the dock water load fine in the same place. It is specific to that one upload: Roblox audio
-moderation hasn't approved it. **→ TODO 0044**, needs a re-upload. `morning_starts` works, so the day
-stinger is fine.
+`johnygorsky10`. Nor is it a per-experience permission pattern — `morning_starts`, `battle_starts`,
+`boat_hit`, `gun_shot`, all four beds and the dock water load fine in the same place.
+
+You then **re-uploaded both stingers** (`morning_starts` → `88638394432005`, `night_starts` →
+`95532390211599`). `morning_starts` loaded cleanly (9.0 s) — **`night_starts` was blocked again**, retested
+up to 10 s and again ~2.5 min after upload.
+
+That asymmetry was the diagnosis: two uploads of the *same* file failing identically, while its sibling
+re-uploaded fine on the first try, pointed at **the audio file itself** (Roblox's copyright/content check)
+rather than the pipeline, the account, or per-experience permissions. So the recommendation was *different
+source audio*, not a third upload of the same mp3.
+
+**✅ Resolved.** You uploaded `night_starts_2` — genuinely different audio — and it loads: `75443344927115`,
+11.0 s. Both stingers now play. All three dead ids are listed in a comment in `GameSoundscape` so nobody
+resurrects them from git history. **TODO 0044 closed.**
+
+> **The generalisable rule, now recorded in the registry:** when an upload won't play, check whether a
+> sibling upload from the same session works. If it does, the problem is the file — stop re-uploading and
+> change the audio.
 
 That exposed a bug in my own code: `Ended` **never fires** for a Sound whose asset fails to load, so
 `Ended:Once(destroy)` alone leaked one `Sound` into the folder on every phase flip, forever. There is now a

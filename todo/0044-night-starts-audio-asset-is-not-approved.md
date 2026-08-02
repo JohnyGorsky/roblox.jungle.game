@@ -1,21 +1,24 @@
 # TODO 0044: night_starts won't play — TWO uploads blocked, replace the SOURCE audio
 
 **Project:** `roblox.jungle`
-**Status:** open — **re-upload already tried once and failed; do not just try again**
+**Status:** resolved (2026-08-02) — RESOLVED 2026-08-02. Took three assets. night_starts 99602574849976 and its re-upload 95532390211599 (same source mp3) were both blocked by audio moderation - IsLoaded false, 'Asset is not approved for the requester' - while sibling morning_starts re-uploaded cleanly on the first try. That asymmetry showed the problem was the AUDIO FILE (copyright check), not the pipeline or per-experience permissions, so the fix was different source audio rather than a third upload of the same file. night_starts_2 = 75443344927115 loads, 11.0s, and is now wired in the SFX table of sync/ServerScriptService/World/GameSoundscape.server.luau plus the shared registry audio.md. morning_starts is 88638394432005 (9.0s). All three dead ids are recorded in a comment in GameSoundscape so nobody resurrects them from git history.
 **Created:** 2026-08-02 21:58:38
 **Updated:** 2026-08-02 — second upload also blocked
 
-## Current state
+## Final state — ✅ both stingers play
 
-`GameSoundscape` and the registry now point at the **re-uploaded** ids:
-
-| Sound | current id | loads? |
+| Sound | live id | loads? |
 |---|---|---|
-| `morning_starts` | `88638394432005` | ✅ yes, 9.0 s — day stinger works |
-| `night_starts` | `95532390211599` | ❌ **no** — `IsLoaded` stays false |
+| `morning_starts` | `88638394432005` | ✅ 9.0 s |
+| `night_starts_2` | `75443344927115` | ✅ 11.0 s — **different source audio**, third asset |
 
-Dead ids, do **not** resurrect them from git history or an old registry copy:
-`morning_starts` `98066971477923`, `night_starts` `99602574849976`.
+Dead ids — do **not** resurrect them from git history or an old registry copy:
+`morning_starts` `98066971477923`, `night_starts` `99602574849976`, `night_starts` `95532390211599`.
+They are listed in a comment in `GameSoundscape` for exactly that reason.
+
+The diagnosis below is kept because the reasoning generalises: **when an upload won't play, check whether
+a sibling upload from the same session works.** If it does, the problem is the file — stop re-uploading and
+change the audio.
 
 ## What was measured
 

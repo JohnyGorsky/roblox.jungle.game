@@ -578,7 +578,7 @@ never plays under the plane cabin or over the loading mask (the bug Job #072 shi
 | `cicadas` | 2D bed — **takes over at night; this is what makes night read as night** | 0.04 | 0.34 | <span style="color:#2e9c3f">✅ wired</span> |
 | `water-splashes` | positional @ `SpawnBase.Dock.BoatPlace` | 0.5 | 0.5 | <span style="color:#2e9c3f">✅ wired</span> |
 | `morning_starts` `88638394432005` | 2D stinger on `Phase` → day | — | — | <span style="color:#2e9c3f">✅ wired + plays</span> — unused since #064 until now. **Re-uploaded 2026-08-02**; old id `98066971477923` is dead |
-| `night_starts` `95532390211599` | 2D stinger on `Phase` → night | — | — | <span style="color:#f0a020">⚠️ wired but SILENT</span> — **two separate uploads have both been blocked** by audio moderation (`IsLoaded` false, *"Asset is not approved for the requester"*), while its sibling re-uploaded cleanly. The **source file** needs replacing, not another re-upload. → TODO 0044 |
+| `night_starts_2` `75443344927115` | 2D stinger on `Phase` → night | — | — | <span style="color:#2e9c3f">✅ wired + plays</span> (11.0 s). **Took three assets:** `99602574849976` and its re-upload `95532390211599` (same mp3) were both blocked by audio moderation while sibling `morning_starts` re-uploaded cleanly — so the problem was the **audio file**, and the fix was different source audio, not a third upload. → TODO 0044 (resolved) |
 | `battle_starts` | combat stinger | — | — | <span style="color:#c93c3c">❌ not wired, on purpose</span> — `EnemyServer` is a continuous trickle spawner with no wave/encounter/aggro-start concept, so there is no moment to fire on. → `Planned/combat-encounter-stinger.md` |
 
 > ⚠️ **`cicadas` is a crossfading BED here, not a one-shot — and the lobby has a latent bug because of it.**

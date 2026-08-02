@@ -48,13 +48,16 @@ local SFX = {
 	wind = "rbxassetid://93331028777865", -- wind-breeze             2D loop
 	cicadas = "rbxassetid://128204240690640", -- cicadas                 2D one-shots
 	water = "rbxassetid://115704936377395", -- water-splashes          positional @ dock
-	morning = "rbxassetid://88638394432005", -- morning_starts          2D stinger, Phase → day
-	night = "rbxassetid://95532390211599", -- night_starts            2D stinger, Phase → night
+	morning = "rbxassetid://88638394432005", -- morning_starts    2D stinger, Phase → day    9.0 s
+	night = "rbxassetid://75443344927115", -- night_starts_2    2D stinger, Phase → night 11.0 s
 }
--- ⚠️ Both stingers were RE-UPLOADED 2026-08-02 and these are the new ids. The originals
--- (`morning_starts` 98066971477923, `night_starts` 99602574849976) are dead: the night one would not
--- play at all ("Asset is not approved for the requester"). Do not resurrect the old ids from git
--- history or from an older copy of the registry.
+-- ⚠️ THREE dead ids here, do not resurrect any of them from git history or an old registry copy:
+--   · morning_starts 98066971477923  — superseded by the 2026-08-02 re-upload
+--   · night_starts   99602574849976  — would not play: "Asset is not approved for the requester"
+--   · night_starts   95532390211599  — the RE-UPLOAD of the same mp3; blocked identically
+-- Two uploads of one file failing the same way while its sibling re-uploaded cleanly meant the problem
+-- was the audio itself (copyright check), not the pipeline. `night_starts_2` is DIFFERENT source audio
+-- and loads fine — which is why the name carries the _2 rather than being a third attempt at the same file.
 -- NOTE: `battle_starts` (79506043370965) is uploaded and owned but deliberately NOT wired here.
 -- `EnemyServer` is a continuous trickle spawner — spawn interval escalates with distance and phase, and
 -- there is no wave, encounter or aggro-start concept to hang a combat stinger on. Wiring it means
