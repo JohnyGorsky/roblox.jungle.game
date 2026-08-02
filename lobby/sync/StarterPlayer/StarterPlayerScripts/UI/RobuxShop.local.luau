@@ -10,6 +10,15 @@
 --
 -- Robux flows deliberately have NO extra confirm popup: MarketplaceService shows Roblox's own purchase
 -- dialog. The confirm popup added in Job 065 gates GOLD spends, where nothing else would.
+--
+-- Job 069 (audit Job 068 gap A1): PASS ROWS NOW SHOW OWNERSHIP. Until now every row was gated on
+-- `gamePassId > 0` — "does this product exist" — never "does this player own it", so an owner of the
+-- 499 R$ Armored Boat still saw a live buy button and only Roblox's dialog told them otherwise. This
+-- was the one lobby shop with no owned state (ModulesShop=OWNED, SkillShop=MAX, Retention=CLAIMED,
+-- PaintShop locks swatches).
+--
+-- GOLD PACKS ARE DELIBERATELY EXCLUDED — they are repeatable developer products, so "owned" is
+-- meaningless for them and the buy button must always stay live.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -67,6 +76,7 @@ local function header(text: string)
 end
 
 -- One purchasable line. `iconKey` indexes Theme.productIcon (the real Creator Hub art).
+-- Returns the row so pass rows can be flipped to OWNED later (Job 069).
 local function offer(iconKey: string, name: string, blurb: string, robux: number, enabled: boolean, onBuy: () -> ())
 	order += 1
 	local row = Components.row({
@@ -87,6 +97,7 @@ local function offer(iconKey: string, name: string, blurb: string, robux: number
 		-- unset product: visibly unavailable rather than a dead button (§6.2 disabled state)
 		row.action.setEnabled(false)
 	end
+	return row
 end
 
 header("Gold packs")
@@ -98,9 +109,33 @@ end
 
 header("Passes")
 for _, gp in ipairs(MonetizationDefs.GamePasses) do
-	offer(gp.key, gp.name, gp.blurb, gp.robux, gp.gamePassId > 0, function()
+	local live = gp.gamePassId > 0
+	local row = offer(gp.key, gp.name, gp.blurb, gp.robux, live, function()
 		MarketplaceService:PromptGamePassPurchase(player, gp.gamePassId)
 	end)
+
+	if live then
+		-- `Owns_<key>` is published by MonetizationServer — on join (after an async
+		-- UserOwnsGamePassAsync round-trip) and again on PromptGamePassPurchaseFinished.
+		--
+		-- THE DEFAULT MUST BE "NOT OWNED". The attribute arrives some time AFTER this row is built, so
+		-- the row starts showing the price and flips to OWNED when it lands. Defaulting the other way
+		-- would briefly hide a real buy button from someone who hasn't bought it — a worse failure than
+		-- briefly showing one to someone who has. Listening for the change is also what makes the row
+		-- update the moment a purchase completes, with no reopen.
+		local attr = "Owns_" .. gp.key
+		local function refresh()
+			if player:GetAttribute(attr) == true then
+				row.action.setText("OWNED")
+				row.action.setEnabled(false)
+			else
+				row.action.setText("R$ " .. gp.robux)
+				row.action.setEnabled(true)
+			end
+		end
+		refresh()
+		player:GetAttributeChangedSignal(attr):Connect(refresh)
+	end
 end
 
 -- ── open routes ───────────────────────────────────────────────────────────────────────────────────
