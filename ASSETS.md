@@ -272,6 +272,24 @@ the `LastRiverLogo.png` used by `TeleportGui`.
 **7 renders total.** Not blocking the restyle (panels/buttons/type/icons land first); blocks only the
 Boat-Upgrades panel and buy popup looking like the mockup.
 
+> ### ✅ DECLINED FOR NOW (Job #069, 2026-08-02) — the flat §1.9 glyphs stay
+> The shop keeps `Theme.moduleIcon`. Nothing is broken: the glyphs are on-palette and legible at 32 px.
+>
+> **`rbxthumb://` was tested as a free alternative and rejected on evidence.**
+> `rbxthumb://type=Asset&id=<meshId>` *does* work on our uploaded boat meshes — all 7 resolved, and a
+> screenshot confirmed real, recognisable geometry (motor, hull plate, cargo racks, ramp). Two things
+> ruled it out:
+> 1. **Roblox renders the raw mesh UNTEXTURED** — grey/white, no `SurfaceAppearance` — so none of the
+>    olive / weathered-metal / brass palette this section wants *baked in* survives.
+> 2. **2 of the 7 rendered black/blank.** A mixed set (5 grey renders + 2 coloured glyphs) would also
+>    breach §1.9's own *"one pack, one author"* rule.
+>
+> Partly covered from another angle: **Job #069 added module nameplates to the showroom boat**, so a
+> player can walk up and read the real part they own (`TWIN MOTORS MOUNT` on the actual second engine).
+>
+> To revisit: generate the 7 as specified above, **or** first work out why two mesh thumbnails render
+> black — if all 7 rendered cleanly, the free option gets much stronger.
+
 > ### ⛔ No trailer / towed barge — settled 2026-08-01
 > The cargo module's shop art shows **crates and cargo on the boat's own rear `CargoDeck`**, which is
 > where cargo actually lives (GAME.md → *Cargo — the rear cargo deck & on-boat stations*). There is no
