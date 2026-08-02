@@ -213,7 +213,14 @@ end
 -- Visual mooring ropes bridging the engine bay, so the rear cargo platform reads as ATTACHED to the boat
 -- rather than floating behind it (Job 067). Purely decorative: massless, non-colliding, non-queryable —
 -- the platform is already welded to the hull as one rigid assembly. Nothing is towed here.
+-- Both ends are EXTENDED past their anchor points before the length is computed. The endpoints mark the
+-- surfaces the rope should meet, but a cylinder that stops exactly ON a surface leaves a visible gap once
+-- the real meshes are in — the transom and deck planking both sit slightly proud of the boxes those
+-- coordinates were derived from. Burying the ends is invisible; a gap is not.
+local ROPE_BURY = 1.2
 local function makeRope(parent: Instance, hullCF: CFrame, a: Vector3, b: Vector3, name: string)
+	local dir = (b - a).Unit
+	a, b = a - dir * ROPE_BURY, b + dir * ROPE_BURY
 	local mid = (a + b) / 2
 	local len = (b - a).Magnitude
 	local rope = Instance.new("Part")

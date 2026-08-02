@@ -56,9 +56,17 @@ deck.Parent = boat
 
 -- Visual mooring ropes bridging the engine bay so the platform reads as attached, not floating (Job 067).
 -- Decorative only — the deck is already welded to the hull as one rigid assembly; nothing is towed.
+--
+-- Both ends are EXTENDED past their anchor points before the length is computed. The endpoints mark the
+-- surfaces the rope should MEET, but a cylinder stopping exactly on a surface leaves a visible gap once the
+-- real meshes are in — the transom and the deck planking both sit slightly proud of the greybox boxes those
+-- coordinates were derived from. Burying the ends is invisible; a gap is not. (Keep in sync with LobbyBoat.)
+local ROPE_BURY = 1.2
 for _, rx in ipairs({ -6, 6 }) do
 	local a = Vector3.new(rx, topY + 2.1, hull.Size.Z / 2 + 0.2)
 	local b = Vector3.new(rx, topY + 0.4, backZ - DECK_DEPTH / 2 + 0.4)
+	local dir = (b - a).Unit
+	a, b = a - dir * ROPE_BURY, b + dir * ROPE_BURY
 	local mid, len = (a + b) / 2, (b - a).Magnitude
 	local rope = Instance.new("Part")
 	rope.Name = "MooringRope"
