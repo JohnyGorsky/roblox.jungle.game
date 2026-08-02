@@ -150,8 +150,16 @@ local function placeEnd()
 	bar.Parent = Workspace
 end
 
--- ── boot: clear, generate the opening stretch, signal ready ─────────────────
-Workspace.Terrain:Clear()
+-- ── boot: generate the opening stretch, signal ready ────────────────────────
+--
+-- ⚠️ NO `Workspace.Terrain:Clear()` HERE — Job #071. It used to wipe every voxel on boot, which was
+-- harmless while the whole world was procedural and became DESTRUCTIVE the moment the START and END
+-- areas became hand-sculpted terrain living in the place file: every server start would have erased
+-- them. Nothing needs clearing now — the place ships with the two editor zones and an EMPTY corridor,
+-- the generator writes chunks as the boat advances, and cullChunk removes them behind it.
+--
+-- If stale terrain ever does appear in the corridor, fix it in the place file (clear it once in Studio
+-- and save) rather than reinstating a blanket Clear here.
 Workspace:SetAttribute("RiverEndDistance", RiverData.END_DISTANCE)
 Workspace:SetAttribute("BoatDistance", 0)
 for i = 0, AHEAD_CHUNKS do

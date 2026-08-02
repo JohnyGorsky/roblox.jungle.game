@@ -30,9 +30,21 @@ local HOFF1, HOFF2 = 13.2, 27.7     -- hill-noise offsets
 local WATER_Y = RiverData.WATER_Y
 
 -- world-aligned Region3 covering one chunk (X sized to the centerline's local span + banks)
+--
+-- Job #071: CLAMPED to the editor-owned zone boundaries. The START and END areas are hand-sculpted
+-- terrain in the place file, and a chunk region spans centerline ±390 studs in X and the full Y band —
+-- so an unclamped chunk straddling a boundary would overwrite the sculpt. Clamping (rather than just
+-- skipping the boundary chunk) matters because END_ZONE_Z_START is not a multiple of CHUNK_LEN:
+-- 18000/256 = 70.3, so skipping chunk 70 outright would leave an 80-stud hole in the river.
 function RiverGenerator.chunkRegion(chunkIndex: number): Region3
 	local zMin = RiverData.Z_START + chunkIndex * RiverGenerator.CHUNK_LEN
 	local zMax = zMin + RiverGenerator.CHUNK_LEN
+	zMin = math.max(zMin, RiverData.START_ZONE_Z_END)
+	zMax = math.min(zMax, RiverData.END_ZONE_Z_START)
+	if zMax <= zMin then
+		-- entirely inside an editor zone — return an empty region the callers write nothing into
+		return Region3.new(Vector3.new(0, 0, 0), Vector3.new(0, 0, 0))
+	end
 	local minCx, maxCx = math.huge, -math.huge
 	for z = zMin, zMax, 16 do
 		local cx = RiverData.centerlineX(z)

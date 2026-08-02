@@ -156,6 +156,12 @@ do
 	w.Part1 = m
 	w.Parent = m
 	m.Parent = boat
+	-- Job #070: this line was MISSING. Fuel and Repair get skinned because they go through
+	-- `makeStation`, which takes a skin key; Medic is built inline here and duplicated everything
+	-- EXCEPT the skin call — so it rendered as a red greybox cube between two modelled stations once
+	-- the boat art landed in the game place. `MedicStation` was in the library and in BoatParts.Defs
+	-- the whole time; nothing ever asked for it. Invisible while the whole boat was greybox.
+	BoatParts.skin(m, "medicStation")
 	local bb = Instance.new("BillboardGui")
 	bb.Size = UDim2.new(0, 90, 0, 28)
 	bb.StudsOffsetWorldSpace = Vector3.new(0, 2.4, 0)

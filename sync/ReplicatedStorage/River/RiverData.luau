@@ -118,6 +118,41 @@ function RiverData.getSeed(): number
 	return cachedSeed :: number
 end
 
+-- ── EDITOR-OWNED ZONES + SEED LOCK (Job #071) ───────────────────────────────
+-- The START area (crash site) and END area (extraction) are HAND-SCULPTED terrain living in the place
+-- file, not generated. Two consequences:
+--
+--   1. The generator must never write into them — see PROTECTED ranges below, honoured by
+--      RiverGenerator.chunkRegion (which clamps) and RiverBootstrap (which no longer clears terrain).
+--
+--   2. ⚠️ THE CHANNEL MUST ARRIVE AT EACH JUNCTION IN THE SAME PLACE EVERY RUN. centerlineX and
+--      widthAt are SEED-DERIVED and the seed is random per run — the big course bend alone swings
+--      ±300 studs. Hand-sculpted banks would line up for exactly one seed and be wrong for every
+--      other. So the meander is LOCKED to a fixed centre/width at each junction and blended back to
+--      the seeded shape over LOCK_BLEND studs. The middle of the river is untouched by this.
+RiverData.START_ZONE_Z_END = 0 -- editor terrain occupies z < this
+RiverData.END_ZONE_Z_START = RiverData.END_DISTANCE -- editor terrain occupies z > this
+RiverData.LOCK_CENTER_X = 0 -- channel centre at both junctions (the sculpted mouth is built to match)
+RiverData.LOCK_WIDTH_START = 150 -- Headwaters profile width
+RiverData.LOCK_WIDTH_END = 300 -- Lost Delta profile width
+RiverData.LOCK_BLEND = 800 -- studs over which locked → fully seeded
+
+local function smoothstep(t: number): number
+	t = math.clamp(t, 0, 1)
+	return t * t * (3 - 2 * t)
+end
+
+-- How locked the channel is at z: 1 = fully locked at a junction, 0 = fully seeded mid-river.
+-- Also returns the locked WIDTH that applies, since the two ends want different widths.
+function RiverData.lockFactor(z: number): (number, number)
+	local kStart = 1 - smoothstep((z - RiverData.START_ZONE_Z_END) / RiverData.LOCK_BLEND)
+	local kEnd = 1 - smoothstep((RiverData.END_ZONE_Z_START - z) / RiverData.LOCK_BLEND)
+	if kStart >= kEnd then
+		return math.clamp(kStart, 0, 1), RiverData.LOCK_WIDTH_START
+	end
+	return math.clamp(kEnd, 0, 1), RiverData.LOCK_WIDTH_END
+end
+
 -- world-space X of the channel center at downstream position z (big course bend + turniness-scaled wiggles)
 function RiverData.centerlineX(z: number): number
 	ensureSeed()
@@ -125,14 +160,24 @@ function RiverData.centerlineX(z: number): number
 	local base = A1 * (math.noise(z * F1 + offX1) * 2)
 	local mid = A2 * (math.noise(z * F2 + offX2) * 2) * turn
 	local fine = A3 * (math.noise(z * F3 + offX3) * 2) * turn
-	return base + mid + fine
+	local seeded = base + mid + fine
+	local k = RiverData.lockFactor(z)
+	if k <= 0 then
+		return seeded
+	end
+	return seeded * (1 - k) + RiverData.LOCK_CENTER_X * k
 end
 
 -- channel width (bank to bank) at z — per-zone base + gentle variation, clamped to a drivable span
 function RiverData.widthAt(z: number): number
 	ensureSeed()
 	local n = math.noise(z * F_W + offW) * 2 -- ~[-1, 1]
-	return math.clamp(RiverData.profileAt(z).width + W_VAR * n, W_FLOOR, W_CEIL)
+	local seeded = math.clamp(RiverData.profileAt(z).width + W_VAR * n, W_FLOOR, W_CEIL)
+	local k, lockedWidth = RiverData.lockFactor(z)
+	if k <= 0 then
+		return seeded
+	end
+	return seeded * (1 - k) + lockedWidth * k
 end
 
 -- ── forks (braided channel around an island) ─────────────────────────────────
@@ -148,6 +193,12 @@ end
 -- branch-center offset (studs from the island center to each branch) at z; 0 = single channel (no fork)
 function RiverData.forkOffsetAt(z: number): number
 	ensureSeed()
+	-- Job #071: never fork inside a locked approach. The END lock uses the Delta width (300), which is
+	-- above FORK_MIN_WIDTH, so without this the channel could split into two branches right where it
+	-- meets hand-sculpted terrain built for a single mouth.
+	if RiverData.lockFactor(z) > 0 then
+		return 0
+	end
 	if RiverData.widthAt(z) < FORK_MIN_WIDTH then
 		return 0 -- never fork a narrow channel
 	end
