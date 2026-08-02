@@ -189,7 +189,26 @@ end
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
 end
-START = RiverData.positionAt(RiverData.Z_START + 40) + Vector3.new(0, 2, 0)
+-- Spawn beside the hand-built dock, not mid-channel (Job #072).
+-- The boat used to appear at `positionAt(Z_START + 40)` — the middle of the generated river — which was
+-- correct while the crash-site hub was generated there too. The hub is now the hand-built SpawnBase at
+-- Z ≈ −270, so spawning at Z 40 left the boat 310 studs upriver, slowly self-sailing to its mooring at
+-- the start of every run.
+--
+-- Falls back to the old mid-channel spot if the helper is missing, because unlike StagingServer (which
+-- can safely halt) a run with NO BOAT is unrecoverable — better a boat in the wrong place than none.
+local startPos = RiverData.positionAt(RiverData.Z_START + 40) + Vector3.new(0, 2, 0)
+do
+	local sb = Workspace:FindFirstChild("SpawnBase")
+	local dockFolder = sb and sb:FindFirstChild("Dock")
+	local boatPlace = dockFolder and dockFolder:FindFirstChild("BoatPlace")
+	if boatPlace and boatPlace:IsA("BasePart") then
+		startPos = Vector3.new(boatPlace.Position.X, RiverData.WATER_Y + 2, boatPlace.Position.Z)
+	else
+		warn("[Boat] no SpawnBase.Dock.BoatPlace — falling back to mid-channel at Z_START + 40")
+	end
+end
+START = startPos
 
 local boat = buildBoat()
 local hull = boat.PrimaryPart :: BasePart

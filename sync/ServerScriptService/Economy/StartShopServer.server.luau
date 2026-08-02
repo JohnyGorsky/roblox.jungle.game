@@ -23,8 +23,24 @@ if not hub then
 	return
 end
 
--- put the kiosk a few studs into the platform from the spawn point; sit it on the platform surface
-local spot = hub + Vector3.new(0, 0, 12)
+-- Place the kiosk a few studs from the spawn point, DELIBERATELY ON THE OPPOSITE SIDE FROM THE PLANE
+-- WRECK (Job #072). The old fixed `+Z` offset was fine against the generated greybox hub, but once the
+-- hub moved to the hand-built SpawnBase it dropped the kiosk inside the wreck: the crashed plane is
+-- 88 x 94 studs, so any FIXED direction is a coin flip. Deriving the direction keeps it clear no matter
+-- where SpawnLocation or the plane are moved later.
+local OFFSET = 12
+local dir = Vector3.new(0, 0, 1)
+local sb = Workspace:FindFirstChild("SpawnBase")
+local plane = sb and sb:FindFirstChild("Plane")
+if plane and plane:IsA("Model") then
+	local pcf = plane:GetBoundingBox()
+	local away = hub - pcf.Position
+	local flat = Vector3.new(away.X, 0, away.Z)
+	if flat.Magnitude > 1 then
+		dir = flat.Unit
+	end
+end
+local spot = hub + dir * OFFSET
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.FilterDescendantsInstances = {}

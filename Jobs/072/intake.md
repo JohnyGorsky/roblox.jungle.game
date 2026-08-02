@@ -126,18 +126,56 @@ be a stray platform in the river at Z 40.
 The Robux kiosk follows the hub attribute, so it lands at the new spawn base automatically. Worth a
 look to check it doesn't end up inside your plane or the sandbag wall.
 
-## Open questions
+## Decisions (2026-08-02)
 
-1. **Flight timing** — currently 10 s cruise + 5 s descent after the loading mask lifts. Keep, or make
-   the approach longer now that it's a proper 900-stud descent?
-2. **Does the crew ride the plane, or is the intro a fly-over they watch?** Current code force-seats
-   everyone. Your `SpawnLocation` suggests they wake on the ground either way.
-3. **Should the wreck burn forever, or fade out** after the first minute? Permanent fire is a constant
-   particle cost on mobile.
+| # | Decision |
+|---|---|
+| 1 | **The crew rides the plane down** and wakes at `SpawnLocation`. Keeps the existing force-seat logic — the crash happens *to* the player, which is the stronger cold-open. |
+| 2 | **10 s cruise + 9 s descent.** Only the descent is stretched, so the ~900-stud approach from `PlacePlace` reads as a glide (~100 studs/s) rather than a drop, without adding much to the pre-run wait. |
+| 3 | **Burn hard, then settle.** Full fire + smoke + embers for ~45 s after impact, then flames fade and a smoke column remains — dramatic when players are looking at it, cheap for the rest of the run, and the smoke still marks the camp on the horizon. |
+| 4 | **Distance keeps measuring from Z 0** — the counter stays at 0 while the boat is in the start bay and begins at the junction. No code change; `END_DISTANCE = 18000` keeps its meaning, and the zone boundaries + Gold checkpoints at 25/50/75% stay as tuned. The ~270 studs in camp are the intro, not the run. |
+| 5 | **Build step at a time**, describing each before implementing and verifying in Play before moving on. |
+
+---
+
+# Part 4 — SOUND SHOPPING LIST (user sources via Pixabay, GROUND-RULES §4)
+
+Ordered by when it plays. **2D** = non-positional (heard inside the cabin / in your head);
+**positional** = attached to the plane or wreck so it moves and falls off with distance.
+
+| # | Sound | Moment | Type | Length | Notes |
+|---|---|---|---|---|---|
+| 1 | **Prop engine drone — loop** | whole cruise, inside the cabin | 2D loop | 5–15 s seamless | The bed the whole intro sits on. Wants a *heavy piston/prop* drone, not a jet. Must loop without a click |
+| 2 | **Engine sputter / stall** | the moment it goes wrong | 2D one-shot | 2–4 s | The story beat. Coughing, misfiring, losing power — cues the descent |
+| 3 | **Cockpit warning alarm** | from stall until impact | 2D short loop | 1–2 s | Repeating tone/buzzer. Keep it quiet under the engine, or it grates |
+| 4 | **Wind rush / dive** | during the 9 s descent | 2D loop, volume rising | 4–10 s | Sells speed. Fade it *in* across the descent rather than playing flat |
+| 5 | **🔴 CRASH IMPACT** | the hit | 2D one-shot | 2–5 s | The single most important one. Big metal impact + tearing + debris. Everything cuts to black on this |
+| 6 | **Debris / metal settling** | ~1–2 s after impact | positional @ wreck | 3–6 s | Creaking, groaning, small pieces falling. Sells the aftermath |
+| 7 | **Ear ringing (tinnitus)** | as you wake | 2D one-shot, fading | 6–12 s | High thin tone fading out. Cheap and extremely effective for a crash wake-up — strongly recommend |
+| 8 | **Large fire — loop** | burning wreck, first ~45 s | positional @ wreck | 5–15 s seamless | Bigger and rougher than a campfire. See "already own" below |
+| 9 | **Distant plane pass** *(optional)* | before it appears | 2D one-shot | 4–8 s | Foreshadows the plane before it's visible over the ridge |
+
+## Already owned — do not re-source
+
+| Have | Where | Use for |
+|---|---|---|
+| `crackle-campfire` `113774133604878` | registry `audio.md` (wired in the lobby) | usable as a **secondary layer** under #8 — but too small on its own for a burning aircraft |
+| `wind-breeze` `93331028777865` | registry `audio.md` | a bed layer, **not** the dive rush (#4) — it's a gentle ambient loop |
+| `boat_on_fire.mp3` | `assets/Objects/Boat/Sounds/` | ⚠️ **check this one first** — it may cover #8 outright. Local mp3, not yet uploaded |
+| `boat_destroyed.mp3` | `assets/Objects/Boat/Sounds/` | ⚠️ possible stand-in for #5 — audition before sourcing new |
+| `metal_hit_1_sec.mp3` | `assets/Objects/Boat/Sounds/` | possible layer for #5/#6 |
+
+**Priority if the list is too long:** #5 (impact), #1 (engine loop), #8 (fire) carry the whole scene.
+#7 (ear ringing) is the cheapest big win. #3 and #9 are polish.
+
+**Format:** mp3, upload in Studio → Asset Manager → Audio, then hand over the IDs. They go to registry
+[`audio.md`](../../roblox.workspace/Assets/registry/audio.md) and are wired through `Theme.sound`-style
+lookup — **no asset id written into a script**.
 
 ## Checklist
 
 - [x] Helper objects + current system read
+- [ ] Sounds sourced by the user (Part 4)
 - [ ] Plan agreed (Part 2) + open questions answered
 - [ ] Staging bound to SpawnBase
 - [ ] Boat spawn moved

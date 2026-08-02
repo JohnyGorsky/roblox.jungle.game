@@ -23,13 +23,38 @@ untieRemote.Name = "RequestUntie"
 untieRemote.Parent = ReplicatedStorage
 
 local WATER_Y = RiverData.WATER_Y
-local HUB_Z = RiverData.Z_START + 40 -- level with the boat spawn (BoatServer: positionAt(Z_START+40))
-local HUB_SIDE = 1 -- which bank the hub sits on (+X)
 
--- Where the hand-built startup section ends and the procedural river takes over. DOCUMENTED ONLY for now
--- (the generator still builds from Z_START this POC); a follow-up job will start procedural gen here.
-local HANDOFF_Z = RiverData.Z_START + 300 -- luau: keep referenced so the intent is greppable
-assert(HANDOFF_Z > RiverData.Z_START)
+-- ── BIND TO THE HAND-BUILT SPAWN BASE (Job #072) ─────────────────────────────────────────────────
+-- This script used to GENERATE a greybox crash-site hub at Z_START + 40, derived from the river's
+-- centreline. Its own header always called that temporary: "the human will hand-build the real
+-- crash-site hub + startup river; a later job points the generator at HANDOFF_Z." That build now
+-- exists as `Workspace.SpawnBase`, so we bind to it and generate nothing.
+--
+-- The handoff is real now too — `RiverData.START_ZONE_Z_END` (Job #071) is where the sculpted start
+-- zone ends and the generated river begins.
+--
+-- ⚠️ FAIL LOUDLY, NEVER FALL BACK. If a helper is missing, halt. Silently regenerating a greybox hub
+-- 300 studs away in the middle of the river would put players in the wrong world with no error — far
+-- harder to diagnose than a warning and a dead staging phase.
+local function findHelper(parent: Instance?, name: string): BasePart?
+	local found = parent and parent:FindFirstChild(name)
+	if found and found:IsA("BasePart") then
+		return found
+	end
+	warn(("[Staging] SpawnBase helper %q missing or not a BasePart"):format(name))
+	return nil
+end
+
+local spawnBase = Workspace:WaitForChild("SpawnBase", 20)
+local dockFolder = spawnBase and spawnBase:FindFirstChild("Dock")
+local spawnMarker = findHelper(spawnBase, "SpawnLocation")
+local boatPlace = findHelper(dockFolder, "BoatPlace")
+if not (spawnBase and dockFolder and spawnMarker and boatPlace) then
+	warn("[Staging] HALTED — expected Workspace.SpawnBase with SpawnLocation and Dock.BoatPlace. "
+		.. "No hub will be generated and the run cannot stage.")
+	return
+end
+local dockModel = dockFolder:FindFirstChild("Dock")
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -65,67 +90,55 @@ local function block(name: string, size: Vector3, color: Color3, cf: CFrame, mat
 	return p
 end
 
--- ---- PLACEHOLDER greybox hub (replace with the hand-built crash-site hub) ----
-local centerX = RiverData.centerlineX(HUB_Z)
-local waterEdgeX = centerX + HUB_SIDE * (RiverData.widthAt(HUB_Z) * 0.5)
-local PLATFORM_SX = 36
-
--- Keep ALL collidable land geometry on the LAND side (past waterEdgeX) so nothing overlaps the boat.
-local platformCenter = Vector3.new(waterEdgeX + HUB_SIDE * (PLATFORM_SX / 2), WATER_Y + 2.5, HUB_Z)
-block("HubPlatform", Vector3.new(PLATFORM_SX, 1, 46), Color3.fromRGB(120, 110, 92), CFrame.new(platformCenter), Enum.Material.Ground)
-block(
-	"PlaneWreck",
-	Vector3.new(10, 7, 24),
-	Color3.fromRGB(150, 150, 160),
-	CFrame.new(platformCenter + Vector3.new(HUB_SIDE * 4, 4, -12)) * CFrame.Angles(0, math.rad(20), math.rad(8)),
-	Enum.Material.Metal
-)
-
--- The boat spawns mid-channel; it starts moored OFF the pier. Players PULL the rope to reel it in until it
--- docks ALONGSIDE the jetty. Held dynamically (AlignPosition) — never anchored — so releasing is safe.
+-- ---- the boat's docked + start positions, from the hand-placed helpers ----
+-- NOTHING is generated here any more: the greybox HubPlatform, the greybox PlaneWreck and the greybox
+-- Jetty are all gone. SpawnBase supplies the real dock, the real wreck and the spawn point.
 local halfBeam = hull.Size.X / 2
+local halfLen = hull.Size.Z / 2
 local hullBottomY = WATER_Y + 2 - hull.Size.Y / 2
 
--- Terrain-aware docking: the bank slopes UNDERWATER, so docking by a fixed margin can leave the boat's
--- bank-side edge buried in the bank — fine while anchored, but on release the collision blows the assembly
--- into NaN and the engine deletes it. Probe the ground and dock only as far in as the water is deep enough
--- for the hull's bank-side edge (with clearance). Adapts to the real slope (and to a hand-built shore).
+-- Docked = exactly where you put BoatPlace, snapped to the boat's float height.
+local dockedPos = Vector3.new(boatPlace.Position.X, WATER_Y + 2, boatPlace.Position.Z)
+
+-- It starts moored OFF the dock and is reeled in. "Off" = further along the line from the dock model
+-- to BoatPlace, so the boat always approaches the jetty head-on however the dock happens to be rotated
+-- (the old code assumed a +X bank, which a hand-placed dock cannot be relied on to match).
+local REEL_OFFSET = 26
+local awayDir = Vector3.new(1, 0, 0)
+if dockModel then
+	local d = dockedPos - dockModel:GetPivot().Position
+	local flat = Vector3.new(d.X, 0, d.Z)
+	if flat.Magnitude > 1 then
+		awayDir = flat.Unit
+	end
+end
+local startPos = dockedPos + awayDir * REEL_OFFSET
+
+-- SAFETY PROBE (kept from the procedural version, and it still matters). A boat docked with part of
+-- its hull buried in the bank is fine while held, but on release the collision blows the assembly into
+-- NaN and the engine deletes it — that was the original "boat disappears" bug. We now TRUST the
+-- hand-placed BoatPlace rather than searching for a spot, but we still verify the whole footprint
+-- floats, and say so loudly if it does not.
 local function groundYat(x: number, z: number): number
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { boat, area }
+	params.FilterDescendantsInstances = { boat, area, spawnBase }
 	params.IgnoreWater = true
 	local r = Workspace:Raycast(Vector3.new(x, WATER_Y + 12, z), Vector3.new(0, -80, 0), params)
 	return if r then r.Position.Y else -1e9 -- no hit = deep water
 end
--- highest terrain under the WHOLE hull footprint if its bank-side edge were at edgeX (samples a grid, so a
--- bump under the middle of the boat is caught too, not just the bank edge)
-local halfLen = hull.Size.Z / 2
-local function maxGroundUnderBoat(edgeX: number): number
-	local m = -1e9
-	for bx = 0, 4 do
-		local x = edgeX - HUB_SIDE * (bx / 4) * (2 * halfBeam) -- across the beam, bank edge → far edge
-		for _, z in { HUB_Z - halfLen, HUB_Z, HUB_Z + halfLen } do
-			m = math.max(m, groundYat(x, z))
-		end
-	end
-	return m
-end
 local DECK_CLEAR = 3 -- studs the terrain must sit below the hull bottom
-local EXTRA_CLEAR = 16 -- keep the boat this much FURTHER out in deep water past the first clear point
---                       (the probe's grid can miss a bump; staying well out guarantees no bank collision)
-local boatEdgeX = waterEdgeX - HUB_SIDE * 90 -- fallback: well out in the channel
-for step = 0, 90 do -- scan the boat outward from the shore until its whole footprint clears the bank
-	local testEdge = waterEdgeX - HUB_SIDE * step
-	if maxGroundUnderBoat(testEdge) < hullBottomY - DECK_CLEAR then
-		boatEdgeX = testEdge - HUB_SIDE * EXTRA_CLEAR -- push further out for a safe margin
-		break
+local worstGround = -1e9
+for bx = -1, 1 do
+	for bz = -1, 1 do
+		worstGround = math.max(worstGround, groundYat(dockedPos.X + bx * halfBeam, dockedPos.Z + bz * halfLen))
 	end
 end
-local DOCKED_X = boatEdgeX - HUB_SIDE * halfBeam
-local REEL_OFFSET = 26 -- how far off the pier it starts (studs)
-local dockedPos = Vector3.new(DOCKED_X, WATER_Y + 2, HUB_Z)
-local startPos = Vector3.new(DOCKED_X - HUB_SIDE * REEL_OFFSET, WATER_Y + 2, HUB_Z)
+if worstGround > hullBottomY - DECK_CLEAR then
+	warn(("[Staging] Dock.BoatPlace is too shallow — ground reaches Y %.1f but the hull bottom sits at "
+		.. "Y %.1f and needs %d studs of clearance. Move BoatPlace into deeper water or the boat may be "
+		.. "destroyed on release."):format(worstGround, hullBottomY, DECK_CLEAR))
+end
 
 -- Hold the boat DYNAMICALLY (no anchoring) with a LinearVelocity in PLANE mode: it only controls
 -- HORIZONTAL (world X/Z) velocity and NEVER touches Y — so buoyancy alone owns the vertical float and the
@@ -172,19 +185,19 @@ do
 	end)
 end
 
--- hub spawn point (read by PlayerCombat before the run starts)
-local spawnPos = platformCenter + Vector3.new(0, 3, 0)
+-- Hub spawn point, read by PlayerCombat (pre-run placement), PlaneServer (where the crew lands after
+-- the crash) and StartShopServer (kiosk position). Re-pointing this ONE attribute moves all three.
+local spawnPos = spawnMarker.Position + Vector3.new(0, 3, 0)
 Workspace:SetAttribute("HubSpawn", spawnPos)
+print(("[Staging] bound to SpawnBase — wake at %d,%d,%d · boat docks at %d,%d"):format(
+	math.floor(spawnPos.X), math.floor(spawnPos.Y), math.floor(spawnPos.Z),
+	math.floor(dockedPos.X), math.floor(dockedPos.Z)))
 
--- jetty: a walkway from the shore out over the water to the boat's side, ending ~1 stud short of the boat
--- (no overlap → the boat launches free). Players walk it to board. CanCollide so you can stand on it.
-local jettyTipX = boatEdgeX + HUB_SIDE * 1 -- 1-stud step gap from the boat
-local jettyLenX = math.max(2, math.abs(waterEdgeX - jettyTipX))
-local jettyCenterX = (waterEdgeX + jettyTipX) / 2
-block("Jetty", Vector3.new(jettyLenX, 0.5, 12), Color3.fromRGB(110, 80, 55), CFrame.new(jettyCenterX, WATER_Y + 2.7, HUB_Z), Enum.Material.WoodPlanks)
-
--- winch at the jetty's boat-side tip (PLACEHOLDER cube; non-colliding so it never blocks the boat). Pull lives here.
-local post = block("Winch", Vector3.new(3, 3, 3), Color3.fromRGB(210, 120, 40), CFrame.new(jettyTipX, WATER_Y + 4.2, HUB_Z), Enum.Material.Metal)
+-- No greybox jetty: SpawnBase.Dock.Dock is the real one, and players walk that to board.
+-- The winch is still built, because it hosts the reel/untie prompt and the rope anchor — but it now
+-- sits just off the docked boat, on the dock side, instead of at a computed jetty tip.
+local winchPos = dockedPos - awayDir * (halfBeam + 4) + Vector3.new(0, 2.2, 0)
+local post = block("Winch", Vector3.new(3, 3, 3), Color3.fromRGB(210, 120, 40), CFrame.new(winchPos), Enum.Material.Metal)
 post.CanCollide = false
 local a0 = Instance.new("Attachment")
 a0.Parent = hull
