@@ -168,8 +168,18 @@ flatDir = if flatDir.Magnitude > 0.01 then flatDir.Unit else Vector3.new(0, 0, -
 -- pose is tipped onto a wingtip, which is exactly how a crashed plane should sit.
 local MESH_FIX = CFrame.Angles(math.rad(90), 0, 0) * CFrame.Angles(0, 0, math.rad(-90))
 
+-- The AIRCRAFT BODY frame — standard Roblox axes: nose −Z, up +Y, right +X.
+-- ⚠️ ANYTHING that reasons about the aircraft's body (seats, mounting offsets, bounding sizes) MUST use
+-- this, never `flyer:GetPivot()`. The pivot carries MESH_FIX, so in the model's own frame "Y" points out
+-- of the LEFT WING and "Z" points at the SKY. Measured in the body frame the aircraft is
+-- 95.0 wide × 34.3 tall × 88.2 long; in the model frame `GetBoundingBox()` reports those as
+-- (88.2, 95.0, 34.3), which is how the seat rig ended up spraying passengers out of the fuselage.
+local function bodyCF(pos: Vector3, pitch: number, roll: number): CFrame
+	return CFrame.lookAt(pos, pos + flatDir) * CFrame.Angles(pitch, 0, roll)
+end
+
 local function flightCF(pos: Vector3, pitch: number, roll: number): CFrame
-	return CFrame.lookAt(pos, pos + flatDir) * CFrame.Angles(pitch, 0, roll) * MESH_FIX
+	return bodyCF(pos, pitch, roll) * MESH_FIX
 end
 
 -- The chase camera must NOT re-derive "forward" from the plane's pivot — with the nose on local +X,
@@ -227,10 +237,14 @@ end
 flyer:PivotTo(flightCF(HOVER_POS, 0, 0))
 flyer.Parent = Workspace
 
--- engine drone rides the plane's own position so it grows as the plane closes in
+-- Engine drone rides the plane's own position so it grows as the plane closes in.
+-- ⚠️ CREATED HERE BUT NOT PLAYED HERE. The plane is built at script start and then hovers behind the
+-- loading screen for several seconds; playing the engine now meant players heard it droning over the
+-- loading mask before they could see anything. It starts at the same gate the cruise does — see the
+-- ENGINE UP cue after the load wait.
+local ENGINE_VOLUME = 0.6
 local enginePart = flyer.PrimaryPart :: BasePart
-local engineSnd = soundAt(enginePart, SFX.engine, true, 0.6)
-engineSnd:Play()
+local engineSnd = soundAt(enginePart, SFX.engine, true, 0)
 
 -- smoke from the failing engine (off until the stall)
 local smoke = Instance.new("Smoke")
@@ -242,13 +256,23 @@ smoke.Size = 8
 smoke.Parent = enginePart
 
 -- ── seats, so the crew rides it down ─────────────────────────────────────────────────────────────────
--- The mesh has no interior, so the seats are invisible pads welded along the fuselage centreline. They
--- exist to carry the players, not to be seen.
+-- The mesh has no interior, so the seats are invisible pads down the fuselage centreline. They exist to
+-- carry the players INSIDE the fuselage shell, not to be seen.
+--
+-- ⚠️ BUILT IN THE BODY FRAME, NOT `flyer:GetPivot()`. The first version used the pivot and the model's
+-- own `GetBoundingBox()`, so its three "rows" were spread 4 studs apart VERTICALLY (it had read the
+-- 34.3-stud height as the fuselage length), its two "columns" were spread fore-and-aft, and its −1.5
+-- "down" offset pushed everyone sideways out through the wing root. The crew rode the intro sitting in
+-- mid-air beside the aircraft, tilted on their side — which is exactly what the user saw.
+--
+-- Rows run along body −Z (fore/aft) and stay inside the ±44-stud fuselage; columns straddle the
+-- centreline; SEAT_Y drops them into the tube so the shell hides them.
+local SEAT_Y = -3
 local seats: { Seat } = {}
 do
-	local _, size = flyer:GetBoundingBox()
-	local rows = { -size.Z * 0.12, 0, size.Z * 0.12 }
-	local cols = { -2.2, 2.2 }
+	local body = flyer:GetPivot() * MESH_FIX:Inverse()
+	local rows = { -11, 0, 11 } -- fore/aft, well clear of the nose and tail
+	local cols = { -2.2, 2.2 } -- either side of the fuselage centreline
 	for _, dz in rows do
 		for _, dx in cols do
 			if #seats >= MAX_SEATS then
@@ -260,7 +284,8 @@ do
 			s.CanCollide = false
 			s.Transparency = 1
 			s.Size = Vector3.new(2.4, 0.6, 2.4)
-			s.CFrame = flyer:GetPivot() * CFrame.new(dx, -1.5, dz)
+			-- body frame → the pad is level and faces the nose, so the crew sits upright facing forward
+			s.CFrame = body * CFrame.new(dx, SEAT_Y, dz)
 			s.Parent = flyer
 			table.insert(seats, s)
 		end
@@ -364,6 +389,12 @@ do
 	end
 	task.wait(0.5) -- a beat on the revealed scene before anything moves
 end
+
+-- ENGINE UP — the first sound of the run, and only now that the loading mask is provably gone.
+-- Faded in rather than snapped on, so it reads as the cabin coming up around you.
+engineSnd.Volume = 0
+engineSnd:Play()
+TweenService:Create(engineSnd, TweenInfo.new(1.2), { Volume = ENGINE_VOLUME }):Play()
 
 -- ── CRUISE: genuinely LEVEL flight (profile defined near the top) ────────────────────────────────────
 hovering = false

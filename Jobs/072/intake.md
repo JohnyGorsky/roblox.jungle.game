@@ -227,20 +227,107 @@ Verified: −255, 20, −318, outside the plane's bounds, touching nothing.
 descent), 10 s cruise + 9 s dive, with all 8 sounds. Impact fades to black, destroys the clone, reveals
 the real wreck, and lights it up.
 
-### 🔴 Two real bugs caught before shipping
+### 🔴 The orientation bug — and why the first fix was wrong
 
-**1. The plane flew knife-edge.** The user spotted it: *"we flied wrong angle, like sideways."* The mesh
-is baked a **quarter-turn inside its part** — at roll 0 the wings are vertical and the star roundels face
-sideways. Diagnosed by levelling clones at 0 / ±41.5 / ±90° and photographing them head-on down the
-flight line; only **−90°** gives wings level with nacelles beneath and tailplane up. Applied as
-`MESH_ROLL`, composed *last* so it spins about the fuselage axis after pitch and roll.
+The user spotted it three times running: *"we flied wrong angle, like sideways"*, then *"plane was
+already nose down"*, then *"it was flying wrong, then started saund, then started dive, and same wrong
+position."* That last one was the key: the **sequence** was right, so the attitude was wrong for the
+whole cold open, not just the dive.
 
-This also explains the wreck's odd −41.5° part roll: 90 − 41.5 ≈ 48° of visual bank, i.e. tipped onto a
-wingtip — exactly right for a crash.
+**The first fix (`MESH_ROLL = −90°`) treated a symptom.** It was found by photographing clones from
+*behind*, down the flight line — the one angle where pitch is nearly invisible. It made the wings look
+level in that shot without ever putting the nose where it belonged.
 
-**2. The hidden wreck kept its collision.** The analyzer flagged
+**The measured cause.** The mesh does not use the standard Roblox axes: its nose is local **+X**, not
+−Z. Proof, from a side-on shot against a neon horizon bar (the angle the first pass never took):
+
+- posed with plain `CFrame.lookAt` and the −90° roll, the plane hangs **nose straight down**
+- `flatDir:Dot(cf.RightVector)` returns **1.000** — the nose is `+X`, unambiguously
+
+**The fix is one CFrame, and where it goes matters more than what it is:**
+
+```lua
+local MESH_FIX = CFrame.Angles(math.rad(90), 0, 0) * CFrame.Angles(0, 0, math.rad(-90))
+lookAt(...) * CFrame.Angles(pitch, 0, roll) * MESH_FIX   -- ✅ pitch/roll act in the FLIGHT frame
+lookAt(...) * CFrame.Angles(pitch, 0, roll + MESH_ROLL)  -- ❌ roll then swings the NOSE, not the wings
+```
+
+With the nose on local `+X`, rotating about local Z moves the nose — so folding the correction into the
+roll term (what the first pass did) corrupted every banked frame. `MESH_FIX` must be **innermost**.
+
+Verified at (0, 0), (0, +25°) and (−20°, +15°), photographed side-on against the horizon bar *and* from
+behind: level is level, bank is bank, and a **negative** pitch is nose-down. Then confirmed in Play.
+
+**Knock-on: the chase camera.** `IntroCameraClient` derived "forward" from `GetPivot().LookVector`. With
+`MESH_FIX` applied that vector points straight **up**, so flattening it yields zero and the shot
+collapses. The server now publishes `Workspace.IntroPlaneDir` — one authority for the heading, and no
+baked-axis knowledge duplicated in the client.
+
+*Lesson for the next mesh:* measure the model's axes before posing it, and photograph from a view where
+the error is visible. A shot from behind cannot falsify a pitch error.
+
+### 🔴 The hidden wreck kept its collision
+
+The analyzer flagged
 `d.CanCollide = hidden and false or o.c` as always taking the second branch — an and-or can never yield
 `false`. Players would have walked into an invisible plane. Replaced with if-expressions.
+
+### 🟠 Two presentation bugs the user caught in playback
+
+**World billboards showed during the cold open.** *"why these labels visible? Medic etc?"* The MEDIC
+crate tag and the ROBUX SHOP kiosk tag are `AlwaysOnTop = true`, so they rendered **through** the terrain
+and the fuselage while the crew was still in the air. `IntroHudGate` only swept **ScreenGuis in
+PlayerGui**; these are `BillboardGui`s in Workspace, so nothing touched them. The gate now also hides
+world billboards — one initial scan plus a `DescendantAdded` hook (both servers build theirs at start-up,
+which can land after the gate begins), restoring only the ones it disabled. Client-local, so it never
+disturbs the server copies or other players. A per-frame `Workspace:GetDescendants()` sweep was the
+obvious alternative and is far too expensive for a whole game world.
+
+**The engine droned over the loading screen.** *"plane sound started to play through loading screen."*
+The engine `Sound` was played where the plane is *built* — script start — but the plane then hovers
+behind the loading mask for several seconds. It now starts at the **same gate the cruise does**, faded in
+over 1.2 s so it reads as the cabin coming up around you rather than snapping on.
+
+### 🔴 The crew rode the intro sitting outside the plane
+
+*"all graat, excep plyers sitting outside and wrong angle."* Same root cause as the flight attitude, one
+layer deeper: the seat rig was built from `flyer:GetPivot()`, which carries `MESH_FIX`, so it was working
+in the **mesh** frame where `Y` points out of the left wing and `Z` points at the sky.
+
+Measured, level, in each frame:
+
+| | X | Y | Z |
+|---|---|---|---|
+| model `GetBoundingBox()` (what the seat code read) | 88.2 | 95.0 | 34.3 |
+| **body frame** (what it meant) | 95.0 width | 34.3 height | **88.2 length** |
+
+So the three "rows" used `size.Z * 0.12` — 12% of the **height** — and spread the crew 4 studs apart
+*vertically*; the two "columns" (`dx = ±2.2`) spread them fore-and-aft; and the `−1.5` "down" offset
+pushed everyone **sideways out through the wing root**. Hence passengers in mid-air, on their side.
+
+Fix: added an explicit `bodyCF()` (standard axes — nose −Z, up +Y, right +X) and built the seats from
+`flyer:GetPivot() * MESH_FIX:Inverse()`. Rows now run along body Z at −11 / 0 / +11, columns straddle the
+centreline at ±2.2, all at `SEAT_Y = −3` so the fuselage shell hides them.
+
+Verified live, sampled mid-cruise from inside the running server:
+
+```
+PlaneSeat1 body(x -2.2, y -3.0, z -11.0) occupant=johnygorsky10
+PLAYER root body(x -2.2, y -1.3, z -11.0) Sit=true upright=1.00 facing=-1.00
+```
+
+`upright = 1.00` (character up ≡ aircraft up) and `facing = −1.00` (nose-forward) — no tilt, and the root
+sits inside the fuselage (body extents are x ±47.5, y −17.2…+17.1, z −44.2…+44.1). Chase-cam screenshot
+confirms nobody is visible outside the aircraft.
+
+**The rule this keeps re-teaching:** with `MESH_FIX` in the pivot, *nothing* may reason about the
+aircraft from `flyer:GetPivot()` or `GetBoundingBox()` — go through `bodyCF()`.
+
+### 🟡 Noted, not touched — red patch at the crash site
+
+The glowing red/magenta patch on the sand is **terrain painted `CrackedLava`** (19 voxels), not a part.
+Hand-painted terrain is the human's call, so it was left exactly as-is — flagging in case it is leftover
+marker paint from Job #071 rather than intentional scorch.
 
 ### Verified in Play (post-impact state)
 
@@ -261,13 +348,11 @@ wingtip — exactly right for a crash.
 - [x] Wreck hidden → revealed on impact
 - [x] Fire + smoke VFX
 - [x] Verified in Play
-- [ ] User watches the full cold-open end to end
-- [ ] Final summary + changelog
-- [ ] Plan agreed (Part 2) + open questions answered
-- [ ] Staging bound to SpawnBase
-- [ ] Boat spawn moved
-- [ ] Intro flies the real plane model
-- [ ] Wreck hidden → revealed on impact
-- [ ] Fire + smoke VFX
-- [ ] Verified in Play
+- [x] Flight attitude corrected (`MESH_FIX`) + chase camera repointed at `IntroPlaneDir`
+- [x] World billboards hidden during the intro, restored after
+- [x] Engine sound moved behind the loading gate
+- [x] Seats rebuilt in the body frame — crew rides inside, upright, facing forward
+- [x] User watched the cold open — *"all feel great"*
+- [ ] User re-checks the engine-sound timing and the seated crew
+- [ ] Decide whether the `CrackedLava` patch at the crash site is intentional
 - [ ] Final summary + changelog
