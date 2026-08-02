@@ -27,6 +27,11 @@ local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("B
 -- hull liveries (Job 067) — the Boat Paint Pack
 local BoatPaint = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatPaint"))
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+-- module display names for the nameplates (Job #069) — never written here, so a rename in the shop
+-- can't leave the boat advertising a name the shop no longer uses
+local ModuleDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("ModuleDefs"))
+-- Theme is tokens only (no instances), so it is safe on the server — same use as LobbySignage
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 
 -- ── boat geometry (mirrors the game boat) ─────────────────────────────────────────────────────────
 local HULL = Vector3.new(14, 3, 32) -- Job 066: 22 -> 32, matches BoatServer.HULL_SIZE
@@ -355,6 +360,63 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		chosenPaint = BoatPaint.DEFAULT
 	end
 	BoatPaint.apply(model, chosenPaint, BoatParts.paintableSkinNames())
+
+	-- ── module nameplates (Job #069) ──────────────────────────────────────────────────────────────
+	-- The showroom exists so you can SEE what you own, but every module was unlabelled geometry: you
+	-- could not tell the Twin Motors from the base Motor, or read what the slab on the foredeck was.
+	-- One small tag per OWNED module, anchored to a representative part of it.
+	--
+	-- Anchors are a CANDIDATE LIST, not one name, because several modules render differently depending
+	-- on whether their mesh is imported — `trailer` is a single `Trailer` mesh host when art exists and
+	-- four `CargoCrate*` greybox pieces when it doesn't. First match wins; a miss warns rather than
+	-- silently skipping, so a future part rename surfaces instead of quietly losing a label.
+	--
+	-- MaxDistance is deliberately far shorter than the owner nameplate's 120: these are walk-up detail,
+	-- and a harbour of five boats each shouting seven labels would be unreadable from the shore.
+	local MODULE_ANCHORS: { [string]: { string } } = {
+		motor2 = { "Motor2" },
+		hullkit = { "HullPlateR2", "HullPlateR1", "HullPlateL2" },
+		searchlight = { "SearchlightHead", "SearchlightMast" },
+		fueltank = { "FuelTankModule" },
+		trailer = { "Trailer", "CargoCrate1" },
+		gunupgrade = { "GunBarrel" }, -- the barrel is SWAPPED, not added, so this is the upgraded one
+		ramps = { "RampBow" },
+	}
+
+	for _, id in ipairs(ModuleDefs.Order) do
+		if owned[id] then
+			local def = ModuleDefs.get(id)
+			local anchor: BasePart? = nil
+			for _, partName in ipairs(MODULE_ANCHORS[id] or {}) do
+				local found = model:FindFirstChild(partName)
+				if found and found:IsA("BasePart") then
+					anchor = found
+					break
+				end
+			end
+			if def and anchor then
+				local plate = Instance.new("BillboardGui")
+				plate.Name = "ModuleTag_" .. id
+				plate.Size = UDim2.fromScale(7, 1.1)
+				plate.StudsOffsetWorldSpace = Vector3.new(0, 2.6, 0)
+				plate.MaxDistance = 45
+				plate.Adornee = anchor
+				local plateText = Instance.new("TextLabel")
+				plateText.Size = UDim2.fromScale(1, 1)
+				plateText.BackgroundTransparency = 1
+				plateText.Font = Theme.font.button
+				plateText.TextColor3 = Theme.color.cream
+				plateText.TextStrokeColor3 = Theme.color.stroke
+				plateText.TextStrokeTransparency = 0.4
+				plateText.TextScaled = true
+				plateText.Text = string.upper(def.name)
+				plateText.Parent = plate
+				plate.Parent = anchor
+			elseif def then
+				warn(("[LobbyBoat] owned module %q has no anchor part — no nameplate"):format(id))
+			end
+		end
+	end
 
 	-- a nameplate so a crowded harbour is readable
 	local tag = Instance.new("BillboardGui")

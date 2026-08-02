@@ -1,7 +1,7 @@
 # TODO 0033: OPTIONAL (Job 068 C2): Friends leaderboard is unbuilt (only global exists)
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — PROMOTED to Planned/friends-leaderboard.md, 2026-08-02 (user decision, Job 069). Closed as a todo because it is a FEATURE, not a gap -- keeping it as a loose todo made it look like a small fix. The Planned file records the constraints found during the audit so nobody rediscovers them: (1) OrderedDataStore cannot filter by friendship -- no "top N among these user IDs" query, so each friend score must be read individually and sorted manually; (2) Players:GetFriendsAsync is paginated and rate-limited -- 200 friends means 200 page entries plus up to 200 GetAsync calls, so it needs a hard cap (~50) and caching; (3) it CANNOT live on the shared physical board, because two players at the same prop need different content -- it has to be a personal UI panel; (4) it must first be established whether the RankDefs.BOARD_RIVERSCORE OrderedDataStore supports a per-user GetAsync or needs a parallel plain-DataStore mirror, which decides most of the work. Also noted there: the Weekly board is likewise unbuilt (coming-soon placeholder awaiting a weekly OrderedDataStore + rollover), and the two should be built together since they share the read-a-board-and-render-it plumbing. GAME.md keeps its "Global + friends boards" line -- it is still the intent, just unscheduled.
 **Created:** 2026-08-02 10:51:17
 
 Audit Job 068, gap C2. GAME.md Progression and replay promises "Global + friends boards". Only the global board exists (OrderedDataStore, Top 10 by River Score, RankServer). Optional for a pre-launch lobby.

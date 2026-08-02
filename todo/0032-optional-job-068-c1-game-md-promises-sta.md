@@ -1,7 +1,7 @@
 # TODO 0032: OPTIONAL (Job 068 C1): GAME.md promises starting gear as a Gold sink -- it is never sold
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — CLOSED by correcting the promise -- user decision 2026-08-02 (Job 069). GAME.md listed three Gold sinks (boat upgrades, skills/classes, starting gear); the third was never built, and the OBVIOUS version of it contradicts GAME.md own combat pillar. Traced in code: InventoryServer seeds Sword + Torch and DEV_STARTER_GUNS is explicitly false with the comment "guns are looted at camps (the real path)", matching the pillar "Guns are earned, not given -- players obtain firearms at camps during raids". Selling "start with a Pistol" for Gold would bypass the camp-loot loop, and Gold being free-earnable does not save it -- it is a design conflict, not a monetization one. It was also unnecessary: ~1,170 Gold buys all 7 modules and ~1,690 more maxes all 10 skills, so ~2,860 Gold of sink already exists. GAME.md economy line now reads boat upgrades + skills only, with an inline note recording WHY the third sink was dropped and the constraint if it ever returns: consumables and non-weapon gear only (bandages, fuel, Salvage, better melee), never firearms. Also took the opportunity to fill in the currency name -- the line still said "name TBD" though Gold was locked in 2026-07-19.
 **Created:** 2026-08-02 10:51:17
 
 Audit Job 068, gap C1. GAME.md Economy and monetization lists three Gold sinks: boat upgrades, skills/classes, AND starting gear. Two are built (7 modules, 10 skills x 10 levels); there is no starting-gear or loadout purchase anywhere in the lobby. A design line, not a broken feature -- the Gold economy already has two healthy sinks.

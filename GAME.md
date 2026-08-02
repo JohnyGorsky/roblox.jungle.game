@@ -335,8 +335,13 @@ scavenge loop.
 Three-tier model mirroring Dead Rails' proven, well-liked economy:
 - **In-run cash** — scavenged/earned during a run, spent at **dock shops** (fuel, ammo, weapons,
   healing, repairs). **Resets each run.**
-- **Persistent meta currency** _(name TBD)_ — rare; from **run objectives** + completing runs. Spent in
-  the **lobby** on permanent **boat upgrades**, **skills/classes**, and starting gear. **Earnable free.**
+- **Persistent meta currency** (**Gold**) — rare; from **run objectives** + completing runs. Spent in
+  the **lobby** on permanent **boat upgrades** and **skills/classes**. **Earnable free.**
+  - _"…and starting gear" was removed 2026-08-02 (Job #069). It was never built, and the obvious
+    version of it — buy a Pistol to start with — **contradicts "Guns are earned, not given"** below,
+    which is a core combat pillar. Two sinks are also plenty: ~1,170 Gold buys all 7 modules and
+    ~1,690 more maxes all 10 skills. If a third sink is ever wanted it must be **consumables and
+    non-weapon gear only** (bandages, fuel, Salvage, better melee) — never firearms._
 - **Robux** — **convenience & cosmetics only**: **paid self-revive**, **extra inventory slots**,
   cosmetics/skins, maybe a starter boat / game pass. Core power stays earnable.
 
