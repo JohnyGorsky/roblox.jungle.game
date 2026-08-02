@@ -48,9 +48,13 @@ local SFX = {
 	wind = "rbxassetid://93331028777865", -- wind-breeze             2D loop
 	cicadas = "rbxassetid://128204240690640", -- cicadas                 2D one-shots
 	water = "rbxassetid://115704936377395", -- water-splashes          positional @ dock
-	morning = "rbxassetid://98066971477923", -- morning_starts          2D stinger, Phase → day
-	night = "rbxassetid://99602574849976", -- night_starts            2D stinger, Phase → night
+	morning = "rbxassetid://88638394432005", -- morning_starts          2D stinger, Phase → day
+	night = "rbxassetid://95532390211599", -- night_starts            2D stinger, Phase → night
 }
+-- ⚠️ Both stingers were RE-UPLOADED 2026-08-02 and these are the new ids. The originals
+-- (`morning_starts` 98066971477923, `night_starts` 99602574849976) are dead: the night one would not
+-- play at all ("Asset is not approved for the requester"). Do not resurrect the old ids from git
+-- history or from an older copy of the registry.
 -- NOTE: `battle_starts` (79506043370965) is uploaded and owned but deliberately NOT wired here.
 -- `EnemyServer` is a continuous trickle spawner — spawn interval escalates with distance and phase, and
 -- there is no wave, encounter or aggro-start concept to hang a combat stinger on. Wiring it means
