@@ -71,12 +71,16 @@ conn = RunService.RenderStepped:Connect(function(dt: number)
 		-- flight now runs +X toward the spawn base, so that offset sat the camera AHEAD of the plane and
 		-- produced a close-up down the wing.
 		--
-		-- `GetPivot().LookVector` is safe to use as "forward" even though the model carries a −90° mesh
-		-- roll: rolling about local Z leaves the Z axis (and therefore LookVector) untouched.
+		-- ⚠️ Do NOT read `GetPivot().LookVector` here. The plane mesh's nose is local **+X**, so once the
+		-- server applies its MESH_FIX the pivot's LookVector points straight UP — flattening it yields a
+		-- zero vector and the shot collapses. The server publishes the heading it is actually flying as
+		-- `Workspace.IntroPlaneDir`; that is the single authority. RightVector is the fallback because,
+		-- with the nose on +X, that is the nose.
 		local cf = plane:GetPivot()
-		local fwd = cf.LookVector
+		local dir = Workspace:GetAttribute("IntroPlaneDir")
+		local fwd = if typeof(dir) == "Vector3" then dir :: Vector3 else cf.RightVector
 		local flat = Vector3.new(fwd.X, 0, fwd.Z)
-		fwd = if flat.Magnitude > 0.01 then flat.Unit else fwd
+		fwd = if flat.Magnitude > 0.01 then flat.Unit else Vector3.xAxis
 		local right = fwd:Cross(Vector3.yAxis)
 		right = if right.Magnitude > 0.01 then right.Unit else Vector3.xAxis
 
