@@ -299,6 +299,37 @@ Southern lobe measured berth-able at **(−140, −280)**, **(−120, −260)** 
 236–278 water voxels each, 20 studs deep. Enough for the 32-stud boat. Wiring `StagingServer` to it is
 the next job, not this one.
 
+## 🔴 INCIDENT — I damaged the hand-sculpted hillside (2026-08-02)
+
+**What happened.** The valley-shaping pass shaped terrain out to **225 studs** either side of the
+channel centreline, blending toward a reference height sampled at 300. Where the hillside rose steeply
+*inside* that band but the reference column beyond it was lower, the profile treated the mountain as
+terrain to cut down to the blend surface.
+
+**Damage measured:** a **~400-stud-wide plateau flattened to exactly Y 20** (`BANK_MIN`) across the
+valley — at z −180, everything from x −180 to +220 reads 16–20 where the hillside used to rise — plus
+**22 floating rock columns** at X 244…292, Z −208…−136 sheared off at the cut edge.
+
+**Root cause:** the river needs ~40 studs of bank. I gave it 225. A "blend back to the surroundings"
+profile is not a bound — it says nothing about what lies *between* the channel and the reference column.
+
+**Recovery:** the user is restoring the hillside by hand. The lobby place is untouched, so the original
+terrain remains recoverable from there if needed.
+
+**Prevention (done):** `roblox-terrain` §1b now requires every terrain edit to declare a hard extent and
+enforce it in code — `MAX_DX` and, critically, **`MAX_Y`**. The river never needs to modify anything
+above ~Y 25; a `MAX_Y = 40` guard alone would have made this impossible.
+
+**Sequencing note:** a hillside restore that re-pastes from the lobby will also wipe the river carve —
+the river must be re-cut *after* the restore, not before.
+
+### Also corrected: my navigability test was too weak
+
+The earlier "unbroken navigable water z −300 → 900, zero gaps" check only asked whether *any* water
+existed in each z-slice. **A slice with water either side of a land bar passes that test while being
+impassable.** Re-tested properly with a flood fill from the dock: 2,750 connected water columns,
+furthest Z reached **22** — genuinely navigable. Right answer, but the original test did not prove it.
+
 ## Steps
 
 1. ✅ **`workspace.LOBBY_TERRAIN_EXPORT`** created in the LOBBY place — a `TerrainRegion`, additive and
