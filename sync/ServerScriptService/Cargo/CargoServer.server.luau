@@ -138,7 +138,13 @@ makeStation("Repair Station", CFrame.new(4.5, topY + 1.5, backZ - 2.5), Color3.f
 end)
 
 -- MEDIC station (Job 057): the 4th role. Presence-based (no spend) — while a crew member mans it, RoleServer
--- heals the crew and buffs revives (see RoleServer + PlayerCombat). Just a labelled part to stand at.
+-- heals the crew and buffs revives (see RoleServer + PlayerCombat). Just a part to stand at.
+--
+-- Job #074 (todo 0042): the floating "MEDIC" BillboardGui is GONE at the user's call. It was the only
+-- world tag on any of the three stations — Fuel and Repair never had one, because their ProximityPrompt
+-- already names them; Medic has no prompt (it is presence-based), so a tag was how it announced itself.
+-- Since Job #070 gave it the real `medicStation` art it reads as a station without one, and all three
+-- now match. The part, the weld, the skin and the Medic ROLE are unchanged.
 do
 	local m = Instance.new("Part")
 	m.Name = "Medic Station"
@@ -162,20 +168,6 @@ do
 	-- the boat art landed in the game place. `MedicStation` was in the library and in BoatParts.Defs
 	-- the whole time; nothing ever asked for it. Invisible while the whole boat was greybox.
 	BoatParts.skin(m, "medicStation")
-	local bb = Instance.new("BillboardGui")
-	bb.Size = UDim2.new(0, 90, 0, 28)
-	bb.StudsOffsetWorldSpace = Vector3.new(0, 2.4, 0)
-	bb.AlwaysOnTop = true
-	bb.Parent = m
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.fromScale(1, 1)
-	lbl.BackgroundTransparency = 1
-	lbl.Font = Enum.Font.GothamBold
-	lbl.TextColor3 = Color3.fromRGB(255, 150, 150)
-	lbl.TextStrokeTransparency = 0.4
-	lbl.TextScaled = true
-	lbl.Text = "MEDIC"
-	lbl.Parent = bb
 end
 
 print("[Cargo] back deck + fuel/repair/medic stations online")

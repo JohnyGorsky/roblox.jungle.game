@@ -6,11 +6,15 @@
 -- script that re-enables them → no flicker); when the intro ends it restores them once. Inert if there's no
 -- intro (IntroActive never set).
 --
--- It ALSO hides world-space BillboardGuis (Job 072). The MEDIC crate tag and the ROBUX SHOP kiosk tag are
--- `AlwaysOnTop = true`, so they render THROUGH the terrain and the fuselage — during the cold open you saw
--- them floating over the jungle from the plane. They're in Workspace, not PlayerGui, so the ScreenGui sweep
--- above never touched them. Disabling them here is client-local (no replication), so it can't disturb the
--- server's copies or other players.
+-- It ALSO hides world-space BillboardGuis (Job 072). World tags tend to be `AlwaysOnTop = true`, so they
+-- render THROUGH the terrain and the fuselage — during the cold open you saw them floating over the jungle
+-- from the plane. They're in Workspace, not PlayerGui, so the ScreenGui sweep above never touched them.
+-- Disabling them here is client-local (no replication), so it can't disturb the server's copies or other
+-- players.
+--
+-- ⚠️ This sweep is DELIBERATELY GENERIC — it never names a billboard. Job #074 removed the MEDIC tag this
+-- comment used to cite (todo 0042) and moved the Robux kiosk to an editor-placed hut, and neither change
+-- needed a line here. That is the point: anything that ever adds a world billboard is covered for free.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -43,9 +47,9 @@ end
 -- ── world-space billboards ───────────────────────────────────────────────────────────────────────────
 -- Only ones WE disabled are restored, so a billboard that was already off (or gets destroyed mid-intro)
 -- is left exactly as we found it. A one-off scan plus a DescendantAdded hook covers billboards created
--- while the intro is still running — CargoServer and StartShopServer both build theirs at server start,
--- which can land after this script begins. A per-frame Workspace:GetDescendants() sweep would be the
--- obvious alternative and is far too expensive for a whole game world.
+-- while the intro is still running — a server script that builds one at start-up can land after this
+-- script begins. A per-frame Workspace:GetDescendants() sweep would be the obvious alternative and is far
+-- too expensive for a whole game world.
 local hiddenBillboards: { BillboardGui } = {}
 local billboardConn: RBXScriptConnection? = nil
 

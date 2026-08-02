@@ -142,6 +142,48 @@ local function trackSearchlight(head: BasePart)
 	end)
 end
 
+-- ── FLANK ARMOUR BELT (Job 066 for the hullkit; Job 074 for the Armored pass) ──────────────────────
+-- ONE recipe, two callers. Both the `hullkit` upgrade and the Armored Boat game pass bolt plating to the
+-- topsides, and until Job 074 they did it two different ways — the hullkit on Job 066's tiled-mesh
+-- recipe, the pass still on its Job 027 original: a single 22-long bare Part per side at x ±7.4, Y 0.3,
+-- with no skin. That was todo 0045's "dark slab sticking out under the hull", and it was three separate
+-- faults at once:
+--
+--   1. x ±7.4 against a 14-wide (half-width 7) MODELLED, curved hull = 0.4 studs of clearance, so it
+--      poked through the painted mesh.
+--   2. Y 0.3 is box-centre. The hull BOX is 3 tall but the visible mesh rises to ~4.5 with its keel on
+--      the box bottom, so box-centre is down near the waterline — the exact mistake Job 066 fixed for
+--      the hullkit by lifting its plates to Y 2.2.
+--   3. No `skinId`, so no `Skin_hullPlate` child, so `BoatPaint.apply` (which matches on skin NAME)
+--      could not see it. It stayed greybox grey while the hull went navy — guaranteed, not bad luck.
+--
+-- So both now go through here. `hullPlate` is `paintable = true`, which is what makes armour repaint
+-- with the hull.
+--
+-- TILED, NOT STRETCHED — the load-bearing constraint. One plate scaled to the full hull length smears
+-- the bolt detail ~11x AND hangs in open air at the ends, because the hull TAPERS and a strip at
+-- constant beam does not. Short plates at their modelled 4.6 length, repeated along the parallel
+-- midbody only.
+local PLATE_X = 7.1 -- inboard of the 7.0 half-width, clear of the curved mesh (Job 066's measured value)
+local PLATE_Y = 2.2 -- on the flank, above the waterline — NOT box-centre. See fault 2 above.
+local PLATE_LEN = 4.6 -- the mesh's own modelled length. Changing this stretches the art.
+local PLATE_THICK = 0.5
+local PLATE_TALL = 2
+
+-- Lay `segments` plates per side along the midbody, centred on the hull. Returns the z of the forward
+-- end of the run, so a caller can continue the belt round the bow from where it stops.
+local function plateBelt(tag: string, segments: number): number
+	local span = segments * PLATE_LEN
+	for i = 1, segments do
+		local z = -span / 2 + PLATE_LEN * (i - 0.5)
+		for _, side in ipairs({ { name = "L", x = -PLATE_X }, { name = "R", x = PLATE_X } }) do
+			addPart(tag .. side.name .. i, Vector3.new(PLATE_THICK, PLATE_TALL, PLATE_LEN),
+				Color3.fromRGB(120, 122, 130), CFrame.new(side.x, PLATE_Y, z), Enum.Material.Metal, "hullPlate")
+		end
+	end
+	return -span / 2
+end
+
 local applied = false
 local function apply()
 	if applied then
@@ -149,6 +191,18 @@ local function apply()
 	end
 	applied = true
 	local on: { string } = {}
+
+	-- Decided UP FRONT because the hullkit branch below needs it: when the Armored Boat pass is active it
+	-- builds the belt itself, longer and with bow shoulders, and the hullkit must NOT also build one.
+	-- Two sets of plates at the same x/Y would z-fight, and "you own both" should not look broken. The
+	-- pass supersedes the upgrade VISUALLY ONLY — every stat from both still applies, further down.
+	local armored = false
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr:GetAttribute("Owns_armoredBoat") == true then
+			armored = true
+			break
+		end
+	end
 
 	-- every boat gets a basic BOW LIGHT at night (FINDING 0001 — boat was dark when riding). Night-only via
 	-- the NightLight tag (LightController toggles it dusk→dawn). The Searchlight MODULE below is the upgrade.
@@ -180,23 +234,10 @@ local function apply()
 	if crewOwns("hullkit") then
 		theBoat:SetAttribute("MaxHP", 150)
 		theBoat:SetAttribute("HP", 150)
-		-- Job 066: TILED plates along the parallel midbody, not one strip down the whole hull. The hull
-		-- tapers fore and aft, so a full-length strip at constant beam hangs in open air at the ends;
-		-- and stretching one 2.76-long plate to 30 smeared its bolt detail. Short plates at their
-		-- modelled size, repeated, fix both.
-		local PLATE_SIDES: { { name: string, x: number } } = { { name = "L", x = -7.1 }, { name = "R", x = 7.1 } }
-		-- Height on the topsides. The hull BOX is only 3 tall but the visible hull mesh rises to ~4.5, so
-		-- plates at box-centre (Y 0) hung off the keel below the waterline. This sits them on the flank.
-		local PLATE_Y = 2.2
-		local PLATE_SEGMENTS = 4
-		local PLATE_LEN = 4.6
-		local span = PLATE_SEGMENTS * PLATE_LEN
-		for i = 1, PLATE_SEGMENTS do
-			local z = -span / 2 + PLATE_LEN * (i - 0.5)
-			for _, side in ipairs(PLATE_SIDES) do
-				addPart("HullPlate" .. side.name .. i, Vector3.new(0.5, 2, PLATE_LEN),
-					Color3.fromRGB(120, 122, 130), CFrame.new(side.x, PLATE_Y, z), Enum.Material.Metal, "hullPlate")
-			end
+		-- The stat applies either way; only the PLATES are skipped when the pass is active, because the
+		-- pass builds a longer belt at the same x/Y and two sets would z-fight. See `armored` above.
+		if not armored then
+			plateBelt("HullPlate", 4) -- 4 x 4.6 = 18.4 of a 32-long hull: the parallel midbody only
 		end
 		table.insert(on, "hullkit")
 	end
@@ -334,21 +375,48 @@ local function apply()
 	end
 
 	-- ── Armored Boat (Robux game pass, Job 027): the one power item — +20% HP & +20% weapon damage ──
-	local armored = false
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr:GetAttribute("Owns_armoredBoat") == true then
-			armored = true
-			break
-		end
-	end
+	-- `armored` is decided at the top of apply() because the hullkit branch needs it too.
 	if armored then
 		local hp = math.floor(((theBoat:GetAttribute("MaxHP") :: number?) or 100) * 1.2)
 		theBoat:SetAttribute("MaxHP", hp)
 		theBoat:SetAttribute("HP", hp)
 		theBoat:SetAttribute("GunDamageMul", 1.2) -- mounted-gun damage; combat reads later
-		addPart("ArmoredHullL", Vector3.new(0.8, 2.4, 22), Color3.fromRGB(70, 72, 80), CFrame.new(-7.4, 0.3, 0), Enum.Material.DiamondPlate)
-		addPart("ArmoredHullR", Vector3.new(0.8, 2.4, 22), Color3.fromRGB(70, 72, 80), CFrame.new(7.4, 0.3, 0), Enum.Material.DiamondPlate)
-		addPart("ArmoredProw", Vector3.new(14, 2, 3), Color3.fromRGB(70, 72, 80), CFrame.new(0, 0.3, -11), Enum.Material.DiamondPlate)
+
+		-- Job 074 (todo 0045): the pass now uses the same tiled, skinned, PAINTABLE belt as the hullkit.
+		-- It reads as the heavier of the two by WRAPPING FURTHER — the same flank run plus bow shoulders
+		-- — not by being taller or thicker, because both of those stretch the mesh and reintroduce the
+		-- smeared-detail bug the tiling exists to avoid.
+		--
+		-- The flank run is deliberately the hullkit's 4 segments (18.4 of 32), not more. That span is the
+		-- one Job 066 actually verified against the parallel midbody; anything longer is a guess about
+		-- where this hull starts to taper, and guessing about the taper is how the old slab ended up
+		-- hanging in open air at both ends. The extra reach goes into the shoulders below, whose
+		-- outboard offset SHRINKS as they go forward, so they follow the taper instead of ignoring it.
+		local forwardZ = plateBelt("ArmoredHull", 4)
+
+		-- BOW SHOULDERS — what replaces `ArmoredProw`.
+		--
+		-- The old prow was a 14 x 2 x 3 slab at z −11. Two things had gone stale under it: the hull grew
+		-- 22 → 32 long in Job 066 so z −11 is no longer anywhere near the bow, and the `ramps` module
+		-- puts an 8 x 8 RampBow across z −19..−11 — so a 14-wide slab there was both in the wrong place
+		-- and fighting another part for it. And being 14 wide at a point where the hull TAPERS, it stuck
+		-- out on both sides.
+		--
+		-- Instead the belt turns the corner: one plate per side, yawed inboard so it follows the taper
+		-- toward the stem, continuing from where the flank run stops. Derived from the yaw rather than
+		-- hardcoded, so changing SHOULDER_YAW keeps the plate's end butted against the belt's end.
+		local SHOULDER_YAW = 25
+		local rad = math.rad(SHOULDER_YAW)
+		local dz = (PLATE_LEN / 2) * math.cos(rad)
+		local dx = (PLATE_LEN / 2) * math.sin(rad)
+		for _, side in ipairs({ { name = "L", sign = -1 }, { name = "R", sign = 1 } }) do
+			-- yaw sign flips per side so BOTH forward ends swing inboard (bow = −Z)
+			addPart("ArmoredShoulder" .. side.name, Vector3.new(PLATE_THICK, PLATE_TALL, PLATE_LEN),
+				Color3.fromRGB(120, 122, 130),
+				CFrame.new(side.sign * (PLATE_X - dx), PLATE_Y, forwardZ - dz)
+					* CFrame.Angles(0, side.sign * rad, 0),
+				Enum.Material.Metal, "hullPlate")
+		end
 	end
 
 	-- ── HULL LIVERY (Boat Paint Pack, Job 067) ─────────────────────────────────────────────────────

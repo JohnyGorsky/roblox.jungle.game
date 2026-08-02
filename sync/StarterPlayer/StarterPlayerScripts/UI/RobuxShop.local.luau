@@ -1,183 +1,230 @@
 --!strict
--- RobuxShop.local.luau — GAME start-area Robux shop (Job 046). Same panel as the lobby's, but opened by the
--- crash-site kiosk (ReplicatedStorage.OpenRobuxShop) instead of an always-on corner button. Gold packs
--- (developer products) + game passes from the shared MonetizationDefs; buys fire real MarketplaceService
--- prompts (unset IDs show "Soon"). Receipts are handled server-side by MonetizationServer. Greybox, mobile-safe.
+-- RobuxShop.local.luau — GAME start-area Robux shop (Job 046; REBUILT on the design system in Job 074).
+--
+-- Gold packs (developer products) + game passes from the shared MonetizationDefs. Buys fire real
+-- MarketplaceService prompts; unset products (id 0) show "Soon". Receipts are handled server-side by
+-- MonetizationServer. Real purchases only work on a published place.
+--
+-- ── Job 074 (todo 0043): this file WAS the Job 046 original and had drifted three jobs behind the
+-- lobby's copy. It is now the lobby's `lobby/sync/StarterPlayer/StarterPlayerScripts/UI/RobuxShop.local`
+-- with only the place-specific differences called out below. What the game place gains:
+--
+--   · REAL STORE ART per row (Theme.productIcon — the transparent in-game icons, ASSETS.md §5.1),
+--     with Theme.productFallbackIcon for anything without art yet (Job 067)
+--   · OWNED state on pass rows (Job 069). Before this, an owner of the 499 R$ Armored Boat still saw a
+--     live buy button here and only Roblox's own dialog told them otherwise
+--   · LIVE HUB PRICES (Job 069). All three passes have MANAGED PRICING enabled, so Roblox can move a
+--     price without anyone touching our code — this place was printing the hardcoded def price
+--
+-- Robux flows deliberately have NO extra confirm popup: MarketplaceService shows Roblox's own purchase
+-- dialog.
+--
+-- ── WHERE THIS DIFFERS FROM THE LOBBY COPY (the only intended differences) ────────────────────────
+--   1. The kiosk remote is `OpenRobuxShop` (StartShopServer), not `OpenPanel` (LobbyStations).
+--   2. DisplayOrder is raised off Components.panel's default of 10. The game place has a HUD stack the
+--      lobby doesn't (UntieButton 15, DockShop/DownedHud 20, ZoneBanner 40, RunClient 50, IntroFade 999)
+--      and at 10 the Salvage pill drew straight through this panel's scrim.
+--   3. The panel force-closes when the character goes DOWNED. DownedHud sits at 20, below this panel, so
+--      a shop left open would cover the bleed-out timer — and you should be looking at that, not at a
+--      shop. Nothing in the lobby can down you, so the lobby copy has no equivalent.
+--
+-- Everything else is the lobby's, deliberately. Keep it that way — see Theme.luau's header on the
+-- byte-identical UI module copies.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local UIBus = require(UI:WaitForChild("UIBus"))
+
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 local MonetizationDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("MonetizationDefs")) :: any
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "RobuxShop"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.Parent = player:WaitForChild("PlayerGui")
+local panel = Components.panel({
+	name = "RobuxShop",
+	title = "Robux shop",
+	icon = "shop",
+	size = UDim2.fromScale(0.54, 0.78),
+	parent = playerGui,
+})
 
-local dim = Instance.new("Frame")
-dim.Size = UDim2.fromScale(1, 1)
-dim.BackgroundColor3 = Color3.new(0, 0, 0)
-dim.BackgroundTransparency = 0.5
-dim.Visible = false
-dim.Parent = gui
+-- difference 2: clear the in-run HUD stack (see header)
+panel.gui.DisplayOrder = 25
 
-local panel = Instance.new("Frame")
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromScale(0.52, 0.8)
-panel.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
-panel.Parent = dim
-local pcc = Instance.new("UICorner")
-pcc.CornerRadius = UDim.new(0, 14)
-pcc.Parent = panel
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.fromScale(1, 0.09)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.fromRGB(120, 220, 150)
-title.TextScaled = true
-title.Text = "ROBUX SHOP"
-local ttsc = Instance.new("UITextSizeConstraint")
-ttsc.MaxTextSize = 26
-ttsc.Parent = title
-title.Parent = panel
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, -8, 0, 8)
-closeBtn.Size = UDim2.fromScale(0.08, 0.08)
-closeBtn.BackgroundColor3 = Color3.fromRGB(150, 60, 60)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextColor3 = Color3.new(1, 1, 1)
-closeBtn.TextScaled = true
-closeBtn.Text = "X"
-local cbc = Instance.new("UICorner")
-cbc.CornerRadius = UDim.new(0, 8)
-cbc.Parent = closeBtn
-closeBtn.Parent = panel
-
+-- scrolling list of rows
 local list = Instance.new("ScrollingFrame")
-list.Position = UDim2.fromScale(0.04, 0.11)
-list.Size = UDim2.fromScale(0.92, 0.85)
+list.Name = "List"
+list.Size = UDim2.fromScale(1, 1)
 list.BackgroundTransparency = 1
 list.BorderSizePixel = 0
 list.ScrollBarThickness = 6
+list.ScrollBarImageColor3 = Theme.color.wood
 list.CanvasSize = UDim2.new()
 list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-list.Parent = panel
+
 local layout = Instance.new("UIListLayout")
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 6)
+-- wider gap than usual: row art is a circular badge that breaks out above and below its row
+layout.Padding = UDim.new(0, Theme.space.lg)
 layout.Parent = list
 
+list.Parent = panel.content
+
 local order = 0
+
 local function header(text: string)
 	order += 1
 	local h = Instance.new("TextLabel")
+	h.Name = "Header_" .. text
 	h.LayoutOrder = order
 	h.Size = UDim2.new(1, 0, 0, 26)
-	h.BackgroundTransparency = 1
-	h.Font = Enum.Font.GothamBold
-	h.TextColor3 = Color3.fromRGB(150, 160, 175)
 	h.TextXAlignment = Enum.TextXAlignment.Left
-	h.TextScaled = true
-	h.Text = text
-	local c = Instance.new("UITextSizeConstraint")
-	c.MaxTextSize = 14
-	c.Parent = h
+	Components.applyText(h, Theme.text.h2, Theme.font.heading)
+	h.TextColor3 = Theme.color.creamDim
+	h.Text = string.upper(text)
 	h.Parent = list
 end
 
-local function row(name: string, blurb: string, robux: number, enabled: boolean, onBuy: () -> ())
+-- One purchasable line. `iconKey` indexes Theme.productIcon (the real Creator Hub art).
+-- Returns the row so pass rows can be flipped to OWNED later (Job 069).
+local function offer(iconKey: string, name: string, blurb: string, robux: number, enabled: boolean, onBuy: () -> ())
 	order += 1
-	local r = Instance.new("Frame")
-	r.LayoutOrder = order
-	r.Size = UDim2.new(1, 0, 0, 58)
-	r.BackgroundColor3 = Color3.fromRGB(32, 35, 42)
-	r.Parent = list
-	local rc = Instance.new("UICorner")
-	rc.CornerRadius = UDim.new(0, 8)
-	rc.Parent = r
+	local row = Components.row({
+		iconImage = (Theme.productIcon :: { [string]: string })[iconKey],
+		-- Job 067: a vocabulary icon for anything without store art yet (Extra Inventory Slots), so a new
+		-- product shows a meaningful badge instead of an empty circle. Real art wins when it's uploaded.
+		icon = (Theme.productFallbackIcon :: { [string]: string })[iconKey],
+		title = name,
+		blurb = blurb,
+		actionText = enabled and ("R$ " .. robux) or "Soon",
+		variant = enabled and "primary" or "secondary",
+		layoutOrder = order,
+		parent = list,
+		onActivated = onBuy,
+	})
+	row.instance.Size = UDim2.new(1, 0, 0, Theme.rowHeight)
+	if not enabled then
+		-- unset product: visibly unavailable rather than a dead button (§6.2 disabled state)
+		row.action.setEnabled(false)
+	end
+	return row
+end
 
-	local nm = Instance.new("TextLabel")
-	nm.Position = UDim2.fromScale(0.03, 0.12)
-	nm.Size = UDim2.fromScale(0.6, 0.45)
-	nm.BackgroundTransparency = 1
-	nm.Font = Enum.Font.GothamBold
-	nm.TextColor3 = Color3.new(1, 1, 1)
-	nm.TextXAlignment = Enum.TextXAlignment.Left
-	nm.TextScaled = true
-	nm.Text = name
-	local nt = Instance.new("UITextSizeConstraint")
-	nt.MaxTextSize = 17
-	nt.Parent = nm
-	nm.Parent = r
+-- ── live prices (Job #069) ────────────────────────────────────────────────────────────────────────
+-- `MonetizationDefs.robux` is what this shop PRINTS; the Creator Hub is what the player is actually
+-- CHARGED — and all three passes have MANAGED PRICING enabled, so Roblox can move a price without
+-- anyone touching our code. So ask the Hub for the real price, and fall back to the def when the call
+-- fails.
+--
+-- DELIBERATELY NON-BLOCKING. `GetProductInfo` is a web call and must never gate the UI, so the panel
+-- builds and opens immediately showing the def price, and each row corrects itself when its own
+-- lookup lands. Fetched once per session and cached — reopening the shop refetches nothing.
+local livePrice: { [string]: number } = {}
 
-	local bl = Instance.new("TextLabel")
-	bl.Position = UDim2.fromScale(0.03, 0.57)
-	bl.Size = UDim2.fromScale(0.6, 0.35)
-	bl.BackgroundTransparency = 1
-	bl.Font = Enum.Font.Gotham
-	bl.TextColor3 = Color3.fromRGB(180, 185, 195)
-	bl.TextXAlignment = Enum.TextXAlignment.Left
-	bl.TextScaled = true
-	bl.Text = blurb
-	local bt = Instance.new("UITextSizeConstraint")
-	bt.MaxTextSize = 12
-	bt.Parent = bl
-	bl.Parent = r
+local function fetchPrice(key: string, id: number, infoType: Enum.InfoType, apply: () -> ())
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfo(id, infoType)
+		end)
+		if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then
+			if livePrice[key] ~= info.PriceInRobux then
+				livePrice[key] = info.PriceInRobux
+				apply()
+			end
+		end
+	end)
+end
 
-	local buy = Instance.new("TextButton")
-	buy.AnchorPoint = Vector2.new(1, 0.5)
-	buy.Position = UDim2.fromScale(0.97, 0.5)
-	buy.Size = UDim2.fromScale(0.3, 0.66)
-	buy.Font = Enum.Font.GothamBold
-	buy.TextColor3 = Color3.new(1, 1, 1)
-	buy.TextScaled = true
-	local bc = Instance.new("UICorner")
-	bc.CornerRadius = UDim.new(0, 8)
-	bc.Parent = buy
-	local btnsc = Instance.new("UITextSizeConstraint")
-	btnsc.MaxTextSize = 15
-	btnsc.Parent = buy
-	buy.Parent = r
+-- what a row should print: the Hub price once we have it, otherwise the hardcoded def
+local function priceText(key: string, fallback: number): string
+	return "R$ " .. (livePrice[key] or fallback)
+end
 
-	if enabled then
-		buy.Text = "R$ " .. robux
-		buy.BackgroundColor3 = Color3.fromRGB(50, 150, 90)
-		buy.Active = true
-		buy.Activated:Connect(onBuy)
-	else
-		buy.Text = "Soon"
-		buy.BackgroundColor3 = Color3.fromRGB(70, 72, 80)
-		buy.Active = false
-		buy.AutoButtonColor = false
+header("Gold packs")
+for _, p in ipairs(MonetizationDefs.GoldPacks) do
+	local live = p.productId > 0
+	local row = offer(p.id, p.name, "+" .. p.gold .. " Gold", p.robux, live, function()
+		MarketplaceService:PromptProductPurchase(player, p.productId)
+	end)
+	if live then
+		fetchPrice(p.id, p.productId, Enum.InfoType.Product, function()
+			row.action.setText(priceText(p.id, p.robux))
+		end)
 	end
 end
 
-header("GOLD PACKS")
-for _, p in ipairs(MonetizationDefs.GoldPacks) do
-	row(p.name, "+" .. p.gold .. " Gold", p.robux, p.productId > 0, function()
-		MarketplaceService:PromptProductPurchase(player, p.productId)
-	end)
-end
-header("PASSES")
+-- GOLD PACKS ARE DELIBERATELY EXCLUDED FROM THE OWNED TREATMENT BELOW — they are repeatable developer
+-- products, so "owned" is meaningless for them and the buy button must always stay live.
+header("Passes")
 for _, gp in ipairs(MonetizationDefs.GamePasses) do
-	row(gp.name, gp.blurb, gp.robux, gp.gamePassId > 0, function()
+	local live = gp.gamePassId > 0
+	local row = offer(gp.key, gp.name, gp.blurb, gp.robux, live, function()
 		MarketplaceService:PromptGamePassPurchase(player, gp.gamePassId)
 	end)
+
+	if live then
+		-- `Owns_<key>` is published by MonetizationServer — on join (after an async
+		-- UserOwnsGamePassAsync round-trip) and again on PromptGamePassPurchaseFinished.
+		--
+		-- THE DEFAULT MUST BE "NOT OWNED". The attribute arrives some time AFTER this row is built, so
+		-- the row starts showing the price and flips to OWNED when it lands. Defaulting the other way
+		-- would briefly hide a real buy button from someone who hasn't bought it — a worse failure than
+		-- briefly showing one to someone who has. Listening for the change is also what makes the row
+		-- update the moment a purchase completes, with no reopen.
+		local attr = "Owns_" .. gp.key
+		local function refresh()
+			if player:GetAttribute(attr) == true then
+				row.action.setText("OWNED")
+				row.action.setEnabled(false)
+			else
+				row.action.setText(priceText(gp.key, gp.robux))
+				row.action.setEnabled(true)
+			end
+		end
+		refresh()
+		player:GetAttributeChangedSignal(attr):Connect(refresh)
+		-- The price lookup re-runs the SAME `refresh`, never `setText` directly. Both are async and
+		-- race: if a late price wrote the button itself it could overwrite OWNED on a pass the player
+		-- already has, turning a settled row back into a buy button. Routing both through one function
+		-- that re-decides from scratch makes the order they land in irrelevant.
+		fetchPrice(gp.key, gp.gamePassId, Enum.InfoType.GamePass, refresh)
+	end
 end
 
-closeBtn.Activated:Connect(function()
-	dim.Visible = false
-end)
-
--- opened by the crash-site kiosk (StartShopServer)
+-- ── open routes ───────────────────────────────────────────────────────────────────────────────────
+-- 1) kiosk: the server fires OpenRobuxShop when a player uses the crash-site kiosk (StartShopServer).
+--    Difference 1 from the lobby — this place has its own remote and its own single station.
 local openRemote = ReplicatedStorage:WaitForChild("OpenRobuxShop") :: RemoteEvent
 openRemote.OnClientEvent:Connect(function()
-	dim.Visible = true
+	panel.setOpen(true)
 end)
+
+-- 2) client-side. Nothing in the game place asks for this yet (there is no top bar and no entry bar
+--    here), but it costs one connection and is the route a future game-place top bar will use — and
+--    keeping it means this file stays a near-copy of the lobby's rather than a fork.
+UIBus.onOpen(function(id)
+	if id == "robux" then
+		panel.setOpen(true)
+	end
+end)
+
+-- ── difference 3: never cover the bleed-out timer ─────────────────────────────────────────────────
+-- DownedHud is DisplayOrder 20, this panel is 25, so a shop left open would sit on top of the one thing
+-- you need to be looking at. Close it instead. Re-hooked per character because `Downed` is a CHARACTER
+-- attribute, not a player one, and the character is replaced on every respawn.
+local function watchCharacter(char: Model)
+	char:GetAttributeChangedSignal("Downed"):Connect(function()
+		if char:GetAttribute("Downed") == true then
+			panel.setOpen(false)
+		end
+	end)
+end
+
+if player.Character then
+	watchCharacter(player.Character)
+end
+player.CharacterAdded:Connect(watchCharacter)
