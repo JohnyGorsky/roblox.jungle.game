@@ -96,12 +96,21 @@ end
 
 local waterCount, fireCount, ropeCount = 0, 0, 0
 if scenery then
-	-- water at the dock pier
+	-- water at the dock pier.
+	-- RECURSIVE find (Job 069, audit Job 068 gap E2). This was a NON-recursive
+	-- `dock:FindFirstChild("Pier")`, which returned nil and meant the water loop was NEVER created —
+	-- the lobby had no dock water sound at all, while ASSETS.md §1.11 recorded it as wired.
+	-- The greybox dock had `Pier` as a direct child; the Store dock that replaced it nests one level
+	-- deeper (`Scenery.Dock.Dock.Pier`). That double-`Dock` is an artifact of how the asset was
+	-- inserted, not a contract, so search by NAME at any depth rather than hardcoding the path — this
+	-- keeps working if the dock is swapped or re-nested again.
 	local dock = scenery:FindFirstChild("Dock")
-	local pier = dock and dock:FindFirstChild("Pier")
+	local pier = dock and dock:FindFirstChild("Pier", true)
 	if pier and pier:IsA("BasePart") then
 		attachPositional(pier, ID.Water, 0.5)
 		waterCount += 1
+	else
+		warn("[LobbySoundscape] no BasePart named 'Pier' under Scenery.Dock — no dock water sound")
 	end
 	-- campfire crackle at each fire pit
 	for _, p in ipairs(scenery:GetChildren()) do

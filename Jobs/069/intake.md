@@ -22,8 +22,8 @@ once the user accepts it.* One task at a time.
 | 1 | **A1** — `RobuxShop` shows a buy button for passes the player already owns | `0019` | code | ✅ **done** |
 | 2 | **D1** — `LobbyConfig.PAD_COUNT = 3` is dead and wrong (4 pads) | `0023` | code | ✅ **done** |
 | ~~3~~ | ~~**E1** — `RunwayMarkings` + `Spawn.Pad`~~ | `0036` | — | ❌ **not a gap** — intended design (user) |
-| 3 | **E2** — dock water-lapping sound never attaches | `0037` | code | ▫ awaiting description + approval |
-| 4 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ |
+| 3 | **E2** — dock water-lapping sound never attaches | `0037` | code | ✅ **done** |
+| 4 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ awaiting description + approval |
 | — | **A2** — unlist Cosmetic Bundle on the Creator Hub | `0020` | **user** | ▫ |
 | ~~—~~ | ~~**B3** — spawn star still greybox~~ | `0022` | — | ❌ **not a gap** — intended design (user) |
 
@@ -125,10 +125,58 @@ now tells them where the real answer lives instead of leaving a hole.
 - Behaviour unchanged by construction: nothing read the value, and `MAX_PER_PAD` / `COUNTDOWN` /
   `GAMEPLAY_PLACE_ID` are untouched.
 
+---
+
+## ✅ Task 3 — E2: the dock water sound that never played
+
+**File:** `lobby/sync/ServerScriptService/LobbySoundscape.server.luau` (LOBBY tree only).
+
+### What was wrong
+
+`Scenery.Dock:FindFirstChild("Pier")` — **non-recursive**. The greybox dock had `Pier` as a direct
+child; the Store dock that replaced it nests one level deeper (`Scenery.Dock.Dock.Pier`). So the
+lookup returned `nil`, `waterCount` stayed `0`, and **the water-lapping loop was never created** —
+the lobby has had no dock water sound at all, while `ASSETS.md` §1.11 recorded it as ✅ wired.
+
+Invisible from disk. Only the live tree shows it, which is exactly why the sweep was worth running.
+
+### What changed
+
+- `dock:FindFirstChild("Pier", true)` — a **recursive find by name**.
+- Added a `warn()` on the else branch, so if the dock is ever re-nested again this **fails loudly**
+  instead of silently dropping the sound — which is how it stayed broken this long.
+
+**Why not hardcode `Dock.Dock.Pier`:** the double-`Dock` is an artifact of how the Store asset was
+inserted, not a stable contract. A name search at any depth survives the dock being swapped or
+re-nested, and matches how the rest of the script already thinks.
+
+### Verified live (Studio MCP, read-only)
+
+| Check | Result |
+|---|---|
+| OLD `FindFirstChild("Pier")` | `nil` — **confirms the bug was real, not theoretical** |
+| NEW `FindFirstChild("Pier", true)` | `Workspace.LOBBY_GREYBOX.Scenery.Dock.Dock.Pier` |
+| Resolved instance | `Part`, `isBasePart = true`, `31.9 × 0.84 × 0.63` |
+| `Sound` instances under `Scenery.Dock` beforehand | **0** — the loop had genuinely never been created |
+| Regression: `FirePit` rule | still finds **2** |
+| Regression: watchtower lookups | both still resolve to a BasePart |
+| `luau-analyze.sh` | no diagnostics |
+
+**Note on the resolved part:** the Store dock's `Pier` is a thin plank (0.84 × 0.63 cross-section)
+rather than the main deck slab. Immaterial for the audio — it sits at the dock and the emitter uses
+`RollOffMinDistance 10` / `MaxDistance 120`, so a few studs of offset is inaudible.
+
+### NOT verified — needs a Rojo sync + Play
+
+The script prints its own counts, so the check is concrete:
+**`[LobbySoundscape] ready — … water×1`** (it currently reports `water×0`).
+
 ## Checklist
 
 - [x] Task 1 (A1) implemented + analyzer clean
 - [ ] Task 1 verified in Play (needs Rojo sync)
 - [x] Task 2 (D1) implemented + verified by grep and analyzer
-- [ ] Tasks 3–5 described, approved, implemented
+- [x] Task 3 (E2) implemented + lookup verified against the live tree
+- [ ] Task 3 verified in Play (expect `water×1`)
+- [ ] Task 4 (E3) described, approved, implemented
 - [ ] Final summary + changelog
