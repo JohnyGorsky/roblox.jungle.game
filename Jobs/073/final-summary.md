@@ -80,8 +80,40 @@ overshoot dawn by most of an hour.
 | `sync/ServerScriptService/World/GameSoundscape.server.luau` | **new** — beds, dock water, stingers |
 | `sync/ServerScriptService/World/DayNightServer.server.luau` | re-paced, non-linear clock |
 | `sync/ServerScriptService/World/FoliageServer.server.luau` | spawn-base exclusion |
-| `ASSETS.md` | new §3.1 + §6.1; §1.11 cicada note |
+| `sync/StarterPlayer/StarterPlayerScripts/Boat/BoatSound.local.luau` | **new** — live engine + hit (added mid-job) |
+| `ASSETS.md` | new §3.1 + §3.2 + §6.1; §1.11 cicada note; §2 boat engine row |
 | `STYLEGUIDE.md` | §8 canonical night values + `LightingStyle` gate |
+| `../roblox.workspace/Assets/registry/audio.md` | boat engine + hit + `gun_shot` entries |
+
+### Added mid-job at your request — the boat's audio
+
+`BoatSound.local.luau` wires three uploads you made while the job was open:
+
+- **`boat_engine_starts`** — one-shot when a player takes the helm, positional on the stern `Motor`.
+- **`speed_boat_loop`** — the live engine. `Volume` **and** `PlaybackSpeed` both track
+  `max(speed/30, throttle × 0.55)`: the throttle key gives an instant response, and real hull speed takes
+  over authority as the boat gets going. Neither alone works — speed alone lags your input by half a
+  second, and `VehicleSeat.Throttle` alone is binary (1/0/−1) so it can't express labouring-vs-cruising,
+  which is the whole point of an engine note.
+- **`boat_hit`** — hooked to the boat's **`HP` attribute dropping**, not to each damage source. Enemy
+  bites (`EnemyServer`) and river obstacles (`ObstacleServer`) both just write `HP`, so one hook covers
+  both and anything added later. ⚠️ Decrease-only, because `RoleServer` regenerates HP while the Repair
+  station is manned — verified that heals add nothing.
+
+**Client-side on purpose.** The engine note changes every frame; driving that from the server would
+replicate two property writes per frame to every client for no benefit. The boat is server-owned, so
+velocity, throttle and `HP` already replicate — each client reads them and drives its own local Sounds.
+
+*"Stop when the boat is stopped"* is implemented as: below 1.5 studs/s with the throttle released for 1.2 s
+→ fade out and `Pause`. Not `Stop`, and not instant — an instant cut chatters on and off at every dock, and
+resuming mid-phrase avoids the loop re-announcing itself. It resumes **without** re-cranking the starter,
+because the engine never actually turned over again.
+
+**A bug in it, caught in Play:** the first version logged `boat has no Hull/DriverSeat` on every run. The
+server builds the boat before any client script runs, but the **model replicates to the client before its
+children do** — and `boat.PrimaryPart` is no help either, it can still be nil at that moment. Now uses
+`WaitForChild` with a timeout plus a generation guard so a rebuilt boat can't have its connections stolen
+by a stale attach.
 
 ## Five things that were wrong and got fixed
 
@@ -180,6 +212,20 @@ forgotten.
 - [x] `[Foliage] spawn-base exclusion: X -636..124 Z -593..49 (1557 parts, +40 margin)` — **0 greybox parts
       inside it**, greybox now begins at Z 5 (exactly where the generated river starts), all 45 hand-placed
       camp models intact
+- [x] **Night verified end to end in Play** — every value landed on target exactly:
+      `bri 1.50 · exp 0.26 · envD 0.85 · amb (44,50,64) · out (66,76,96) · haze 1.20 · sat −0.04`, and the
+      audio mix at `0.060 / 0.030 / 0.200 / 0.340`. Sampled across 23.56 h → 0.17 h → 0.78 h with **no
+      discontinuity**, so the midnight wrap is clean. *(Reached by temporarily starting the clock at 17:36
+      — an 8-minute wait kept being cut short by Studio use. Reverted to 6.5 and re-confirmed:
+      `start 6.5h … night falls 462s in`.)*
+- [x] `lights 0` while fully dark — confirms the flagged debt that nothing in the world is tagged
+      `NightLight`
+- [x] Boat engine sounds attach: `EngineLoop` + `EngineStart` on `Motor`, both `IsLoaded true`, correctly
+      silent with nobody at the helm
+- [x] `boat_hit` hook fires on damage, scales volume within its 0.45–0.95 band, and **adds nothing on a
+      heal**. *(The exact volume-per-damage mapping couldn't be pinned down: the live server keeps
+      reasserting `HP` and enemies were biting, so test writes interleaved with replication. A limitation
+      of the test, not of the code.)*
 - [x] `tools/luau-analyze.sh` clean over the whole GAME tree after every change
 - [ ] **User to set `LightingStyle = Realistic` by hand and save the place**
 - [ ] User to eyeball the night palette in-game and say whether it wants to be darker (it is knowingly
@@ -194,3 +240,5 @@ forgotten.
 | Remove the MEDIC billboard | TODO 0042 | User asked for it as a todo. `CargoServer` ~line 177 |
 | Real Robux shop in the game place | TODO 0043 | User asked for it as a todo. The lobby's `RobuxShop.local.luau` already has real store art |
 | `night_starts` re-upload | TODO 0044 | Needs a Creator Hub action, not code |
+| Dark slab under the boat hull | TODO 0045 | Investigated, not fixed. **Ruled out** stray world geometry (radius query returned only the player; five downward rays hit only Terrain), so it is a boat part — and the only dark diamond-plate parts on the boat are the **armour plating** (`ArmoredHullL/R`, plain Parts `0.8 × 2.4 × 22` at local x ±7.4). Three reasons it reads wrong are in the todo, incl. that it's a bare Part so the Paint Pack never recolours it. Needs a visual confirm — the boat had moved on before I could re-photograph the frame |
+| `gun_shot` wiring | ASSETS.md §3.2 + registry | Your call: *"Do not add sound yet, because this will be seperate task, just list it in file."* Recorded in both, wired nowhere; belongs with `GunServer`/`WeaponServer` |
