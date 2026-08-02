@@ -1,7 +1,7 @@
 # TODO 0029: OPTIONAL (Job 068 B7): Torch/lantern flame VFX (blocked) + flag/tarp wind sway (deferred)
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — CLOSED -- both halves declined, user decision 2026-08-02 (Job 069). (a) TORCH / LANTERN FLAME: moot. Its only blocker was the lantern/tiki-torch props in todo 0027, which were declined and deferred to the GAME place (the lobby is a static warm afternoon, ClockTime 16.1, so a warm night light has nothing to light). No props, nothing to set alight. (b) FLAG / TARP WIND SWAY: stays deferred, as ASSETS.md 1.10 already recorded ("needs per-frame cloth anim; low value"). A per-frame animation loop over several decorative cloth parts is exactly the kind of continuous cost the mobile-first budget exists to avoid, for a detail most players never consciously notice. NET: 11 of the 13 lobby VFX in 1.10 are built, and the two that are not are now CONSCIOUSLY DECLINED with reasons recorded, rather than sitting queued and looking forgotten.
 **Created:** 2026-08-02 10:50:56
 
 Audit Job 068, gap B7. Two of the 13 lobby VFX in ASSETS.md 1.10 are not built; the other 11 are. (a) Torch / lantern flame -- queued, BLOCKED on the lantern props in gap B5. (b) Flag / tarp wind sway -- deferred, "needs per-frame cloth anim; low value". The audit agrees with leaving (b); it is recorded so the deferral stays deliberate rather than forgotten.

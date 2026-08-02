@@ -145,10 +145,10 @@ leaderboards · lanterns — **P3** fine detail · ground decals · ambient VFX.
 | Barrels set (`BarrelsSet`) | 1 | Store (`16944361687`) | <span style="color:#2e9c3f">✅ placed</span> | cluster, ~62 parts |
 | Tent (`Tent`) | 2 | Store (`7992921193`) | <span style="color:#2e9c3f">✅ placed</span> | olive canvas @0.5 |
 | Sandbag wall / barrier | 2 rows | Store (`119411292085005` / `78010383039337`) | <span style="color:#2e9c3f">✅ placed</span> | north line |
-| Fuel can | 1 | Store | ▫ queued | handheld |
+| Fuel can | 1 | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | P3 tail dropped — the lobby has enough dressing (25 props, 3,810 BaseParts) |
 | Campfire | 2 | Build + VFX | <span style="color:#2e9c3f">✅ built</span> | rock pit raised onto sand + crossed logs; Fire/Smoke/embers/light (§1.10) |
-| Lantern / tiki torch | 2+ | Store | ▫ queued | warm night light |
-| Toolbox / spare tire / cargo pallet / rope / radio | few | Store | ▫ queued | fine detail (P3) |
+| Lantern / tiki torch | 2+ | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | **Deferred to the GAME place.** Their stated purpose is *warm night light*, but the lobby is a **static warm afternoon** (`ClockTime 16.1`, no day/night cycle) — nothing for them to light. The night payoff belongs where the day/night cycle is |
+| Toolbox / spare tire / cargo pallet / rope / radio | few | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | P3 fine detail, dropped — pure set dressing on a place already signed off |
 
 ## 1.8 Ground / decals
 
@@ -296,12 +296,12 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | Leader sparkle | leader on a pad | Build | <span style="color:#2e9c3f">✅ built</span> | gold sparkle over occupants[1]'s head, managed in `LobbyServer` |
 | Launch effect (light column + dust burst) | pad → teleport | Build | <span style="color:#2e9c3f">✅ built</span> | rising light column + dust burst + flash, fired in `LobbyServer` launch() |
 | Campfire (fire+smoke+embers+light) | FirePits | <span style="color:#2e9c3f">✅ built</span> | Fire + Smoke + ember ParticleEmitter + warm PointLight on both `FirePit`s |
-| Torch / lantern flame | each torch/lantern | Build | ▫ queued | needs torch/lantern props first |
+| Torch / lantern flame | — | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | Moot — the lantern/torch props it needed were declined for the lobby (§1.7) and deferred to the GAME place |
 | Fireflies / motes | jungle edge | Build | <span style="color:#2e9c3f">✅ built</span> | 6 firefly clusters on the grass ring (`AmbientVFX`) |
 | Sun-ray dust motes | open airfield | Build | <span style="color:#2e9c3f">✅ built</span> | fine drifting dust field over the clearing (`AmbientVFX`) |
 | Water shimmer / ripples / foam | river + dock | Build | <span style="color:#2e9c3f">✅ built (dock foam)</span> | foam/shimmer emitter at the dock shore (`AmbientVFX.DockFoam`); river handled in game place |
 | Plane heat-haze / smoke puff | plane | Build | <span style="color:#2e9c3f">✅ built</span> | subtle rising shimmer at both engines |
-| Flag / tarp wind sway | flags, tents | Build | ▫ deferred | needs per-frame cloth anim; low value |
+| Flag / tarp wind sway | flags, tents | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | Deferral confirmed, not forgotten. A per-frame cloth loop over several decorative parts is the continuous cost the mobile budget exists to avoid, for a detail few players consciously notice. **11 of 13 §1.10 VFX are built; these two are the deliberate exceptions** |
 | Purchase-confirm burst | on buy / upgrade / claim | Build | <span style="color:#2e9c3f">✅ built</span> | `Components.burst` — colour wash + rising motes, fired on purchase, upgrade and bounty claim (Job #065) |
 | Leaderboard #1 glow | Top Runs board | Build | <span style="color:#2e9c3f">✅ built</span> | #1 row = gold plate + glowing UIStroke (`RankServer`) |
 
@@ -358,7 +358,7 @@ bespoke embossed set on the palette — the most on-style option, and the one th
 | Track | Where | Status | Notes |
 |---|---|---|---|
 | Lobby theme (`lobby_intro_music`) | 2D loop | <span style="color:#2e9c3f">✅ wired</span> | in `LobbySoundscape` |
-| Countdown / launch layer | on pad countdown | <span style="color:#c9911d">⏸ pending</span> | optional, not yet uploaded |
+| Countdown / launch layer | — | <span style="color:#2e9c3f">✅ declined (#069)</span> | **Not wanted.** The countdown is **3 seconds** (`LobbyConfig.COUNTDOWN`) — a rising layer can't establish itself before the teleport cuts it, so it would only work if the countdown were lengthened, which is a gameplay cost for an audio flourish. The moment is already scored: per-second positional `timer_countdown` + `teleport_woosh`. Cheap revisit needing no new asset: duck the lobby music during the countdown |
 
 ## 1.14 Lighting
 

@@ -1,7 +1,7 @@
 # TODO 0027: OPTIONAL (Job 068 B5): Camp prop long tail -- fuel can, lanterns/tiki torches, fine detail
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-02) — CLOSED AS NOT-WANTED -- user decision 2026-08-02 (Job 069). The P3 "fine detail" camp-prop tail (fuel can, lantern/tiki torch 2+, toolbox/spare tire/cargo pallet/rope/radio) is declined for the lobby. Reasons: 25 camp props are already placed (ASSETS.md 1.7, which replaced 41 greybox placeholders), the Job 068 sweep counted 3,810 BaseParts in the place, and the user has signed off the scenery as-is. The deciding point for the lanterns specifically: their stated purpose in 1.7 is "warm night light", but the lobby is a STATIC WARM AFTERNOON (ClockTime 16.1, no day/night cycle), so a night light has nothing to light -- that payoff belongs to the GAME place, which does have a day/night cycle. Sourcing was NOT the blocker (I can Creator-Store search, present for approval, script-scan and localize; 1.7 already did exactly that for 25 props) -- this is a deliberate "enough dressing" call, not a capability gap. KNOCK-ON: this was the only blocker on todo 0029 (torch/lantern flame VFX), so that closes too.
 **Created:** 2026-08-02 10:50:56
 
 Audit Job 068, gap B5. Still queued in ASSETS.md 1.7: fuel can (1), lantern / tiki torch (2+), and the toolbox / spare tire / cargo pallet / rope / radio set. Explicitly P3 "fine detail" in the section-1 priority line. NOTE: the lantern gap also blocks the torch-flame VFX (todo for gap B7) and the lantern half of the already-built directional markers (ASSETS.md 1.6).
