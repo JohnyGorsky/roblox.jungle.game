@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-02 23:13:19
-**Status**: Requirements Gathering (intake)
+**Status**: Plan written — awaiting go-ahead. See [`implementation-plan.md`](implementation-plan.md).
 
 ## Requirements / goal
 
@@ -10,7 +10,8 @@ Restyle every game-place GUI onto the shared Theme/Components design system (alr
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created — [`implementation-plan.md`](implementation-plan.md)
+- [ ] Plan agreed (awaiting go-ahead)
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
