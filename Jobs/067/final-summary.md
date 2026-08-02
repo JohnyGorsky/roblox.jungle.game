@@ -72,8 +72,10 @@ Wired to code that already runs, so it's felt today rather than being a placehol
   lower speed and the downstream shove drops, so the boat holds a line through The Rapids. Divides the
   speed threshold rather than raising `TURN`, so it sharpens low-speed handling without raising top turn rate.
 
-Visible greybox wedge on the bow, `library = nil` — the Job 066 pattern, so a mesh drops in later with no
-code change. It's `paintable`, so it repaints with the hull.
+Visible bow ramp, now a real mesh (`RampBow`, imported 2026-08-02). It's `paintable`, so it repaints with
+the hull. ⚠️ It imported with a **square footprint** — as deep as it is wide — so at 8 wide it is also 8
+deep, which the 5 studs of bow ahead of the gun mount cannot hold. It therefore rides low (`y 0.96…3.24`)
+and passes **under** the gun base (`y 3.8…5.8`), overhanging the bow by 3 studs like a landing-craft ramp.
 
 ## 5. Extra Inventory Slots (149 R$) — 4 → 6
 
@@ -122,6 +124,12 @@ on regardless.
 Driven kinematically from the hull CFrame like `GunServer` drives the barrel. `GunServer` publishes
 `GunYaw` on the boat — only when it changes, since attributes replicate and a per-Heartbeat write would be
 60 replicated writes a second for a usually-static value.
+
+**Twin Motors had no art at all.** Spotted in a screenshot while checking the racks: `motor2`'s def was
+`library = nil`, so a 150-Gold module rendered as a **raw dark greybox slab** in the engine bay, right next
+to a fully modelled base engine — even though Job 066's summary and `ASSETS.md` both stated "Motor2 reuses
+the Motor mesh". The mapping simply never pointed at it. **No part of the boat is greybox any more**,
+verified by scanning for hosts that are still visible and have no skin.
 
 **Invented greybox was removed as a practice.** The user's instruction — *"if you need models just say, do
 not invent things"* — after I fabricated a grey mast, a grey rack frame and a grey ramp wedge. Three

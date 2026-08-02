@@ -189,7 +189,19 @@ BoatParts.Defs = {
 	bowLight = { library = "BowLight", size = Vector3.new(1.96, 2.76, 1.84), collision = "skin" } :: PartDef,
 
 	-- ── upgrade modules (ModuleDefs — 6, bought once, no tiers) ──────────────────────────────────
-	motor2 = { library = nil, collision = "skin" } :: PartDef, -- boat space (−3.5, 1, 10.5)
+	-- Twin Motors. Job 067 fix: this was `library = nil`, so the 150-Gold module rendered as a raw dark
+	-- greybox slab in the engine bay next to a fully modelled base engine — even though Job 066 recorded
+	-- that "Motor2 reuses the Motor mesh" and ASSETS.md said the same. The def simply never pointed at it.
+	--
+	-- Identical to `motor` on purpose: it IS the same outboard, mounted to port instead of starboard.
+	-- At 3.3 wide in world axes (the 7.5 is the mesh's own X, which the yaw maps onto the boat's Z) the
+	-- two engines at x ±4 sit 4.7 studs apart with no overlap.
+	motor2 = {
+		library = "Motor",
+		size = Vector3.new(7.5, 7.8, 3.3),
+		offset = CFrame.Angles(0, math.rad(-90), 0),
+		collision = "skin",
+	} :: PartDef,
 	-- Armour plate on the flanks. Mesh imported 2.76 × 1.20 × 0.28 with its length on X, so it takes a 90°
 	-- yaw to run fore-aft.
 	--
@@ -244,7 +256,10 @@ BoatParts.Defs = {
 	-- gun base (y 3.8…5.8) rather than trying to fit in front of it. Verified by AABB test, not by eye.
 	ramp = {
 		library = "RampBow",
-		size = Vector3.new(6, 1.71, 6),
+		-- Enlarged 6 -> 8 and dropped at the user's call ("front must be lower and larger, and a little bit
+		-- out"): at 6 it read as a small flap tacked on the nose. Square ratio kept, so 8 wide is also 8 deep
+		-- and it now overhangs the bow by ~3 studs, which is what makes it read as a RAMP rather than a plate.
+		size = Vector3.new(8, 2.28, 8),
 		collision = "skin",
 		paintable = true,
 	} :: PartDef,

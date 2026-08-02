@@ -312,7 +312,7 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		-- Job 067: the mesh is a 4.53-tall PEDESTAL, not a 6-tall pole, so the host follows the mesh and
 		-- the lamp comes down to sit ON it (base 1.6 = deck, top 6.14; head centred 7.2 overlaps the post).
 		addPart(model, base, "SearchlightMast", Vector3.new(1.7, 4.53, 1.7), CFrame.new(SEARCHLIGHT_X, 3.87, SEARCHLIGHT_Z), Color3.fromRGB(60, 60, 66), Enum.Material.Metal, "searchlightMast")
-		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 7.2, SEARCHLIGHT_Z - 0.6), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
+		addPart(model, base, "SearchlightHead", Vector3.new(2, 2, 2), CFrame.new(SEARCHLIGHT_X, 6.9, SEARCHLIGHT_Z), Color3.fromRGB(245, 245, 210), Enum.Material.Neon, "searchlightHead")
 	end
 	if owned.trailer then
 		if BoatParts.hasArt("trailer") then
@@ -320,7 +320,7 @@ local function buildBoat(plr: Player, slot: Slot): Model
 			-- they must be re-measured against the imported mesh and the role stations moved to suit.
 			-- AFT half of the rear deck; the stations moved forward to BACK_Z - 2.5 to make room.
 			-- Base sits on the deck: deck top 1.7 + half the 2.80-tall mesh = 3.10.
-			addPart(model, base, "Trailer", Vector3.new(7.5, 2.8, 4.92), CFrame.new(0, 3.10, BACK_Z + 1.5), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
+			addPart(model, base, "Trailer", Vector3.new(7.5, 2.8, 4.92), CFrame.new(0, 2.40, BACK_Z + 1.5), Color3.fromRGB(120, 90, 55), Enum.Material.WoodPlanks, "trailer")
 		else
 			-- No mesh yet: greybox stand-in from the shared layout, so the showroom and the real boat show
 			-- the same thing piece for piece. This whole branch disappears once the art is imported.
@@ -334,7 +334,7 @@ local function buildBoat(plr: Player, slot: Slot): Model
 		-- toward the bow, so it reads as a launch ramp rather than a box.
 		-- Square-footprint mesh (6 x 6), so it rides LOW on the foredeck and passes under the gun base
 		-- rather than trying to fit forward of it. See BoatParts.ramp.
-		addPart(model, base, "RampBow", Vector3.new(6, 1.71, 6), CFrame.new(0, 2.6, BOW + 1.3), Color3.fromRGB(96, 100, 108), Enum.Material.DiamondPlate, "ramp")
+		addPart(model, base, "RampBow", Vector3.new(8, 2.28, 8), CFrame.new(0, 2.1, BOW - 0.5), Color3.fromRGB(96, 100, 108), Enum.Material.DiamondPlate, "ramp")
 	end
 
 	-- ── hull livery (Boat Paint Pack, Job 067) ────────────────────────────────────────────────────

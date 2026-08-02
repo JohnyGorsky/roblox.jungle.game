@@ -367,7 +367,7 @@ boat float, and hosts the `Root` attachment every thrust/turn force uses. Each m
 | `Hull` | `Hull` | <span style="color:#2e9c3f">✅ wired</span> | 32 × 14 — the mesh's exact natural ratio, so zero stretch |
 | `CargoDeck` | `CargoDeck` | <span style="color:#2e9c3f">✅ wired</span> | rear deck; **this is the cargo area — there is no trailer** |
 | `DriverSeat` | `DriverSeat` | <span style="color:#2e9c3f">✅ wired</span> | seat + console + wheel; stays a `VehicleSeat` |
-| `Motor` | `Motor` | <span style="color:#2e9c3f">✅ wired</span> | base engine (new in #066); `motor2` reuses the same mesh |
+| `Motor` · `Motor2` | `Motor` | <span style="color:#2e9c3f">✅ wired</span> | base engine (new in #066); `motor2` reuses the same mesh, mounted to port. ⚠️ **Job #067 fix:** `motor2`'s def was `library = nil`, so the 150-Gold Twin Motors module rendered as a raw dark greybox slab beside a fully modelled engine |
 | `GunBase` · `GunBarrel` · `GunSeat` | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | barrel rides **on** the mount; seat 5 studs aft |
 | `BowLightHead` | `BowLight` | <span style="color:#2e9c3f">✅ wired</span> | on the centreline — off-centre it hangs past the bow taper |
 | Crew seats ×4 | reuses `GunSeat` | <span style="color:#2e9c3f">✅ wired</span> | real `Seat`s in game so passengers aren't thrown off |
