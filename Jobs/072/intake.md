@@ -143,6 +143,28 @@ look to check it doesn't end up inside your plane or the sandbag wall.
 Ordered by when it plays. **2D** = non-positional (heard inside the cabin / in your head);
 **positional** = attached to the plane or wreck so it moves and falls off with distance.
 
+## ✅ ALL SOURCED + UPLOADED by the user, 2026-08-02 — registered in `audio.md`
+
+| Role | Name | rbxassetid |
+|---|---|---|
+| engine drone (2D loop) | `plane_flying` | `131906456545456` |
+| stall (2D one-shot) | `engine_fail` | `109868059978369` |
+| alarm (2D short loop) | `stall_alarm` | `112730854260419` |
+| dive rush (2D loop, fade in) | `wind_rush` | `96421007219531` |
+| 🔴 impact (2D one-shot) | `crash_sound` | `107234930559671` |
+| debris (positional @ wreck) | `metal_debris` | `139877854727588` |
+| ear ringing (2D, fading) | `ear_ringing` | `134266191078049` |
+| fire (positional @ wreck, loop) | `fire_sound` | `99475771894138` |
+
+Only the optional #9 (distant fly-over) was skipped. **No asset id goes in a script** — these resolve
+through a lookup table the way `Theme.sound` does in the lobby.
+
+*On "we had fire already": we have `crackle-campfire` (`113774133604878`, live in the lobby), but it is
+a small domestic fire and reads far too thin for a burning aircraft. Keep it as a **layer underneath**
+`fire_sound` for close-up crackle rather than a replacement.*
+
+### Original shopping list (kept for reference)
+
 | # | Sound | Moment | Type | Length | Notes |
 |---|---|---|---|---|---|
 | 1 | **Prop engine drone — loop** | whole cruise, inside the cabin | 2D loop | 5–15 s seamless | The bed the whole intro sits on. Wants a *heavy piston/prop* drone, not a jet. Must loop without a click |
