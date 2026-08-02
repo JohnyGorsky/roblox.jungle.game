@@ -20,7 +20,7 @@ once the user accepts it.* One task at a time.
 | Order | Gap | Todo | Kind | Status |
 |---|---|---|---|---|
 | 1 | **A1** — `RobuxShop` shows a buy button for passes the player already owns | `0019` | code | ✅ **done** |
-| 2 | **D1** — `LobbyConfig.PAD_COUNT = 3` is dead and wrong (4 pads) | `0023` | code | ▫ awaiting description + approval |
+| 2 | **D1** — `LobbyConfig.PAD_COUNT = 3` is dead and wrong (4 pads) | `0023` | code | ✅ **done** |
 | 3 | **E1** — greybox `RunwayMarkings` double-paints the real runway; `Spawn.Pad` | `0036` | live/place | ▫ |
 | 4 | **E2** — dock water-lapping sound never attaches | `0037` | code | ▫ |
 | 5 | **E3** — three models named `Watchtower_NW` | `0038` | live/place | ▫ |
@@ -85,9 +85,45 @@ This is a file edit in the LOBBY Rojo tree, so it **needs a Rojo sync** before i
 Confirming the flip visually needs a player who owns a pass — the honest check is:
 **Play → open the Robux shop → a pass you own reads OWNED and is not clickable.**
 
+---
+
+## ✅ Task 2 — D1: the lying pad-count constant
+
+**File:** `lobby/sync/ReplicatedStorage/LobbyConfig.luau` (LOBBY tree only).
+
+### What was wrong
+
+`LobbyConfig.PAD_COUNT = 3` — read by **nothing** (one grep hit across both trees: its own
+declaration) and **wrong** (the place has 4 pads: Blue/Red/Green/Yellow). `LobbyServer` discovers pads
+by scanning for `Station == "PartyPad"`, so the constant never had any effect. Harmless at runtime,
+but it is the first value someone opens this file to change.
+
+### What changed — deleted, not corrected
+
+The line is **gone**, replaced by a comment in its place explaining that pads are discovered by
+attribute and that the old constant had drifted to a lie.
+
+**Why delete rather than set it to `4`:** a constant that nothing reads has no mechanism keeping it
+true, so it would drift again the moment a fifth pad is placed. The alternative — making it
+authoritative by having `LobbyServer` validate the discovered count against it and warn on mismatch —
+was offered and not taken; it trades a silent drift for a loud one at the cost of more code, and
+attribute-discovery is already the better design.
+
+The comment matters as much as the deletion: someone will come looking for a pad-count knob, and it
+now tells them where the real answer lives instead of leaving a hole.
+
+### Verified
+
+- `grep PAD_COUNT` over `lobby/` + `sync/` → only the new explanatory comment. (Two further hits are
+  in `Jobs/017/` historical docs, correctly left untouched — they record what *was* true then.)
+- `tools/luau-analyze.sh` on `LobbyConfig` + `LobbyServer` → **no diagnostics**.
+- Behaviour unchanged by construction: nothing read the value, and `MAX_PER_PAD` / `COUNTDOWN` /
+  `GAMEPLAY_PLACE_ID` are untouched.
+
 ## Checklist
 
 - [x] Task 1 (A1) implemented + analyzer clean
 - [ ] Task 1 verified in Play (needs Rojo sync)
-- [ ] Tasks 2–5 described, approved, implemented
+- [x] Task 2 (D1) implemented + verified by grep and analyzer
+- [ ] Tasks 3–5 described, approved, implemented
 - [ ] Final summary + changelog
