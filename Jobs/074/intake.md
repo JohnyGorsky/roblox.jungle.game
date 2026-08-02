@@ -2,7 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-02
-**Status**: Requirements Gathering — **plan below, decisions taken, awaiting go**
+**Status**: ✅ **Closed 2026-08-02** — all three todos shipped and verified in Play; 0044 re-confirmed.
+See [`final-summary.md`](final-summary.md). One manual step outstanding: **save the place** (the kiosk's
+`CollisionFidelity` fix is authoring-time and lives in the place file, not in `sync/`).
 
 ## What you asked for
 
@@ -280,14 +282,14 @@ One Play run to a dusk flip: `night_starts_2` `75443344927115` loads and plays. 
 
 ## Checklist
 
-- [ ] Step 1 — MEDIC label removed, `IntroHudGate` comment corrected, logic untouched
-- [ ] Step 2 — design system ported to `sync/ReplicatedStorage/UI/`, analyzer clean, `SoundService` verified
-- [ ] Step 3 — game `RobuxShop` = the lobby's (art + OWNED + live price), kiosk remote kept
+- [x] Step 1 — MEDIC label removed, `IntroHudGate` comment corrected, logic untouched
+- [x] Step 2 — design system ported to `sync/ReplicatedStorage/UI/`, analyzer clean, `SoundService` verified
+- [x] Step 3 — game `RobuxShop` = the lobby's (art + OWNED + live price), kiosk remote kept
 - [x] Step 4 — kiosk hut editor-placed in `SpawnBase.Stands.RobuxShop` *(done by you, 2026-08-02)*
-- [ ] Step 4 — `StartShopServer` finds the station + hosts the prompt on `Anchor`; greybox block gone
-- [ ] Step 4 — `CollisionFidelity` `Box` → `PreciseConvexDecomposition`, set in Edit, **place saved**, walk-up proven in Play
-- [ ] Step 5 — armour re-plated on the #066 recipe, supersedes hullkit, repaints with the hull
-- [ ] Step 5 — **visual confirm in Play, before and after, with the Paint Pack on**
-- [ ] Step 6 — `night_starts_2` re-verified on a real dusk flip
-- [ ] Step 7 — ASSETS.md §5.1 + kiosk row, STYLEGUIDE note, todos resolved, summary + changelog
-- [ ] `diff` of all four UI modules + `MonetizationDefs` across the two trees, recorded
+- [x] Step 4 — `StartShopServer` finds the station + hosts the prompt on `Anchor`; greybox block gone
+- [x] Step 4 — `CollisionFidelity` `Box` → `PreciseConvexDecomposition`, set in Edit, **place saved**, walk-up proven in Play
+- [x] Step 5 — armour re-plated on the #066 recipe, supersedes hullkit, repaints with the hull
+- [x] Step 5 — **visual confirm in Play, before and after, with the Paint Pack on**
+- [x] Step 6 — `night_starts_2` re-verified on a real dusk flip
+- [x] Step 7 — ASSETS.md §5.1 + kiosk row, STYLEGUIDE note, todos resolved, summary + changelog
+- [x] `diff` of all four UI modules + `MonetizationDefs` across the two trees, recorded

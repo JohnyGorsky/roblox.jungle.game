@@ -417,7 +417,7 @@ boat float, and hosts the `Root` attachment every thrust/turn force uses. Each m
 | `GunBase` · `GunBarrel` · `GunSeat` | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | barrel rides **on** the mount; seat 5 studs aft |
 | `BowLightHead` | `BowLight` | <span style="color:#2e9c3f">✅ wired</span> | on the centreline — off-centre it hangs past the bow taper |
 | Crew seats ×4 | reuses `GunSeat` | <span style="color:#2e9c3f">✅ wired</span> | real `Seat`s in game so passengers aren't thrown off |
-| `HullPlate` | `HullPlate` | <span style="color:#2e9c3f">✅ wired</span> | **tiled ×4 per flank** — a full-length strip smears and overhangs the taper |
+| `HullPlate` | `HullPlate` | <span style="color:#2e9c3f">✅ wired</span> | **tiled ×4 per flank** — a full-length strip smears and overhangs the taper. **Job #074: the Armored Boat PASS now uses this mesh too** (it was the last bare-Part slab on the boat — see the note below the table) |
 | `FuelTankModule` · `SearchlightHead` | 2 meshes | <span style="color:#2e9c3f">✅ wired</span> | appear only when their module is owned |
 | `GunBarrelHeavy` | `GunBarrelHeavy` | <span style="color:#2e9c3f">✅ wired</span> | **swaps** the base barrel (never two barrels) |
 | Fuel · Repair · Medic stations | 3 meshes | <span style="color:#2e9c3f">✅ wired</span> | medic is game-place only |
@@ -430,6 +430,29 @@ boat float, and hosts the `Root` attachment every thrust/turn force uses. Each m
 
 > ⚠️ **Imported into the LOBBY place only.** `ServerStorage` is place content and Rojo doesn't sync meshes,
 > so the GAME place needs the same GLBs imported under the same names before its boat shows any art.
+
+> **Job #074 — the Armored Boat pass finally uses `HullPlate` (todo 0045).** The pass had kept its Job
+> #027 geometry through every art job: one bare `0.8 × 2.4 × 22` Part per side at hull-local x ±7.4,
+> **Y 0.3**, `DiamondPlate`, **no skin**. That was the "dark slab sticking out under the hull". Three
+> faults at once, and the third is the instructive one:
+>
+> 1. x ±7.4 against a 14-wide (half-width 7) *modelled, curved* hull left 0.4 studs — it poked through.
+> 2. Y 0.3 is box-centre, near the waterline. The hull BOX is 3 tall but the mesh rises to ~4.5 with its
+>    keel on the box bottom — the exact mistake Job #066 fixed for the hullkit by lifting it to Y 2.2.
+> 3. **No `skinId` → no `Skin_hullPlate` child → `BoatPaint` could not see it.** Paint matches on skin
+>    NAME, so an unskinned part is *structurally* unpaintable. It was guaranteed to stay greybox grey
+>    next to a navy hull, not unlucky.
+>
+> Both plate sets now go through one `plateBelt()` helper. The pass reads as the heavier of the two by
+> **wrapping further** — the same 4-segment flank run plus two bow shoulders yawed 25° inboard to follow
+> the taper — never by being taller or thicker, which would stretch the mesh and reintroduce the smeared
+> detail the tiling exists to prevent. **`ArmoredProw` is gone**: the hull grew 22 → 32 long in #066, so
+> its z −11 was nowhere near the bow, and it fought the 8 × 8 `RampBow` for the space.
+>
+> **Owning the hullkit AND the pass builds ONE set of plates** (the pass's). Two sets at the same x/Y
+> would z-fight. Stats are unaffected — hullkit's `MaxHP 150` and the pass's ×1.2 both still apply.
+> Verified in Play with both owned: 10 plates, 0 `HullPlate*`, `paint: navy (12 parts)`, and every
+> plate's skin colour equal to `Skin_hull`'s.
 
 ### Hull liveries (Boat Paint Pack) — **needs no new textures**
 
@@ -460,6 +483,7 @@ never the deck, engines, seats or stations.
 | Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | ▫ stub |
 | Zone dressing / day-night set-pieces | per-zone props + lighting | ▫ stub |
 | **GAME-place ambient rig** | lighting + water + soundscape | <span style="color:#2e9c3f">✅ done (#073)</span> — see §3.1 |
+| **GAME-place Robux kiosk** | the crash-site shop hut | <span style="color:#2e9c3f">✅ done (#074)</span> — see §3.3 |
 
 ## 3.1 GAME place ambient — lighting, water, soundscape (Job #073)
 
@@ -491,6 +515,25 @@ clock and the lobby is frozen at 16:10.
 > Still unuploaded weapon/boat audio, local mp3s only: `assets/Objects/Boat/Sounds/boat_on_fire.mp3`,
 > `boat_destroyed.mp3`, `metal_hit_1_sec.mp3`. Alligator SFX exist in `assets/Objects/Monsters/`.
 
+## 3.3 GAME place station buildings (Job #074)
+
+The game place now uses the **same station convention as the lobby** (§1.3): an editor-placed Model with
+a `Station` attribute and an invisible `Anchor` part that hosts the prompt. Job #074 is the first thing
+in the game tree to read that attribute.
+
+| Station | Object | Source | Status | Notes |
+|---|---|---|---|---|
+| `RobuxShop` | small kiosk hut | Meshy (user) | <span style="color:#2e9c3f">✅ placed + wired</span> | **The same mesh as the lobby's** — `81119390187013`, registry `meshes.md` (named `RobuxhShop` *(sic)* in both places). Editor-placed at `Workspace.SpawnBase.Stands.RobuxShop` with `Anchor` + `EntrySign`. Replaced the green 4×5×2 greybox block `StartShopServer` used to spawn |
+
+> ⚠️ **`CollisionFidelity` was `Box` on import** and had to be set to `PreciseConvexDecomposition`
+> (Job #074). On a 15 × 18.8 × 20 mesh, `Box` is an invisible 20-stud cube — the counter and the space
+> under the eaves are sealed, so you cannot walk up to the shop. Measured after the fix: the collision
+> surface now sits **3.5–6.9 studs inside** the old box on all four sides.
+>
+> **This is an authoring-time property — a runtime script cannot write it, and it only persists if the
+> place is SAVED.** Any future station mesh dropped into the game place needs the same treatment; see the
+> `meshy-collision-fidelity` rule.
+
 # 4) ENEMIES / CHARACTERS
 
 | Area | Items | Status | Notes |
@@ -507,6 +550,22 @@ clock and the lobby is frozen at 16:10.
 | Loading background art (`LoadingBackground`) | jungle/river key art, `rbxassetid://73636751330777` | <span style="color:#2e9c3f">✅ wired</span> — fallback ID in `LobbyLoading.local.luau` + `GameLoading.local.luau`; overridable by a `ReplicatedFirst.LoadingBackground` ImageLabel |
 | Teleport / intro sequence art | plane-crash cold-open visuals | ▫ stub |
 | HUD icons / role-suitability icons | per `jungle-style` + STYLEGUIDE | ▫ stub |
+| **Design system (`Theme` / `Components` / `UISound` / `UIBus`)** | now in **BOTH** trees | <span style="color:#2e9c3f">✅ ported to the game place (#074)</span> — see the note below |
+
+> **The design system exists twice, byte-identical by contract (Job #074).**
+> `lobby/sync/ReplicatedStorage/UI/` and `sync/ReplicatedStorage/UI/` — 4 files, ~1380 lines. `Theme`'s
+> own header had always said *"the byte-identical `sync/` copy is added when the game place is
+> restyled"*; #074 needed it for the Robux shop and did exactly that.
+>
+> **Same arrangement as `MonetizationDefs` / `BoatParts` / `BoatPaint`:** two separate Rojo trees, no
+> shared package layer, so the copies are kept in step by hand. **Edit one, copy it to the other in the
+> same commit.** The drift check is `diff -r lobby/sync/ReplicatedStorage/UI sync/ReplicatedStorage/UI`
+> — it must print nothing. Nothing was given a per-file "this is a copy" header precisely so that check
+> stays noise-free.
+>
+> ⚠️ Only the game's `RobuxShop` consumes it so far. The other 15 game HUD scripts are still hand-rolled
+> greybox on raw `Color3`/`Enum.Font` — restyling them is its own job, but it no longer needs a port
+> first.
 
 ## 5.1 Monetization art — product / pass icons (added 2026-07-20)
 
@@ -538,7 +597,15 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 > it and are what `Theme.productIcon` points at. **Never swap a Hub id into the GUI.**
 
 <span style="color:#2e9c3f">✅ Wired 2026-07-31</span> — the lobby `RobuxShop` shows real store art per row
-(Job #065 phase 2). The game-place copy is still text-only (out of scope).
+(Job #065 phase 2). <span style="color:#2e9c3f">✅ **And the GAME place since Job #074**</span> — the
+game-place shop was rebuilt on the same design system and now draws the same 7 in-game icons. Verified
+live: 7 rows, 7 with art, ids matching this table exactly.
+
+> **Job #074 also closed a money-facing gap in the game place.** Its shop was the Job #046 original and
+> had never received Job #069, so it had **no OWNED state** (an owner of the 499 R$ Armored Boat still
+> saw a live buy button) and printed the **hardcoded def price** while all three passes run **managed
+> pricing** on the Hub. Both are now the lobby's behaviour. Verified in Play: all three passes read
+> `OWNED`, gold packs stay live (repeatable dev products — "owned" is meaningless for them).
 
 > **Job #067 changes.**
 > · **Cosmetic Bundle** is no longer sold in-game — it was live and delivered nothing (no trails, no wake
