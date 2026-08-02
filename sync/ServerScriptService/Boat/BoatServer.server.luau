@@ -65,6 +65,10 @@ local MAX_PITCH = math.rad(7)  -- max bow-up (throttle) / bow-down (brake) trim
 -- Spawn point — set AFTER RiverReady (once RiverBootstrap has applied the seed), so it matches the
 -- generated river. Placeholder until then.
 local START = Vector3.zero
+-- Mooring heading. When the hand-placed `SpawnBase.Dock.BoatPlace` helper is present we honour ITS yaw,
+-- so the boat lies the way the dock was built rather than the way the procedural river happens to run.
+-- nil = no helper → fall back to "face downstream" (see buildBoat).
+local START_CF: CFrame? = nil
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- unit downstream tangent from the shared river data (no hardcoded centerline — can't desync)
@@ -85,7 +89,11 @@ local function buildBoat(): Model
 	hull.Color = Color3.fromRGB(120, 85, 55)
 	hull.Material = Enum.Material.WoodPlanks
 	hull.CustomPhysicalProperties = PhysicalProperties.new(DENSITY, 0.3, 0.4)
-	hull.CFrame = CFrame.lookAt(START, START + downstream(START.Z)) -- face downstream
+	-- Moored at the dock's own angle when the helper says so, otherwise face downstream.
+	-- ⚠️ The downstream fallback is only right out on the generated river. At the hand-built spawn base
+	-- the channel is sculpted terrain, not RiverData geometry, so the tangent there is a flat +Z — which
+	-- parked the boat crosswise across the end of a pier that runs at −47°.
+	hull.CFrame = START_CF or CFrame.lookAt(START, START + downstream(START.Z))
 	hull.Parent = model
 	model.PrimaryPart = hull
 
@@ -204,6 +212,11 @@ do
 	local boatPlace = dockFolder and dockFolder:FindFirstChild("BoatPlace")
 	if boatPlace and boatPlace:IsA("BasePart") then
 		startPos = Vector3.new(boatPlace.Position.X, RiverData.WATER_Y + 2, boatPlace.Position.Z)
+		-- Take the helper's YAW ONLY — never its pitch/roll. It's a hand-placed marker and may be
+		-- tipped a little; feeding that straight into the hull would start the boat listing, and
+		-- AlignOrientation would just fight it back upright on the first frame.
+		local _, yaw = boatPlace.CFrame:ToOrientation()
+		START_CF = CFrame.new(startPos) * CFrame.Angles(0, yaw, 0)
 	else
 		warn("[Boat] no SpawnBase.Dock.BoatPlace — falling back to mid-channel at Z_START + 40")
 	end
