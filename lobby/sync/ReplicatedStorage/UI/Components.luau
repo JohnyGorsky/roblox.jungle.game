@@ -90,6 +90,21 @@ end
 -- The icon set is full-colour, so it is NOT tinted (ImageColor3 multiplies and muddies it). It sits on
 -- a dark sunken chip instead, which is what makes a bright icon read as deliberate. (ASSETS.md §1.9)
 
+-- Resolve a Theme.icon key to an asset id, substituting `Theme.iconFallback` when the real art hasn't
+-- been uploaded yet (Job #075). Exposed because a few call sites set `ImageLabel.Image` directly
+-- (ImageButtons, billboards) and must not bypass the fallback and render an empty square.
+function Components.iconId(name: string): string
+	local id = (Theme.icon :: { [string]: string })[name]
+	if id and id ~= "" then
+		return id
+	end
+	local substitute = (Theme.iconFallback :: { [string]: string })[name]
+	if substitute then
+		return (Theme.icon :: { [string]: string })[substitute] or ""
+	end
+	return ""
+end
+
 export type IconOptions = {
 	name: string?, -- a Theme.icon key
 	image: string?, -- or a raw rbxassetid (e.g. Theme.productIcon store art)
@@ -133,7 +148,7 @@ function Components.icon(opts: IconOptions): Frame
 	image.BackgroundTransparency = 1
 	image.BorderSizePixel = 0
 	image.ScaleType = Enum.ScaleType.Fit
-	image.Image = opts.image or (opts.name and (Theme.icon :: { [string]: string })[opts.name]) or ""
+	image.Image = opts.image or (opts.name and Components.iconId(opts.name)) or ""
 	image.Parent = holder
 
 	holder.Parent = opts.parent
@@ -163,11 +178,16 @@ export type ButtonOptions = {
 export type Button = {
 	instance: TextButton,
 	setEnabled: (enabled: boolean) -> (),
+	setMuted: (muted: boolean) -> (),
 	setText: (text: string) -> (),
 }
 
 function Components.button(opts: ButtonOptions): Button
-	local base = VARIANT[opts.variant or "primary"] or VARIANT.primary
+	local variantColor = VARIANT[opts.variant or "primary"] or VARIANT.primary
+	-- `base` is what hover/pressed/leave paint against, and `setMuted` swaps it. Callers must never
+	-- write BackgroundColor3 from outside: the MouseLeave handler repaints to `base`, so an external
+	-- tint looks right until the first time a cursor crosses the button and then silently reverts.
+	local base = variantColor
 	local enabled = true
 
 	local btn = Instance.new("TextButton")
@@ -261,11 +281,27 @@ function Components.button(opts: ButtonOptions): Button
 		end
 	end
 
+	-- Looks unavailable, still takes the tap. For "you can't afford this yet": a shop row that goes fully
+	-- disabled can no longer explain itself — `Activated` stops firing, so there is no `flashFail`, no
+	-- `fail` cue, and the player is left tapping a dead button wondering what's broken. Muting keeps the
+	-- explanation and still stops the button reading as the obvious next action.
+	--
+	-- It changes `base` rather than `BackgroundColor3` so the hover/pressed/leave handlers agree with it;
+	-- setting the colour directly would survive exactly until the first MouseLeave.
+	local function setMuted(muted: boolean)
+		base = if muted then Theme.desaturate(variantColor, 0.65) else variantColor
+		if enabled then
+			btn.BackgroundColor3 = base
+			btn.TextTransparency = if muted then 0.25 else 0
+		end
+	end
+
 	btn.Parent = opts.parent
 
 	return {
 		instance = btn,
 		setEnabled = setEnabled,
+		setMuted = setMuted,
 		setText = function(text: string)
 			btn.Text = text
 		end,
@@ -402,7 +438,7 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	art.BackgroundTransparency = 1
 	art.BorderSizePixel = 0
 	art.ScaleType = Enum.ScaleType.Fit
-	art.Image = (Theme.icon :: { [string]: string })[opts.icon] or ""
+	art.Image = Components.iconId(opts.icon)
 	art.Parent = btn
 
 	local scale = Instance.new("UIScale")
@@ -504,6 +540,23 @@ export type PanelOptions = {
 	size: UDim2?,
 	parent: Instance,
 }
+
+-- Every panel built by `Components.panel`, so anything can close the lot. STYLEGUIDE §6.11: *"opening a
+-- full panel dims/closes other open panels; prefer one primary panel open at a time."*
+--
+-- This is an EXPLICIT call, not an automatic close-on-open: making `setOpen(true)` close its siblings
+-- would silently change how the lobby's four panels behave, which is not this job's business. The game
+-- place calls it at the two moments where a leftover panel is plainly wrong — going down, and the run
+-- ending (found in the Job #075 playtest: the results screen appeared on top of an open Trading Post).
+local openPanels: { [string]: () -> () } = {}
+
+function Components.closeAllPanels(except: string?)
+	for name, close in pairs(openPanels) do
+		if name ~= except then
+			close()
+		end
+	end
+end
 
 function Components.panel(opts: PanelOptions): Panel
 	local gui = Components.screen(opts.name, opts.parent)
@@ -620,6 +673,11 @@ function Components.panel(opts: PanelOptions): Panel
 			gui.Enabled = false
 			UISound.panelClosed()
 		end
+	end
+
+	-- register for Components.closeAllPanels
+	openPanels[opts.name] = function()
+		setOpen(false)
 	end
 
 	closeBtn.Activated:Connect(function()

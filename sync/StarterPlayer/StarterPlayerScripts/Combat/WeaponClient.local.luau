@@ -16,23 +16,28 @@ local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChil
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("FireWeapon") :: RemoteEvent
 
--- crosshair
-local gui = Instance.new("ScreenGui")
-gui.Name = "WeaponGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+-- crosshair (Job #075: cream with a dark ring, not pure white — §4 forbids pure white, and an unringed
+-- white dot disappears entirely against sunlit water, which is where most shots are taken)
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+
+local gui = Components.screen("WeaponGui", player:WaitForChild("PlayerGui"))
+gui.ScreenInsets = Enum.ScreenInsets.None -- the reticle marks the true viewport centre
+gui.DisplayOrder = 11
+
 local dot = Instance.new("Frame")
+dot.Name = "Reticle"
 dot.AnchorPoint = Vector2.new(0.5, 0.5)
 dot.Position = UDim2.fromScale(0.5, 0.5)
-dot.Size = UDim2.fromOffset(6, 6)
-dot.BackgroundColor3 = Color3.new(1, 1, 1)
-dot.BackgroundTransparency = 0.2
+dot.Size = UDim2.fromOffset(7, 7)
+dot.BackgroundColor3 = Theme.color.cream
+dot.BackgroundTransparency = 0.15
 dot.BorderSizePixel = 0
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = dot
+dot.Active = false
+Components.corner(Theme.radius.pill, dot)
+Components.stroke(Theme.color.stroke, Theme.strokeWidth.hairline, dot)
 dot.Parent = gui
-gui.Parent = player:WaitForChild("PlayerGui")
 
 local function activeGun(): ItemDefs.ItemDef?
 	local def = ItemDefs.get(player:GetAttribute("ActiveItem") :: string?)
@@ -64,7 +69,7 @@ local function tracer(toPos: Vector3)
 	part.CanCollide = false
 	part.CanQuery = false
 	part.Material = Enum.Material.Neon
-	part.Color = Color3.fromRGB(255, 240, 150)
+	part.Color = Theme.color.yellow -- tracer: warning-yellow, the palette's "hot" accent
 	part.Size = Vector3.new(0.15, 0.15, (toPos - from).Magnitude)
 	part.CFrame = CFrame.lookAt((from + toPos) / 2, toPos)
 	part.Parent = Workspace
@@ -99,7 +104,7 @@ end
 
 local function updateCrosshair()
 	dot.Visible = localCanShoot()
-	dot.BackgroundColor3 = if haveAmmo() then Color3.new(1, 1, 1) else Color3.fromRGB(230, 80, 70)
+	dot.BackgroundColor3 = if haveAmmo() then Theme.color.cream else Theme.color.red
 end
 
 local function fire(screenPos: Vector2)
@@ -108,7 +113,7 @@ local function fire(screenPos: Vector2)
 	end
 	if not haveAmmo() then
 		-- client-side "empty" cue: flash the crosshair red, don't send the shot
-		dot.BackgroundColor3 = Color3.fromRGB(230, 80, 70)
+		dot.BackgroundColor3 = Theme.color.red
 		return
 	end
 	local aim = aimPointFrom(screenPos)

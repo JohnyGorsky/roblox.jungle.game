@@ -15,6 +15,7 @@ local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
@@ -295,9 +296,9 @@ local function buildTradingPost(pos: Vector3, parent: Instance)
 	local lbl = Instance.new("TextLabel")
 	lbl.Size = UDim2.fromScale(1, 1)
 	lbl.BackgroundTransparency = 0.3
-	lbl.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	lbl.TextColor3 = Color3.fromRGB(120, 210, 150)
-	lbl.Font = Enum.Font.GothamBold
+	lbl.BackgroundColor3 = Theme.color.panel
+	lbl.TextColor3 = Theme.color.cream
+	lbl.Font = Theme.font.sign -- a physical camp sign, not UI chrome (STYLEGUIDE §5)
 	lbl.TextScaled = true
 	lbl.Text = "TRADING POST"
 	local corner = Instance.new("UICorner")

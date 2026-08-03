@@ -26,18 +26,32 @@ local player = Players.LocalPlayer
 -- take over from the default loading screen as early as possible
 ReplicatedFirst:RemoveDefaultLoadingScreen()
 
--- hide the core game HUD while loading; restore on finish
+-- Hide the core game HUD while loading; restore on finish.
+--
+-- ⚠️ HEALTH IS NOT IN THIS LIST (Job #075). `HealthHud` draws our own themed health bar and
+-- `IntroHudGate` switches Roblox's core one off permanently. Restoring it here on load-finish would put
+-- the blue core bar back for the whole run — this script runs last, so it would win.
 local function setCoreGui(show: boolean)
 	pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, show)
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, show)
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, show)
-		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, show)
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
 	end)
 end
 setCoreGui(false)
 
--- ── build a simple loading GUI in code (greybox; real design later) ──────────────────────────────────────
+-- ── build the loading GUI in code ────────────────────────────────────────────────────────────────────────
+--
+-- ⚠️ THE ONE FILE THAT MAY HOLD LITERAL COLOURS AND FONTS (Job #075). Everywhere else in the game place,
+-- a raw `Color3.fromRGB` or `Enum.Font` in a screen is a bug — this script is the exception, and not by
+-- oversight: it runs from **ReplicatedFirst**, whose entire purpose is to execute BEFORE the rest of the
+-- game replicates. `require(ReplicatedStorage.UI.Theme)` here would call `WaitForChild` on a folder that
+-- has not arrived yet, and block the loading screen behind the very replication it exists to hide.
+--
+-- So the values below are copied from `Theme` by hand and MUST be kept in step with it:
+--   stroke #0F1611 · scrim #080C0A · cream #F3E6C2 · creamDim #BCB296 · sunken #18221D · green #4B7A2B
+--   display/heading = BuilderSansExtraBold · body = BuilderSansMedium
 local gui = Instance.new("ScreenGui")
 gui.Name = "GameLoadingScreen"
 gui.IgnoreGuiInset = true
@@ -48,7 +62,7 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local bg = Instance.new("Frame")
 bg.Name = "Backdrop"
 bg.Size = UDim2.fromScale(1, 1)
-bg.BackgroundColor3 = Color3.fromRGB(12, 18, 16) -- deep jungle-night (fallback behind the image)
+bg.BackgroundColor3 = Color3.fromRGB(15, 22, 17) -- Theme.color.stroke — deep jungle-night behind the art
 bg.BorderSizePixel = 0
 bg.Parent = gui
 
@@ -76,7 +90,7 @@ bgImage.Parent = bg
 local scrim = Instance.new("Frame")
 scrim.Name = "Scrim"
 scrim.Size = UDim2.fromScale(1, 1)
-scrim.BackgroundColor3 = Color3.fromRGB(8, 12, 10)
+scrim.BackgroundColor3 = Color3.fromRGB(8, 12, 10) -- Theme.color.scrim
 scrim.BackgroundTransparency = 0.4
 scrim.BorderSizePixel = 0
 scrim.Parent = bg
@@ -87,9 +101,9 @@ title.AnchorPoint = Vector2.new(0.5, 1)
 title.Position = UDim2.fromScale(0.5, 0.44)
 title.Size = UDim2.fromScale(0.8, 0.12)
 title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBlack
+title.Font = Enum.Font.BuilderSansExtraBold -- Theme.font.display
 title.Text = "LAST RIVER"
-title.TextColor3 = Color3.fromRGB(230, 240, 232)
+title.TextColor3 = Color3.fromRGB(243, 230, 194) -- Theme.color.cream (never pure white, §4)
 title.TextScaled = true
 title.Parent = bg
 
@@ -99,9 +113,9 @@ status.AnchorPoint = Vector2.new(0.5, 0.5)
 status.Position = UDim2.fromScale(0.5, 0.55)
 status.Size = UDim2.fromScale(0.6, 0.05)
 status.BackgroundTransparency = 1
-status.Font = Enum.Font.Gotham
+status.Font = Enum.Font.BuilderSansMedium -- Theme.font.body
 status.Text = "Loading..."
-status.TextColor3 = Color3.fromRGB(150, 170, 158)
+status.TextColor3 = Color3.fromRGB(188, 178, 150) -- Theme.color.creamDim
 status.TextScaled = true
 status.Parent = bg
 
@@ -111,7 +125,7 @@ track.Name = "BarTrack"
 track.AnchorPoint = Vector2.new(0.5, 0.5)
 track.Position = UDim2.fromScale(0.5, 0.62)
 track.Size = UDim2.fromScale(0.4, 0.02)
-track.BackgroundColor3 = Color3.fromRGB(30, 40, 36)
+track.BackgroundColor3 = Color3.fromRGB(24, 34, 29) -- Theme.color.sunken
 track.BorderSizePixel = 0
 track.Parent = bg
 local trackCorner = Instance.new("UICorner")
@@ -121,7 +135,7 @@ trackCorner.Parent = track
 local fill = Instance.new("Frame")
 fill.Name = "BarFill"
 fill.Size = UDim2.fromScale(0, 1)
-fill.BackgroundColor3 = Color3.fromRGB(90, 190, 130) -- river green
+fill.BackgroundColor3 = Color3.fromRGB(75, 122, 43) -- Theme.color.green
 fill.BorderSizePixel = 0
 fill.Parent = track
 local fillCorner = Instance.new("UICorner")
@@ -135,9 +149,9 @@ tip.AnchorPoint = Vector2.new(0.5, 1)
 tip.Position = UDim2.fromScale(0.5, 0.9)
 tip.Size = UDim2.fromScale(0.72, 0.09)
 tip.BackgroundTransparency = 1
-tip.Font = Enum.Font.GothamMedium
+tip.Font = Enum.Font.BuilderSansMedium -- Theme.font.body
 tip.Text = ""
-tip.TextColor3 = Color3.fromRGB(200, 214, 205)
+tip.TextColor3 = Color3.fromRGB(188, 178, 150) -- Theme.color.creamDim
 tip.TextScaled = true
 tip.TextWrapped = true
 tip.TextTransparency = 1

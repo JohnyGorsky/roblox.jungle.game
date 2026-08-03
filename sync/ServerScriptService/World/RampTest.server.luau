@@ -72,7 +72,7 @@ local function buildRamp(z: number, angleDeg: number, color: Color3)
 	lbl.BackgroundTransparency = 0.3
 	lbl.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 	lbl.TextColor3 = Color3.new(1, 1, 1)
-	lbl.Font = Enum.Font.GothamBold
+	lbl.Font = Enum.Font.BuilderSansBold -- dev-only debug label; Gotham is not a Last River face
 	lbl.TextScaled = true
 	lbl.Text = angleDeg .. "° JUMP"
 	lbl.Parent = bb

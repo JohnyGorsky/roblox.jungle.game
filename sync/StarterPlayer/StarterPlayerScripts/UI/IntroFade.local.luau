@@ -20,7 +20,9 @@ gui.Parent = playerGui
 local black = Instance.new("Frame")
 black.Name = "Black"
 black.Size = UDim2.fromScale(1, 1)
-black.BackgroundColor3 = Color3.new(0, 0, 0)
+black.BackgroundColor3 = Color3.new(0, 0, 0) -- TRUE black on purpose, not a palette miss (Job #075):
+-- this is the blackout between the plane crash and waking at the wreck. A tinted "dark jungle" fade
+-- would read as a dimmed scene rather than as unconsciousness.
 black.BackgroundTransparency = 1 -- start clear
 black.BorderSizePixel = 0
 black.Parent = gui

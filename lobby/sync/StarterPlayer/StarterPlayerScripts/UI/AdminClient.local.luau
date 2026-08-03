@@ -1,7 +1,14 @@
 --!strict
--- AdminClient.local.luau — admin panel UI (Job 031). Only builds for allowlisted users. Pick a target
--- (yourself or another player) and grant Gold / River Score / Salvage / all modules / max skills. The
--- server re-checks the allowlist on every action. IDENTICAL copy in both trees.
+-- AdminClient.local.luau — admin panel UI (Job 031, on the design system in Job #075). Only builds for
+-- allowlisted users. Pick a target (yourself or another player) and grant Gold / River Score / Salvage /
+-- all modules / max skills. The server re-checks the allowlist on every action.
+--
+-- ⚠️ IDENTICAL COPY IN BOTH TREES — `sync/` and `lobby/sync/`. Edit one, copy to the other in the same
+-- commit; `diff` between the two must be silent.
+--
+-- Styled like everything else, but deliberately kept PLAIN: it is a dev tool, not a player-facing
+-- screen, so it gets the design system's components and none of its flourish — no burst, no toast, no
+-- celebratory sound on a grant. It should never be mistaken for something a player is meant to find.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,103 +18,72 @@ local AdminDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForC
 if not AdminDefs.isAdmin(player.UserId) then
 	return -- not an admin → no UI at all
 end
+
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+
 local rf = ReplicatedStorage:WaitForChild("Admin") :: RemoteFunction
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "AdminPanel"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 60
-gui.Parent = player:WaitForChild("PlayerGui")
+-- ── open button ──────────────────────────────────────────────────────────────────────────────────
 
--- Job 065: tokens only, no redesign (it's an allowlisted dev tool, not a player screen). The magenta
--- was the one colour in the lobby that appears nowhere in STYLEGUIDE §4; it now uses the palette's
--- alt/cooler surface so it reads as "not part of the game's UI" without inventing a colour.
-local Theme = require(game:GetService("ReplicatedStorage"):WaitForChild("UI"):WaitForChild("Theme"))
+local launcher = Components.screen("AdminLauncher", player:WaitForChild("PlayerGui"))
+launcher.DisplayOrder = 60
 
-local openBtn = Instance.new("TextButton")
-openBtn.AnchorPoint = Vector2.new(1, 1)
-openBtn.Position = UDim2.new(1, -14, 1, -14)
-openBtn.Size = UDim2.fromScale(0.12, 0.05)
-openBtn.BackgroundColor3 = Theme.color.panelAlt
-openBtn.Font = Theme.font.button
-openBtn.TextColor3 = Theme.color.cream
-openBtn.TextScaled = true
-openBtn.Text = "ADMIN"
-local obc = Instance.new("UICorner")
-obc.CornerRadius = UDim.new(0, 8)
-obc.Parent = openBtn
-local obar = Instance.new("UIAspectRatioConstraint")
-obar.AspectRatio = 3.4
-obar.Parent = openBtn
-local obtsc = Instance.new("UITextSizeConstraint")
-obtsc.MaxTextSize = 16
-obtsc.Parent = openBtn
-openBtn.Parent = gui
+local openHolder = Instance.new("Frame")
+openHolder.Name = "Holder"
+openHolder.AnchorPoint = Vector2.new(1, 1)
+-- Raised off the bottom-right corner: in the GAME place that corner is the driver's throttle cluster
+-- (TouchControls). Sitting above it keeps an admin from fat-fingering a grant while steering.
+openHolder.Position = UDim2.fromScale(0.98, 0.78)
+openHolder.Size = UDim2.fromScale(0.1, 0.045)
+openHolder.BackgroundTransparency = 1
+openHolder.BorderSizePixel = 0
 
-local dim = Instance.new("Frame")
-dim.Size = UDim2.fromScale(1, 1)
-dim.BackgroundColor3 = Color3.new(0, 0, 0)
-dim.BackgroundTransparency = 0.5
-dim.Visible = false
-dim.Parent = gui
+local openClamp = Instance.new("UISizeConstraint")
+openClamp.MinSize = Vector2.new(90, 32)
+openClamp.MaxSize = Vector2.new(170, 48)
+openClamp.Parent = openHolder
 
-local panel = Instance.new("Frame")
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromScale(0.44, 0.6)
-panel.BackgroundColor3 = Color3.fromRGB(26, 20, 30)
-panel.Parent = dim
-local pcc = Instance.new("UICorner")
-pcc.CornerRadius = UDim.new(0, 14)
-pcc.Parent = panel
+openHolder.Parent = launcher
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.fromScale(1, 0.12)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.fromRGB(210, 130, 220)
-title.TextScaled = true
-title.Text = "ADMIN PANEL"
-local ttsc = Instance.new("UITextSizeConstraint")
-ttsc.MaxTextSize = 24
-ttsc.Parent = title
-title.Parent = panel
+-- ── panel ────────────────────────────────────────────────────────────────────────────────────────
 
-local closeBtn = Instance.new("TextButton")
-closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, -8, 0, 8)
-closeBtn.Size = UDim2.fromScale(0.1, 0.1)
-closeBtn.BackgroundColor3 = Color3.fromRGB(150, 60, 60)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextColor3 = Color3.new(1, 1, 1)
-closeBtn.TextScaled = true
-closeBtn.Text = "X"
-local cbc = Instance.new("UICorner")
-cbc.CornerRadius = UDim.new(0, 8)
-cbc.Parent = closeBtn
-closeBtn.Parent = panel
+local panel = Components.panel({
+	name = "AdminPanel",
+	title = "Admin panel",
+	icon = "wrench",
+	size = UDim2.fromScale(0.46, 0.62),
+	parent = player.PlayerGui,
+})
+panel.gui.DisplayOrder = 61
 
--- target selector (cycles Me + current players)
+-- ── target selector (cycles Me + current players) ────────────────────────────────────────────────
+
 local targets: { { name: string, userId: number } } = {}
 local targetIdx = 1
 
-local targetBtn = Instance.new("TextButton")
-targetBtn.Position = UDim2.fromScale(0.06, 0.16)
-targetBtn.Size = UDim2.fromScale(0.88, 0.12)
-targetBtn.BackgroundColor3 = Color3.fromRGB(40, 44, 52)
-targetBtn.Font = Enum.Font.GothamBold
-targetBtn.TextColor3 = Color3.new(1, 1, 1)
-targetBtn.TextScaled = true
-targetBtn.Text = "Target: (loading…)"
-local tbc = Instance.new("UICorner")
-tbc.CornerRadius = UDim.new(0, 8)
-tbc.Parent = targetBtn
-local tbtsc = Instance.new("UITextSizeConstraint")
-tbtsc.MaxTextSize = 16
-tbtsc.Parent = targetBtn
-targetBtn.Parent = panel
+local targetButton = Components.button({
+	text = "TARGET: (LOADING…)",
+	variant = "secondary",
+	icon = "crew",
+	size = UDim2.fromScale(1, 0.12),
+	parent = panel.content,
+	onActivated = function()
+		if #targets == 0 then
+			return
+		end
+		targetIdx = (targetIdx % #targets) + 1
+	end,
+})
+targetButton.instance.Position = UDim2.fromScale(0, 0)
 
+local function showTarget()
+	local t = targets[targetIdx]
+	targetButton.setText(if t then ("TARGET: %s  ›"):format(string.upper(t.name)) else "TARGET: —")
+end
+
+-- rebuilt each open: the player list changes between openings
 local function refreshTargets()
 	targets = { { name = player.DisplayName .. " (me)", userId = player.UserId } }
 	local ok, res = pcall(function()
@@ -123,81 +99,87 @@ local function refreshTargets()
 	if targetIdx > #targets then
 		targetIdx = 1
 	end
-	targetBtn.Text = "Target: " .. targets[targetIdx].name .. "  >"
+	showTarget()
 end
 
-targetBtn.Activated:Connect(function()
-	if #targets == 0 then
-		return
-	end
-	targetIdx = (targetIdx % #targets) + 1
-	targetBtn.Text = "Target: " .. targets[targetIdx].name .. "  >"
-end)
+-- The cycle handler above changes the index; the label follows it here rather than inside the handler,
+-- so both the cycle and a refresh go through one place.
+targetButton.instance.Activated:Connect(showTarget)
 
--- action buttons
-type AdminAction = { label: string, kind: string?, amount: number?, action: string? }
+-- ── actions ──────────────────────────────────────────────────────────────────────────────────────
+
+type AdminAction = { label: string, icon: string, kind: string?, amount: number?, action: string? }
+
 local actions: { AdminAction } = {
-	{ label = "+1000 Gold", kind = "gold", amount = 1000 },
-	{ label = "+10000 River Score", kind = "score", amount = 10000 },
-	{ label = "+1000 Salvage (in-run)", kind = "salvage", amount = 1000 },
-	{ label = "Unlock ALL Modules", kind = "allModules", amount = 0 },
-	{ label = "MAX ALL Skills", kind = "maxSkills", amount = 0 },
-	{ label = "TP to First Camp", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
+	{ label = "+1000 Gold", icon = "coin", kind = "gold", amount = 1000 },
+	{ label = "+10000 River Score", icon = "trophy", kind = "score", amount = 10000 },
+	{ label = "+1000 Salvage (in-run)", icon = "salvage", kind = "salvage", amount = 1000 },
+	{ label = "Unlock ALL Modules", icon = "boat", kind = "allModules", amount = 0 },
+	{ label = "MAX ALL Skills", icon = "star", kind = "maxSkills", amount = 0 },
+	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 }
 
-local list = Instance.new("Frame")
-list.Position = UDim2.fromScale(0.06, 0.32)
-list.Size = UDim2.fromScale(0.88, 0.62)
+local list = Instance.new("ScrollingFrame")
+list.Name = "Actions"
+list.Position = UDim2.fromScale(0, 0.16)
+list.Size = UDim2.fromScale(1, 0.84)
 list.BackgroundTransparency = 1
-list.Parent = panel
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 4
+list.ScrollBarImageColor3 = Theme.color.wood
+list.CanvasSize = UDim2.new()
+list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+list.Parent = panel.content
+
 local layout = Instance.new("UIListLayout")
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, Theme.space.sm)
 layout.Parent = list
 
 for i, a in ipairs(actions) do
-	local b = Instance.new("TextButton")
-	b.LayoutOrder = i
-	b.Size = UDim2.new(1, 0, 0, 44)
-	b.BackgroundColor3 = Color3.fromRGB(70, 50, 90)
-	b.Font = Enum.Font.GothamBold
-	b.TextColor3 = Color3.new(1, 1, 1)
-	b.TextScaled = true
-	b.Text = a.label
-	local bc = Instance.new("UICorner")
-	bc.CornerRadius = UDim.new(0, 8)
-	bc.Parent = b
-	local btsc = Instance.new("UITextSizeConstraint")
-	btsc.MaxTextSize = 16
-	btsc.Parent = b
-	b.Parent = list
-	b.Activated:Connect(function()
-		-- self-actions (e.g. teleport) take no target and close the panel so you see the result
-		if a.action then
-			b.Text = "…"
-			pcall(function()
-				rf:InvokeServer(a.action)
-			end)
-			b.Text = a.label
-			dim.Visible = false
-			return
-		end
-		local tgt = targets[targetIdx]
-		if not tgt then
-			return
-		end
-		b.Text = "…"
-		pcall(function()
-			rf:InvokeServer("give", { targetUserId = tgt.userId, kind = a.kind, amount = a.amount })
-		end)
-		b.Text = a.label
-	end)
+	local button
+	button = Components.button({
+		text = string.upper(a.label),
+		variant = "gold",
+		icon = a.icon,
+		size = UDim2.new(1, 0, 0, 44),
+		layoutOrder = i,
+		parent = list,
+		onActivated = function()
+			button.setEnabled(false)
+			button.setText("…")
+
+			-- self-actions (e.g. teleport) take no target and close the panel so you see the result
+			if a.action then
+				pcall(function()
+					rf:InvokeServer(a.action)
+				end)
+				button.setText(string.upper(a.label))
+				button.setEnabled(true)
+				panel.setOpen(false)
+				return
+			end
+
+			local tgt = targets[targetIdx]
+			if tgt then
+				pcall(function()
+					rf:InvokeServer("give", { targetUserId = tgt.userId, kind = a.kind, amount = a.amount })
+				end)
+			end
+			button.setText(string.upper(a.label))
+			button.setEnabled(true)
+		end,
+	})
 end
 
-openBtn.Activated:Connect(function()
-	refreshTargets()
-	dim.Visible = true
-end)
-closeBtn.Activated:Connect(function()
-	dim.Visible = false
-end)
+-- The panel owns its own way out (X + tap-outside), so opening is all that's left to wire.
+Components.button({
+	text = "ADMIN",
+	variant = "secondary",
+	size = UDim2.fromScale(1, 1),
+	parent = openHolder,
+	onActivated = function()
+		refreshTargets() -- the player list changes between openings
+		panel.setOpen(true)
+	end,
+})

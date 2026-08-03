@@ -1,79 +1,104 @@
 --!strict
--- StagingHint.local.luau — pre-run staging banner: "board the boat & untie to start" + N/M on boat (Job 016).
+-- StagingHint.local.luau — the CRASH SITE banner (Job 016, rebuilt in Job #075).
 --
--- Shows only before Workspace.RunStarted. Reads the boat-occupancy counts StagingServer publishes
--- (Boat.OnBoatCount / Boat.CrewCount) so the crew knows to board before anyone unties. Greybox.
+-- The first thing you see after waking at the wreck, and the only instruction the game gives before the
+-- run starts: get on the boat, untie, go. Reads the occupancy counts StagingServer publishes
+-- (Boat.OnBoatCount / Boat.CrewCount).
+--
+-- The crew count is a PROGRESS BAR now rather than the old "3/4 on boat" text. Same information, but
+-- "are we all aboard yet?" is a question about a proportion, and a filling bar answers it without
+-- anyone reading a digit — which matters when the person who has to decide is the one at the helm.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local RunUI = ReplicatedStorage:WaitForChild("RunUI")
+local RunComponents = require(RunUI:WaitForChild("RunComponents"))
 
 local player = Players.LocalPlayer
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "StagingHint"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.Parent = player:WaitForChild("PlayerGui")
+local gui = Components.screen("StagingHint", player:WaitForChild("PlayerGui"))
+gui.DisplayOrder = 7
 
-local panel = Instance.new("Frame")
-panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 70)
-panel.Size = UDim2.fromScale(0.5, 0.12)
-panel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-panel.BackgroundTransparency = 0.25
-panel.BorderSizePixel = 0
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = panel
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 6)
-pad.PaddingBottom = UDim.new(0, 6)
-pad.PaddingLeft = UDim.new(0, 10)
-pad.PaddingRight = UDim.new(0, 10)
-pad.Parent = panel
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.VerticalAlignment = Enum.VerticalAlignment.Center
-layout.Padding = UDim.new(0, 4)
-layout.Parent = panel
-panel.Parent = gui
+local card = RunComponents.card({
+	name = "Staging",
+	anchor = Vector2.new(0.5, 0),
+	position = UDim2.fromScale(0.5, 0.12),
+	size = UDim2.fromScale(0.4, 0.13),
+	accent = Theme.color.gold,
+	transparency = 0.08,
+	parent = gui,
+})
+
+local clamp = Instance.new("UISizeConstraint")
+clamp.MinSize = Vector2.new(260, 78)
+clamp.MaxSize = Vector2.new(560, 150)
+clamp.Parent = card
+
+local ico = Components.icon({ name = "boat", size = UDim2.fromScale(0.13, 0.5), parent = card })
+ico.AnchorPoint = Vector2.new(0, 0)
+ico.Position = UDim2.fromScale(0.04, 0.13)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.fromScale(1, 0.5)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.fromRGB(255, 235, 150)
-title.TextScaled = true
-title.Text = "Board the boat & untie to START"
-local tsc = Instance.new("UITextSizeConstraint")
-tsc.MaxTextSize = 22
-tsc.Parent = title
-title.Parent = panel
+title.Name = "Title"
+title.Position = UDim2.fromScale(0.22, 0.12)
+title.Size = UDim2.fromScale(0.74, 0.34)
+title.TextXAlignment = Enum.TextXAlignment.Left
+Components.applyText(title, Theme.text.h1, Theme.font.heading)
+title.Text = "BOARD THE BOAT & UNTIE"
+title.Parent = card
 
-local crew = Instance.new("TextLabel")
-crew.Size = UDim2.fromScale(1, 0.45)
-crew.BackgroundTransparency = 1
-crew.Font = Enum.Font.GothamBold
-crew.TextColor3 = Color3.new(1, 1, 1)
-crew.TextScaled = true
-crew.Text = "0/0 on boat"
-local csc = Instance.new("UITextSizeConstraint")
-csc.MaxTextSize = 20
-csc.Parent = crew
-crew.Parent = panel
+local hint = Instance.new("TextLabel")
+hint.Name = "Hint"
+hint.Position = UDim2.fromScale(0.22, 0.44)
+hint.Size = UDim2.fromScale(0.74, 0.2)
+hint.TextXAlignment = Enum.TextXAlignment.Left
+Components.applyText(hint, Theme.text.caption, Theme.font.body)
+hint.TextColor3 = Theme.color.creamDim
+hint.Text = "Anyone can pull the rope — the run starts the moment it's loose."
+hint.Parent = card
+
+local barHolder = Instance.new("Frame")
+barHolder.Name = "CrewBarHolder"
+barHolder.AnchorPoint = Vector2.new(0.5, 1)
+barHolder.Position = UDim2.fromScale(0.5, 0.9)
+barHolder.Size = UDim2.fromScale(0.9, 0.22)
+barHolder.BackgroundTransparency = 1
+barHolder.BorderSizePixel = 0
+barHolder.Active = false
+barHolder.Parent = card
+
+local crewBar = Components.progressBar(barHolder)
+crewBar.instance.Size = UDim2.fromScale(1, 1)
+
+-- ── state ────────────────────────────────────────────────────────────────────────────────────────
 
 local function refresh()
-	if Workspace:GetAttribute("RunStarted") then
+	-- Hidden the instant the run starts. Deliberately NOT bound through HudState: this is the one screen
+	-- that must vanish on the RunStarted edge itself, with no settle window, because the untie that
+	-- starts the run is the same action that makes the instruction wrong.
+	if Workspace:GetAttribute("RunStarted") == true then
 		gui.Enabled = false
 		return
 	end
 	gui.Enabled = true
+
 	local boat = Workspace:FindFirstChild("Boat")
-	local onBoat = boat and (boat:GetAttribute("OnBoatCount") :: number?) or 0
-	local total = boat and (boat:GetAttribute("CrewCount") :: number?) or 0
-	crew.Text = string.format("%d/%d on boat", onBoat, total)
-	crew.TextColor3 = if total > 0 and onBoat >= total then Color3.fromRGB(150, 220, 120) else Color3.new(1, 1, 1)
+	local onBoat = if boat then ((boat:GetAttribute("OnBoatCount") :: number?) or 0) else 0
+	local total = if boat then ((boat:GetAttribute("CrewCount") :: number?) or 0) else 0
+
+	local ready = total > 0 and onBoat >= total
+	crewBar.setFill(if total > 0 then onBoat / total else 0)
+	crewBar.setText(if ready then ("ALL ABOARD  %d/%d"):format(onBoat, total) else ("%d/%d ON BOAT"):format(onBoat, total))
+
+	local fill = crewBar.instance:FindFirstChild("Fill") :: Frame?
+	if fill then
+		fill.BackgroundColor3 = if ready then Theme.color.green else Theme.color.yellow
+	end
 end
 
 Workspace:GetAttributeChangedSignal("RunStarted"):Connect(refresh)
@@ -84,11 +109,12 @@ local function hookBoat(boat: Instance)
 	boat:GetAttributeChangedSignal("CrewCount"):Connect(refresh)
 	refresh()
 end
+
 local existing = Workspace:FindFirstChild("Boat")
 if existing then
 	hookBoat(existing)
 end
-Workspace.ChildAdded:Connect(function(child)
+Workspace.ChildAdded:Connect(function(child: Instance)
 	if child.Name == "Boat" then
 		hookBoat(child)
 	end

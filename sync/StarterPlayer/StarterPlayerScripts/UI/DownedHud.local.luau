@@ -1,142 +1,133 @@
 --!strict
--- DownedHud.local.luau — the DOWNED overlay + paid self-revive (Job 067).
+-- DownedHud.local.luau — the DOWNED overlay + paid self-revive (Job 067, put on the design system in
+-- Job #075).
 --
--- Until this existed, going down had NO client feedback whatsoever: you simply stopped being able to move,
--- with nothing telling you why, how long you had, or that a teammate could pick you up. That was worth
--- fixing on its own; the paid revive is one button inside it.
+-- Until this existed, going down had NO client feedback whatsoever: you simply stopped being able to
+-- move, with nothing telling you why, how long you had, or that a teammate could pick you up. That was
+-- worth fixing on its own; the paid revive is one button inside it.
 --
 -- Reads the character attributes PlayerCombat publishes — `Downed` and `BleedOutAt` (a wall-clock
 -- os.time() deadline, so the client can count down without a per-frame server tick).
 --
--- ⚠️ STYLING: the GAME place has NO design system — Theme/Components are lobby-only and this HUD is still
--- greybox, like every other HUD here (P9 job). The palette below is lifted from the lobby's Theme.color so
--- the two places don't look like different games in the meantime; when the design system lands in the game
--- tree, delete these constants and use the real components.
+-- Job #075 closes the note its own header used to carry: *"the GAME place has NO design system —
+-- Theme/Components are lobby-only and this HUD is still greybox... when the design system lands in the
+-- game tree, delete these constants and use the real components."* Done — the five hand-copied Color3
+-- constants are gone and this is built from Components like everything else.
 
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local MonetizationDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("MonetizationDefs")) :: any
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local UISound = require(UI:WaitForChild("UISound"))
+local RunUI = ReplicatedStorage:WaitForChild("RunUI")
+local RunComponents = require(RunUI:WaitForChild("RunComponents"))
+
+local PANIC_SECONDS = 10 -- the tail of the bleed-out where the timer starts pulsing
 
 local player = Players.LocalPlayer
-
--- lifted from lobby Theme.color (see the styling note above)
-local CREAM = Color3.fromRGB(243, 230, 194)
-local CREAM_DIM = Color3.fromRGB(188, 178, 150)
-local PANEL = Color3.fromRGB(28, 34, 28)
-local DANGER = Color3.fromRGB(178, 70, 55)
-local GOLD = Color3.fromRGB(214, 168, 74)
-
 local selfReviveProduct = MonetizationDefs.product("selfRevive")
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "DownedHud"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 20
+local gui = Components.screen("DownedHud", player:WaitForChild("PlayerGui"))
+-- 30, above the 20 that panels use. Found in the Job #075 playtest: with both at 20 the DOWNED card and
+-- an open Trading Post interleaved — the shop's scrim sat over the red vignette and its rows showed
+-- through the card. Bleeding out has to cover everything except the end-of-run screen.
+gui.DisplayOrder = 30
+gui.ScreenInsets = Enum.ScreenInsets.None -- the vignette has to reach the real screen edge
 gui.Enabled = false
-gui.Parent = player:WaitForChild("PlayerGui")
 
 -- a red vignette so being downed reads instantly, before any text is parsed
 local vignette = Instance.new("Frame")
+vignette.Name = "Vignette"
 vignette.Size = UDim2.fromScale(1, 1)
-vignette.BackgroundColor3 = DANGER
+vignette.BackgroundColor3 = Theme.color.red
 vignette.BackgroundTransparency = 0.78
 vignette.BorderSizePixel = 0
 vignette.ZIndex = 1
+vignette.Active = false
 vignette.Parent = gui
 
-local card = Instance.new("Frame")
-card.AnchorPoint = Vector2.new(0.5, 0.5)
-card.Position = UDim2.fromScale(0.5, 0.5)
-card.Size = UDim2.fromScale(0.42, 0.26)
-card.BackgroundColor3 = PANEL
-card.BackgroundTransparency = 0.1
-card.BorderSizePixel = 0
+local card = RunComponents.card({
+	name = "DownedCard",
+	anchor = Vector2.new(0.5, 0.5),
+	position = UDim2.fromScale(0.5, 0.5),
+	size = UDim2.fromScale(0.42, 0.28),
+	accent = Theme.color.red,
+	transparency = 0.05,
+	parent = gui,
+})
 card.ZIndex = 2
-local cardCorner = Instance.new("UICorner")
-cardCorner.CornerRadius = UDim.new(0, 12)
-cardCorner.Parent = card
-local cardStroke = Instance.new("UIStroke")
-cardStroke.Color = DANGER
-cardStroke.Thickness = 3
-cardStroke.Parent = card
-card.Parent = gui
+
+local clamp = Instance.new("UISizeConstraint")
+clamp.MinSize = Vector2.new(300, 190)
+clamp.MaxSize = Vector2.new(620, 380)
+clamp.Parent = card
+
+local skull = Components.icon({ name = "skull", size = UDim2.fromScale(0.14, 0.26), parent = card })
+skull.AnchorPoint = Vector2.new(0.5, 0)
+skull.Position = UDim2.fromScale(0.5, 0.04)
+skull.ZIndex = 3
 
 local title = Instance.new("TextLabel")
-title.Position = UDim2.fromScale(0.05, 0.08)
-title.Size = UDim2.fromScale(0.9, 0.22)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.BuilderSansBold
-title.TextColor3 = CREAM
-title.TextScaled = true
+title.Name = "Title"
+title.Position = UDim2.fromScale(0.05, 0.3)
+title.Size = UDim2.fromScale(0.9, 0.16)
+title.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(title, Theme.text.h1, Theme.font.display)
 title.Text = "YOU ARE DOWN"
 title.ZIndex = 3
-local titleSize = Instance.new("UITextSizeConstraint")
-titleSize.MaxTextSize = 34
-titleSize.Parent = title
 title.Parent = card
 
 local timer = Instance.new("TextLabel")
-timer.Position = UDim2.fromScale(0.05, 0.3)
-timer.Size = UDim2.fromScale(0.9, 0.26)
-timer.BackgroundTransparency = 1
-timer.Font = Enum.Font.BuilderSansBold
-timer.TextColor3 = DANGER
-timer.TextScaled = true
+timer.Name = "Timer"
+timer.Position = UDim2.fromScale(0.05, 0.44)
+timer.Size = UDim2.fromScale(0.9, 0.22)
+timer.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(timer, Theme.text.display, Theme.font.display)
+timer.TextColor3 = Theme.color.red
 timer.Text = ""
 timer.ZIndex = 3
-local timerSize = Instance.new("UITextSizeConstraint")
-timerSize.MaxTextSize = 44
-timerSize.Parent = timer
 timer.Parent = card
 
 local hint = Instance.new("TextLabel")
-hint.Position = UDim2.fromScale(0.05, 0.55)
-hint.Size = UDim2.fromScale(0.9, 0.14)
-hint.BackgroundTransparency = 1
-hint.Font = Enum.Font.BuilderSans
-hint.TextColor3 = CREAM_DIM
-hint.TextScaled = true
+hint.Name = "Hint"
+hint.Position = UDim2.fromScale(0.05, 0.65)
+hint.Size = UDim2.fromScale(0.9, 0.1)
+hint.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(hint, Theme.text.caption, Theme.font.body)
+hint.TextColor3 = Theme.color.creamDim
 hint.Text = "A teammate can revive you with a bandage."
 hint.ZIndex = 3
-local hintSize = Instance.new("UITextSizeConstraint")
-hintSize.MaxTextSize = 18
-hintSize.Parent = hint
 hint.Parent = card
 
-local buyButton = Instance.new("TextButton")
-buyButton.AnchorPoint = Vector2.new(0.5, 1)
-buyButton.Position = UDim2.fromScale(0.5, 0.94)
-buyButton.Size = UDim2.fromScale(0.66, 0.24)
-buyButton.BackgroundColor3 = GOLD
-buyButton.AutoButtonColor = true
-buyButton.Font = Enum.Font.BuilderSansBold
-buyButton.TextColor3 = Color3.fromRGB(28, 24, 14)
-buyButton.TextScaled = true
-buyButton.ZIndex = 3
-buyButton.Text = "GET UP — R$ " .. tostring((selfReviveProduct and selfReviveProduct.robux) or "?")
-local buyCorner = Instance.new("UICorner")
-buyCorner.CornerRadius = UDim.new(0, 10)
-buyCorner.Parent = buyButton
-local buySize = Instance.new("UITextSizeConstraint")
-buySize.MaxTextSize = 24
-buySize.Parent = buyButton
 -- Hidden entirely when the product hasn't been created on the Creator Hub yet (productId 0) — the same
 -- "unset ids never render a dead button" rule the Robux shop follows.
-buyButton.Visible = selfReviveProduct ~= nil and selfReviveProduct.productId > 0
-buyButton.Parent = card
+local canBuy = selfReviveProduct ~= nil and selfReviveProduct.productId > 0
 
-buyButton.Activated:Connect(function()
-	if not selfReviveProduct or selfReviveProduct.productId <= 0 then
-		return
-	end
-	-- No custom confirm: MarketplaceService shows Roblox's own purchase dialog, and a second popup on top
-	-- of a bleed-out timer would be actively hostile.
-	MarketplaceService:PromptProductPurchase(player, selfReviveProduct.productId)
-end)
+local buy = Components.button({
+	text = "GET UP — R$ " .. tostring((selfReviveProduct and selfReviveProduct.robux) or "?"),
+	variant = "gold",
+	icon = "robux",
+	size = UDim2.fromScale(0.66, 0.17),
+	parent = card,
+	onActivated = function()
+		if not canBuy then
+			return
+		end
+		-- No custom confirm: MarketplaceService shows Roblox's own purchase dialog, and a second popup
+		-- on top of a bleed-out timer would be actively hostile.
+		MarketplaceService:PromptProductPurchase(player, (selfReviveProduct :: any).productId)
+	end,
+})
+buy.instance.AnchorPoint = Vector2.new(0.5, 1)
+buy.instance.Position = UDim2.fromScale(0.5, 0.95)
+buy.instance.ZIndex = 3
+buy.instance.Visible = canBuy
 
 -- ── drive from the character's attributes ────────────────────────────────────────────────────────
 
@@ -153,9 +144,25 @@ local function watch(char: Model)
 	stopTicking()
 	gui.Enabled = false
 
+	local wasDowned = false
+
 	local function update()
 		local downed = char:GetAttribute("Downed") == true
 		gui.Enabled = downed
+
+		if downed and not wasDowned then
+			UISound.play("downed")
+			TweenService:Create(vignette, Theme.tween.slow, { BackgroundTransparency = 0.78 }):Play()
+			-- You cannot shop while bleeding out, and a panel left open behind the overlay is just
+			-- clutter over the one screen that now matters (§6.11).
+			Components.closeAllPanels()
+		elseif not downed and wasDowned then
+			-- Getting back up is the payoff for a teammate's bandage or a purchase — it deserves the
+			-- cue as much as going down does.
+			UISound.play("revived")
+		end
+		wasDowned = downed
+
 		if not downed then
 			stopTicking()
 			return
@@ -170,9 +177,11 @@ local function watch(char: Model)
 				return
 			end
 			local left = math.max(0, deadline - os.time())
-			timer.Text = string.format("%d", left)
-			-- the last 10 seconds pulse, so panic-buying is a decision and not a surprise
-			timer.TextTransparency = if left <= 10 then 0.25 + 0.25 * math.sin(os.clock() * 8) else 0
+			timer.Text = ("%d"):format(left)
+			-- the last seconds pulse, so panic-buying is a decision and not a surprise
+			timer.TextTransparency = if left <= PANIC_SECONDS
+				then 0.25 + 0.25 * math.sin(os.clock() * 8)
+				else 0
 		end)
 	end
 

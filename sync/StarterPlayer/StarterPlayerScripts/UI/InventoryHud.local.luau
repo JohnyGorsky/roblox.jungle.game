@@ -1,21 +1,29 @@
 --!strict
--- InventoryHud.local.luau — the loadout hotbar (Job 015).
+-- InventoryHud.local.luau — the loadout hotbar (Job 015, restyled onto the design system in Job #075).
 --
 -- Mobile-first, scale-based. One row of slot buttons at the bottom-left: tap a slot to equip it (one
 -- item active at a time). The active slot is highlighted; guns show their ammo. Reads the player's
 -- replicated inventory attributes (Slot1..N / ActiveSlot / ActiveItem / Ammo*). Keyboard 1-N + Q (drop)
--- are conveniences for Studio testing. Greybox — the real design system is a later pass.
+-- are conveniences for Studio testing.
 --
 -- Job 067: the bar is 4 slots by default and 6 with the Extra Inventory Slots pass. ALL slot buttons are
 -- built up front and the surplus ones are hidden, because `Owns_extraSlots` arrives asynchronously
 -- (UserOwnsGamePassAsync on join) and can land after this script has already drawn — so the bar must
 -- react to it changing rather than sample it once at startup.
+--
+-- Job #075: slots are `RunComponents.slot` (icon art, not the item's name as button text), and the
+-- "HANDS FULL" banner became a warning card that no longer overlaps the first slot at phone widths.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local RunUI = ReplicatedStorage:WaitForChild("RunUI")
+local RunComponents = require(RunUI:WaitForChild("RunComponents"))
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("InventoryCmd") :: RemoteEvent
@@ -25,130 +33,107 @@ local function visibleSlots(): number
 	return ItemDefs.slotsFor(player)
 end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "InventoryHud"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+local gui = Components.screen("InventoryHud", player:WaitForChild("PlayerGui"))
+gui.DisplayOrder = 6
 
 local bar = Instance.new("Frame")
+bar.Name = "Hotbar"
 bar.AnchorPoint = Vector2.new(0, 1)
-bar.Position = UDim2.new(0, 12, 1, -12)
+bar.Position = UDim2.fromScale(0.015, 0.975)
 bar.Size = UDim2.fromScale(0.36, 0.1)
 bar.BackgroundTransparency = 1
+bar.BorderSizePixel = 0
+
+-- Slots are square (UIAspectRatioConstraint), so the row's HEIGHT decides how wide the whole bar ends
+-- up. Clamping height is therefore what keeps six slots from marching off the side of a phone.
+local clamp = Instance.new("UISizeConstraint")
+clamp.MinSize = Vector2.new(0, 46)
+clamp.MaxSize = Vector2.new(10000, 76)
+clamp.Parent = bar
+
 local layout = Instance.new("UIListLayout")
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-layout.Padding = UDim.new(0, 6)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, Theme.space.sm)
 layout.Parent = bar
+
 bar.Parent = gui
 
--- a "carrying" banner (hands full → can't use items)
+-- "hands full" — you're carrying a fuel can / loot crate, so items are unusable
+local carry = RunComponents.card({
+	name = "HandsFull",
+	anchor = Vector2.new(0, 1),
+	position = UDim2.fromScale(0.015, 0.855),
+	size = UDim2.fromScale(0.2, 0.036),
+	accent = Theme.color.yellow,
+	parent = gui,
+})
+carry.Visible = false
+
+local carryIcon = Components.icon({ name = "crate", size = UDim2.fromScale(0.14, 0.7), chip = false, parent = carry })
+carryIcon.AnchorPoint = Vector2.new(0, 0.5)
+carryIcon.Position = UDim2.fromScale(0.04, 0.5)
+
 local carryLabel = Instance.new("TextLabel")
-carryLabel.AnchorPoint = Vector2.new(0, 1)
-carryLabel.Position = UDim2.new(0, 12, 1, -12 - 4)
-carryLabel.Size = UDim2.fromScale(0.36, 0.035)
-carryLabel.BackgroundColor3 = Color3.fromRGB(160, 90, 40)
-carryLabel.BackgroundTransparency = 0.2
-carryLabel.TextColor3 = Color3.new(1, 1, 1)
-carryLabel.Font = Enum.Font.GothamBold
-carryLabel.TextScaled = true
-carryLabel.Text = "HANDS FULL — carrying"
-carryLabel.Visible = false
-local carryCorner = Instance.new("UICorner")
-carryCorner.CornerRadius = UDim.new(0, 6)
-carryCorner.Parent = carryLabel
-local carrySize = Instance.new("UITextSizeConstraint")
-carrySize.MaxTextSize = 14
-carrySize.Parent = carryLabel
-carryLabel.Parent = gui
+carryLabel.Name = "Label"
+carryLabel.AnchorPoint = Vector2.new(1, 0.5)
+carryLabel.Position = UDim2.fromScale(0.96, 0.5)
+carryLabel.Size = UDim2.fromScale(0.78, 0.66)
+carryLabel.TextXAlignment = Enum.TextXAlignment.Left
+Components.applyText(carryLabel, Theme.text.caption, Theme.font.button)
+carryLabel.TextColor3 = Theme.color.yellow
+carryLabel.Text = "HANDS FULL — CARRYING"
+carryLabel.Parent = carry
 
-type SlotUi = { button: TextButton, ammo: TextLabel }
-local slotUis: { SlotUi } = {}
+-- ── slots ────────────────────────────────────────────────────────────────────────────────────────
 
+local slots: { RunComponents.Slot } = {}
 for i = 1, MAX_SLOTS do
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.fromScale(1 / MAX_SLOTS - 0.02, 1)
-	button.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-	button.BackgroundTransparency = 0.25
-	button.AutoButtonColor = false
-	button.Font = Enum.Font.GothamBold
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.TextScaled = true
-	button.Text = tostring(i)
-	button.LayoutOrder = i
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
-	corner.Parent = button
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = Color3.fromRGB(60, 60, 70)
-	stroke.Parent = button
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 4)
-	pad.PaddingBottom = UDim.new(0, 4)
-	pad.Parent = button
-	local tsize = Instance.new("UITextSizeConstraint")
-	tsize.MaxTextSize = 18
-	tsize.Parent = button
-	local ratio = Instance.new("UIAspectRatioConstraint")
-	ratio.AspectRatio = 1
-	ratio.Parent = button
-
-	local ammo = Instance.new("TextLabel")
-	ammo.AnchorPoint = Vector2.new(1, 0)
-	ammo.Position = UDim2.fromScale(1, 0)
-	ammo.Size = UDim2.fromScale(0.6, 0.3)
-	ammo.BackgroundTransparency = 1
-	ammo.Font = Enum.Font.GothamBold
-	ammo.TextColor3 = Color3.fromRGB(255, 230, 150)
-	ammo.TextScaled = true
-	ammo.TextXAlignment = Enum.TextXAlignment.Right
-	ammo.Text = ""
-	ammo.Parent = button
-
-	button.Activated:Connect(function()
+	slots[i] = RunComponents.slot(i, function()
 		remote:FireServer("equip", i)
-	end)
-
-	button.Parent = bar
-	slotUis[i] = { button = button, ammo = ammo }
+	end, bar)
 end
 
-local function shortName(id: string): string
-	if id == "" then
-		return ""
-	end
-	local def = ItemDefs.get(id)
-	return if def then def.name else id
+-- Manning the helm or the turret disables every loadout item: `WeaponClient:83`, `MeleeClient:26`,
+-- `WeaponServer` and `MeleeServer` all refuse to fire while `SeatPart` is DriverSeat or GunSeat (GAME.md:
+-- "the driver can't shoot"). Showing the bar there offers four buttons that provably do nothing — and on
+-- a phone it also sits exactly where the driver's left thumb needs to be for the steer control.
+local function inControlSeat(): boolean
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	return seat ~= nil and (seat.Name == "DriverSeat" or seat.Name == "GunSeat")
 end
 
 local function refresh()
 	local active = (player:GetAttribute("ActiveSlot") :: number?) or 1
 	local shown = visibleSlots()
+
+	bar.Visible = not inControlSeat()
+
 	for i = 1, MAX_SLOTS do
-		local ui = slotUis[i]
+		local slot = slots[i]
 		-- UIListLayout skips invisible children, so hiding the surplus closes the gap rather than
 		-- leaving a hole where slots 5-6 would be.
-		ui.button.Visible = i <= shown
+		slot.setVisible(i <= shown)
 		if i > shown then
 			continue
 		end
+
 		local id = (player:GetAttribute("Slot" .. i) :: string?) or ""
-		ui.button.Text = if id == "" then tostring(i) else shortName(id)
-		local isActive = i == active and id ~= ""
-		ui.button.BackgroundColor3 = if isActive then Color3.fromRGB(70, 110, 60) else Color3.fromRGB(24, 24, 30)
-		local stroke = ui.button:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if isActive then Color3.fromRGB(150, 220, 120) else Color3.fromRGB(60, 60, 70)
-		end
 		local def = ItemDefs.get(id)
-		if def and def.ammoAttr then
-			ui.ammo.Text = tostring((player:GetAttribute(def.ammoAttr) :: number?) or 0)
-		else
-			ui.ammo.Text = ""
-		end
+		local iconKey = if id ~= "" then (Theme.itemIcon :: { [string]: string })[id] else nil
+		local label = if def then string.upper(def.name) else ""
+		local ammo = if def and def.ammoAttr
+			then tostring((player:GetAttribute(def.ammoAttr) :: number?) or 0)
+			else ""
+
+		slot.set(iconKey, label, ammo, i == active and id ~= "")
 	end
-	carryLabel.Visible = player:GetAttribute("Busy") == true
+
+	carry.Visible = player:GetAttribute("Busy") == true
 end
 
 -- react to any inventory/ammo/state change
@@ -166,24 +151,36 @@ for _, def in pairs(ItemDefs.Items) do
 	end
 end
 
+-- sitting down / standing up changes whether the bar is usable at all
+local function watchSeat(char: Model)
+	local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+	if hum and hum:IsA("Humanoid") then
+		hum:GetPropertyChangedSignal("SeatPart"):Connect(refresh)
+	end
+	refresh()
+end
+if player.Character then
+	watchSeat(player.Character)
+end
+player.CharacterAdded:Connect(watchSeat)
+
 -- keyboard shortcuts (testing convenience; mobile uses the buttons)
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
 	end
 	local key = input.KeyCode
-	if key == Enum.KeyCode.One then
-		remote:FireServer("equip", 1)
-	elseif key == Enum.KeyCode.Two then
-		remote:FireServer("equip", 2)
-	elseif key == Enum.KeyCode.Three then
-		remote:FireServer("equip", 3)
-	elseif key == Enum.KeyCode.Four then
-		remote:FireServer("equip", 4)
-	elseif key == Enum.KeyCode.Five then
-		remote:FireServer("equip", 5)
-	elseif key == Enum.KeyCode.Six then
-		remote:FireServer("equip", 6)
+	local NUMBER: { [Enum.KeyCode]: number } = {
+		[Enum.KeyCode.One] = 1,
+		[Enum.KeyCode.Two] = 2,
+		[Enum.KeyCode.Three] = 3,
+		[Enum.KeyCode.Four] = 4,
+		[Enum.KeyCode.Five] = 5,
+		[Enum.KeyCode.Six] = 6,
+	}
+	local slot = NUMBER[key]
+	if slot then
+		remote:FireServer("equip", slot)
 	elseif key == Enum.KeyCode.Q then
 		remote:FireServer("drop", (player:GetAttribute("ActiveSlot") :: number?) or 1)
 	end

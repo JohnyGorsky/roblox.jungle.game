@@ -127,7 +127,74 @@ Theme.icon = {
 	loot = "rbxassetid://121749397596257", -- money-bag
 	trophy = "rbxassetid://72442029972402", -- winner_trophy
 	robux = "rbxassetid://100088930369566", -- roblox
+
+	-- ── Job #075 — in-run HUD set. ⚠️ PLACEHOLDERS, NOT YET UPLOADED ─────────────────────────────
+	-- Every key below is `""` on purpose. `Components.icon` resolves an empty id through
+	-- `Theme.iconFallback` (right-hand column of that table), so the HUD renders a sensible stand-in at
+	-- the correct size and position instead of an empty square — layout and screenshots stay honest
+	-- while the art is being sourced.
+	--
+	-- TO LAND THE REAL ART: paste the rbxassetid here, then delete that key's row from BOTH
+	-- `iconPending` and `iconFallback`. `Theme.reportPendingIcons()` prints what's still outstanding.
+	-- Sourcing table: ASSETS.md §5.2. Same Flaticon author as the 23 above (ASSETS.md §1.9).
+	salvage = "", -- scrap/salvage pile — Salvage currency chip
+	metal = "", -- metal plate/girder — cargo chip, repair resource
+	ammoBox = "", -- ammo box/bullets — cargo chip, ammo readout
+	heart = "", -- heart — player health bar
+	machete = "", -- machete/sword — hotbar slot (default weapon)
+	pistol = "", -- pistol — hotbar slot
+	bandage = "", -- bandage — hotbar slot
+	flag = "", -- checkered flag — END marker on the river bar
+	warning = "", -- warning triangle — low fuel, boat under attack
+	sun = "", -- sun — day phase
+	moon = "", -- moon — night phase
+	skull = "", -- skull — downed overlay, crew-lost result
+	shotgun = "", -- shotgun — hotbar slot (optional)
+	rope = "", -- rope/knot — untie affordance (optional)
+	pin = "", -- map pin — dock marker on the river bar (optional)
+	clipboard = "", -- clipboard — objectives tab (optional)
 }
+
+-- Which §075 keys are still awaiting art. Delete a row when its id lands above.
+Theme.iconPending = {
+	"salvage", "metal", "ammoBox", "heart", "machete", "pistol", "bandage", "flag",
+	"warning", "sun", "moon", "skull", "shotgun", "rope", "pin", "clipboard",
+}
+
+-- Stand-in art for a pending key -> an EXISTING key from the verified 23. Chosen so the substitute is
+-- semantically close enough to read correctly in a screenshot, never so close that we forget to
+-- replace it. `Components.icon` consults this only when the real id is empty.
+Theme.iconFallback = {
+	salvage = "crate", -- scrap goes in a crate
+	metal = "tools",
+	ammoBox = "gun",
+	heart = "medkit",
+	machete = "tools",
+	pistol = "gun",
+	bandage = "medkit",
+	flag = "bounty", -- target = the thing you're heading for
+	warning = "bounty",
+	sun = "star",
+	moon = "star",
+	skull = "crew",
+	shotgun = "gun",
+	rope = "tools",
+	pin = "fuel", -- the pin we draw marks a FUEL landing
+	clipboard = "check",
+}
+
+-- Studio-only nag so a placeholder can't quietly ship. Called once by HudState on start-up.
+function Theme.reportPendingIcons()
+	local missing = {}
+	for _, key in ipairs(Theme.iconPending) do
+		if (Theme.icon :: { [string]: string })[key] == "" then
+			table.insert(missing, key)
+		end
+	end
+	if #missing > 0 then
+		warn(`[Theme] {#missing} PLACEHOLDER icons still unresolved (Job #075): {table.concat(missing, ", ")}`)
+	end
+end
 
 -- skill id -> icon key (SkillDefs.Order)
 Theme.skillIcon = {
@@ -156,6 +223,25 @@ Theme.moduleIcon = {
 
 -- skill group -> icon key (one shop, Boat/Crew groups — plan decision F)
 Theme.groupIcon = { Boat = "boat", Crew = "crew" }
+
+-- loadout item id -> icon key (ItemDefs.Items) — the hotbar, Job #075. Game place only; the lobby has
+-- no loadout, but the table lives here for the same reason skillIcon/moduleIcon do: asset keys belong
+-- in one file.
+Theme.itemIcon = {
+	Sword = "machete",
+	Torch = "spotlight", -- a carried lamp; the searchlight glyph is the closest in the set
+	Pistol = "pistol",
+	Shotgun = "shotgun",
+}
+
+-- boat station / role id -> icon key (RoleServer's four stations + the Medic added in Job 057)
+Theme.roleIcon = {
+	driver = "wheel",
+	gunner = "gun",
+	engineer = "fuel",
+	mechanic = "tools",
+	medic = "medkit",
+}
 
 -- Monetization art, keyed by MonetizationDefs `id` (gold packs) and `key` (passes).
 -- These are the TRANSPARENT-PNG uploads (2026-07-31), not the Creator Hub thumbnails — the Hub versions
@@ -202,7 +288,43 @@ Theme.sound = {
 	rank = "rbxassetid://135669512865613", -- rank_completed_or_mission_completed
 	footstepWood = "rbxassetid://74260976253608", -- footsteps_wood
 	runSand = "rbxassetid://113877578461119", -- running_on_sand
+
+	-- ── Job #075 — in-run HUD cues ──────────────────────────────────────────────────────────────
+	-- REUSED from the shared registry (roblox.workspace/Assets/registry/audio.md). Three are filed
+	-- under Defender; reuse-before-re-source is the registry's stated purpose, and these are generic
+	-- SFX with nothing Defender-specific in them. Pending the user's OK — swap for a Jungle-specific
+	-- upload if they'd rather.
+	pickup = "rbxassetid://125050168809089", -- item_drop (defender) — loot picked up
+	hurt = "rbxassetid://117259006391295", -- player_attacked (defender) — you take damage
+	runWin = "rbxassetid://138409734628557", -- level_completed (defender) — run won
+	zoneEnter = "rbxassetid://79506043370965", -- battle_starts (jungle) — zone-crossing stinger
+	dayBreak = "rbxassetid://88638394432005", -- morning_starts (jungle)
+	nightFall = "rbxassetid://75443344927115", -- night_starts_2 (jungle)
+
+	-- ⚠️ PLACEHOLDERS, NOT YET SOURCED — Pixabay, see ASSETS.md §5.2.
+	-- Empty ids are a silent no-op in UISound (it skips them rather than building a dead Sound), so
+	-- everything below is wired at its call site already and starts working the moment an id lands.
+	lowFuel = "", -- single soft warning beep — fuel < 20%
+	lowHull = "", -- metallic stress groan — hull < 30%
+	downed = "", -- low thud + breath — you go down
+	revived = "", -- rising recovery swell — picked back up
+	runLost = "", -- somber descending sting — crew wiped
 }
+
+-- Same contract as iconPending: delete a row when its id lands above.
+Theme.soundPending = { "lowFuel", "lowHull", "downed", "revived", "runLost" }
+
+function Theme.reportPendingSounds()
+	local missing = {}
+	for _, key in ipairs(Theme.soundPending) do
+		if (Theme.sound :: { [string]: string })[key] == "" then
+			table.insert(missing, key)
+		end
+	end
+	if #missing > 0 then
+		warn(`[Theme] {#missing} PLACEHOLDER sounds still unresolved (Job #075): {table.concat(missing, ", ")}`)
+	end
+end
 
 -- ── Colour helpers (button states, §6.2: hover ≈ +8% L, pressed ≈ −10% L, disabled ≈ 50% desat) ──
 local function clamp01(n: number): number

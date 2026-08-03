@@ -107,6 +107,11 @@ local function buildBoat(): Model
 	seat.Size = Vector3.new(4, 1, 5)
 	seat.Color = Color3.fromRGB(60, 45, 30)
 	seat.CFrame = hull.CFrame * CFrame.new(0, 2, 0)
+	-- Roblox's built-in "Speed 0" readout. Found in the Job #075 playtest sitting between our fuel and
+	-- hull gauges, in Roblox's own font and colours — the one piece of the driving HUD we didn't draw.
+	-- The speed it reports is also studs/s, which means nothing to a player; the river progress bar and
+	-- the engine note carry pace far better.
+	seat.HeadsUpDisplay = false
 	seat.Parent = model
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = hull

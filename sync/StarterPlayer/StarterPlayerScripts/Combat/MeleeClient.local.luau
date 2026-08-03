@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
+
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("SwordSwing") :: RemoteEvent
 
@@ -44,7 +46,7 @@ local function playSwingFx()
 	local blade = Instance.new("Part")
 	blade.Name = "SwingFx"
 	blade.Size = Vector3.new(0.25, 4, 0.6)
-	blade.Color = Color3.fromRGB(210, 220, 235)
+	blade.Color = Theme.color.cream -- swing arc, on-palette (Job #075)
 	blade.Material = Enum.Material.Neon
 	blade.Transparency = 0.15
 	blade.CanCollide = false

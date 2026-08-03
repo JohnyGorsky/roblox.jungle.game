@@ -1,56 +1,184 @@
 --!strict
--- RunClient.local.luau — spectate-on-death + end-of-run results screen (Job 018).
+-- RunClient.local.luau — spectate-on-death + the end-of-run results screen (Job 018, rebuilt on the
+-- design system in Job #075).
 --
--- While the run is on and you have no character (you died — permadeath), the camera spectates the boat and
--- a "you died" tag shows. On RunEnded the results panel appears (win/lose, distance, reward, survivors) with
--- a Return to Lobby button + an auto-return countdown. Greybox (real design = P9).
+-- While the run is on and you have no character (you died — permadeath), the camera spectates the boat
+-- and a "you died" tag shows. On RunEnded the results panel appears (win/lose, distance, reward,
+-- survivors) with a Return to Lobby button and an auto-return countdown.
+--
+-- The results panel is built ONCE at start-up and shown on the event, rather than constructed inside
+-- the handler as it used to be. The old version leaked a whole panel tree per RunEnded fire and could
+-- stack two of them if the server ever sent twice.
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+local UISound = require(UI:WaitForChild("UISound"))
+local RunUI = ReplicatedStorage:WaitForChild("RunUI")
+local RunComponents = require(RunUI:WaitForChild("RunComponents"))
+
+local DEFAULT_RETURN = 30
 
 local player = Players.LocalPlayer
 local runEnded = ReplicatedStorage:WaitForChild("RunEnded") :: RemoteEvent
 local returnRemote = ReplicatedStorage:WaitForChild("ReturnToLobby") :: RemoteEvent
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "RunGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+local gui = Components.screen("RunGui", player:WaitForChild("PlayerGui"))
 gui.DisplayOrder = 50
-gui.Parent = player:WaitForChild("PlayerGui")
 
--- ── "you died — spectating" tag ───────────────────────────────────────────────────────────────
-local deadTag = Instance.new("TextLabel")
-deadTag.AnchorPoint = Vector2.new(0.5, 0)
-deadTag.Position = UDim2.new(0.5, 0, 0, 24)
-deadTag.Size = UDim2.fromScale(0.4, 0.06)
-deadTag.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
-deadTag.BackgroundTransparency = 0.25
-deadTag.TextColor3 = Color3.new(1, 1, 1)
-deadTag.Font = Enum.Font.GothamBold
-deadTag.TextScaled = true
-deadTag.Text = "You died — spectating the crew"
+-- ── "you died — spectating" tag ──────────────────────────────────────────────────────────────────
+
+local deadTag = RunComponents.card({
+	name = "DeadTag",
+	anchor = Vector2.new(0.5, 0),
+	position = UDim2.fromScale(0.5, 0.03),
+	size = UDim2.fromScale(0.3, 0.05),
+	accent = Theme.color.red,
+	parent = gui,
+})
 deadTag.Visible = false
-local dtc = Instance.new("UICorner")
-dtc.CornerRadius = UDim.new(0, 8)
-dtc.Parent = deadTag
-local dts = Instance.new("UITextSizeConstraint")
-dts.MaxTextSize = 20
-dts.Parent = deadTag
-deadTag.Parent = gui
 
--- spectate: while run on + no character, follow the boat
+local deadClamp = Instance.new("UISizeConstraint")
+deadClamp.MinSize = Vector2.new(220, 32)
+deadClamp.MaxSize = Vector2.new(460, 54)
+deadClamp.Parent = deadTag
+
+local deadIcon = Components.icon({ name = "skull", size = UDim2.fromScale(0.11, 0.72), chip = false, parent = deadTag })
+deadIcon.AnchorPoint = Vector2.new(0, 0.5)
+deadIcon.Position = UDim2.fromScale(0.04, 0.5)
+
+local deadLabel = Instance.new("TextLabel")
+deadLabel.Name = "Label"
+deadLabel.AnchorPoint = Vector2.new(1, 0.5)
+deadLabel.Position = UDim2.fromScale(0.96, 0.5)
+deadLabel.Size = UDim2.fromScale(0.82, 0.7)
+deadLabel.TextXAlignment = Enum.TextXAlignment.Left
+Components.applyText(deadLabel, Theme.text.caption, Theme.font.button)
+deadLabel.TextColor3 = Theme.color.red
+deadLabel.Text = "YOU DIED — SPECTATING THE CREW"
+deadLabel.Parent = deadTag
+
+-- ── results panel (built once, shown on the event) ───────────────────────────────────────────────
+
+local results = Components.panel({
+	name = "RunResults",
+	title = "Run over",
+	icon = "trophy",
+	size = UDim2.fromScale(0.44, 0.56),
+	parent = player.PlayerGui,
+})
+results.gui.DisplayOrder = 70 -- the run is over: nothing, not even the admin panel, goes above this
+
+local headline = Instance.new("TextLabel")
+headline.Name = "Headline"
+headline.Position = UDim2.fromScale(0, 0)
+headline.Size = UDim2.fromScale(1, 0.18)
+headline.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(headline, Theme.text.h1, Theme.font.display)
+headline.Text = ""
+headline.Parent = results.content
+
+local statsHolder = Instance.new("Frame")
+statsHolder.Name = "Stats"
+statsHolder.Position = UDim2.fromScale(0.05, 0.22)
+statsHolder.Size = UDim2.fromScale(0.9, 0.34)
+statsHolder.BackgroundTransparency = 1
+statsHolder.BorderSizePixel = 0
+statsHolder.Active = false
+statsHolder.Parent = results.content
+
+local statsLayout = Instance.new("UIListLayout")
+statsLayout.FillDirection = Enum.FillDirection.Vertical
+statsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+statsLayout.Padding = UDim.new(0, Theme.space.xs)
+statsLayout.Parent = statsHolder
+
+local function statRow(order: number, iconName: string, caption: string, tint: Color3)
+	local row = Instance.new("Frame")
+	row.Name = "Stat_" .. caption
+	row.LayoutOrder = order
+	row.Size = UDim2.fromScale(1, 0.3)
+	row.BackgroundTransparency = 1
+	row.BorderSizePixel = 0
+	row.Active = false
+
+	local ico = Components.icon({ name = iconName, size = UDim2.fromScale(0.09, 0.8), chip = false, parent = row })
+	ico.AnchorPoint = Vector2.new(0, 0.5)
+	ico.Position = UDim2.fromScale(0, 0.5)
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Caption"
+	label.AnchorPoint = Vector2.new(0, 0.5)
+	label.Position = UDim2.fromScale(0.13, 0.5)
+	label.Size = UDim2.fromScale(0.5, 0.8)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	Components.applyText(label, Theme.text.body, Theme.font.body)
+	label.TextColor3 = Theme.color.creamDim
+	label.Text = caption
+	label.Parent = row
+
+	local value = Instance.new("TextLabel")
+	value.Name = "Value"
+	value.AnchorPoint = Vector2.new(1, 0.5)
+	value.Position = UDim2.fromScale(1, 0.5)
+	value.Size = UDim2.fromScale(0.36, 0.8)
+	value.TextXAlignment = Enum.TextXAlignment.Right
+	Components.applyText(value, Theme.text.h2, Theme.font.bodyBold)
+	value.TextColor3 = tint
+	value.Text = "—"
+	value.Parent = row
+
+	row.Parent = statsHolder
+	return value
+end
+
+local distanceValue = statRow(1, "pin", "Distance travelled", Theme.color.cream)
+local survivorsValue = statRow(2, "crew", "Survivors", Theme.color.cream)
+local rewardValue = statRow(3, "coin", "Gold earned", Theme.color.gold)
+
+local returnButton = Components.button({
+	text = "RETURN TO LOBBY",
+	variant = "primary",
+	icon = "boat",
+	size = UDim2.fromScale(0.7, 0.15),
+	parent = results.content,
+	onActivated = function()
+		returnRemote:FireServer()
+	end,
+})
+returnButton.instance.AnchorPoint = Vector2.new(0.5, 1)
+returnButton.instance.Position = UDim2.fromScale(0.5, 0.9)
+
+local countdown = Instance.new("TextLabel")
+countdown.Name = "Countdown"
+countdown.AnchorPoint = Vector2.new(0.5, 1)
+countdown.Position = UDim2.fromScale(0.5, 1)
+countdown.Size = UDim2.fromScale(1, 0.08)
+countdown.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(countdown, Theme.text.caption, Theme.font.body)
+countdown.TextColor3 = Theme.color.creamDim
+countdown.Text = ""
+countdown.Parent = results.content
+
+-- ── spectate ─────────────────────────────────────────────────────────────────────────────────────
+
 local ended = false
+
 RunService.RenderStepped:Connect(function()
 	if ended then
 		return
 	end
 	local runOn = Workspace:GetAttribute("RunStarted") == true
-	local hasChar = player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil
-		and (player.Character:FindFirstChildOfClass("Humanoid") :: Humanoid).Health > 0
-	if runOn and not hasChar then
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local alive = hum ~= nil and (hum :: Humanoid).Health > 0
+
+	if runOn and not alive then
 		deadTag.Visible = true
 		local boat = Workspace:FindFirstChild("Boat")
 		local hull = boat and boat:FindFirstChild("Hull")
@@ -64,86 +192,64 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- ── results panel ─────────────────────────────────────────────────────────────────────────────
+-- ── results ──────────────────────────────────────────────────────────────────────────────────────
+
 runEnded.OnClientEvent:Connect(function(data)
+	if ended then
+		return -- one results screen per run, no matter how many times the server tells us
+	end
 	ended = true
 	deadTag.Visible = false
 
-	local dim = Instance.new("Frame")
-	dim.Size = UDim2.fromScale(1, 1)
-	dim.BackgroundColor3 = Color3.new(0, 0, 0)
-	dim.BackgroundTransparency = 0.4
-	dim.Parent = gui
+	local won = typeof(data) == "table" and data.won == true
+	local reward = (typeof(data) == "table" and data.reward) or 0
 
-	local panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(0.42, 0.5)
-	panel.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
-	panel.Parent = dim
-	local pc = Instance.new("UICorner")
-	pc.CornerRadius = UDim.new(0, 14)
-	pc.Parent = panel
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 10)
-	layout.Parent = panel
+	headline.Text = if won then "YOU REACHED THE END" else "THE CREW WAS LOST"
+	headline.TextColor3 = if won then Theme.color.green else Theme.color.red
 
-	local order = 0
-	local won = data and data.won == true
-	local function label(text: string, scaleY: number, color: Color3, maxSize: number)
-		order += 1
-		local l = Instance.new("TextLabel")
-		l.LayoutOrder = order
-		l.Size = UDim2.fromScale(0.9, scaleY)
-		l.BackgroundTransparency = 1
-		l.Font = Enum.Font.GothamBold
-		l.TextColor3 = color
-		l.TextScaled = true
-		l.Text = text
-		local c = Instance.new("UITextSizeConstraint")
-		c.MaxTextSize = maxSize
-		c.Parent = l
-		l.Parent = panel
-		return l
+	-- The panel is built before the outcome is known, so its title bar is re-labelled here. Reaching in
+	-- by child name is the trade for `Components.panel` not exposing a setTitle — worth it rather than
+	-- widening a shared component for one screen in one place.
+	local titleBar = results.frame:FindFirstChild("TitleBar")
+	if titleBar then
+		local titleText = titleBar:FindFirstChild("Title")
+		if titleText and titleText:IsA("TextLabel") then
+			titleText.Text = if won then "VICTORY" else "RUN OVER"
+		end
+		local titleIcon = titleBar:FindFirstChild("Icon_trophy")
+		local titleImage = titleIcon and titleIcon:FindFirstChild("Image")
+		if titleImage and titleImage:IsA("ImageLabel") then
+			titleImage.Image = Components.iconId(if won then "trophy" else "skull")
+		end
 	end
 
-	label(won and "🏆 YOU REACHED THE END!" or "☠ THE CREW WAS LOST", 0.2, won and Color3.fromRGB(150, 230, 130) or Color3.fromRGB(230, 120, 110), 34)
-	label(("Distance: %d"):format((data and data.distance) or 0), 0.1, Color3.new(1, 1, 1), 22)
-	label(("Survivors: %d"):format((data and data.survivors) or 0), 0.1, Color3.new(1, 1, 1), 20)
-	label(("+ %d Gold"):format((data and data.reward) or 0), 0.13, Color3.fromRGB(255, 225, 120), 26)
+	distanceValue.Text = ("%d"):format((typeof(data) == "table" and data.distance) or 0)
+	survivorsValue.Text = ("%d"):format((typeof(data) == "table" and data.survivors) or 0)
+	rewardValue.Text = ("+%d"):format(reward)
 
-	order += 1
-	local btn = Instance.new("TextButton")
-	btn.LayoutOrder = order
-	btn.Size = UDim2.fromScale(0.6, 0.16)
-	btn.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
-	btn.Font = Enum.Font.GothamBold
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.TextScaled = true
-	btn.Text = "Return to Lobby"
-	local bc = Instance.new("UICorner")
-	bc.CornerRadius = UDim.new(0, 10)
-	bc.Parent = btn
-	local btsc = Instance.new("UITextSizeConstraint")
-	btsc.MaxTextSize = 22
-	btsc.Parent = btn
-	btn.Parent = panel
-	btn.Activated:Connect(function()
-		btn.Text = "Returning…"
-		returnRemote:FireServer()
-	end)
+	-- Nothing else may be open behind the end of a run. Found in the Job #075 playtest: the results
+	-- screen appeared stacked on an open Trading Post, with the shop's rows visible around it.
+	Components.closeAllPanels("RunResults")
 
-	local countdown = label("Returning automatically in " .. tostring((data and data.returnIn) or 30) .. "s…", 0.08, Color3.fromRGB(180, 180, 190), 16)
+	results.setOpen(true)
+	UISound.play(if won then "runWin" else "runLost")
+	if reward > 0 then
+		Components.burst(rewardValue, Theme.color.gold)
+	end
+
+	-- Auto-return, with the clock visible. Stops a disconnected-but-present player from holding a
+	-- reserved server open forever, and the number means nobody has to guess whether it's stuck.
+	--
+	-- The countdown keeps running even if the player closes the panel to look at the scene: the SERVER
+	-- owns the auto-return and will send them back regardless, so stopping the display on close would
+	-- only make a re-opened panel show a stale number.
 	task.spawn(function()
-		local t = (data and data.returnIn) or 30
-		while t > 0 and countdown.Parent do
-			countdown.Text = "Returning automatically in " .. t .. "s…"
+		local left = (typeof(data) == "table" and data.returnIn) or DEFAULT_RETURN
+		while left > 0 do
+			countdown.Text = ("Returning to the lobby in %ds…"):format(left)
 			task.wait(1)
-			t -= 1
+			left -= 1
 		end
+		countdown.Text = "Returning to the lobby…"
 	end)
 end)

@@ -51,6 +51,12 @@ local function get(key: string): Sound?
 		warn(`[UISound] unknown sound key "{key}" — check Theme.sound`)
 		return nil
 	end
+	-- A DECLARED but not-yet-sourced cue (Job #075 placeholders): silently skip rather than build a
+	-- Sound with an empty SoundId. Call sites stay wired and start working the moment the id lands.
+	-- Distinct from the unknown-key case above, which is a typo and must stay loud.
+	if id == "" then
+		return nil
+	end
 
 	local sound = Instance.new("Sound")
 	sound.Name = key

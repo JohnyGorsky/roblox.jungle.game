@@ -619,6 +619,76 @@ live: 7 rows, 7 with art, ids matching this table exactly.
 > · **Boat Paint Pack finally does something** (Job #067): 6 hull liveries. It needs **no new art** —
 >   liveries are a runtime tint over the existing PBR maps, not new textures. See §2.
 
+## 5.2 In-run HUD icon set — **SOURCING LIST, Job #075** (added 2026-08-02)
+
+The game place's HUD was rebuilt on the design system in Job #075. The **lobby's 23-icon set (§1.9)
+already covers most of it** — all five role glyphs (wheel/gun/fuel/tools/medkit), gold, hull, crate,
+check, close, trophy, boat, shop, robux — so this list is only the icons with **no honest substitute**.
+
+> **⚠️ Same Flaticon author as the §1.9 set.** *"One pack, one author — mixed packs are the #1 way an
+> icon set looks amateur."* Find one of the existing 23 on Flaticon, open the author, take these from
+> their catalogue. Full-colour flat, matching the delivered set.
+
+**Placeholders are live and tracked in code.** Each key below exists in `Theme.icon` with an empty id,
+and `Components.iconId` substitutes the fallback in the right-hand column so the HUD renders at the
+correct size and reads correctly in a screenshot. `Theme.reportPendingIcons()` prints the outstanding
+list on every Studio start. **To land one: paste the id into `Theme.icon`, then delete its row from
+`Theme.iconPending` AND `Theme.iconFallback`** — in *both* trees (`sync/` and `lobby/sync/` are
+byte-identical by contract).
+
+| # | Icon | Search terms | Used by | Placeholder | Priority |
+|---|---|---|---|---|---|
+| 1 | Scrap / salvage pile | `scrap metal`, `junk`, `salvage` | Salvage chip (`CurrencyHud`), admin grant | `crate` | **required** |
+| 2 | Metal plate / girder | `metal plate`, `steel beam`, `iron` | cargo chip (`HudClient`) | `tools` | **required** |
+| 3 | Ammo box / bullets | `ammo box`, `bullets`, `ammunition` | cargo chip, dock shop, gunner readout | `gun` | **required** |
+| 4 | Heart | `heart`, `health`, `life` | player health bar (`HealthHud`) | `medkit` | **required** |
+| 5 | Machete / sword | `machete`, `sword`, `blade` | hotbar slot — Sword | `tools` | **required** |
+| 6 | Pistol | `pistol`, `handgun`, `revolver` | hotbar slot, dock shop | `gun` | **required** |
+| 7 | Bandage | `bandage`, `plaster`, `first aid` | bandage chip, dock shop | `medkit` | **required** |
+| 8 | Checkered / finish flag | `finish flag`, `checkered flag`, `goal` | END marker on the river bar | `bounty` | **required** |
+| 9 | Warning triangle | `warning`, `alert`, `caution` | boat-under-attack strip | `bounty` | **required** |
+| 10 | Sun | `sun`, `daytime` | DAWN banner | `star` | **required** |
+| 11 | Moon | `moon`, `night` | NIGHTFALL banner | `star` | **required** |
+| 12 | Skull | `skull`, `death`, `danger` | downed overlay, spectate tag, crew-lost result | `crew` | **required** |
+| 13 | Shotgun | `shotgun` | hotbar slot, dock shop | `gun` | optional |
+| 14 | Rope / knot | `rope`, `knot`, `mooring` | untie / cast-off button | `tools` | optional |
+| 15 | Map pin | `map pin`, `location marker` | dock pin on the river bar, zone banner | `fuel` | optional |
+| 16 | Clipboard | `clipboard`, `checklist`, `tasks` | objectives tray header | `check` | optional |
+
+**Needs no asset:** the steer/throttle glyphs `◀ ▶ ▲ ▼` render in Builder Sans.
+
+## 5.3 In-run HUD sounds — **SOURCING LIST, Job #075** (added 2026-08-02)
+
+Source: **Pixabay**. Short and dry, **no music tails** — these fire during gameplay, often while the
+engine loop and an ambience bed are already playing.
+
+Same placeholder contract as the icons: the keys exist in `Theme.sound` with empty ids, every call site
+is already wired, and `UISound` treats an empty id as a silent no-op (distinct from an unknown key,
+which still warns loudly). `Theme.reportPendingSounds()` lists the outstanding ones on Studio start.
+
+| # | Key | Search terms | Fires when | Length / feel |
+|---|---|---|---|---|
+| 1 | `lowFuel` | `warning beep`, `low fuel alert`, `soft beep` | fuel crosses below 20% | ~0.5 s, one beep — **not** a loop |
+| 2 | `lowHull` | `metal stress`, `hull damage`, `klaxon` | hull below 30%; boat attacked while ashore | ~1 s, metallic groan |
+| 3 | `downed` | `body fall thud`, `injured breath`, `collapse` | you go down | ~1 s, low and heavy |
+| 4 | `revived` | `recovery`, `heal swell`, `revive` | you get back up | ~1 s, rising |
+| 5 | `runLost` | `defeat sting`, `game over somber`, `failure` | crew wiped | ~2 s, descending |
+
+**Reused from the shared registry rather than re-sourced** (⚠️ *pending the user's OK — three are filed
+under Defender; they are generic SFX and the registry exists so we reuse before re-sourcing*):
+
+| Theme key | Registry asset | Project | Used for |
+|---|---|---|---|
+| `pickup` | `item_drop` `125050168809089` | defender | loot picked up |
+| `hurt` | `player_attacked` `117259006391295` | defender | you take damage |
+| `runWin` | `level_completed` `138409734628557` | defender | run won |
+| `zoneEnter` | `battle_starts` `79506043370965` | **jungle** | zone-crossing banner |
+| `dayBreak` | `morning_starts` `88638394432005` | **jungle** | DAWN banner |
+| `nightFall` | `night_starts_2` `75443344927115` | **jungle** | NIGHTFALL banner |
+
+Already correct, no action: `rank_completed…` (objective done) · `upgrade_applied` (station manned) ·
+`ui_mouse_click` (equip / slot tap) · `open_close` (objectives tray) · `purchase_success` / `failed`.
+
 # 6) GLOBAL AUDIO
 
 | Area | Items | Status | Notes |

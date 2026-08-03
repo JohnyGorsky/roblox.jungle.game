@@ -8,9 +8,13 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NUM_ZONES = 4
-local ZONE_NAMES = { "Headwaters", "Croc Country", "The Rapids", "Lost Delta" }
-local ZONE_COLOR = Color3.fromRGB(90, 200, 230)
+-- Zone names/count/colours moved to ReplicatedStorage.World.ZoneDefs in Job #075 — the river progress
+-- bar draws a tick per zone and names the current one, so the client needs the same list. Same values.
+local ZoneDefs = require(ReplicatedStorage:WaitForChild("World"):WaitForChild("ZoneDefs"))
+
+local NUM_ZONES = ZoneDefs.COUNT
+local ZONE_NAMES = ZoneDefs.Names
+local ZONE_COLOR = ZoneDefs.zoneColor
 
 local announce = Instance.new("RemoteEvent")
 announce.Name = "Announce"
@@ -29,10 +33,7 @@ local function endDist(): number
 end
 
 local function zoneFor(): number
-	local dist = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
-	local e = endDist()
-	local frac = e > 0 and (dist / e) or 0
-	return math.clamp(math.floor(frac * NUM_ZONES) + 1, 1, NUM_ZONES)
+	return ZoneDefs.zoneFor((Workspace:GetAttribute("BoatDistance") :: number?) or 0, endDist())
 end
 
 local lastZone = 0
@@ -43,6 +44,8 @@ local function announceZone(z: number)
 		title = ("ZONE %d / %d"):format(z, NUM_ZONES),
 		subtitle = ZONE_NAMES[z] or "",
 		color = ZONE_COLOR,
+		icon = "pin",
+		sound = "zoneEnter",
 	})
 end
 
@@ -55,13 +58,17 @@ Workspace:GetAttributeChangedSignal("Phase"):Connect(function()
 		announce:FireAllClients({
 			title = "NIGHTFALL",
 			subtitle = "The water turns deadly — reach a dock and hold out!",
-			color = Color3.fromRGB(120, 90, 220),
+			color = ZoneDefs.nightColor,
+			icon = "moon",
+			sound = "nightFall",
 		})
 	else
 		announce:FireAllClients({
 			title = "DAWN",
 			subtitle = "The river calms — press on downriver",
-			color = Color3.fromRGB(245, 210, 120),
+			color = ZoneDefs.dayColor,
+			icon = "sun",
+			sound = "dayBreak",
 		})
 	end
 end)

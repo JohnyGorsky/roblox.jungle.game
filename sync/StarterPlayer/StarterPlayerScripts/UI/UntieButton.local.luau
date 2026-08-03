@@ -1,48 +1,74 @@
 --!strict
--- UntieButton.local.luau — GUI untie/start button (Job 030). Shown while you're seated in the boat's
--- DriverSeat and the boat is TIED, so you can untie without reaching the winch/dock ProximityPrompt (which
--- can be unreachable at an awkward mooring angle). Fires the server RequestUntie; the server (StagingServer
--- pre-run, DockServer at a dock) validates + performs the untie.
+-- UntieButton.local.luau — the seated driver's untie/start button (Job 030, restyled in Job #075).
+--
+-- Shown while you're in the boat's DriverSeat and the boat is TIED, so you can untie without reaching
+-- the winch/dock ProximityPrompt — which can be unreachable at an awkward mooring angle (todo 0001).
+-- Fires the server `RequestUntie`; the server (StagingServer pre-run, DockServer at a dock) validates
+-- and performs the untie. No client authority here beyond asking.
+--
+-- Job #075: it is a real `Components.button` with the right variant for what it does — PRIMARY green at
+-- the crash site, where untying is the positive act that starts the run, and GOLD at a dock, where it
+-- is the deliberate "we're done scavenging, cast off" call rather than a default next step.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Components = require(UI:WaitForChild("Components"))
+
+local TICK = 0.2
 
 local player = Players.LocalPlayer
 local untieRemote = ReplicatedStorage:WaitForChild("RequestUntie") :: RemoteEvent
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "UntieButton"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 15
-gui.Parent = player:WaitForChild("PlayerGui")
+local gui = Components.screen("UntieButton", player:WaitForChild("PlayerGui"))
+gui.DisplayOrder = 8
 
-local btn = Instance.new("TextButton")
-btn.AnchorPoint = Vector2.new(0.5, 1)
-btn.Position = UDim2.fromScale(0.5, 0.82)
-btn.Size = UDim2.fromScale(0.22, 0.08)
-btn.BackgroundColor3 = Color3.fromRGB(200, 120, 40)
-btn.Font = Enum.Font.GothamBold
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.TextScaled = true
-btn.Text = "UNTIE"
-btn.Visible = false
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = btn
-local ar = Instance.new("UIAspectRatioConstraint")
-ar.AspectRatio = 4
-ar.Parent = btn
-local tsc = Instance.new("UITextSizeConstraint")
-tsc.MaxTextSize = 22
-tsc.Parent = btn
-btn.Parent = gui
+local holder = Instance.new("Frame")
+holder.Name = "Holder"
+holder.AnchorPoint = Vector2.new(0.5, 1)
+-- Above the boat vitals (which top out around y = 0.865), clear of the hotbar and the throttle.
+holder.Position = UDim2.fromScale(0.5, 0.8)
+holder.Size = UDim2.fromScale(0.2, 0.075)
+holder.BackgroundTransparency = 1
+holder.BorderSizePixel = 0
+holder.Visible = false
 
-btn.Activated:Connect(function()
+local clamp = Instance.new("UISizeConstraint")
+clamp.MinSize = Vector2.new(150, 44)
+clamp.MaxSize = Vector2.new(300, 68)
+clamp.Parent = holder
+
+holder.Parent = gui
+
+local function untie()
 	untieRemote:FireServer()
-end)
+end
+
+-- TWO buttons, one visible at a time, rather than one button that gets re-tinted.
+-- `Components.button` captures its variant colour at build time and repaints to it on hover/leave, so
+-- overwriting BackgroundColor3 from outside works until the first mouse-out and then silently reverts.
+-- Two instances keep the component's state machine intact and cost one hidden frame.
+local startButton = Components.button({
+	text = "PULL & START",
+	variant = "primary", -- green: the positive act that begins the run
+	icon = "rope",
+	size = UDim2.fromScale(1, 1),
+	parent = holder,
+	onActivated = untie,
+})
+
+local castOffButton = Components.button({
+	text = "UNTIE",
+	variant = "gold", -- gold: a deliberate mid-run decision to leave a dock, not a default next step
+	icon = "rope",
+	size = UDim2.fromScale(1, 1),
+	parent = holder,
+	onActivated = untie,
+})
+castOffButton.instance.Visible = false
 
 local function seatedInDriver(): boolean
 	local char = player.Character
@@ -52,17 +78,25 @@ local function seatedInDriver(): boolean
 end
 
 local acc = 0
-RunService.Heartbeat:Connect(function(dt)
+
+RunService.Heartbeat:Connect(function(dt: number)
 	acc += dt
-	if acc < 0.2 then
+	if acc < TICK then
 		return
 	end
 	acc = 0
+
 	local boat = Workspace:FindFirstChild("Boat")
 	local tied = boat ~= nil and boat:GetAttribute("Tied") == true
 	local show = tied and seatedInDriver()
-	btn.Visible = show
-	if show then
-		btn.Text = (Workspace:GetAttribute("RunStarted") == true) and "UNTIE" or "PULL / START"
+	holder.Visible = show
+	if not show then
+		return
 	end
+
+	-- Pre-run this button STARTS THE RUN; mid-run it just casts off from a dock. Same remote, very
+	-- different weight of decision, so it says so.
+	local started = Workspace:GetAttribute("RunStarted") == true
+	startButton.instance.Visible = not started
+	castOffButton.instance.Visible = started
 end)

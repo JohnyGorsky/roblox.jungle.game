@@ -24,9 +24,28 @@ local StarterGui = game:GetService("StarterGui")
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
 
--- persistent in-run HUD elements to hide during the intro (transient/contextual GUIs are left alone).
--- DockShop carries the always-visible SALVAGE pill (not just the shop panel), so it's included.
-local HUD = { "BoatHud", "GoldHud", "InventoryHud", "StagingHint", "RunGui", "UntieButton", "DockShop", "ObjectiveHud" }
+-- Persistent in-run HUD elements to hide during the intro (transient/contextual GUIs are left alone).
+--
+-- Job #075 reshuffled this list. `GoldHud` and the Salvage pill merged into `CurrencyHud`, so `DockShop`
+-- is no longer here: it is now purely a modal panel that opens on a dock prompt, and a modal that isn't
+-- open needs no hiding. Everything added is a new persistent readout from the same job.
+local HUD = {
+	"BoatHud",
+	"CurrencyHud",
+	"HealthHud",
+	"HealthVignette",
+	"InventoryHud",
+	"StagingHint",
+	"RunGui",
+	"UntieButton",
+	"ObjectiveHud",
+	"RiverProgress",
+	"RoleChip",
+	"BoatStatusCard",
+	"BoatTouchControls",
+	-- Admin-only, but it floated over the cold open in the first Job #075 playtest. It cost one line.
+	"AdminLauncher",
+}
 
 local function setHudEnabled(enabled: boolean)
 	for _, name in HUD do
@@ -37,12 +56,29 @@ local function setHudEnabled(enabled: boolean)
 	end
 end
 
+-- ⚠️ The core HEALTH bar is now off PERMANENTLY, not just during the intro (Job #075). `HealthHud` draws
+-- our own themed bar, and Roblox's blue-to-red core bar is the single most off-palette thing that was on
+-- screen. Only the Backpack toggles with the intro; health is switched off once, below, and never
+-- switched back — which is why this function no longer takes health along for the ride.
 local function setCore(enabled: boolean)
 	pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, enabled)
-		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, enabled)
 	end)
 end
+
+-- Fire-and-forget, retried briefly: SetCoreGuiEnabled can be called before the CoreGui has finished
+-- loading on a slow client, in which case the first call is simply lost.
+task.spawn(function()
+	for _ = 1, 10 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
+		end)
+		if ok then
+			return
+		end
+		task.wait(0.5)
+	end
+end)
 
 -- ── world-space billboards ───────────────────────────────────────────────────────────────────────────
 -- Only ones WE disabled are restored, so a billboard that was already off (or gets destroyed mid-intro)

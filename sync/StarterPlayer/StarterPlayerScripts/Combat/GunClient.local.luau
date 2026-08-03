@@ -22,24 +22,42 @@ local CAM_UP, CAM_BACK = 2, 3 -- MUST match GunServer so the shot hits the cross
 local seated = false
 local yaw, pitch = 0, 0
 
--- crosshair
-local gui = Instance.new("ScreenGui")
-gui.Name = "GunGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+-- crosshair (Job #075: on-palette, and with a dark ring so it survives bright water and dark canopy —
+-- a bare coloured dot vanished against sunlit river, which is most of where you shoot)
+local UI = ReplicatedStorage:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
+local Components = require(UI:WaitForChild("Components"))
+
+local gui = Components.screen("GunGui", player:WaitForChild("PlayerGui"))
+gui.ScreenInsets = Enum.ScreenInsets.None -- must sit at the true viewport centre, where the shot goes
+gui.DisplayOrder = 12
 gui.Enabled = false
+
 local dot = Instance.new("Frame")
+dot.Name = "Reticle"
 dot.AnchorPoint = Vector2.new(0.5, 0.5)
 dot.Position = UDim2.fromScale(0.5, 0.5)
 dot.Size = UDim2.fromOffset(10, 10)
-dot.BackgroundColor3 = Color3.fromRGB(255, 90, 70)
+dot.BackgroundColor3 = Theme.color.red -- the turret's reticle: this one kills things
 dot.BackgroundTransparency = 0.1
 dot.BorderSizePixel = 0
-local c = Instance.new("UICorner")
-c.CornerRadius = UDim.new(1, 0)
-c.Parent = dot
+dot.Active = false
+Components.corner(Theme.radius.pill, dot)
+Components.stroke(Theme.color.stroke, Theme.strokeWidth.control, dot)
 dot.Parent = gui
-gui.Parent = player:WaitForChild("PlayerGui")
+
+-- ammo, under the reticle: the gunner's own camera hides the deck HUD behind them, so the one number
+-- that decides whether to keep firing has to be where they are already looking
+local ammo = Instance.new("TextLabel")
+ammo.Name = "Ammo"
+ammo.AnchorPoint = Vector2.new(0.5, 0)
+ammo.Position = UDim2.new(0.5, 0, 0.5, 26)
+ammo.Size = UDim2.fromOffset(140, 22)
+ammo.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(ammo, Theme.text.caption, Theme.font.bodyBold)
+ammo.TextStrokeTransparency = 0.1
+ammo.Text = ""
+ammo.Parent = gui
 
 local function gunBase(): BasePart?
 	local boat = Workspace:FindFirstChild("Boat")
@@ -111,7 +129,7 @@ local function drawTracer()
 	part.CanCollide = false
 	part.CanQuery = false
 	part.Material = Enum.Material.Neon
-	part.Color = Color3.fromRGB(255, 230, 120)
+	part.Color = Theme.color.yellow -- turret tracer, same accent as the handheld one
 	part.Size = Vector3.new(0.2, 0.2, (toPos - muzzle).Magnitude)
 	part.CFrame = CFrame.lookAt((muzzle + toPos) / 2, toPos)
 	part.Parent = Workspace
@@ -130,10 +148,49 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	end
 end)
 
+-- Turret ammo lives on the BOAT (`Rounds` = loose rounds already fed to the gun, `Ammo` = crates on the
+-- deck still to be fed), not on the player — the turret draws from the shared stock. Both are shown,
+-- because "40 rounds and no crates left" is a very different situation from "40 rounds and eight crates".
+local ammoConn: RBXScriptConnection? = nil
+local crateConn: RBXScriptConnection? = nil
+
+local function renderAmmo()
+	local boat = Workspace:FindFirstChild("Boat")
+	if not boat then
+		ammo.Text = ""
+		return
+	end
+	local rounds = (boat:GetAttribute("Rounds") :: number?) or 0
+	local crates = (boat:GetAttribute("Ammo") :: number?) or 0
+	ammo.Text = ("%d RDS   ·   %d CRATES"):format(rounds, crates)
+	ammo.TextColor3 = if rounds <= 0 then Theme.color.red else Theme.color.cream
+end
+
+local function watchAmmo(on: boolean)
+	if ammoConn then
+		ammoConn:Disconnect()
+		ammoConn = nil
+	end
+	if crateConn then
+		crateConn:Disconnect()
+		crateConn = nil
+	end
+	if not on then
+		return
+	end
+	local boat = Workspace:FindFirstChild("Boat")
+	if boat then
+		ammoConn = boat:GetAttributeChangedSignal("Rounds"):Connect(renderAmmo)
+		crateConn = boat:GetAttributeChangedSignal("Ammo"):Connect(renderAmmo)
+	end
+	renderAmmo()
+end
+
 local function startGunner()
 	seated = true
 	yaw, pitch = 0, 0
 	gui.Enabled = true
+	watchAmmo(true)
 	Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	UserInputService.MouseIconEnabled = false
@@ -146,6 +203,7 @@ local function stopGunner()
 	end
 	seated = false
 	gui.Enabled = false
+	watchAmmo(false)
 	pcall(function()
 		RunService:UnbindFromRenderStep(BIND)
 	end)

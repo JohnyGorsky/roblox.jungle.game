@@ -2,7 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-02 23:13:19
-**Status**: Plan written — awaiting go-ahead. See [`implementation-plan.md`](implementation-plan.md).
+**Status**: ✅ **Complete 2026-08-03** — implemented and verified in Studio Play. See
+[`final-summary.md`](final-summary.md). Two follow-ups outstanding: the asset batch (placeholders are
+live and tracked in code) and a real-device mobile pass.
 
 ## Requirements / goal
 
@@ -12,6 +14,6 @@ Restyle every game-place GUI onto the shared Theme/Components design system (alr
 
 - [x] Requirements reviewed (this intake)
 - [x] Implementation plan created — [`implementation-plan.md`](implementation-plan.md)
-- [ ] Plan agreed (awaiting go-ahead)
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Plan agreed — user asked to proceed with tracked placeholders and swap asset ids at the end
+- [x] Implementation completed
+- [x] Final summary + changelog written
