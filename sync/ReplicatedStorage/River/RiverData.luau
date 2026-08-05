@@ -13,7 +13,20 @@ local RiverData = {}
 -- ── config (tunable) ───────────────────────────────────────────────────────
 RiverData.WATER_Y = 12            -- target water surface height
 RiverData.Z_START = 0             -- world Z of the river's upstream start
-RiverData.END_DISTANCE = 18000    -- campaign finish distance (studs) ≈ a long ~15–25 min run
+-- Campaign finish distance, in studs. ⚠️ THE OLD COMMENT HERE SAID "≈ a long ~15–25 min run" AND THAT
+-- WAS WRONG (corrected 2026-08-05). Derived from BoatServer's tuning:
+--   top speed downstream = (THRUST 60000 + CURRENT 12000) / DRAG 2000 = 36 studs/s
+--   18000 / 36                                                       = ~8 min 20 s of TRAVEL
+-- 15–25 min is only true once the six dock excursions actually take time. They currently don't: the
+-- greybox refuels straight from the dock pump, which GAME.md flags as a simplification of the intended
+-- loot → deck → station flow. So a solo Studio run that just holds the throttle finishes in ~9 minutes.
+-- The fix is P4 (make stops cost time), NOT a bigger number here.
+--
+-- ⚠️ END_DISTANCE AND DOCK_SPACING MUST MOVE TOGETHER. A full tank is MAX_FUEL 100 ÷ 1.0 fuel/s at full
+-- throttle = 100 s = 3600 studs, against landings every 3200 studs (DOCK_SPACING × 2, since only odd
+-- docks are landings). That is a 1.125× margin — change one without the other and the run becomes either
+-- unfinishable or trivial.
+RiverData.END_DISTANCE = 18000
 RiverData.ENDLESS = false         -- true = no end (P10 endless mode)
 RiverData.DOCK_SPACING = 1600     -- studs between docks; landings (gasoline) every 2× that (Job 054 pacing)
 
