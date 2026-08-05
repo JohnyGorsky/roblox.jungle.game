@@ -19,6 +19,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
@@ -165,11 +166,22 @@ RunService.Heartbeat:Connect(function(dt: number)
 	if cargo.Visible then
 		gasChip.setValue(tostring(math.floor(num(boat, "Gasoline"))))
 		metalChip.setValue(tostring(math.floor(num(boat, "Metal"))))
-		-- Ammo is crates-on-deck plus the loose rounds already fed to the turret; the turret can't fire
-		-- on crates alone, so both numbers matter and "8+40" says it in the space of one chip.
+
+		-- ONE number: how many shots the turret actually has left.
+		--
+		-- This chip used to read "3+0", then "2+11" after the first shot, because the boat tracks ammo in
+		-- two places — `Ammo` is CRATES on the deck and `Rounds` is what's loaded in the turret, and
+		-- GunServer silently spends a crate for 12 rounds when the turret runs dry. Showing both as
+		-- "crates+rounds" put an arithmetic problem on the HUD and made the total appear to jump around.
+		--
+		-- The player only ever wants the total, and it is exact (a crate is exactly
+		-- TURRET_ROUNDS_PER_CRATE rounds, no remainder), so it goes down by one per shot and never jumps.
+		-- The gunner's own readout under the reticle keeps the crates/rounds breakdown, in words, where
+		-- there is room for it.
 		local crates = math.floor(num(boat, "Ammo"))
 		local rounds = math.floor(num(boat, "Rounds"))
-		ammoChip.setValue(("%d+%d"):format(crates, rounds))
-		ammoChip.setAlert(crates <= 0 and rounds <= 0)
+		local shots = rounds + crates * ItemDefs.TURRET_ROUNDS_PER_CRATE
+		ammoChip.setValue(tostring(shots))
+		ammoChip.setAlert(shots <= 0)
 	end
 end)

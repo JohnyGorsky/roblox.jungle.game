@@ -34,6 +34,12 @@ local ItemDefs = {}
 ItemDefs.SLOT_COUNT = 4 -- base (kept as the original name: it is what an unpaid player has)
 ItemDefs.MAX_SLOTS = 6 -- with the Extra Inventory Slots pass
 
+-- How many rounds the MOUNTED TURRET gets from one ammo crate. Lived as a local `ROUNDS_PER_AMMO` in
+-- GunServer until Job #075: the HUD has to total "how many shots do I actually have" across crates and
+-- loaded rounds, and a second hand-copied 12 on the client would drift the moment this is tuned.
+-- (Distinct from `ammoPerCrate` above, which is a HANDHELD gun picking up an ammo crate.)
+ItemDefs.TURRET_ROUNDS_PER_CRATE = 12
+
 -- How many slots this player has. Convenience only — more room to carry, no damage/health/speed change,
 -- which is what keeps it on the right side of GAME.md's "core power stays earnable" rule.
 --

@@ -28,10 +28,19 @@ local VOLUME: { [string]: number } = {
 	upgrade = 0.7,
 	rank = 0.75,
 	launch = 0.8,
+	emptyClick = 0.45, -- a dry trigger is a small mechanical noise, not an alarm
 }
 
 -- Minimum seconds between two plays of the SAME cue. Stops a rapid tap turning into a buzz.
 local DEBOUNCE = 0.06
+
+-- Per-cue overrides, for sounds long enough that the default would let them overlap themselves.
+-- `emptyClick` fires on every trigger pull with no ammo — exactly the moment a player mashes the button —
+-- and the asset is 0.39 s, so at the 0.06 s default six copies would stack into a rattle. Held just
+-- under its own length: still responsive per click, never two at once. (Job #075)
+local DEBOUNCE_OVERRIDE: { [string]: number } = {
+	emptyClick = 0.3,
+}
 
 local container = Instance.new("Folder")
 container.Name = "UISounds"
@@ -76,7 +85,7 @@ function UISound.play(key: string)
 
 	local now = os.clock()
 	local last = lastPlayed[key]
-	if last and (now - last) < DEBOUNCE then
+	if last and (now - last) < (DEBOUNCE_OVERRIDE[key] or DEBOUNCE) then
 		return
 	end
 	lastPlayed[key] = now

@@ -129,6 +129,39 @@ Four real defects, all fixed and re-verified:
    would have silently changed how the lobby's four panels behave. Called when you go down and when the
    run ends.
 
+### Second playtest round (user-driven)
+
+Five more, all fixed and re-verified:
+
+5. **The staging card floated at `y = 0.12`** — the middle of the view, over the wreck and over whoever
+   you were walking towards. A banner reading as an obstacle. Pinned to the top (`0.02`) with the rest of
+   the chrome. Safe by construction rather than luck: this card only exists *before* `RunStarted` and the
+   river bar only *after* it, so the two can never share the top-centre.
+6. **"What is that 3?"** — the bandage chip was an icon we haven't sourced yet plus a bare number, so it
+   was unreadable. `statChip` takes an optional label now: it reads **BANDAGES 3**. The health bar went
+   the same way — **HEALTH 100**, not `100`, which also makes it consistent with the `FUEL 95%` /
+   `BOAT 100%` gauges directly below that it used to be the odd one out against.
+7. **The ammo chip showed arithmetic.** The boat tracks turret ammo in *two* places — `Ammo` is crates on
+   the deck, `Rounds` is what's loaded — and `GunServer` silently spends a crate for 12 rounds when the
+   turret runs dry. The chip printed `3+0`, then `2+11` after one shot. It now shows **one number: total
+   shots** (`36` → `35` → …), which is exact (a crate is exactly `TURRET_ROUNDS_PER_CRATE` rounds) and
+   decrements by one per shot instead of appearing to jump. The gunner's readout under the reticle keeps
+   the breakdown in words, where there's room: `35 SHOTS · 11 RDS + 2 CRATES`.
+   `ROUNDS_PER_AMMO` moved out of `GunServer` into `ItemDefs.TURRET_ROUNDS_PER_CRATE` so the HUD isn't
+   holding a second hand-copied 12.
+8. **🐛 REAL BUG — the empty turret still "fired."** `GunServer` correctly refuses a shot with no rounds
+   and no crates (`:167-169`), but `GunClient` called `drawTracer()` unconditionally — so an empty turret
+   looked and sounded exactly like a firing one, and you could keep shooting and wonder why nothing died.
+   The handheld path already got this right; only the turret didn't. Empty now means: no remote call, no
+   tracer, a dry click, a red reticle pulse, and `NO AMMO — LOAD CRATES ON THE DECK` under the crosshair.
+9. **Handheld guns flashed red on empty but stayed silent.** A silent trigger pull is indistinguishable
+   from an input that never registered — which on a phone is the likelier explanation a player reaches
+   for. Both paths play `emptyClick` now.
+
+**One new sound to source: `emptyClick`** (dry trigger click, ~0.2 s). We had nothing suitable — the
+closest was `failed_or_not_allowed`, which is a UI buzz and reads wrong on a weapon. Added to
+`ASSETS.md` §5.3 and the registry, so the placeholder count is **16 icons + 6 sounds**.
+
 Also added `Components.button.setMuted()`: unaffordable shop rows were the same green as affordable
 ones. Colour could not be set from outside (the component repaints to its variant on MouseLeave, so an
 external tint reverts on first hover) and `setEnabled(false)` sets `Active = false`, which stops
@@ -166,8 +199,8 @@ wired, and both a fallback and a Studio nag are in place. Full sourcing tables w
 
 - **16 icons** (12 required, 4 optional). Flaticon, **same author as the §1.9 set**. Each renders a
   semantically-near stand-in via `Theme.iconFallback` until its id lands.
-- **5 sounds** (`lowFuel`, `lowHull`, `downed`, `revived`, `runLost`). Pixabay. `UISound` skips an empty
-  id silently; an *unknown* key still warns loudly.
+- **6 sounds** (`lowFuel`, `lowHull`, `downed`, `revived`, `runLost`, `emptyClick`). Pixabay. `UISound`
+  skips an empty id silently; an *unknown* key still warns loudly.
 - **4 reuses awaiting the user's OK** — `item_drop`, `player_attacked`, `level_completed` (filed under
   Defender) and `battle_starts` (jungle). Wired and working; swap for Jungle-specific uploads on request.
 

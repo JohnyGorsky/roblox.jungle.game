@@ -674,8 +674,9 @@ which still warns loudly). `Theme.reportPendingSounds()` lists the outstanding o
 | 4 | `revived` | `recovery`, `heal swell`, `revive` | you get back up | ~1 s, rising |
 | 5 | `runLost` | `defeat sting`, `game over somber`, `failure` | crew wiped | ~2 s, descending |
 
-**Reused from the shared registry rather than re-sourced** (⚠️ *pending the user's OK — three are filed
-under Defender; they are generic SFX and the registry exists so we reuse before re-sourcing*):
+**Keys that already have an id** — mostly reuse rather than re-sourcing (⚠️ *the three `defender` rows are
+pending the user's OK; they are generic SFX and the registry exists so we reuse before re-sourcing*). The
+last row is not a reuse: it's a fresh upload delivered mid-job.
 
 | Theme key | Registry asset | Project | Used for |
 |---|---|---|---|
@@ -685,6 +686,7 @@ under Defender; they are generic SFX and the registry exists so we reuse before 
 | `zoneEnter` | `battle_starts` `79506043370965` | **jungle** | zone-crossing banner |
 | `dayBreak` | `morning_starts` `88638394432005` | **jungle** | DAWN banner |
 | `nightFall` | `night_starts_2` `75443344927115` | **jungle** | NIGHTFALL banner |
+| `emptyClick` | **`empty_gun` `75733077651437`** | **jungle** | dry trigger click — no ammo (turret + handheld). ✅ **delivered 2026-08-05**, verified playable (0.392 s) |
 
 Already correct, no action: `rank_completed…` (objective done) · `upgrade_applied` (station manned) ·
 `ui_mouse_click` (equip / slot tap) · `open_close` (objectives tray) · `purchase_success` / `failed`.

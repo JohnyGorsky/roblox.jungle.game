@@ -27,7 +27,16 @@ gui.DisplayOrder = 7
 local card = RunComponents.card({
 	name = "Staging",
 	anchor = Vector2.new(0.5, 0),
-	position = UDim2.fromScale(0.5, 0.12),
+	-- Pinned to the TOP, not floated at 0.12. At 0.12 it sat in the middle of the view, over the wreck
+	-- and over whoever you were walking towards — a banner reading as an obstacle. It is chrome, so it
+	-- lives on the edge with the rest of the chrome. `Components.screen` sets CoreUISafeInsets, so y=0 is
+	-- already below the Roblox topbar and this 0.02 is a real margin, not a guess at one.
+	--
+	-- It shares the top-centre with `RiverProgress`, and that is safe by construction rather than by
+	-- luck: this card only exists before `RunStarted` and the river bar only after it, so the two can
+	-- never be on screen together. The currency chips are right-aligned from 0.7 and this card is 0.4
+	-- wide about the centre (0.3–0.7), so they don't meet either.
+	position = UDim2.fromScale(0.5, 0.02),
 	size = UDim2.fromScale(0.4, 0.13),
 	accent = Theme.color.gold,
 	transparency = 0.08,

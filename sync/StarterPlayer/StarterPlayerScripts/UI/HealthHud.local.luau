@@ -54,14 +54,15 @@ holder.Name = "Health"
 holder.AnchorPoint = Vector2.new(0, 1)
 -- Sits above the hotbar. The hotbar is anchored at y=0.975 and is ~0.11 tall, so this clears it.
 holder.Position = UDim2.fromScale(0.015, 0.845)
-holder.Size = UDim2.fromScale(0.2, 0.042)
+-- Wider than the bar alone needs: the bandage chip beside it carries a word now, not just a number.
+holder.Size = UDim2.fromScale(0.27, 0.042)
 holder.BackgroundTransparency = 1
 holder.BorderSizePixel = 0
 holder.Active = false
 
 local sizeClamp = Instance.new("UISizeConstraint")
-sizeClamp.MinSize = Vector2.new(150, 26)
-sizeClamp.MaxSize = Vector2.new(340, 46)
+sizeClamp.MinSize = Vector2.new(215, 26)
+sizeClamp.MaxSize = Vector2.new(450, 46)
 sizeClamp.Parent = holder
 
 holder.Parent = gui
@@ -70,7 +71,7 @@ local gauge = RunComponents.gauge({
 	icon = "heart",
 	color = Theme.color.green,
 	dangerBelow = DANGER,
-	size = UDim2.fromScale(0.76, 1),
+	size = UDim2.fromScale(0.61, 1),
 	parent = holder,
 })
 
@@ -79,10 +80,11 @@ local gauge = RunComponents.gauge({
 -- a player attribute consumed by the revive hold, not an equippable — so without this chip the number
 -- that decides whether you can pick a teammate up is invisible. (Gun ammo deliberately is NOT duplicated
 -- here; the hotbar slot already carries it, and §6.11 does not permit saying the same thing twice.)
-local bandages = RunComponents.statChip("bandage", Theme.color.cream, holder)
+-- Labelled, because "3" next to an icon we haven't sourced yet told the first playtester nothing.
+local bandages = RunComponents.statChip("bandage", Theme.color.cream, holder, "Bandages")
 bandages.instance.AnchorPoint = Vector2.new(1, 0.5)
 bandages.instance.Position = UDim2.fromScale(1, 0.5)
-bandages.instance.Size = UDim2.fromScale(0.21, 1)
+bandages.instance.Size = UDim2.fromScale(0.37, 1)
 
 local function renderBandages()
 	local n = (player:GetAttribute("Bandages") :: number?) or 0
@@ -120,7 +122,9 @@ local function watch(char: Model)
 	local function render()
 		local max = humanoid.MaxHealth
 		local fraction = if max > 0 then math.clamp(humanoid.Health / max, 0, 1) else 0
-		gauge.set(fraction, ("%d"):format(math.ceil(humanoid.Health)))
+		-- "HEALTH 100", not "100". The fuel and hull gauges directly below read "FUEL 95%" and
+		-- "BOAT 100%", so a bare number here was the odd one out AND the ambiguous one.
+		gauge.set(fraction, ("HEALTH  %d"):format(math.ceil(humanoid.Health)))
 		setVignette(fraction)
 
 		-- One cue per hit, on the falling edge only — a Changed handler fires for healing too, and a

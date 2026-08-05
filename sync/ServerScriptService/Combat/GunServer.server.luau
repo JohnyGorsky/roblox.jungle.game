@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- part→art mapping (Job 066); a no-op until meshes are imported
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
+local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
@@ -18,7 +19,7 @@ local PITCH_MIN, PITCH_MAX = math.rad(-12), math.rad(35)
 local GUN_DAMAGE = 60 -- much stronger than the handheld (20)
 local GUN_RANGE = 350
 local FIRE_INTERVAL = 0.3
-local ROUNDS_PER_AMMO = 12
+local ROUNDS_PER_AMMO = ItemDefs.TURRET_ROUNDS_PER_CRATE -- shared with the HUD (Job #075)
 -- gunner-camera offset (MUST match GunClient) so the shot goes exactly where the crosshair points
 local CAM_UP, CAM_BACK = 2, 3
 

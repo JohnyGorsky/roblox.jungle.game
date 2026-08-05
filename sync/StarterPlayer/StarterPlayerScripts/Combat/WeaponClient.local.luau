@@ -21,6 +21,7 @@ local remote = ReplicatedStorage:WaitForChild("FireWeapon") :: RemoteEvent
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
+local UISound = require(UI:WaitForChild("UISound"))
 
 local gui = Components.screen("WeaponGui", player:WaitForChild("PlayerGui"))
 gui.ScreenInsets = Enum.ScreenInsets.None -- the reticle marks the true viewport centre
@@ -112,8 +113,11 @@ local function fire(screenPos: Vector2)
 		return -- server enforces this too; skip the round trip
 	end
 	if not haveAmmo() then
-		-- client-side "empty" cue: flash the crosshair red, don't send the shot
+		-- Empty: flash the crosshair red AND click. The flash was already here; the sound was not, and a
+		-- silent trigger pull is indistinguishable from an input that never registered — which on a phone
+		-- is the more likely explanation a player reaches for (Job #075).
 		dot.BackgroundColor3 = Theme.color.red
+		UISound.play("emptyClick")
 		return
 	end
 	local aim = aimPointFrom(screenPos)

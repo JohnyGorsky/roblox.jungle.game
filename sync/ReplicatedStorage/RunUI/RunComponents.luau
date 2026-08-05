@@ -190,7 +190,12 @@ end
 
 export type StatChip = { instance: Frame, setValue: (text: string) -> (), setAlert: (on: boolean) -> () }
 
-function RunComponents.statChip(iconName: string, tint: Color3, parent: Instance?): StatChip
+-- `label` is optional and it is not decoration. A bare icon + number is only self-explanatory when the
+-- icon is unmistakable, and ours are a sourced set that isn't in yet — the first playtest reading of the
+-- bandage chip was "what is that 3?". Where there is room for a word, spend it: the fuel and hull gauges
+-- already read "FUEL 95%" / "BOAT 100%", so a labelled chip matches the HUD rather than adding a style.
+-- Cramped rows (the three cargo chips) pass no label and stay icon + number.
+function RunComponents.statChip(iconName: string, tint: Color3, parent: Instance?, label: string?): StatChip
 	local frame = Instance.new("Frame")
 	frame.Name = "Stat_" .. iconName
 	frame.Size = UDim2.fromScale(1, 1)
@@ -205,11 +210,25 @@ function RunComponents.statChip(iconName: string, tint: Color3, parent: Instance
 	ico.AnchorPoint = Vector2.new(0, 0.5)
 	ico.Position = UDim2.fromScale(0.06, 0.5)
 
+	if label then
+		local caption = Instance.new("TextLabel")
+		caption.Name = "Label"
+		caption.AnchorPoint = Vector2.new(0, 0.5)
+		caption.Position = UDim2.fromScale(0.26, 0.5)
+		caption.Size = UDim2.fromScale(0.46, 0.6)
+		caption.TextXAlignment = Enum.TextXAlignment.Left
+		Components.applyText(caption, Theme.text.caption, Theme.font.button)
+		caption.TextColor3 = Theme.color.creamDim
+		caption.Text = string.upper(label)
+		caption.Parent = frame
+	end
+
 	local value = Instance.new("TextLabel")
 	value.Name = "Value"
 	value.AnchorPoint = Vector2.new(1, 0.5)
 	value.Position = UDim2.fromScale(0.94, 0.5)
-	value.Size = UDim2.fromScale(0.58, 0.62)
+	-- a labelled chip gives the number the right-hand third; an unlabelled one lets it use the whole width
+	value.Size = UDim2.fromScale(if label then 0.24 else 0.58, 0.62)
 	value.TextXAlignment = Enum.TextXAlignment.Right
 	Components.applyText(value, Theme.text.body, Theme.font.bodyBold)
 	value.TextColor3 = tint

@@ -307,6 +307,7 @@ Theme.sound = {
 	lowFuel = "", -- single soft warning beep — fuel < 20%
 	lowHull = "", -- metallic stress groan — hull < 30%
 	downed = "", -- low thud + breath — you go down
+	emptyClick = "rbxassetid://75733077651437", -- empty_gun (uploaded 2026-08-05) — dry trigger click
 	revived = "", -- rising recovery swell — picked back up
 	runLost = "", -- somber descending sting — crew wiped
 }

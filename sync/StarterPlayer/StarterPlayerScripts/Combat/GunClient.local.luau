@@ -24,9 +24,12 @@ local yaw, pitch = 0, 0
 
 -- crosshair (Job #075: on-palette, and with a dark ring so it survives bright water and dark canopy —
 -- a bare coloured dot vanished against sunlit river, which is most of where you shoot)
+local TweenService = game:GetService("TweenService")
+local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
+local UISound = require(UI:WaitForChild("UISound"))
 
 local gui = Components.screen("GunGui", player:WaitForChild("PlayerGui"))
 gui.ScreenInsets = Enum.ScreenInsets.None -- must sit at the true viewport centre, where the shot goes
@@ -52,12 +55,28 @@ local ammo = Instance.new("TextLabel")
 ammo.Name = "Ammo"
 ammo.AnchorPoint = Vector2.new(0.5, 0)
 ammo.Position = UDim2.new(0.5, 0, 0.5, 26)
-ammo.Size = UDim2.fromOffset(140, 22)
+-- 460 wide, not 140: at 140 the longest string ("NO AMMO — LOAD CRATES ON THE DECK") clipped mid-word,
+-- because `applyText` sets TextScaled with a 12 px MinTextSize floor — so it can't shrink its way out of
+-- a box that's too small, it just overflows. Offset rather than scale on purpose: this label is pinned a
+-- fixed distance under the reticle, which is itself a fixed pixel size.
+ammo.Size = UDim2.fromOffset(460, 24)
 ammo.TextXAlignment = Enum.TextXAlignment.Center
 Components.applyText(ammo, Theme.text.caption, Theme.font.bodyBold)
 ammo.TextStrokeTransparency = 0.1
 ammo.Text = ""
 ammo.Parent = gui
+
+-- Can the turret fire at all? This is the SAME condition GunServer checks (`Rounds > 0`, else spend a
+-- crate) — mirrored here so the client stops pretending, not so it decides. The server still refuses.
+local function shotsLeft(): number
+	local boat = Workspace:FindFirstChild("Boat")
+	if not boat then
+		return 0
+	end
+	local rounds = (boat:GetAttribute("Rounds") :: number?) or 0
+	local crates = (boat:GetAttribute("Ammo") :: number?) or 0
+	return rounds + crates * ItemDefs.TURRET_ROUNDS_PER_CRATE
+end
 
 local function gunBase(): BasePart?
 	local boat = Workspace:FindFirstChild("Boat")
@@ -143,6 +162,21 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		-- ⚠️ THE BUG THIS FIXES (found in playtest): `drawTracer()` used to run unconditionally. GunServer
+		-- correctly refuses a shot with no rounds and no crates (:167-169) — but the client drew the
+		-- tracer anyway, so an empty turret looked and felt exactly like a firing one. You could "shoot"
+		-- forever and wonder why nothing died.
+		--
+		-- The handheld path already got this right (WeaponClient checks `haveAmmo` before sending); only
+		-- the turret didn't. Now empty means: no remote call, no tracer, a dry click, and a red reticle
+		-- pulse — the same three-part answer the handheld gives.
+		if shotsLeft() <= 0 then
+			UISound.play("emptyClick")
+			local was = dot.BackgroundColor3
+			dot.BackgroundColor3 = Theme.color.red
+			TweenService:Create(dot, Theme.tween.slow, { BackgroundColor3 = was }):Play()
+			return
+		end
 		fireRemote:FireServer()
 		drawTracer()
 	end
@@ -162,8 +196,14 @@ local function renderAmmo()
 	end
 	local rounds = (boat:GetAttribute("Rounds") :: number?) or 0
 	local crates = (boat:GetAttribute("Ammo") :: number?) or 0
-	ammo.Text = ("%d RDS   ·   %d CRATES"):format(rounds, crates)
-	ammo.TextColor3 = if rounds <= 0 then Theme.color.red else Theme.color.cream
+	local total = rounds + crates * ItemDefs.TURRET_ROUNDS_PER_CRATE
+	-- Total first, because that is the decision ("do I keep firing?"); the breakdown second, because the
+	-- gunner is also the person who needs to know a crate is about to be spent.
+	ammo.Text = if total > 0
+		then ("%d SHOTS   ·   %d RDS + %d CRATES"):format(total, rounds, crates)
+		else "NO AMMO — LOAD CRATES ON THE DECK"
+	ammo.TextColor3 = if total <= 0 then Theme.color.red else Theme.color.cream
+	dot.BackgroundColor3 = if total <= 0 then Theme.color.metal else Theme.color.red
 end
 
 local function watchAmmo(on: boolean)
