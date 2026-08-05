@@ -80,10 +80,63 @@ Every swap is cosmetic. These all carry over untouched:
 - `Dock.PlacePlace` is **not** dock geometry (it's the plane's fly-in marker, 500 studs west) — see the
   `FoliageServer` note about it inflating a bounding box from 681 to 845 studs
 
-## Open questions for the plan
+## Open questions — ALL ANSWERED, see "Decisions taken" below
 
 1. Camp **layout** — keep the current hardcoded offsets and just swap models, or re-dress the camp now that
    the pieces are real (tents facing a fire, crates behind sandbags)?
 2. `RangerTower` at every landing, some landings, or not at all (128 parts each)?
 3. Default loot crate: `Barrel` (6 parts), `AmmoBox` (22), or `CrateWood` (66)?
 4. Source a market stall + gold nugget, or use the fallbacks above?
+
+---
+
+# Decisions taken (wizard, 2026-08-05)
+
+| | |
+|---|---|
+| **Camp layout** | **Re-dress properly** — same footprint and spawn positions, but arranged like somewhere people live: tents facing a fire, loot behind sandbags. The old block offsets can't survive the swap anyway (`Tent` is 43×34 against a 10×10 hut block). |
+| **RangerTower** | **Landing camps only** (6 of 11 docks) — a landmark visible from the water that marks the stops that open a jungle basin. 1–2 streamed at a time, so 128 parts each costs ~nothing. |
+| **Loot crate** | **`Barrel` (6 parts) for bulk + the carried crate; `CrateWood` (66) as one hero crate per camp.** ~90% of the all-CrateWood part cost removed, good model kept where it's noticed. |
+| **Trading post** | **Bahay Kubo stilt houses** — sourced, scanned, localized. See below. |
+| **Campfire** | **Build, don't source.** Rebuild the lobby's recipe from `RockA/B/C` + crossed `LogMossy` + Fire/Smoke/embers/PointLight. Every Store result was the same spam-uploaded "realistic" campfire — wrong register, and we already own the parts. |
+| **Gold nugget** | **Meshy** — nothing on the Store. Brief below. Build against a gold-tinted `RockA` meanwhile so nothing waits. |
+
+## ✅ Sourced and ready — `AssetLibrary.Structures`
+
+Four *Bahay Kubo* stilt houses, all by `Houseplant_Leaf` (one author = one style):
+`BahayKubo1` 6808910590 · `BahayKubo2` 6811407916 · `BahayKubo5` 10019841237 · `BahayKubo7` 10031256291
+
+Scan: **0 scripts, 0 remotes, 0 tools, 0 ClickDetectors.** Full detail + the sandbox-flag lesson is in
+`roblox.workspace/Assets/registry/models.md`.
+
+Cleaned on insert: stray publisher `Camera` removed from each · `CollisionFidelity` →
+`PreciseConvexDecomposition` on 15 instances (they shipped `Default`, which seals the underside of a
+house on stilts) · all `Anchored`.
+
+**Suggested use:** `BahayKubo5` (13 instances, 30×22×34 — best value) as the default village hut ·
+`BahayKubo1`/`2` for variety · `BahayKubo7` (95 instances) **once per trading village only**, as the
+post itself.
+
+> ⚠️ **The place file needs saving.** These four models live in the game place's `ServerStorage`, which is
+> not a Rojo-synced path — they exist only in the `.rbxl` until you save it.
+
+## 🎨 Meshy brief — gold nugget
+
+**Prompt:**
+> `stylized low-poly gold ore chunk, rough grey quartz rock with thick gold veins running through it,
+> chunky faceted faces, matte stone with slightly glossy gold, warm gold not yellow, game asset, single
+> small rock, plain background`
+
+**Settings:** Text-to-3D · low-poly / stylized · target **under ~400 tris** · no rigging · single mesh ·
+PBR texture. Export **GLB**.
+
+**Scale:** ~**2 studs** on the long axis, to match the existing `GoldNugget` block it replaces and the
+`RockA/B/C` set (3–4 studs) it sits beside.
+
+**Why these choices:** it's a rare pickup (`NUGGET_CHANCE` 0.25/camp, `NUGGET_CAP` 3 per run) that you
+grab and never look at again, so one cheap mesh is plenty. Grey-rock-with-gold-veining rather than solid
+gold so it reads as *ore you found in a jungle* rather than a video-game coin — and so it still reads
+against the sand and grass it will be lying on.
+
+**On import:** set `CollisionFidelity = PreciseConvexDecomposition` (per the standing Meshy rule) and
+`CanCollide = false` — the current nugget is non-colliding and it is grabbed by ProximityPrompt.
