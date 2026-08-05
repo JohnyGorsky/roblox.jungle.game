@@ -124,8 +124,12 @@ bank, offset between banks so they alternate rather than pair up).
 > **One scope judgement, stated rather than made quietly:** the wizard answer excluded the dock camps,
 > but `ExcursionServer` plants **45 greybox box-trees per camp** — that is *foliage*, and leaving it
 > would put greybox trees at all six landings in an otherwise real jungle. So camp **foliage** is in
-> (it reuses the picker; one call site). Camp **structures** — huts, loot crates, trading post, gold
-> nugget — stay out, as agreed. Say the word if you'd rather I left the camp trees too.
+> (it reuses the picker; one call site).
+>
+> Camp **structures** — huts, loot crates, trading post, gold nugget, and the docks — are
+> **[Job #077](../077/intake.md)**, created 2026-08-05 with its asset audit done. The two jobs share the
+> six landings and both spend from the same frame budget, so #076's instance count is the ceiling #077
+> has to fit under.
 
 **Obstacles must stay non-colliding triggers.** `RiverBootstrap`'s own comment: *"physical collision
 would blow up the boat assembly."* The swap is visual only — `CanCollide = false`, the `Obstacle` tag and
