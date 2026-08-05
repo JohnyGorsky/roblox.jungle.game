@@ -96,7 +96,6 @@ renderBandages()
 
 -- ── drive it from the character ──────────────────────────────────────────────────────────────────
 
-local conn: RBXScriptConnection? = nil
 local lastFraction = 1
 
 local function setVignette(fraction: number)
@@ -106,37 +105,60 @@ local function setVignette(fraction: number)
 	TweenService:Create(vignette, Theme.tween.normal, { BackgroundTransparency = target }):Play()
 end
 
+-- ⚠️ PLAYER HEALTH IS THE CHARACTER ATTRIBUTE `HP`, NOT `Humanoid.Health`.
+--
+-- This is the bug the first version shipped with, and it made the bar useless: it read
+-- `Humanoid.Health`, which `PlayerCombat` only ever touches at the very end
+-- (`hum.Health = 0` on bleed-out, :190). All actual damage, the downed state and every heal go through
+-- `char:SetAttribute("HP", …)` — `PlayerCombat` :92-129, and `RoleServer`'s medic regen reads the same
+-- attribute. So the bar sat at a constant HEALTH 100 no matter what hit you, right up to the moment you
+-- died. Reported from a playtest: "health bar is not working, even if i am hit".
+--
+-- The Humanoid is kept only as a FALLBACK, for any context where `HP` hasn't been published yet (the
+-- attributes are set on spawn, so there is a brief window, and the lobby has no PlayerCombat at all).
+local conns: { RBXScriptConnection } = {}
+
 local function watch(char: Model)
-	if conn then
-		conn:Disconnect()
-		conn = nil
+	for _, c in ipairs(conns) do
+		c:Disconnect()
 	end
+	table.clear(conns)
 	lastFraction = 1
 
-	local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5) :: Humanoid?
-	if not hum or not hum:IsA("Humanoid") then
-		return
-	end
-	local humanoid = hum :: Humanoid
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
 
 	local function render()
-		local max = humanoid.MaxHealth
-		local fraction = if max > 0 then math.clamp(humanoid.Health / max, 0, 1) else 0
+		local hp = char:GetAttribute("HP") :: number?
+		local maxHp = char:GetAttribute("MaxHP") :: number?
+
+		local current, max
+		if hp and maxHp and maxHp > 0 then
+			current, max = hp, maxHp
+		elseif humanoid and humanoid.MaxHealth > 0 then
+			current, max = humanoid.Health, humanoid.MaxHealth -- fallback, pre-spawn / lobby
+		else
+			return
+		end
+
+		local fraction = math.clamp(current / max, 0, 1)
 		-- "HEALTH 100", not "100". The fuel and hull gauges directly below read "FUEL 95%" and
 		-- "BOAT 100%", so a bare number here was the odd one out AND the ambiguous one.
-		gauge.set(fraction, ("HEALTH  %d"):format(math.ceil(humanoid.Health)))
+		gauge.set(fraction, ("HEALTH  %d"):format(math.max(0, math.ceil(current))))
 		setVignette(fraction)
 
-		-- One cue per hit, on the falling edge only — a Changed handler fires for healing too, and a
-		-- grunt while a medic is patching you up would be nonsense.
+		-- One cue per hit, on the falling edge only — this fires for healing too, and a grunt while a
+		-- medic is patching you up would be nonsense.
 		if fraction < lastFraction - 0.001 then
 			UISound.play("hurt")
 		end
 		lastFraction = fraction
 	end
 
-	conn = humanoid.HealthChanged:Connect(render)
-	humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(render)
+	table.insert(conns, char:GetAttributeChangedSignal("HP"):Connect(render))
+	table.insert(conns, char:GetAttributeChangedSignal("MaxHP"):Connect(render))
+	if humanoid then
+		table.insert(conns, humanoid.HealthChanged:Connect(render))
+	end
 	render()
 end
 

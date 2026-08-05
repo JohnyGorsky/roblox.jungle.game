@@ -23,8 +23,12 @@ local CollectionService = game:GetService("CollectionService")
 -- which is exactly what a sandbar looks like from a boat.
 type Obstacle = {
 	name: string,
-	model: string?, -- nil = stays a greybox box on purpose (Sandbar)
-	submerge: number, -- fraction of the art's height below WATER_Y
+	model: string?, -- nil = the greybox box IS the visual (Sandbar)
+	-- "bed"   rests on the RIVERBED and is stretched so its top breaks the surface
+	-- "float" floats AT the surface (a log), positioned by `submerge`
+	seatOn: string,
+	protrude: number, -- studs above WATER_Y for a "bed" obstacle
+	submerge: number, -- fraction of height below WATER_Y for a "float" obstacle
 	size: Vector3,
 	color: Color3,
 	mat: Enum.Material,
@@ -36,9 +40,15 @@ local OBSTACLES: { Obstacle } = {
 	-- `submerge` = fraction of the model's height BELOW the waterline. A boulder is mostly under and breaks
 	-- the surface; a log floats with most of it showing. Without this they hover (Job #076 playtest: "why do
 	-- we have rocks on water :D").
-	{ name = "Rock", model = "RockA", submerge = 0.55, size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
-	{ name = "Log", model = "LogMossy", submerge = 0.35, size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
-	{ name = "Sandbar", model = nil, submerge = 0.5, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+	-- A boulder RESTS ON THE BOTTOM. Positioning it relative to the water surface (the first attempt) left
+	-- it suspended: the bed is 18 studs down (`CHANNEL_DEPTH`), so a "55% submerged" rock hung 13 studs
+	-- above the riverbed and read as floating through the clear water.
+	{ name = "Rock", model = "RockA", seatOn = "bed", protrude = 3, submerge = 0, size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
+	-- A log genuinely FLOATS, so this one is surface-relative and stays that way.
+	{ name = "Log", model = "LogMossy", seatOn = "float", protrude = 0, submerge = 0.35, size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
+	-- A sandbar is a MOUND rising off the bed to just under the surface — which is what it looks like once
+	-- it is seated properly, and it also stops the old flat slab reading as a plank floating on the water.
+	{ name = "Sandbar", model = nil, seatOn = "bed", protrude = 0.4, submerge = 0, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
 }
 
 -- Real obstacle art, looked up once. Missing library => greybox fallback, warned once, river still playable.
@@ -125,19 +135,36 @@ local function placeHooks(index: number)
 			-- REAL obstacle (Job 036): pick a type deterministically by z; slow + damage on contact
 			local pick = OBSTACLES[(math.floor(math.abs(math.noise(h.z * 0.11, 7.7)) * 97) % #OBSTACLES) + 1]
 
+			-- Find the RIVERBED under this hook. generateChunk() has already run for this chunk (see
+			-- ensureChunk), so the terrain is there to hit.
+			local bedParams = RaycastParams.new()
+			bedParams.FilterType = Enum.RaycastFilterType.Include
+			bedParams.FilterDescendantsInstances = { Workspace.Terrain }
+			bedParams.IgnoreWater = true
+			local bedHit = Workspace:Raycast(Vector3.new(h.x, RiverData.WATER_Y + 60, h.z), Vector3.new(0, -200, 0), bedParams)
+			local bedY = if bedHit then bedHit.Position.Y else (RiverData.WATER_Y - 18)
+
+			-- Height and centre come from where the thing actually sits, not from a fixed size.
+			local height, centreY
+			if pick.seatOn == "bed" then
+				height = math.max(2, (RiverData.WATER_Y + pick.protrude) - bedY)
+				centreY = bedY + height / 2
+			else
+				height = pick.size.Y
+				centreY = RiverData.WATER_Y + height * (0.5 - pick.submerge)
+			end
+
 			-- ⚠️ THE TRIGGER PART IS STILL THE TRIGGER, AND IT MUST STAY NON-COLLIDING.
-			-- `ObstacleServer` reads the `Obstacle` tag plus the Slow/Damage attributes off THIS part, and
-			-- the part is deliberately CanCollide = false: physical collision with the boat assembly blows
-			-- it up (Job 036's whole reason for using a trigger). Job #076 only changes what you SEE — the
-			-- art is a decorative, non-colliding clone parented under the trigger, so the hit behaviour,
-			-- the tag and the attributes are byte-for-byte what they were.
+			-- `ObstacleServer` reads the `Obstacle` tag and the Slow/Damage attributes off THIS part, and it
+			-- is deliberately CanCollide = false: physical collision with the boat assembly blows it up.
+			-- Job #076 changes only what you SEE.
 			local p = Instance.new("Part")
 			p.Name = pick.name
 			p.Anchored = true
 			p.CanCollide = false -- trigger; ObstacleServer applies the hit (physical collision = boat blowup)
 			p.Material = pick.mat
-			p.Size = pick.size
-			p.Position = Vector3.new(h.x, RiverData.WATER_Y + pick.size.Y / 2 - 0.6, h.z)
+			p.Size = Vector3.new(pick.size.X, height, pick.size.Z)
+			p.Position = Vector3.new(h.x, centreY, h.z)
 			p.Color = pick.color
 			p:SetAttribute("HookKind", "obstacle")
 			p:SetAttribute("Slow", pick.slow)
@@ -146,41 +173,39 @@ local function placeHooks(index: number)
 
 			local art = if pick.model then obstacleArt[pick.model] else nil
 			if art then
-				p.Transparency = 1 -- the trigger becomes invisible; the model is what the player sees
 				local clone = art:Clone()
 				clone.Name = "Art"
+				local meshes = {}
 				for _, d in ipairs(clone:GetDescendants()) do
 					if d:IsA("BasePart") then
 						d.Anchored = true
 						d.CanCollide = false
 						d.CastShadow = false
+						table.insert(meshes, d)
 					end
 				end
-
-				-- Scale to roughly fill the trigger footprint, so what you see and what hurts you match.
-				-- Rotated deterministically by z so a run of rocks isn't visibly identical.
-				local _, ext = clone:GetBoundingBox()
-				local want = math.max(pick.size.X, pick.size.Z)
-				local have = math.max(ext.X, ext.Z)
-				local scale = if have > 0 then (want / have) else 1
-				clone:ScaleTo(scale)
-				clone:PivotTo(CFrame.new(p.Position) * CFrame.Angles(0, math.noise(h.z * 0.31, 3.1) * math.pi * 2, 0))
-
-				-- ⚠️ SEAT BY THE TRUE WORLD BASE. Store models have arbitrary pivots, so PivotTo-ing at the
-				-- trigger's centre left the rocks hovering over the river ("why do we have rocks on water").
-				-- `worldBottom` walks part corners — `GetBoundingBox` returns the ORIENTED box and is wrong
-				-- for anything rotated.
-				local bottom = FoliageDefs.worldBottom(clone)
-				if bottom then
-					local h2 = select(2, clone:GetBoundingBox()).Y
-					local wantBottom = RiverData.WATER_Y - h2 * pick.submerge
-					clone:PivotTo(clone:GetPivot() + Vector3.new(0, wantBottom - bottom, 0))
-					-- bring the invisible trigger to where the art ended up, so the hit box and the thing the
-					-- player swerves around are in the same place
-					local newBottom = FoliageDefs.worldBottom(clone) or wantBottom
-					p.Position = Vector3.new(p.Position.X, newBottom + h2 / 2, p.Position.Z)
+				-- Our rock and log models are SINGLE MeshParts, so the art can simply be stretched to the
+				-- trigger's box — which guarantees the thing you see and the thing that hurts you are the
+				-- same shape in the same place, and lets a boulder be tall enough to reach the bed without
+				-- also becoming absurdly wide (uniform ScaleTo cannot do that).
+				if #meshes == 1 then
+					local m = meshes[1]
+					m.Size = p.Size
+					m.CFrame = CFrame.new(p.Position) * CFrame.Angles(0, math.noise(h.z * 0.31, 3.1) * math.pi * 2, 0)
+					p.Transparency = 1 -- trigger invisible; the mesh is the visual
+				else
+					local _, ext = clone:GetBoundingBox()
+					local have = math.max(ext.X, ext.Z)
+					if have > 0 then
+						clone:ScaleTo(math.max(pick.size.X, pick.size.Z) / have)
+					end
+					clone:PivotTo(CFrame.new(p.Position))
+					local bottom = FoliageDefs.worldBottom(clone)
+					if bottom then
+						clone:PivotTo(clone:GetPivot() + Vector3.new(0, (centreY - height / 2) - bottom, 0))
+					end
+					p.Transparency = 1
 				end
-
 				clone.Parent = p
 			end
 			p.Parent = folder
