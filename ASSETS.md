@@ -478,9 +478,11 @@ never the deck, engines, seats or stations.
 
 | Area | Items | Status |
 |---|---|---|
-| Obstacles | rocks, logs, sandbars, wreck debris | ▫ stub |
+| **River foliage — 3 bands** | reuse the §1.1 set, banded by distance from the water | **planned — Job #076** · see §3.4 |
+| Obstacles | rocks, logs, sandbars, wreck debris | **Job #076** — `RockA/B/C` + `LogMossy` replace the greybox boxes |
+| **Dock camps / trading villages** | tents, crates, sandbags, stilt huts, campfire | **planned — Job #077** · see §3.5 |
 | Set-pieces | waterfalls, ramps, dam blockages | ▫ stub |
-| Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | ▫ stub |
+| Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | **Job #077** — replaces `DockServer`'s plank Deck |
 | Zone dressing / day-night set-pieces | per-zone props + lighting | ▫ stub |
 | **GAME-place ambient rig** | lighting + water + soundscape | <span style="color:#2e9c3f">✅ done (#073)</span> — see §3.1 |
 | **GAME-place Robux kiosk** | the crash-site shop hut | <span style="color:#2e9c3f">✅ done (#074)</span> — see §3.3 |
@@ -533,6 +535,86 @@ in the game tree to read that attribute.
 > **This is an authoring-time property — a runtime script cannot write it, and it only persists if the
 > place is SAVED.** Any future station mesh dropped into the game place needs the same treatment; see the
 > `meshy-collision-fidelity` rule.
+
+
+## 3.4 River foliage — the three bands (Job #076, planned 2026-08-05)
+
+**No new assets needed.** The §1.1 set is sufficient — the hand-built starting area is the target look and
+is built entirely from it. Each bank splits into three bands by distance from the water.
+
+| Band | Inland | Models | Why |
+|---|---|---|---|
+| **1 — shore** | 0–35 | `PalmCoconut` (**4 meshes** — the hero palm) · `BushPack` (8) · `FernTall` (1) · `PalmLowPoly` (3) · `LogMossy` (1) · `RockA/B/C` (1) | the cheap models carry the look |
+| **1 — alley** | waterline | `PalmCurved` ⚠️ **63 parts**, SPARSE (~1 per 80 studs per bank) | leans out over the channel; sparse is what makes 63 parts affordable |
+| **2 — mid** | 35–110 | `PalmTall` ⚠️ **65 parts**, sparse · `PalmCoconut` · `FernTall` · rocks | individual trees you can see between |
+| **3 — back** | 110–220 | `JungleTreesPack` ⚠️ **112 instances, 218 studs long** — TILED, not scattered | a solid canopy wall that hides the mountain seam |
+
+**Terrain materials** (all built-in `Enum.Material`, no assets): riverbed **Sand** (currently Grass —
+wrong), shore strip **Sand** fading inland, jungle floor **Grass + LeafyGrass** mixed by noise; Rock above
+y=26 and Snow above y=40 unchanged.
+
+> ⚠️ **Budget: ~5,560 live instances** in the 1020-stud streaming window, against ~1,630 for today's
+> greybox. `PalmCurved` + `PalmTall` are **2,875 of that — over half the budget from ~45 objects.** If a
+> real device complains they are the first lever, and swapping them for MeshPart palms later is one line
+> per band-table entry. That is why we deliberately did NOT source replacements now.
+
+## 3.5 Dock camps & trading villages (Job #077, planned 2026-08-05)
+
+Greybox retired: `Hut` blocks → `Tent` / stilt huts · `LootCrate` → `Barrel` (bulk) + `CrateWood` (hero) ·
+the 8-block `TradingPost` → `BahayKubo7` · floating `BillboardGui` shop sign → a physical wooden sign ·
+`GoldNugget` Neon cube → the real mesh · `CarriedCrate` → `Barrel` · `DockServer` plank Deck → `Dock` ·
+`RangerTower` added at the 6 landing camps as a landmark visible from the water.
+
+### NEW — jungle river-village huts (sourced 2026-08-05)
+
+Creator Store, **all four by one author** (`Houseplant_Leaf`) so the set reads as one style. Filipino
+*Bahay Kubo* stilt houses — a hut raised on posts is what a river-village trading post looks like.
+**Licence:** free, *"credits would be highly appreciated"* → attribution, not a requirement.
+**Localized** to `ServerStorage.AssetLibrary.Structures` (GAME place).
+
+| Model | rbxassetid | Instances | Size | Use |
+|---|---|---|---|---|
+| `BahayKubo5` | 10019841237 | **13** | 30×22×34 | **best value** — default village hut |
+| `BahayKubo2` | 6811407916 | 18 | 25×16×22 | variety |
+| `BahayKubo1` | 6808910590 | 22 | 20×16×27 | variety |
+| `BahayKubo7` | 10031256291 | ⚠️ **95** | 40×26×50 | **once per trading village only** — the post itself |
+
+**SECURITY scan: 0 scripts, 0 remotes, 0 tools, 0 ClickDetectors** in all four.
+
+> ⚠️ **Lesson worth keeping: the flag is not the scan.** `insert_asset` returned **`sandboxed: true` for
+> #5 and #7** and `false` for #1/#2 — which reads like a script warning — yet a full descendant scan found
+> nothing executable in any of them. The flag varies between assets and does not substitute for scanning.
+> Full detail in registry `models.md`.
+
+Cleaned on insert: stray publisher `Camera` deleted from each · **`CollisionFidelity` →
+`PreciseConvexDecomposition` on 15 instances** (they shipped `Default`, which seals the underside of a
+house on stilts — defeating the entire point of building on stilts) · all forced `Anchored`.
+
+### NEW — `GoldNugget` (Meshy, imported 2026-08-05)
+
+`ServerStorage.AssetLibrary.Props.GoldNugget` — MeshPart `rbxassetid://101010123909666`, PBR via
+`SurfaceAppearance`, **0 scripts**. Replaces a 2×2×2 **Neon** cube.
+
+Import hygiene applied: `Anchored = true` (it shipped unanchored) · `CanCollide = false` (matches the
+greybox — it is collected by ProximityPrompt) · **resized 1.40 → 2.00 studs** on the long axis, because a
+1.4-stud object lying in terrain grass is hard to spot and this is a rare pickup you are meant to notice.
+
+> **`CollisionFidelity = Box` — a deliberate exception to our standing Meshy rule.** That rule
+> (`PreciseConvexDecomposition`) exists so players can walk under wings and through gaps in large imported
+> geometry. This is a 2-stud pebble with collision **off**, so precise geometry would be memory spent on a
+> hull nothing can ever touch.
+>
+> ⚠️ **Gotcha found doing it:** setting `Size` on a MeshPart **re-derives its collision geometry and
+> reverts `CollisionFidelity`**. Resize FIRST, then set fidelity, then verify by re-reading — the first
+> attempt silently reverted to `Default`.
+
+### Campfire — BUILD, do not source
+
+The re-dressed camps need a fire and the GAME place has none (the built campfire in §1 is the LOBBY's).
+**Every Creator Store result was the same spam-uploaded "realistic campfire"** — and "realistic" is the
+wrong register for our stylized look. Rebuild the lobby's recipe instead: `RockA/B/C` ring + crossed
+`LogMossy` + Fire/Smoke/embers/PointLight. Assets we already own and scanned, on-palette, no attribution,
+and identical to the lobby by construction.
 
 # 4) ENEMIES / CHARACTERS
 
@@ -690,6 +772,8 @@ last row is not a reuse: it's a fresh upload delivered mid-job.
 
 Already correct, no action: `rank_completed…` (objective done) · `upgrade_applied` (station manned) ·
 `ui_mouse_click` (equip / slot tap) · `open_close` (objectives tray) · `purchase_success` / `failed`.
+
+
 
 # 6) GLOBAL AUDIO
 

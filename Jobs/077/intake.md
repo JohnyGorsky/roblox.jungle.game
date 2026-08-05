@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-05 20:46:29
-**Status**: Requirements gathering — audit below is done; plan not written yet.
+**Status**: Plan written — awaiting go-ahead. See [`implementation-plan.md`](implementation-plan.md).
 
 > **Why this job exists:** Job #076 was deliberately scoped to terrain + foliage + river obstacles, and I
 > wrote that camp structures would get "their own job" — then didn't create it. This is that job, created
@@ -16,7 +16,10 @@ Replace the greybox structures at the dock excursion camps and the river docks w
 ## Checklist
 
 - [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
+- [x] Asset audit done
+- [x] Assets sourced, scanned and localized (Bahay Kubo ×4, GoldNugget)
+- [x] Implementation plan created — [`implementation-plan.md`](implementation-plan.md)
+- [ ] Plan agreed (awaiting go-ahead)
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
 
