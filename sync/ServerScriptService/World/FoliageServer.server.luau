@@ -176,9 +176,9 @@ end
 local function seat(model: Model, pos: Vector3, orient: CFrame, scale: number)
 	model:ScaleTo(scale)
 	model:PivotTo(CFrame.new(pos) * orient)
-	local bcf, bsize = model:GetBoundingBox()
-	local bottom = bcf.Position.Y - bsize.Y / 2
-	model:PivotTo(model:GetPivot() + Vector3.new(0, (pos.Y - bottom) - SINK, 0))
+	-- via FoliageDefs.worldBottom, NOT GetBoundingBox: the oriented box is wrong for anything tilted,
+	-- which was measured as the alley palms sitting up to +0.57 studs off the ground.
+	FoliageDefs.seatOnGround(model, pos.Y, SINK)
 end
 
 local function prepare(model: Model, collide: boolean, shadow: boolean)

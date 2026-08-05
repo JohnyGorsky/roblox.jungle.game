@@ -24,6 +24,7 @@ local CollectionService = game:GetService("CollectionService")
 type Obstacle = {
 	name: string,
 	model: string?, -- nil = stays a greybox box on purpose (Sandbar)
+	submerge: number, -- fraction of the art's height below WATER_Y
 	size: Vector3,
 	color: Color3,
 	mat: Enum.Material,
@@ -32,9 +33,12 @@ type Obstacle = {
 }
 
 local OBSTACLES: { Obstacle } = {
-	{ name = "Rock", model = "RockA", size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
-	{ name = "Log", model = "LogMossy", size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
-	{ name = "Sandbar", model = nil, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+	-- `submerge` = fraction of the model's height BELOW the waterline. A boulder is mostly under and breaks
+	-- the surface; a log floats with most of it showing. Without this they hover (Job #076 playtest: "why do
+	-- we have rocks on water :D").
+	{ name = "Rock", model = "RockA", submerge = 0.55, size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
+	{ name = "Log", model = "LogMossy", submerge = 0.35, size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
+	{ name = "Sandbar", model = nil, submerge = 0.5, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
 }
 
 -- Real obstacle art, looked up once. Missing library => greybox fallback, warned once, river still playable.
@@ -56,6 +60,7 @@ end
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local RiverGenerator = require(ServerScriptService:WaitForChild("River"):WaitForChild("RiverGenerator"))
+local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
 local AHEAD_CHUNKS = 7   -- chunks kept generated ahead of the boat (~1800 studs)
@@ -151,15 +156,31 @@ local function placeHooks(index: number)
 						d.CastShadow = false
 					end
 				end
-				-- Scale the model to roughly fill the trigger it replaces, so the thing you see and the
-				-- thing that hurts you are the same size. Rotated by z so a run of rocks isn't identical.
+
+				-- Scale to roughly fill the trigger footprint, so what you see and what hurts you match.
+				-- Rotated deterministically by z so a run of rocks isn't visibly identical.
 				local _, ext = clone:GetBoundingBox()
 				local want = math.max(pick.size.X, pick.size.Z)
 				local have = math.max(ext.X, ext.Z)
-				if have > 0 then
-					clone:ScaleTo(want / have)
-				end
+				local scale = if have > 0 then (want / have) else 1
+				clone:ScaleTo(scale)
 				clone:PivotTo(CFrame.new(p.Position) * CFrame.Angles(0, math.noise(h.z * 0.31, 3.1) * math.pi * 2, 0))
+
+				-- ⚠️ SEAT BY THE TRUE WORLD BASE. Store models have arbitrary pivots, so PivotTo-ing at the
+				-- trigger's centre left the rocks hovering over the river ("why do we have rocks on water").
+				-- `worldBottom` walks part corners — `GetBoundingBox` returns the ORIENTED box and is wrong
+				-- for anything rotated.
+				local bottom = FoliageDefs.worldBottom(clone)
+				if bottom then
+					local h2 = select(2, clone:GetBoundingBox()).Y
+					local wantBottom = RiverData.WATER_Y - h2 * pick.submerge
+					clone:PivotTo(clone:GetPivot() + Vector3.new(0, wantBottom - bottom, 0))
+					-- bring the invisible trigger to where the art ended up, so the hit box and the thing the
+					-- player swerves around are in the same place
+					local newBottom = FoliageDefs.worldBottom(clone) or wantBottom
+					p.Position = Vector3.new(p.Position.X, newBottom + h2 / 2, p.Position.Z)
+				end
+
 				clone.Parent = p
 			end
 			p.Parent = folder

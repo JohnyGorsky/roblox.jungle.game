@@ -127,6 +127,43 @@ FoliageDefs.ALLEY = {
 	ground = FoliageDefs.SHORE_GROUND,
 }
 
+-- ── seating helpers ───────────────────────────────────────────────────────────────────────────────
+-- ⚠️ `Model:GetBoundingBox()` RETURNS THE ORIENTED BOX and lies about world occupancy. FoliageServer's
+-- own spawn-base comment has warned about this since Job 072 ("the lesson Job 072 learned the hard way on
+-- the plane wreck") — and Job #076's first pass used it anyway to seat models, which left every TILTED
+-- model (the alley palms) sitting wrong.
+--
+-- This computes the true world-axis-aligned bottom from part CORNERS, which is the only thing that is
+-- correct for a rotated or tilted model.
+function FoliageDefs.worldBottom(model: Instance): number?
+	local minY = math.huge
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local cf, half = d.CFrame, d.Size / 2
+			for sx = -1, 1, 2 do
+				for sy = -1, 1, 2 do
+					for sz = -1, 1, 2 do
+						local c = cf * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z)
+						if c.Y < minY then
+							minY = c.Y
+						end
+					end
+				end
+			end
+		end
+	end
+	return if minY < math.huge then minY else nil
+end
+
+-- Drop a model so its true base rests at `groundY`, minus a small sink so it never appears to hover.
+function FoliageDefs.seatOnGround(model: Model, groundY: number, sink: number)
+	local bottom = FoliageDefs.worldBottom(model)
+	if not bottom then
+		return
+	end
+	model:PivotTo(model:GetPivot() + Vector3.new(0, (groundY - bottom) - sink, 0))
+end
+
 -- Safety net, not a design number. If a segment ever tries to place more than this, something in the
 -- spacing maths is wrong and it should be loud rather than quietly melting the frame budget.
 FoliageDefs.MAX_PER_SEGMENT = 60

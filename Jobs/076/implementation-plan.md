@@ -171,3 +171,56 @@ it is why the hand-dressed starting area will not be disturbed).
 - **Device Emulator** for frame time with the full band system live — this is the job most likely to
   cost frames, and it lands on top of Job #075's still-unverified mobile pass.
 - `tools/luau-analyze.sh` clean.
+
+---
+
+# Build log — 2026-08-05
+
+**Built and verified in Studio Play. Not closed** — user asked to build, then test and adjust.
+
+## Shipped
+
+| | |
+|---|---|
+| `FoliageDefs.luau` | new — the band table, plus `worldBottom` / `seatOnGround` helpers |
+| `FoliageServer.server.luau` | rewritten — 3 bands + the alley + the tiled wall, from `AssetLibrary` |
+| `RiverGenerator.luau` | Sand riverbed · noise-jittered Sand shore · LeafyGrass-dominant jungle mix |
+| `RiverBootstrap.server.luau` | obstacles use `RockA` / `LogMossy` with a per-type `submerge`; greybox kept as fallback |
+| `ExcursionServer.server.luau` | camp trees draw from the same shore band |
+
+**Measured live: ~5,666 parts in the 1020-stud window** against the planned ~5,560 — within 2%.
+
+## Four bugs found by playtesting, all fixed
+
+1. **`Model.LevelOfDetail` is not writable from a server script** (needs the Plugin capability) — it threw
+   once per placement. Now set ONCE at authoring time on the `AssetLibrary` source models, where Studio
+   *does* have the capability; clones inherit it.
+2. **The instance count was wrong, not the density.** First run reported "~21420 instances" against a
+   ~5,560 budget, which looked alarming and wasn't: `#GetDescendants()` counts SurfaceAppearances,
+   Attachments and Textures too. `instancesOf` counts **BaseParts** now — the thing that costs frames.
+3. **🐛 Obstacle rocks hovered over the river** (user: *"why do we have rocks on water :D"*). The art was
+   positioned by PIVOT at the trigger's centre; store pivots are arbitrary. Now seated by true world base
+   with a per-type `submerge` fraction — Rock 0.55, Log 0.35 — and the invisible trigger follows the art
+   so the hit box and the thing you swerve around are in the same place. Verified: Rock base 7.2 / top
+   15.9, Log 10.7 / 14.4, against `WATER_Y` 12.
+4. **🐛 Camp flora was buried 2.4 studs.** It trusted `CLEAR_Y` (15) as the ground height, but terrain
+   voxels snap to the `RES = 4` grid so the real surface is ~17. It **raycasts** now. Measure, don't assume.
+
+> ### ⚠️ The mistake worth remembering
+> Bugs 3 and 4 were both the same root error, and this file's own `FoliageServer` comment had warned about
+> it since Job 072: **`Model:GetBoundingBox()` returns the ORIENTED box and lies about world occupancy.**
+> The first pass used it to seat models anyway, which put every tilted model — i.e. the whole alley — up to
+> +0.57 studs off the ground. There is now one shared `FoliageDefs.worldBottom` that walks part CORNERS,
+> used by all three seating paths. **Verified after the fix: all 11 riverbank model types sit at exactly
+> −0.40, the intended sink, alley palms included.**
+
+## Known, not yet addressed
+
+- **`Sandbar` obstacles are still greybox boxes** (deliberate — a flat shoal wants to be a flat slab), but
+  under the teal water they read as dark red planks rather than sand. Wants either a better colour or a
+  flattened `RockA`.
+- **~2 of 41 camp placements still land ~2.4 studs low**, where the ground raycast hits a basin *wall*
+  (walls are terrain) instead of the floor. Needs the raycast to reject near-vertical hits.
+- **Mobile not tested.** ~5,666 parts is a desktop-comfortable number and an unknown on a phone. This
+  lands on top of Job #075's still-unverified mobile pass.
+- `ASSETS.md` §3.4 statuses stay "planned" until after the tuning pass.

@@ -329,9 +329,17 @@ local function tree(x: number, z: number, parent: Instance, rng: Random)
 
 	clone:ScaleTo(rng:NextNumber(pick.scale[1], pick.scale[2]))
 	clone:PivotTo(CFrame.new(x, CLEAR_Y, z) * orient)
-	-- seat the BASE on the basin floor whatever the model's pivot happens to be (store pivots vary wildly)
-	local bcf, bsize = clone:GetBoundingBox()
-	clone:PivotTo(clone:GetPivot() + Vector3.new(0, CLEAR_Y - (bcf.Position.Y - bsize.Y / 2) - 0.4, 0))
+
+	-- ⚠️ RAYCAST THE GROUND, DO NOT ASSUME `CLEAR_Y`. The basin is filled to CLEAR_Y (=15), but terrain
+	-- voxels snap to the RES=4 grid, so the actual walkable surface is ~17 — and the first pass, which
+	-- trusted CLEAR_Y, buried every camp plant by a measured 2.4 studs. Measure, don't assume.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Terrain }
+	params.IgnoreWater = true
+	local hit = Workspace:Raycast(Vector3.new(x, CLEAR_Y + 80, z), Vector3.new(0, -300, 0), params)
+	local groundY = if hit then hit.Position.Y else CLEAR_Y
+	FoliageDefs.seatOnGround(clone, groundY, 0.4)
 	clone.Parent = parent
 end
 
