@@ -2,7 +2,16 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-05 · **Revised** 2026-08-05 to add camp ground materials + ambience (audio, VFX, lights)
-**Status**: Planning (awaiting go-ahead)
+**Status**: Planning — **assumptions A1–A4 approved by the user 2026-08-05**; awaiting build go-ahead.
+
+## Approved assumptions
+
+| | Assumption | Outcome |
+|---|---|---|
+| **A1** | Add camp practicals, **do NOT touch `AtmosphereRig.NIGHT`** | ✅ as proposed. Accepted consequence: the pools read weaker than §8 wants, because the night they sit in is still artificially lifted. The ambient drop stays a separate job, balanced against the searchlight and river navigation. |
+| **A2** | The smoke column is a **gameplay signal**, sized to clear the band-3 canopy and be read from the river | ✅ as proposed. Verified from the boat at approach distance, not from beside the fire. |
+| **A3** | Dirt on the desire line only | ❌ **CHANGED — user wants desire line *and* scattered patches.** Plan updated in Part 3, including the risk this accepts and the lever to pull if it reads as mush. |
+| **A4** | Build order | ✅ **#076 first, then #077.** #076 sets the frame budget and owns the camp trees, so dressing camps first would mean re-dressing camps full of greybox trees. |
 
 Companion to **[Job #076](../076/implementation-plan.md)** (terrain bands + foliage + river obstacles).
 #076 owns the camp **trees**; #077 owns everything **built**, plus the camp's **ground and atmosphere**.
@@ -115,16 +124,22 @@ dirt, mud, grass patches."*
 |---|---|---|
 | **`LeafyGrass`** | the basin default | deeper, darker, more overgrown than `Grass` — it reads as jungle floor rather than lawn, and it's what you asked for |
 | **`Grass`** | noise-driven patches | breaks the LeafyGrass up so it isn't one flat tone either |
-| **`Ground`** (dry dirt) | **the path from the dock to the camp**, and a **trampled ring around the fire and under the tents** | dirt where people walk. This is environmental storytelling, not texture variety: bare earth is the evidence someone lives here |
-| **`Mud`** | small patches near the water edge of the basin | where the bank meets the basin, per §4's mix |
+| **`Ground`** (dry dirt) — *deliberate* | **the path from the dock to the camp**, and a **trampled ring around the fire and under the tents** | dirt where people walk. Environmental storytelling, not texture variety: bare earth is the evidence someone lives here |
+| **`Ground` / `Mud`** — *scattered* | noise-driven patches through the rest of the basin | **approved A3:** the ground never repeats, so it doesn't read as a painted-on path over a clean lawn |
+| **`Mud`** | a band where the basin meets the water | per §4's mix; the bank shouldn't be the same tone as the interior |
 
-Two things this deliberately does *not* do:
+**Two dirt passes, and the order matters.** Scattered patches are painted **first** at low weight, then the
+desire-line path and the trampled rings go **on top** at full weight. If it were the other way round the
+random patches would eat holes in the path.
 
-- **The dirt is not random.** A noise-scattered dirt patch is just noise. Dirt goes on the desire line —
-  dock → camp — and where feet gather (fire, tent doors). It costs the same and means something.
-- **No new terrain writes.** The existing `FillBlock` already covers the region; this is a paint pass over
-  the same voxels in the same function, so the cost is one extra pass at camp build time and **zero at
-  runtime**.
+> ⚠️ **The risk A3 accepts, so it can be watched for:** surrounding the path with other bare patches can
+> make the path itself read as *less* deliberate — the navigational hint you get on landing is weaker if
+> everything is patchy. Mitigation is contrast, not restraint: scattered patches stay **small and sparse**
+> (low noise threshold), the path stays **wide and continuous**. If it reads as mush in the playtest, the
+> lever is the scatter weight, not the path.
+
+**No new terrain writes.** The existing `FillBlock` already covers the region; this is a paint pass over
+the same voxels in the same function — one extra pass at camp build time and **zero at runtime**.
 
 ⚠️ **`CLEAR_Y` is `WATER_Y + 3`** and the basin is carved flat. The `Mud` band must stay above the water
 line or it will read as a muddy pool rather than a bank.

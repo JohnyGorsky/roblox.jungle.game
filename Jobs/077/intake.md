@@ -19,7 +19,9 @@ Replace the greybox structures at the dock excursion camps and the river docks w
 - [x] Asset audit done
 - [x] Assets sourced, scanned and localized (Bahay Kubo ×4, GoldNugget)
 - [x] Implementation plan created — [`implementation-plan.md`](implementation-plan.md)
-- [ ] Plan agreed (awaiting go-ahead)
+- [x] Camp ground materials + ambience (audio / VFX / lights) added to scope
+- [x] Assumptions A1–A4 approved
+- [ ] Plan agreed — awaiting build go-ahead (builds AFTER #076, per A4)
 - [ ] Implementation completed
 - [ ] Final summary + changelog written
 

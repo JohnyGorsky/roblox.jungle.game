@@ -47,4 +47,18 @@ and it arrives ~7.5 min into every run under the #073 clock. It currently looks 
 rather than a night you want to find light in — which also devalues the player torch and the boat
 searchlight, both of which already work.
 
-→ Promote to a job.
+## Status — SPLIT (2026-08-05)
+
+**The camp-practicals half is Job #077**: campfire `PointLight`, lanterns on the sandbag line and dock
+head, warm tent glow — all tagged `NightLight`, which `LightController` already switches at 17.5 h / 6.5 h.
+
+**The `AtmosphereRig.NIGHT` half stays HERE and stays open**, and the reasoning above needs one correction:
+this file says the two changes *must* land together. That is true for the **spawn base** — a single lit
+location — but not for the river. The dock camps are **6 spots on an 18,000-stud river**; dropping the
+global night ambient to suit a lit camp would leave the other ~17,000 studs unnavigable, and night on the
+water is a core gameplay beat (`EnemyServer` scales sea threat by `Phase`).
+
+So the ambient drop is a **balance** decision about the boat searchlight and river navigation, not an art
+tweak that rides along with placing lights. Approved as assumption A1 on Job #077.
+
+→ Re-promote for the ambient/searchlight balance pass.

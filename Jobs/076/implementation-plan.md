@@ -2,7 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-05
-**Status**: Planning (awaiting go-ahead)
+**Status**: Planning — awaiting build go-ahead. **Builds FIRST** (user decision A4, 2026-08-05): this job
+sets the frame budget everything else fits under, and it owns the camp trees — so dressing camps
+([#077](../077/implementation-plan.md)) first would mean re-dressing camps still full of greybox trees.
 
 ## Decisions taken (wizard + the hand-built reference shot)
 
