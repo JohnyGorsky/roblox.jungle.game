@@ -40,6 +40,15 @@ local AHEAD = 800
 local BEHIND = 220
 local SEG = 40 -- studs of river per foliage segment
 local MAX_GROUND_Y = 27 -- keep foliage on the grassy banks, not up on the rock/snow
+-- ⚠️ MINIMUM ground height, and this is not a nicety — it is the fix for "why do we have rocks on water".
+--
+-- The placement ray uses `IgnoreWater = true`, so it passes straight through the river and hits the BED.
+-- Job #076 also repainted the riverbed **Sand** — and `SHORE_GROUND` accepts Sand, because the beach needs
+-- its palms. Those two changes combined meant the shore band happily planted rocks, bushes and palms on the
+-- submerged riverbed, which then appeared to float in the middle of the channel.
+--
+-- Material alone cannot distinguish "beach" from "river bottom" — they are the same material. HEIGHT can.
+local MIN_GROUND_Y_ABOVE_WATER = 1 -- studs above WATER_Y that ground must reach before anything is planted
 local DOCK_CLEAR = 30 -- clearing around a landing dock so you can disembark (Job 051)
 local CAMP_MARGIN = 40 -- keep clear of the hand-built spawn base (Job 073)
 local SINK = 0.4 -- push models this far into the ground so they never appear to float
@@ -173,8 +182,12 @@ end
 -- Store models have arbitrary pivots — some at the origin, some at the centre, some off in space — so
 -- `PivotTo(CFrame.new(pos))` floats or buries them unpredictably. Measuring the bounding box after
 -- orienting and then lifting by the difference works for every model without per-asset offsets.
+-- `scale` is applied by the caller before the footprint test (the footprint depends on it), so this is
+-- called with 1 and only orients + seats.
 local function seat(model: Model, pos: Vector3, orient: CFrame, scale: number)
-	model:ScaleTo(scale)
+	if scale ~= 1 then
+		model:ScaleTo(scale)
+	end
 	model:PivotTo(CFrame.new(pos) * orient)
 	-- via FoliageDefs.worldBottom, NOT GetBoundingBox: the oriented box is wrong for anything tilted,
 	-- which was measured as the alley palms sitting up to +0.57 studs off the ground.
@@ -262,6 +275,15 @@ local function buildSeg(idx: number)
 	local count = 0
 
 	-- Try to plant one instance. Returns false if the spot was rejected, so callers don't over-count.
+	-- Try to plant one instance. Returns false if the spot was rejected, so callers don't over-count.
+	--
+	-- ⚠️ THIS CHECKS THE MODEL'S FOOTPRINT, NOT JUST ITS CENTRE — and that is the whole point.
+	-- The reported bug ("rocks fly in the air") was NOT bad seating: the centre was correctly on the bank.
+	-- A `RockA` scaled 2.2x is ~9 studs wide, and the shore band starts 4 studs from the channel edge, so
+	-- half the rock hung out over the river with nothing under it. Correct height, wrong position.
+	--
+	-- So a placement now has to earn its spot twice: pushed far enough inland for its own width, and every
+	-- corner of its footprint standing on land above the waterline.
 	local function tryPlant(
 		name: string,
 		z: number,
@@ -277,24 +299,59 @@ local function buildSeg(idx: number)
 		if not source then
 			return false
 		end
-		local x = bankEdge(z, side) + side * inland
-		local hit = Workspace:Raycast(Vector3.new(x, 90, z), Vector3.new(0, -200, 0), params)
+
+		-- Clone and scale FIRST, because the footprint depends on the scale rolled for this instance.
+		local clone = source:Clone()
+		prepare(clone, collide, shadow)
+		clone:ScaleTo(uniform(scale))
+
+		local _, ext = clone:GetBoundingBox()
+		local radius = math.max(ext.X, ext.Z) * 0.5
+
+		-- push inland by at least its own radius so the footprint clears the water's edge
+		local useInland = math.max(inland, radius + 1)
+		local x = bankEdge(z, side) + side * useInland
+
+		local minGround = RiverData.WATER_Y + MIN_GROUND_Y_ABOVE_WATER
+
+		local function groundAt(px: number, pz: number): RaycastResult?
+			return Workspace:Raycast(Vector3.new(px, 90, pz), Vector3.new(0, -200, 0), params)
+		end
+
+		local hit = groundAt(x, z)
 		if not hit or hit.Instance ~= Workspace.Terrain then
+			clone:Destroy()
 			return false
 		end
 		-- terrainFound is set even when the spot is rejected, so a segment over real terrain is marked
 		-- placed and we stop re-scanning it every tick forever
 		terrainFound = true
-		if not ground[hit.Material] or hit.Position.Y >= MAX_GROUND_Y then
+
+		if not ground[hit.Material] or hit.Position.Y >= MAX_GROUND_Y or hit.Position.Y < minGround then
+			clone:Destroy()
 			return false
 		end
 		if nearLanding(x, z) or inCamp(x, z) then
+			clone:Destroy()
 			return false
 		end
 
-		local clone = source:Clone()
-		prepare(clone, collide, shadow)
-		seat(clone, hit.Position, orient, uniform(scale))
+		-- FOOTPRINT TEST: sample the perimeter. Any corner over water, over nothing, or on a steep face
+		-- means the model would visibly overhang, so the spot is rejected rather than fudged.
+		if radius > 1 then
+			for _, o in ipairs({
+				Vector2.new(radius, 0), Vector2.new(-radius, 0),
+				Vector2.new(0, radius), Vector2.new(0, -radius),
+			}) do
+				local edge = groundAt(x + o.X, z + o.Y)
+				if not edge or edge.Instance ~= Workspace.Terrain or edge.Position.Y < minGround then
+					clone:Destroy()
+					return false
+				end
+			end
+		end
+
+		seat(clone, hit.Position, orient, 1) -- already scaled above; don't re-scale
 		clone.Parent = model
 		count += 1
 		return true

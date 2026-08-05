@@ -79,6 +79,75 @@ local function block(name: string, size: Vector3, color: Color3, cf: CFrame, par
 	return p
 end
 
+-- ── REAL PROPS (Job #077) ─────────────────────────────────────────────────────────────────────────
+-- Every visible camp object is a model from `ServerStorage.AssetLibrary` now. `block()` above survives
+-- only for INVISIBLE trigger/anchor parts — if you can see a coloured box in a camp, it is a bug.
+
+-- Ground height under a point, measured not assumed. `CLEAR_Y` is the carve height (15) but terrain voxels
+-- snap to the RES=4 grid, so the walkable surface is ~17 — trusting CLEAR_Y buried props by 2.4 studs.
+--
+-- ⚠️ Rejects near-VERTICAL hits. The basin is ringed by terrain `wallBlock` walls; a ray landing on a wall
+-- face returns a height metres above the floor, which is what put a handful of props visibly out of place.
+local function groundAt(x: number, z: number): number
+	local rp = RaycastParams.new()
+	rp.FilterType = Enum.RaycastFilterType.Include
+	rp.FilterDescendantsInstances = { Terrain }
+	rp.IgnoreWater = true
+	for _, from in ipairs({ CLEAR_Y + 60, CLEAR_Y + 6 }) do
+		local hit = Workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -300, 0), rp)
+		-- Normal.Y near 1 = a floor. A wall face gives ~0 and is not somewhere a tent belongs.
+		if hit and hit.Normal.Y > 0.7 then
+			return hit.Position.Y
+		end
+	end
+	return CLEAR_Y
+end
+
+-- Place a library model with its BASE on the ground, facing `lookAt`, and return it.
+-- `yawOnly` keeps props upright; nothing here should ever be tilted.
+type PropOpts = {
+	scale: number?,
+	yaw: number?,
+	faceTo: Vector3?,
+	collide: boolean?,
+	sink: number?,
+}
+
+local function prop(name: string, x: number, z: number, parent: Instance, opts: PropOpts?): Model?
+	local source = campFloraLib[name]
+	if not source then
+		warn(("[Excursion] AssetLibrary has no %q — camp prop skipped"):format(name))
+		return nil
+	end
+	local o: PropOpts = opts or {}
+	local clone = source:Clone()
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			-- Structures you walk around SHOULD collide; loose dressing should not, so a firefight in a
+			-- camp doesn't turn into a maze of invisible walls.
+			d.CanCollide = o.collide == true
+			d.CastShadow = o.collide == true
+		end
+	end
+
+	if o.scale then
+		clone:ScaleTo(o.scale)
+	end
+
+	local yaw = o.yaw or 0
+	if o.faceTo then
+		local d = Vector3.new(o.faceTo.X - x, 0, o.faceTo.Z - z)
+		if d.Magnitude > 0.01 then
+			yaw = math.atan2(d.X, d.Z)
+		end
+	end
+	clone:PivotTo(CFrame.new(x, CLEAR_Y, z) * CFrame.Angles(0, yaw, 0))
+	FoliageDefs.seatOnGround(clone, groundAt(x, z), o.sink or 0.3)
+	clone.Parent = parent
+	return clone
+end
+
 -- rare gold nugget: grab it for 1 Gold, run-capped. Credits the persistent profile immediately.
 local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
 	local spawned = (Workspace:GetAttribute("NuggetsSpawned") :: number?) or 0
