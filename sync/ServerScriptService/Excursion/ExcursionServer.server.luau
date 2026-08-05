@@ -21,6 +21,9 @@ local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChil
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
 local ServerScriptService = game:GetService("ServerScriptService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+-- Job #076: camp clearings draw from the SAME shore-band table the riverbank uses, so the two can't drift
+local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
+local campFloraLib: { [string]: Model } = {}
 local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent -- village trading post (Job 023)
 
 local CAMP_AHEAD = 1400
@@ -264,10 +267,72 @@ local function makeKindCrate(pos: Vector3, kind: string, id: string, color: Colo
 	end)
 end
 
+-- ── camp foliage (Job #076) ───────────────────────────────────────────────────────────────────────
+-- This used to be a 2-part box trunk + box canopy, 45 per camp. It is real models now, drawn from the
+-- SAME shore-band table `FoliageServer` uses (`FoliageDefs.BANDS[1]`), so a camp clearing is planted with
+-- the same vocabulary as the riverbank it sits behind and the two never drift apart.
+--
+-- Scoped to #076 rather than #077 on purpose: this is foliage, and leaving it greybox would have put box
+-- trees at all six landings inside an otherwise real jungle. Camp STRUCTURES are #077.
+local campFlora: { { model: string, scale: { number }, tiltMax: number? } } = {}
+do
+	local lib = ServerStorage:FindFirstChild("AssetLibrary")
+	local byName: { [string]: Model } = {}
+	if lib then
+		for _, group in ipairs(lib:GetChildren()) do
+			for _, m in ipairs(group:GetChildren()) do
+				if m:IsA("Model") then
+					byName[m.Name] = m
+				end
+			end
+		end
+	end
+	for _, e in ipairs(FoliageDefs.BANDS[1].entries) do
+		if byName[e.model] then
+			table.insert(campFlora, { model = e.model, scale = e.scale, tiltMax = e.tiltMax })
+		end
+	end
+	if #campFlora == 0 then
+		warn("[Excursion] no AssetLibrary foliage — camp clearings will be bare (the library is in the "
+			.. "place file, not git: open the game place and save it)")
+	end
+	campFloraLib = byName
+end
+
 local function tree(x: number, z: number, parent: Instance, rng: Random)
-	local h = rng:NextNumber(11, 18)
-	block("Trunk", Vector3.new(2, h, 2), Color3.fromRGB(90, 60, 40), CFrame.new(x, CLEAR_Y + h / 2, z), parent, Enum.Material.Wood)
-	block("Canopy", Vector3.new(11, 8, 11), Color3.fromRGB(45, 100, 50), CFrame.new(x, CLEAR_Y + h + 2, z), parent)
+	if #campFlora == 0 then
+		return
+	end
+	local pick = campFlora[rng:NextInteger(1, #campFlora)]
+	local source = campFloraLib[pick.model]
+	if not source then
+		return
+	end
+	local clone = source:Clone()
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false -- a camp you fight in must not be a maze of invisible collision
+			d.CastShadow = false
+		end
+	end
+	-- (no LevelOfDetail write here either — server scripts lack the Plugin capability; it is authored on
+	-- the AssetLibrary source models and inherited by clones)
+
+	local yaw = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local orient = yaw
+	if pick.tiltMax and pick.tiltMax > 0 then
+		local a = math.rad(rng:NextNumber(0, pick.tiltMax))
+		local dir = rng:NextNumber(0, math.pi * 2)
+		orient = CFrame.fromAxisAngle(Vector3.new(math.cos(dir), 0, math.sin(dir)), a) * yaw
+	end
+
+	clone:ScaleTo(rng:NextNumber(pick.scale[1], pick.scale[2]))
+	clone:PivotTo(CFrame.new(x, CLEAR_Y, z) * orient)
+	-- seat the BASE on the basin floor whatever the model's pivot happens to be (store pivots vary wildly)
+	local bcf, bsize = clone:GetBoundingBox()
+	clone:PivotTo(clone:GetPivot() + Vector3.new(0, CLEAR_Y - (bcf.Position.Y - bsize.Y / 2) - 0.4, 0))
+	clone.Parent = parent
 end
 
 -- a visible market stall in the village so players can SEE where to trade (Job 023). Fires the shop panel.

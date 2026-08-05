@@ -15,11 +15,44 @@ local CollectionService = game:GetService("CollectionService")
 -- real river obstacles (Job 036): built on "obstacle" hooks; tagged "Obstacle" with Slow/Damage attributes
 -- that ObstacleServer reads on boat contact. Non-colliding triggers (physical collision would blow up the
 -- boat assembly) — the hit applies a velocity cut + hull damage instead.
-local OBSTACLES = {
-	{ name = "Rock", size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
-	{ name = "Log", size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
-	{ name = "Sandbar", size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+-- Job #076: each type now names a REAL model from `ServerStorage.AssetLibrary`. The greybox box is kept
+-- as the FALLBACK, not deleted, because the library lives in the place file rather than in git — a fresh
+-- clone with no saved .rbxl must still get playable obstacles rather than an invisible river hazard.
+--
+-- `Sandbar` has no model and doesn't want one: it is a flat shoal, so it stays a low box on Sand material,
+-- which is exactly what a sandbar looks like from a boat.
+type Obstacle = {
+	name: string,
+	model: string?, -- nil = stays a greybox box on purpose (Sandbar)
+	size: Vector3,
+	color: Color3,
+	mat: Enum.Material,
+	slow: number,
+	damage: number,
 }
+
+local OBSTACLES: { Obstacle } = {
+	{ name = "Rock", model = "RockA", size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
+	{ name = "Log", model = "LogMossy", size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
+	{ name = "Sandbar", model = nil, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+}
+
+-- Real obstacle art, looked up once. Missing library => greybox fallback, warned once, river still playable.
+local obstacleArt: { [string]: Model } = {}
+do
+	local lib = game:GetService("ServerStorage"):FindFirstChild("AssetLibrary")
+	if lib then
+		for _, group in ipairs(lib:GetChildren()) do
+			for _, m in ipairs(group:GetChildren()) do
+				if m:IsA("Model") then
+					obstacleArt[m.Name] = m
+				end
+			end
+		end
+	else
+		warn("[Obstacle] no ServerStorage.AssetLibrary — obstacles fall back to greybox boxes")
+	end
+end
 
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local RiverGenerator = require(ServerScriptService:WaitForChild("River"):WaitForChild("RiverGenerator"))
@@ -86,6 +119,13 @@ local function placeHooks(index: number)
 		else
 			-- REAL obstacle (Job 036): pick a type deterministically by z; slow + damage on contact
 			local pick = OBSTACLES[(math.floor(math.abs(math.noise(h.z * 0.11, 7.7)) * 97) % #OBSTACLES) + 1]
+
+			-- ⚠️ THE TRIGGER PART IS STILL THE TRIGGER, AND IT MUST STAY NON-COLLIDING.
+			-- `ObstacleServer` reads the `Obstacle` tag plus the Slow/Damage attributes off THIS part, and
+			-- the part is deliberately CanCollide = false: physical collision with the boat assembly blows
+			-- it up (Job 036's whole reason for using a trigger). Job #076 only changes what you SEE — the
+			-- art is a decorative, non-colliding clone parented under the trigger, so the hit behaviour,
+			-- the tag and the attributes are byte-for-byte what they were.
 			local p = Instance.new("Part")
 			p.Name = pick.name
 			p.Anchored = true
@@ -98,6 +138,30 @@ local function placeHooks(index: number)
 			p:SetAttribute("Slow", pick.slow)
 			p:SetAttribute("Damage", pick.damage)
 			CollectionService:AddTag(p, "Obstacle")
+
+			local art = if pick.model then obstacleArt[pick.model] else nil
+			if art then
+				p.Transparency = 1 -- the trigger becomes invisible; the model is what the player sees
+				local clone = art:Clone()
+				clone.Name = "Art"
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CastShadow = false
+					end
+				end
+				-- Scale the model to roughly fill the trigger it replaces, so the thing you see and the
+				-- thing that hurts you are the same size. Rotated by z so a run of rocks isn't identical.
+				local _, ext = clone:GetBoundingBox()
+				local want = math.max(pick.size.X, pick.size.Z)
+				local have = math.max(ext.X, ext.Z)
+				if have > 0 then
+					clone:ScaleTo(want / have)
+				end
+				clone:PivotTo(CFrame.new(p.Position) * CFrame.Angles(0, math.noise(h.z * 0.31, 3.1) * math.pi * 2, 0))
+				clone.Parent = p
+			end
 			p.Parent = folder
 		end
 	end

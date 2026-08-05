@@ -25,6 +25,13 @@ local BANK_LIP = 10                 -- how high the immediate bank rises out of 
 local Y_MIN, Y_MAX = -8, 64         -- vertical span of generated terrain
 local ROCK_Y, SNOW_Y = 26, 40       -- altitude bands for material painting
 local HOFF1, HOFF2 = 13.2, 27.7     -- hill-noise offsets
+-- ── shore + jungle floor (Job #076) ────────────────────────────────────────
+local SHORE_W = 30                  -- studs of Sand beach out from the bank edge
+local SHORE_JITTER = 7              -- how far the sand/grass boundary wanders, so it is never a straight line
+local GOFF = 41.3                   -- grass-mix noise offset (kept distinct from the hill offsets so the
+                                    -- ground pattern does not correlate with the terrain height)
+local GRASS_BIAS = -0.06            -- >0 picks Grass; biased negative so LeafyGrass is the majority
+-- ───────────────────────────────────────────────────────────────────────────
 -- ───────────────────────────────────────────────────────────────────────────
 
 local WATER_Y = RiverData.WATER_Y
@@ -76,10 +83,16 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 
 	-- per-(x,z) column: land surface height, or -1 to mark the water channel. "edge" = distance PAST the
 	-- nearest branch's bank; <0 means inside a channel. Land between two branches becomes a low island.
+	--
+	-- Job #076: `edge` is now KEPT (`edges`), not just used and thrown away. The material pass needs it to
+	-- paint the shore strip Sand — distance from the water is the only thing that defines a beach, and
+	-- recomputing it in the second pass would mean running the branch loop twice per voxel column.
 	local surf = table.create(nx)
+	local edges = table.create(nx)
 	for i = 1, nx do
 		local wx = base.X + (i - 0.5) * RES
 		local col = table.create(nz)
+		local ecol = table.create(nz)
 		for k = 1, nz do
 			local edge = math.huge
 			for _, b in brk[k] do
@@ -88,6 +101,7 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 					edge = e
 				end
 			end
+			ecol[k] = edge
 			if edge < 0 then
 				col[k] = -1 -- channel (within some branch)
 			else
@@ -99,6 +113,7 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 			end
 		end
 		surf[i] = col
+		edges[i] = ecol
 	end
 
 	-- fill the voxel grid
@@ -106,6 +121,8 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 	local occs = table.create(nx)
 	for i = 1, nx do
 		local colSurf = surf[i]
+		local colEdge = edges[i]
+		local wx = base.X + (i - 0.5) * RES
 		local matI = table.create(ny)
 		local occI = table.create(ny)
 		for j = 1, ny do
@@ -113,13 +130,16 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 			local matJ = table.create(nz)
 			local occJ = table.create(nz)
 			for k = 1, nz do
+				local wz = base.Z + (k - 0.5) * RES
 				local s = colSurf[k]
 				local mat: Enum.Material = Enum.Material.Air
 				local occ = 0
 				if s < 0 then
 					-- water channel
 					if wy < WATER_Y - CHANNEL_DEPTH then
-						mat, occ = Enum.Material.Grass, 1 -- riverbed
+						-- Job #076: the riverbed was GRASS. A grass river bottom is simply wrong, and it is
+						-- visible through the water at every shallow crossing.
+						mat, occ = Enum.Material.Sand, 1 -- riverbed
 					elseif wy < WATER_Y then
 						mat, occ = Enum.Material.Water, 1
 					end
@@ -130,7 +150,26 @@ function RiverGenerator.generateChunk(chunkIndex: number): Region3
 					elseif wy > ROCK_Y then
 						mat = Enum.Material.Rock
 					else
-						mat = Enum.Material.Grass
+						-- ── Job #076: shore + jungle floor ──
+						-- The whole bank used to be one flat Grass, which STYLEGUIDE §4 forbids outright:
+						-- "never flat-coloured — mix sand, dirt, mud, grass patches."
+						--
+						-- SHORE_W is jittered by noise rather than being a fixed distance, because a beach
+						-- that ends at a perfect line parallel to the river reads as a painted stripe. The
+						-- jitter is high-frequency (0.045) so the edge wanders over a few studs, not over
+						-- whole bends.
+						local shoreEdge = SHORE_W + math.noise(wx * 0.045, wz * 0.045) * SHORE_JITTER
+						if colEdge[k] < shoreEdge then
+							mat = Enum.Material.Sand
+						else
+							-- LeafyGrass-dominant mix. Low frequency (0.02) so patches are metres across
+							-- and read as varied ground rather than as static; the threshold is biased so
+							-- LeafyGrass wins, because it is the deeper, more overgrown of the two and the
+							-- jungle floor should not look like lawn.
+							mat = if math.noise(wx * 0.02 + GOFF, wz * 0.02 + GOFF) > GRASS_BIAS
+								then Enum.Material.Grass
+								else Enum.Material.LeafyGrass
+						end
 					end
 				end
 				matJ[k] = mat
