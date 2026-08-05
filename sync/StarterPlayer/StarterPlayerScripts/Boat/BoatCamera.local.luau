@@ -13,8 +13,16 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
 local BIND = "BoatCam"
-local FOLLOW_DIST = 24
-local FOLLOW_HEIGHT = 9
+local FOLLOW_DIST = 26
+-- Raised 9 -> 16 (playtest: "when driver drives in boat, camera is locked, we need to rise camera, because
+-- it is hard to see ahead"). At 9 the camera sat barely above the gunwale, so the boat's own bow, the
+-- mounted gun and the crew filled the lower half of the screen and the next bend was hidden behind them —
+-- which matters because reading the bend early IS the driving skill.
+local FOLLOW_HEIGHT = 16
+-- How far ABOVE the hull to aim. Looking dead level at hull height put the horizon in the middle of the
+-- frame with the deck eating the rest; lifting the aim point tilts the view down the river instead of at
+-- it, so the water ahead gets the screen space and the deck drops to the bottom edge.
+local LOOK_UP = 4
 local LOOK_AHEAD = 8
 local SMOOTH_K = 6
 local FOV_BASE = 68          -- FOV at rest
@@ -42,7 +50,7 @@ local function update(dt: number)
 	local pos, vel = h.Position, h.AssemblyLinearVelocity
 	local flat = Vector3.new(vel.X, 0, vel.Z)
 	local ahead = flat.Magnitude > 1 and flat.Unit or h.CFrame.LookVector
-	local target = pos + ahead * LOOK_AHEAD
+	local target = pos + ahead * LOOK_AHEAD + Vector3.new(0, LOOK_UP, 0)
 	local desired = pos - h.CFrame.LookVector * FOLLOW_DIST + Vector3.new(0, FOLLOW_HEIGHT, 0)
 
 	-- collision-aware: don't clip through terrain/banks between the boat and the camera
