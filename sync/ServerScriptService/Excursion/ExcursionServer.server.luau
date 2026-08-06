@@ -242,13 +242,39 @@ local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
 	end)
 end
 
--- flatten a walkable patch (fill solid below CLEAR_Y, clear terrain above — incl. tall mountains)
--- Job #077: the base material is `LeafyGrass`, not `Grass` — deeper and more overgrown, so the basin
--- floor reads as jungle floor rather than lawn. `FoliageDefs.JUNGLE_GROUND` already accepts both, so
+-- 🔴 CARVE THE BASIN IN Z-SLICES, FOLLOWING THE RIVER — never as one square block.
+--
+-- This used to be a single 400×400 `FillBlock` whose inner edge was the bank sampled at ONE z (the
+-- dock's). The river MEANDERS, so 200 studs up- or downstream the channel has moved sideways — and the
+-- square carve then filled the channel itself with solid ground. On screen that is a slab of land
+-- jutting out into the river with a dead-straight edge: "land is outside".
+--
+-- Same root cause as every other placement bug in this job: ONE SAMPLE USED FOR A 400-STUD FOOTPRINT.
+-- So walk the basin in slices and re-read the bank for each one; the basin's inner edge then follows
+-- the water instead of cutting across it.
+--
+-- Job #077 also changed the base material to `LeafyGrass` — deeper and more overgrown than `Grass`, so
+-- the basin floor reads as jungle floor rather than lawn. `FoliageDefs.JUNGLE_GROUND` accepts both, so
 -- #076's foliage plants on it unchanged.
-local function carve(cx: number, cz: number, size: number)
-	Terrain:FillBlock(CFrame.new(cx, CLEAR_Y - 20, cz), Vector3.new(size, 40, size), CampDefs.GROUND.base)
-	Terrain:FillBlock(CFrame.new(cx, CLEAR_Y + 32, cz), Vector3.new(size, 64, size), Enum.Material.Air)
+local CARVE_SLICE = 20 -- studs of Z per slice; small enough to track the meander, few enough to be cheap
+
+local function bankAt(z: number, side: number): number
+	return RiverData.centerlineX(z) + side * RiverData.widthAt(z) * 0.5
+end
+
+local function carve(cx: number, cz: number, size: number, side: number)
+	local half = size / 2
+	local outerX = cx + side * half -- the inland edge, which does not move
+	for z0 = cz - half, cz + half - CARVE_SLICE, CARVE_SLICE do
+		local zMid = z0 + CARVE_SLICE / 2
+		local innerX = bankAt(zMid, side) -- the water's edge HERE, not at the dock
+		local width = (outerX - innerX) * side
+		if width > 8 then
+			local xMid = (innerX + outerX) / 2
+			Terrain:FillBlock(CFrame.new(xMid, CLEAR_Y - 20, zMid), Vector3.new(width, 40, CARVE_SLICE), CampDefs.GROUND.base)
+			Terrain:FillBlock(CFrame.new(xMid, CLEAR_Y + 32, zMid), Vector3.new(width, 64, CARVE_SLICE), Enum.Material.Air)
+		end
+	end
 end
 
 -- ── ground painting (Job #077, plan Part 3) ───────────────────────────────────────────────────────
@@ -292,14 +318,20 @@ local function paintBasin(cx: number, cz: number, size: number, waterEdge: numbe
 	end
 
 	-- The bank where the basin meets the water — §4 wants it a different tone from the interior.
+	-- ⚠️ SLICED, following the meander, for the same reason `carve` is: one bank sample smeared over 400
+	-- studs paints mud across open water at the ends.
 	-- ⚠️ Safe above the water line by construction: `CLEAR_Y` is `WATER_Y + 3` and this tops out AT
 	-- `CLEAR_Y`. Push it any lower and it reads as a muddy pool rather than a bank.
-	local bankX = waterEdge + side * (G.bank.width / 2)
-	Terrain:FillBlock(
-		CFrame.new(bankX, CLEAR_Y - G.depth / 2, cz),
-		Vector3.new(G.bank.width, G.depth, size),
-		G.bank.material
-	)
+	local bankHalf = size / 2
+	for z0 = cz - bankHalf, cz + bankHalf - CARVE_SLICE, CARVE_SLICE do
+		local zMid = z0 + CARVE_SLICE / 2
+		local bankX = bankAt(zMid, side) + side * (G.bank.width / 2)
+		Terrain:FillBlock(
+			CFrame.new(bankX, CLEAR_Y - G.depth / 2, zMid),
+			Vector3.new(G.bank.width, G.depth, CARVE_SLICE),
+			G.bank.material
+		)
+	end
 end
 
 -- Pass 3: worn earth where people actually walk. This is environmental storytelling, not texture
@@ -733,84 +765,91 @@ end
 -- Before this, `tree()` scattered shore-band undergrowth uniformly edge to edge, so the camp had no
 -- edge — and the terrain `wallBlock` rock walls that contain the basin were plainly visible as walls.
 --
--- This tiles `JungleTreesPack` — the same 218-stud canopy cluster `FoliageServer` walls the riverbank
--- with — around the three INLAND sides, just inside the rock wall. The water side stays open, because
--- that is the side you arrive from and the side the dock is on.
+-- This plants two staggered rows of dense trees around the three INLAND sides, just inside the wall.
+-- The water side stays open, because that is the side you arrive from and the side the dock is on.
 --
--- ⚠️ ~6 packs × 112 parts ≈ 670 parts, the biggest single line item in a landing site. Affordable only
--- because 1–2 sites are ever live. `CampDefs.CLEARING.ring.spacing` is the lever, and the ring degrades
--- gracefully when thinned because the tiles are meant to overlap.
+-- ⚠️ NOT `JungleTreesPack`, and that was measured rather than assumed — see `CampDefs.CLEARING`. The
+-- pack is 218 studs long; every placement either buried 27–45 studs of itself in the basin's rock wall
+-- or landed on top of the deep camp. Individual cheap trees enclose the clearing for half the parts.
 local function plantClearingRing(cx: number, cz: number, size: number, waterEdge: number, side: number, parent: Instance, rng: Random)
 	local R = CampDefs.CLEARING.ring
-	local source = campFloraLib[R.model]
-	if not source or not source:IsA("Model") then
-		warn(("[Excursion] AssetLibrary has no %q — camp clearing gets no canopy ring"):format(R.model))
+
+	local pool: { any } = {}
+	for _, e in ipairs(R.entries) do
+		local src = campFloraLib[e.model]
+		if src and src:IsA("Model") then
+			for _ = 1, e.weight do
+				table.insert(pool, e)
+			end
+		end
+	end
+	if #pool == 0 then
+		warn("[Excursion] no ring foliage in AssetLibrary — camp clearing gets no tree ring")
 		return
 	end
 
-	-- ⚠️ HALF THE PACK'S LENGTH, not zero. This model is 218 studs long, so a tile whose CENTRE is 30
-	-- studs inland still reaches ~80 studs out into the river. The first version of this ring used the
-	-- centre only and put canopy in the water.
-	local _, packSize = source:GetBoundingBox()
-	local packHalf = math.max(packSize.X, packSize.Z) / 2
-
-	-- ⚠️ AND the bank is not where the dock says it is. `waterEdge` is sampled at the dock's Z, but the
-	-- river MEANDERS: 170 studs up- or downstream the channel has moved, so a ring run along the basin's
-	-- Z edges that trusts one sample walks straight into the water at its ends.
+	-- ⚠️ The bank is NOT where the dock says it is. `waterEdge` is sampled at the dock's Z, but the river
+	-- MEANDERS: 170 studs up- or downstream the channel has moved, so a ring run along the basin's Z
+	-- edges that trusts one sample walks straight into the water at its ends.
 	local function bankAt(z: number): number
 		return RiverData.centerlineX(z) + side * RiverData.widthAt(z) * 0.5
 	end
 
-	local half = size / 2 - R.inset
-	local farX = cx + side * half
-	local pts: { { number } } = {}
-	-- the far inland edge, running along Z
-	for z = cz - half, cz + half, R.spacing do
-		table.insert(pts, { farX, z })
-	end
-	-- the two Z edges, running inland from the LOCAL bank, offset by the pack's own reach
-	for _, ez in ipairs({ cz - half, cz + half }) do
-		local nearX = bankAt(ez) + side * (R.inset + packHalf)
-		local span = (farX - nearX) * side
-		if span > 0 then
-			for t = 0, span, R.spacing do
-				table.insert(pts, { nearX + side * t, ez })
-			end
-		end
-	end
-
 	local placed, rejected = 0, 0
-	for _, p in ipairs(pts) do
-		local x = p[1] + rng:NextNumber(-R.jitter, R.jitter)
-		local z = p[2] + rng:NextNumber(-R.jitter, R.jitter)
-		local clone = source:Clone()
+	local function plant(x: number, z: number)
+		local pick = pool[rng:NextInteger(1, #pool)]
+		-- Refuse anything whose footing is river. A point raycast is not enough (see
+		-- `FoliageDefs.groundClearFraction`); the disc is the trunk's footing, not the canopy, because
+		-- canopy over the water is wanted.
+		if FoliageDefs.groundClearFraction(x, z, 8, RiverData.WATER_Y, 1) > FoliageDefs.MAX_OVER_WATER then
+			rejected += 1
+			return
+		end
+		local clone = (campFloraLib[pick.model] :: Model):Clone()
 		for _, d in ipairs(clone:GetDescendants()) do
 			if d:IsA("BasePart") then
 				d.Anchored = true
-				-- Non-colliding: the ring is scenery you look at, not geometry you walk into. The rock
-				-- wall behind it is what actually contains the basin.
+				-- Non-colliding: the ring is scenery you look at, not geometry you fight through. The
+				-- rock wall behind it is what actually contains the basin.
 				d.CanCollide = false
 				d.CastShadow = false
 			end
 		end
-		clone:ScaleTo(rng:NextNumber(R.scale[1], R.scale[2]))
-		clone:PivotTo(CFrame.new(x, CLEAR_Y, z) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		local orient = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		if pick.tiltMax and pick.tiltMax > 0 then
+			local a = math.rad(rng:NextNumber(0, pick.tiltMax))
+			local dir = rng:NextNumber(0, math.pi * 2)
+			orient = CFrame.fromAxisAngle(Vector3.new(math.cos(dir), 0, math.sin(dir)), a) * orient
+		end
+		clone:ScaleTo(rng:NextNumber(pick.scale[1], pick.scale[2]))
+		clone:PivotTo(CFrame.new(x, CLEAR_Y, z) * orient)
 		FoliageDefs.seatOnGround(clone, groundAt(x, z), 0.4)
 		clone.Parent = parent
+		placed += 1
+	end
 
-		-- Belt and braces: even with the two guards above, MEASURE the ground the tile stands on and throw
-		-- it away if that is river. The maths can be wrong again; the measurement cannot. The disc is the
-		-- pack's CORE, not its full 218-stud spread — its outermost trees are meant to overhang.
-		if FoliageDefs.groundClearFraction(x, z, packHalf * 0.45, RiverData.WATER_Y, 2) > FoliageDefs.MAX_OVER_WATER then
-			clone:Destroy()
-			rejected += 1
-		else
-			placed += 1
+	for row = 0, R.rows - 1 do
+		local inset = R.inset + row * R.rowGap
+		local half = size / 2 - inset
+		local stagger = (row % 2) * (R.spacing / 2) -- so you cannot see straight through the two rows
+		local farX = cx + side * half
+
+		-- the far inland edge, running along Z
+		for z = cz - half, cz + half, R.spacing do
+			plant(farX + rng:NextNumber(-R.jitter, R.jitter), z + stagger + rng:NextNumber(-R.jitter, R.jitter))
+		end
+		-- the two Z edges, running inland from the LOCAL bank
+		for _, ez in ipairs({ cz - half, cz + half }) do
+			local nearX = bankAt(ez) + side * inset
+			local span = (farX - nearX) * side
+			local t = stagger
+			while t < span do
+				plant(nearX + side * t + rng:NextNumber(-R.jitter, R.jitter), ez + rng:NextNumber(-R.jitter, R.jitter))
+				t += R.spacing
+			end
 		end
 	end
-	if rejected > 0 then
-		print(("[Excursion] clearing ring: %d canopy tiles placed, %d rejected as over-water"):format(placed, rejected))
-	end
+	print(("[Excursion] clearing ring: %d trees, %d rejected as over-water"):format(placed, rejected))
 end
 
 -- a visible market stall in the village so players can SEE where to trade (Job 023). Fires the shop panel.
@@ -890,7 +929,7 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	end
 
 	built[index] = true
-	carve(basinCenterX, dock.z, BASIN_SIZE)
+	carve(basinCenterX, dock.z, BASIN_SIZE, dock.side)
 
 	-- contain the valley: raise rock walls on the 3 inland sides (water side stays open for the dock)
 	-- so the crew can't walk off the carved basin's edge.
@@ -1060,7 +1099,21 @@ forceCamp.OnInvoke = function(): Vector3?
 	if not first then
 		return nil
 	end
-	buildLandingSite(first, dockIndex(first.z))
+	-- ⚠️ The first landing can be ~1,900 studs ahead — OUTSIDE `RiverBootstrap`'s generated window. Build
+	-- is now refused until the terrain exists (see `terrainReadyAt`), so poll rather than firing once and
+	-- teleporting an admin into a camp that was never built.
+	local idx = dockIndex(first.z)
+	local t0 = os.clock()
+	while not built[idx] and os.clock() - t0 < 30 do
+		buildLandingSite(first, idx)
+		if not built[idx] then
+			task.wait(0.5)
+		end
+	end
+	if not built[idx] then
+		warn("[Excursion] ForceFirstCamp: river terrain never reached the first landing — nothing built")
+		return nil
+	end
 	local halfW = RiverData.widthAt(first.z) * 0.5
 	local waterEdge = RiverData.centerlineX(first.z) + first.side * halfW
 	return Vector3.new(waterEdge + first.side * 120, CLEAR_Y + 3, first.z) -- the near camp

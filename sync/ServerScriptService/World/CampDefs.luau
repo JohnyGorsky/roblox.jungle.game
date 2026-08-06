@@ -123,30 +123,42 @@ CampDefs.LAYOUT = {
 -- as walls.
 --
 -- So the basin is planted in two zones:
---   · RING  — `JungleTreesPack` tiled around the three inland sides, just inside the rock wall. The same
---             model `FoliageDefs.WALL` tiles along the riverbank, so the clearing is framed by the same
---             canopy the river is, and the wall seam disappears behind it.
---   · INSIDE— light undergrowth only (palms, bushes, ferns from shore band 1), and LESS of it, so the
---             camp itself stays legible and walkable.
+--   · RING  — dense trees in two staggered rows around the three inland sides, just inside the rock
+--             wall, so the wall is hidden and the camp has an edge.
+--   · INSIDE— light undergrowth only, and LESS of it, so the camp stays legible and walkable.
 --
--- ⚠️ COST. `JungleTreesPack` is 112 parts and 218 studs long. At `spacing` 200 over three 400-stud sides
--- that is ~6 packs ≈ **670 parts** — the single biggest line item in a landing site, bigger than the
--- trading post. It is affordable only because 1–2 sites are live at once. `spacing` is the lever: raise
--- it to thin the ring, and the ring degrades gracefully because the packs are meant to overlap.
+-- ⚠️ COST ~80 objects ≈ **350 parts**, because every model in the ring list is cheap (4, 3, 8 and 1
+-- parts). `spacing` and `rows` are the levers if a real device complains.
 CampDefs.CLEARING = {
+	-- ⚠️ THE RING IS INDIVIDUAL TREES, NOT `JungleTreesPack`, AND THAT IS A MEASURED DECISION.
+	-- The pack is the obvious choice — it is what `FoliageDefs.WALL` walls the riverbank with — but it
+	-- is **218 studs long**, and a 400-stud basin that also has to hold two camps has nowhere to put
+	-- one. Measured both ways round: tiles at the basin edge bury 27–45 studs of themselves in the
+	-- basin's rock wall, and tiles pulled far enough inland to fit land on top of the deep camp.
+	-- Cheap individual trees at close spacing give the same enclosure with a footprint that fits.
 	ring = {
-		model = "JungleTreesPack",
-		inset = 30, -- studs in from the basin edge — inside the rock wall, so the pack hides it
-		spacing = 200, -- < the pack's 218-stud length, so neighbouring tiles overlap and show no seam
-		jitter = 14, -- per-tile wobble, so the ring isn't a ruler-straight hedge
-		scale = { 1.0, 1.15 },
+		-- Weighted pick. `PalmCoconut` is the workhorse for the same reason it is in `FoliageDefs`:
+		-- 4 parts for a 44×50-stud tree. Nothing expensive is in this list — the ring is ~80 objects.
+		entries = {
+			{ model = "PalmCoconut", weight = 5, scale = { 0.9, 1.3 }, tiltMax = 5 },
+			{ model = "PalmLowPoly", weight = 3, scale = { 0.8, 1.2 }, tiltMax = 6 },
+			{ model = "BushPack", weight = 4, scale = { 0.9, 1.4 }, tiltMax = 0 },
+			{ model = "FernTall", weight = 3, scale = { 0.8, 1.3 }, tiltMax = 8 },
+		},
+		inset = 24, -- studs in from the basin edge — inside the rock wall, so the trees hide it
+		spacing = 26, -- along the perimeter
+		rows = 2, -- two staggered rows, so you cannot see through the ring
+		rowGap = 22,
+		jitter = 9,
 	},
 	-- How far in from the basin edge the ring zone reaches. Interior scatter stays inside this, so the
-	-- undergrowth does not fight the canopy for the same ground.
-	ringZone = 60,
-	-- Interior undergrowth, down from the flat 45 the greybox scattered edge-to-edge.
-	interiorCount = 26,
+	-- undergrowth does not fight the ring for the same ground.
+	ringZone = 70,
+	-- Interior undergrowth, down from the flat 45 the greybox scattered edge-to-edge: the middle of a
+	-- camp you fight in should be open, and the ring should be the thing enclosing it.
+	interiorCount = 22,
 }
+
 
 -- ── Ground painting (Part 3 of the plan) ──────────────────────────────────────────────────────────
 -- The basin was ONE FLAT `Grass` fill, which is exactly what STYLEGUIDE §4 forbids ("never flat-coloured
