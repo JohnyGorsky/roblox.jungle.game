@@ -185,6 +185,8 @@ local function plateBelt(tag: string, segments: number): number
 end
 
 local applied = false
+local repaint: (reason: string) -> ()
+
 local function apply()
 	if applied then
 		return
@@ -425,8 +427,30 @@ local function apply()
 	-- olive it has always been, so nobody's boat is changed out from under them by a stranger's purchase
 	-- unless that stranger actually paid for the paint.
 	--
-	-- Runs LAST, after every module part exists, so the hullkit's armour plates get painted too — the hull
-	-- turning navy while its plates stayed olive would look broken.
+	-- Modules done. The livery is applied separately (see `repaint` below) so it is NOT gated on the run
+	-- starting — see the bug note there.
+	print(("[BoatModules] applied: %s | skills applied%s"):format(
+		#on > 0 and table.concat(on, ", ") or "none",
+		armored and " | ARMORED" or ""))
+
+	repaint("modules applied")
+end
+
+-- ── HULL LIVERY (Boat Paint Pack, Job 067) ─────────────────────────────────────────────────────────
+-- One boat, up to six players, so SOMEONE's livery has to win. The rule: the first player in join order who
+-- both owns the pass and has picked a non-default livery. Everyone else's boat is the stock olive it has
+-- always been, so nobody's boat is changed out from under them by a stranger's purchase unless that
+-- stranger actually paid for the paint.
+--
+-- ⚠️ WHY THIS IS NO LONGER INSIDE `apply()` (playtest bug):
+-- `apply()` only runs on `RunStarted`, because MODULES are per-run purchases. The livery had been bundled
+-- into it, so the boat sat in its raw imported mesh colour — WHITE — for the whole crash-site staging phase
+-- and only snapped to its real colour the instant someone untied. Reported as "why sometimes when i join
+-- boat is white, when i got in it got other color".
+--
+-- Paint is cosmetic and has nothing to do with the run starting, so it is applied as soon as the boat
+-- exists, and re-applied whenever the inputs change (a player joins/leaves, or someone picks a livery).
+function repaint(reason: string)
 	local paintId = BoatPaint.DEFAULT
 	local painter: Player? = nil
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -437,13 +461,34 @@ local function apply()
 		end
 	end
 	local painted = BoatPaint.apply(theBoat, paintId, BoatParts.paintableSkinNames())
+	print(("[BoatPaint] %s -> %s (%d parts%s) [%s]"):format(
+		theBoat.Name, paintId, painted, painter and (", " .. painter.Name) or "", reason))
+end
 
-	print(("[BoatModules] applied: %s | skills applied%s | paint: %s (%d parts%s)"):format(
-		#on > 0 and table.concat(on, ", ") or "none",
-		armored and " | ARMORED" or "",
-		paintId,
-		painted,
-		painter and (", " .. painter.Name) or ""))
+-- Paint the boat NOW, before anyone has boarded, so it is never white at the crash site.
+repaint("boat ready")
+
+-- Re-apply when the set of players (and therefore the winning livery) can have changed.
+Players.PlayerAdded:Connect(function(plr)
+	-- the pass check and the saved livery both arrive asynchronously after join
+	plr:GetAttributeChangedSignal("BoatPaint"):Connect(function()
+		repaint("player picked a livery")
+	end)
+	plr:GetAttributeChangedSignal("Owns_boatPaint"):Connect(function()
+		repaint("pass ownership resolved")
+	end)
+	repaint("player joined")
+end)
+Players.PlayerRemoving:Connect(function()
+	task.defer(repaint, "player left")
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+	plr:GetAttributeChangedSignal("BoatPaint"):Connect(function()
+		repaint("player picked a livery")
+	end)
+	plr:GetAttributeChangedSignal("Owns_boatPaint"):Connect(function()
+		repaint("pass ownership resolved")
+	end)
 end
 
 if Workspace:GetAttribute("RunStarted") == true then

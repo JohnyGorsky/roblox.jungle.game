@@ -24,7 +24,19 @@ local FOLLOW_HEIGHT = 16
 -- it, so the water ahead gets the screen space and the deck drops to the bottom edge.
 local LOOK_UP = 4
 local LOOK_AHEAD = 8
-local SMOOTH_K = 6
+local SMOOTH_K = 9           -- position follow. Was 6, which read as the camera lagging behind the boat.
+-- ⚠️ THESE TWO ARE THE FIX FOR "when i drive i have feeling that screen like cant keep up and like shakes".
+--
+-- The boat is SERVER-OWNED (`BoatServer` calls SetNetworkOwner(nil)), so on the client its CFrame and
+-- velocity are REPLICATED values that step at roughly 20 Hz, not smooth per-frame values. The old code
+-- smoothed only the camera POSITION and then aimed it with `CFrame.lookAt(smoothPos, rawTarget)`, where
+-- rawTarget came straight from `AssemblyLinearVelocity` each frame. So the position glided while the
+-- ROTATION snapped to a stepped, buoyancy-wobbling vector — which is exactly what reads as shake.
+--
+-- Both the aim point and the forward direction are now smoothed too, so nothing the camera uses is a raw
+-- replicated value.
+local TARGET_K = 7           -- how fast the aim point follows
+local FWD_K = 4              -- how fast the "which way are we heading" vector turns
 local FOV_BASE = 68          -- FOV at rest
 local FOV_BOOST = 28         -- extra FOV at full speed → sense of rushing water
 local FOV_SPEED = 30         -- speed (studs/s) at which the boost maxes out
@@ -32,6 +44,8 @@ local FOV_K = 3             -- how fast FOV eases toward its target
 
 local hull: BasePart? = nil
 local currentPos = Vector3.zero
+local currentTarget = Vector3.zero
+local currentFwd = Vector3.zero
 local trauma = 0
 
 local function isBoatSeat(seat: Instance?): boolean
@@ -49,9 +63,20 @@ local function update(dt: number)
 
 	local pos, vel = h.Position, h.AssemblyLinearVelocity
 	local flat = Vector3.new(vel.X, 0, vel.Z)
-	local ahead = flat.Magnitude > 1 and flat.Unit or h.CFrame.LookVector
-	local target = pos + ahead * LOOK_AHEAD + Vector3.new(0, LOOK_UP, 0)
-	local desired = pos - h.CFrame.LookVector * FOLLOW_DIST + Vector3.new(0, FOLLOW_HEIGHT, 0)
+
+	-- Smoothed heading. Raw velocity on a bobbing, server-owned hull swings every replication tick; easing
+	-- it means the aim drifts round a bend instead of twitching toward it.
+	local fwdWanted = if flat.Magnitude > 1 then flat.Unit else h.CFrame.LookVector
+	if currentFwd.Magnitude < 0.01 then
+		currentFwd = fwdWanted
+	end
+	currentFwd = currentFwd:Lerp(fwdWanted, 1 - math.exp(-FWD_K * dt))
+	if currentFwd.Magnitude > 0.01 then
+		currentFwd = currentFwd.Unit
+	end
+
+	local targetWanted = pos + currentFwd * LOOK_AHEAD + Vector3.new(0, LOOK_UP, 0)
+	local desired = pos - currentFwd * FOLLOW_DIST + Vector3.new(0, FOLLOW_HEIGHT, 0)
 
 	-- collision-aware: don't clip through terrain/banks between the boat and the camera
 	local rp = RaycastParams.new()
@@ -67,7 +92,11 @@ local function update(dt: number)
 	end
 
 	currentPos = currentPos:Lerp(desired, 1 - math.exp(-SMOOTH_K * dt))
-	local cf = CFrame.lookAt(currentPos, target)
+	if currentTarget.Magnitude < 0.01 then
+		currentTarget = targetWanted
+	end
+	currentTarget = currentTarget:Lerp(targetWanted, 1 - math.exp(-TARGET_K * dt))
+	local cf = CFrame.lookAt(currentPos, currentTarget)
 
 	if trauma > 0 then
 		local s = trauma * trauma
@@ -81,7 +110,7 @@ local function update(dt: number)
 	end
 
 	camera.CFrame = cf
-	camera.Focus = CFrame.new(target)
+	camera.Focus = CFrame.new(currentTarget)
 
 	-- speed-based FOV, eased so it swells/settles smoothly instead of snapping with every wobble
 	local fovTarget = FOV_BASE + FOV_BOOST * math.clamp(flat.Magnitude / FOV_SPEED, 0, 1)
@@ -93,6 +122,10 @@ local function startCam(h: BasePart)
 	local camera = Workspace.CurrentCamera
 	if camera then
 		currentPos = camera.CFrame.Position
+		-- seed the smoothed state from the boat, so mounting doesn't whip the camera round from wherever
+		-- the character cam happened to be looking
+		currentFwd = h.CFrame.LookVector
+		currentTarget = h.Position + currentFwd * LOOK_AHEAD + Vector3.new(0, LOOK_UP, 0)
 		camera.CameraType = Enum.CameraType.Scriptable
 	end
 	RunService:BindToRenderStep(BIND, Enum.RenderPriority.Camera.Value, update)

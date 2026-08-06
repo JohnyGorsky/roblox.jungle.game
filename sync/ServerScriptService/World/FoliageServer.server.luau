@@ -305,11 +305,43 @@ local function buildSeg(idx: number)
 		prepare(clone, collide, shadow)
 		clone:ScaleTo(uniform(scale))
 
-		local _, ext = clone:GetBoundingBox()
-		local radius = math.max(ext.X, ext.Z) * 0.5
+		-- ⚠️ THE FOOTPRINT THAT MATTERS IS THE TRUNK'S, NOT THE CANOPY'S.
+		--
+		-- First attempt used the whole model's AABB and still left things overhanging, for two reasons the
+		-- measurements exposed:
+		--   · `PalmCoconut` is 44x50x38 studs. Its full footprint measured 54.6 wide against a shore band
+		--     only 35 studs deep — it can NEVER fit, so the test either rejected every palm or passed ones
+		--     that overhung anyway.
+		--   · `GetBoundingBox` is the ORIENTED box, so after a random yaw the true world footprint is up to
+		--     the DIAGONAL of it — which is why a 35-stud fern measured 47 wide in world space.
+		--
+		-- And it was the wrong question anyway: palm fronds reaching out over the river is exactly the look
+		-- we want (it IS the alley). What must never hang over water is the part that touches the ground.
+		-- So the radius is measured from the parts at the BASE of the model, and made rotation-proof by
+		-- using the circumscribed radius rather than the axis extents.
+		local baseRadius = 0
+		do
+			local lowest, highest = math.huge, -math.huge
+			for _, d in ipairs(clone:GetDescendants()) do
+				if d:IsA("BasePart") then
+					lowest = math.min(lowest, d.Position.Y - d.Size.Y / 2)
+					highest = math.max(highest, d.Position.Y + d.Size.Y / 2)
+				end
+			end
+			local cut = lowest + math.max(2, (highest - lowest) * 0.25) -- bottom quarter = trunk / base
+			local pivot = clone:GetPivot().Position
+			for _, d in ipairs(clone:GetDescendants()) do
+				if d:IsA("BasePart") and (d.Position.Y - d.Size.Y / 2) <= cut then
+					-- circumscribed radius of this part about the model's centre line: rotation-invariant
+					local half = math.sqrt(d.Size.X * d.Size.X + d.Size.Z * d.Size.Z) * 0.5
+					local off = Vector2.new(d.Position.X - pivot.X, d.Position.Z - pivot.Z).Magnitude
+					baseRadius = math.max(baseRadius, off + half)
+				end
+			end
+		end
 
-		-- push inland by at least its own radius so the footprint clears the water's edge
-		local useInland = math.max(inland, radius + 1)
+		-- push inland by at least the BASE radius so the trunk stands clear of the water's edge
+		local useInland = math.max(inland, baseRadius + 1)
 		local x = bankEdge(z, side) + side * useInland
 
 		local minGround = RiverData.WATER_Y + MIN_GROUND_Y_ABOVE_WATER
@@ -336,12 +368,12 @@ local function buildSeg(idx: number)
 			return false
 		end
 
-		-- FOOTPRINT TEST: sample the perimeter. Any corner over water, over nothing, or on a steep face
-		-- means the model would visibly overhang, so the spot is rejected rather than fudged.
-		if radius > 1 then
+		-- BASE FOOTPRINT TEST: sample around the trunk only. Canopy overhang is fine and wanted; ground
+		-- that isn't there under the trunk is not.
+		if baseRadius > 1 then
 			for _, o in ipairs({
-				Vector2.new(radius, 0), Vector2.new(-radius, 0),
-				Vector2.new(0, radius), Vector2.new(0, -radius),
+				Vector2.new(baseRadius, 0), Vector2.new(-baseRadius, 0),
+				Vector2.new(0, baseRadius), Vector2.new(0, -baseRadius),
 			}) do
 				local edge = groundAt(x + o.X, z + o.Y)
 				if not edge or edge.Instance ~= Workspace.Terrain or edge.Position.Y < minGround then
