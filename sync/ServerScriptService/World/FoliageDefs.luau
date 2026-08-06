@@ -135,9 +135,15 @@ FoliageDefs.ALLEY = {
 --
 -- This computes the true world-axis-aligned bottom from part CORNERS, which is the only thing that is
 -- correct for a rotated or tilted model.
+--
+-- ⚠️ It considers the instance ITSELF as well as its descendants. Job #077 needed that: the `GoldNugget`
+-- in the library is a bare `MeshPart`, not a Model, and a descendants-only scan returns nil for it — so
+-- `seatOnGround` silently did nothing and the nugget floated at the carve height.
 function FoliageDefs.worldBottom(model: Instance): number?
 	local minY = math.huge
-	for _, d in ipairs(model:GetDescendants()) do
+	local parts = model:GetDescendants()
+	table.insert(parts, model)
+	for _, d in ipairs(parts) do
 		if d:IsA("BasePart") then
 			local cf, half = d.CFrame, d.Size / 2
 			for sx = -1, 1, 2 do
@@ -156,13 +162,66 @@ function FoliageDefs.worldBottom(model: Instance): number?
 end
 
 -- Drop a model so its true base rests at `groundY`, minus a small sink so it never appears to hover.
-function FoliageDefs.seatOnGround(model: Model, groundY: number, sink: number)
+-- Takes a `PVInstance`, not a `Model`: some library assets are bare MeshParts (Job #077's `GoldNugget`).
+function FoliageDefs.seatOnGround(model: PVInstance, groundY: number, sink: number)
 	local bottom = FoliageDefs.worldBottom(model)
 	if not bottom then
 		return
 	end
 	model:PivotTo(model:GetPivot() + Vector3.new(0, (groundY - bottom) - sink, 0))
 end
+
+-- ── 🔴 FOOTPRINT VALIDATION — the fix for "why does stuff keep ending up in the river" ────────────
+--
+-- THE ROOT CAUSE OF NEARLY EVERY PLACEMENT BUG IN THIS GAME, stated plainly so it stops recurring:
+-- we place a model at an (x, z) point and validate it with ONE downward raycast at that point. That is
+-- only correct if the model is roughly point-sized. **Ours are not.** Measured: `Tent` 43×34,
+-- `PalmCoconut` 44×50, `BahayKubo7` 40×50, and `JungleTreesPack` is **218 studs long**. A centre that
+-- passes the single raycast can have half its geometry hanging over open water — which is exactly what
+-- happened when Job #077's clearing ring put canopy tiles in the river.
+--
+-- A point test cannot catch that. So test the FOOTPRINT: sample a grid across the model's real XZ
+-- bounding box and report what fraction of it is not standing on dry land.
+--
+-- "Not dry land" is either no terrain at all, or terrain whose surface is at/below the waterline. The
+-- `margin` exists because of the shelf artifact (see the `roblox-terrain` skill §4): land within a few
+-- studs of the water surface renders as thin hole-riddled sheets, so a model seated there LOOKS like it
+-- is floating even though a raycast found ground under it.
+--
+-- ⚠️ Extents come from part CORNERS, not `Model:GetBoundingBox()` — same reason `worldBottom` does:
+-- `GetBoundingBox` returns the ORIENTED box and lies about world occupancy for anything rotated, and
+-- these tiles are placed at a random yaw. (It is also a Model-only method; some library assets are
+-- bare MeshParts.)
+-- Sample a DISC of `radius` around (x, z) and report what fraction of it is not standing on dry land
+-- clear of the waterline.
+--
+-- ⚠️ A DISC, AND A DELIBERATELY SMALL ONE — not the model's bounding box. `FoliageServer` learned this
+-- the hard way and its comment says it plainly: **canopy hanging over the river is the look we want**
+-- (it IS the palm alley). What must never be over water is the ground the model STANDS on. Testing the
+-- full AABB of a 218-stud canopy tile rejects almost everything and is measuring the wrong thing.
+function FoliageDefs.groundClearFraction(x: number, z: number, radius: number, waterY: number, margin: number): number
+	local rp = RaycastParams.new()
+	rp.FilterType = Enum.RaycastFilterType.Include
+	rp.FilterDescendantsInstances = { workspace.Terrain }
+	rp.IgnoreWater = true -- we want the RIVERBED, so a water column reads as "surface below the line"
+
+	local pts = { Vector2.new(0, 0) }
+	for i = 0, 7 do
+		local a = (i / 8) * math.pi * 2
+		table.insert(pts, Vector2.new(math.cos(a) * radius, math.sin(a) * radius))
+	end
+
+	local bad = 0
+	for _, o in ipairs(pts) do
+		local hit = workspace:Raycast(Vector3.new(x + o.X, waterY + 200, z + o.Y), Vector3.new(0, -500, 0), rp)
+		if not hit or hit.Position.Y <= waterY + margin then
+			bad += 1
+		end
+	end
+	return bad / #pts
+end
+
+FoliageDefs.MAX_OVER_WATER = 0.15
 
 -- Safety net, not a design number. If a segment ever tries to place more than this, something in the
 -- spacing maths is wrong and it should be loud rather than quietly melting the frame budget.
