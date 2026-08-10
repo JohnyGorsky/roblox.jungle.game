@@ -2,7 +2,8 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-05 20:46:29
-**Status**: Plan written — awaiting go-ahead. See [`implementation-plan.md`](implementation-plan.md).
+**Status**: **IN PROGRESS** — built and partly verified in Studio, with open bugs.
+👉 **Read [`STATUS.md`](STATUS.md) first** — it has what is done, what is broken, and where to resume.
 
 > **Why this job exists:** Job #076 was deliberately scoped to terrain + foliage + river obstacles, and I
 > wrote that camp structures would get "their own job" — then didn't create it. This is that job, created
@@ -21,8 +22,8 @@ Replace the greybox structures at the dock excursion camps and the river docks w
 - [x] Implementation plan created — [`implementation-plan.md`](implementation-plan.md)
 - [x] Camp ground materials + ambience (audio / VFX / lights) added to scope
 - [x] Assumptions A1–A4 approved
-- [ ] Plan agreed — awaiting build go-ahead (builds AFTER #076, per A4)
-- [ ] Implementation completed
+- [x] Plan agreed — build go-ahead given 2026-08-06 (#076 already shipped, so A4 was satisfied)
+- [ ] Implementation completed — **code written & analyzer-clean; 3 open bugs, see [`STATUS.md`](STATUS.md)**
 - [ ] Final summary + changelog written
 
 
