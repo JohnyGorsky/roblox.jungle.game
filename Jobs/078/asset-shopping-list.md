@@ -19,12 +19,19 @@ Only things that do **not** exist yet. Tick them off as you go. Send me the ids 
 stylized low-poly game asset, chunky readable silhouette, hand-painted texture, matte not glossy, neutral pose, plain background
 ```
 
-### ☐ A1 — Crocodile  *(must be named exactly `Crocodile`)*
+### ✅ A1 — Crocodile — DONE
+Imported as `ServerStorage.AssetLibrary.Enemies.Aligator` (a single **MeshPart**, 7.10 × 4.00 × 20.68,
+PBR via SurfaceAppearance, **0 scripts**). Wired with `scale = 0.774` → 5.5 × 3.1 × 16.0 against the
+6 × 3 × 16 hitbox, and `yawOffset = 180` because the mesh is authored head-at-+Z.
+`EyeLeft`/`EyeRight` Attachments added to the source mesh.
+
+<details><summary>original prompt (kept for the record)</summary>
 Target in-game size **6 × 3 × 16 studs**.
 ```
 a large river crocodile, long armoured snout, ridged scaly back, thick tail, dark olive-green with a pale
 underbelly, mouth slightly open showing teeth, standing on four short legs
 ```
+</details>
 
 ### ☐ A2 — Panther  *(must be named exactly `Panther`)*
 Target in-game size **5 × 4 × 11 studs**. Also becomes every **camp guard**.
@@ -78,22 +85,24 @@ Short **mono**, **under ~3 s**, .mp3 or .ogg. Upload under the exact `Asset name
 
 ---
 
-# C. ANIMATIONS — 8 missing (4 per creature)
+# C. ANIMATIONS — 4 missing (Panther only)
+
+> ✅ **The Crocodile needs NO animations.** Water creatures are animated procedurally now (sunk to the
+> waterline + bob/roll/wag + wake + splash) — see the revised decision in the intake. Same will apply to
+> Piranha and RiverHippo. Only LAND creatures need a rig.
+
+## Panther (land)
 
 Cosmetic only — movement stays `PivotTo`, so none of these can break the AI.
 Meshy auto-rig already returns **walk + run** (included in the 5-credit rig); `meshy_animate` is
 3 credits each for the rest.
 
-| ☐ | Creature | Key | What it is |
-|---|---|---|---|
-| ☐ C1 | Crocodile | `idle` | floating still, occasional tail sway |
-| ☐ C2 | Crocodile | `move` | swim |
-| ☐ C3 | Crocodile | `attack` | lunge + jaw snap |
-| ☐ C4 | Crocodile | `death` | roll over, sink |
-| ☐ C5 | Panther | `idle` | standing, tail flick |
-| ☐ C6 | Panther | `move` | prowl / run |
-| ☐ C7 | Panther | `attack` | pounce / claw swipe |
-| ☐ C8 | Panther | `death` | collapse |
+| ☐ | Key | What it is |
+|---|---|---|
+| ☐ C1 | `idle` | standing, tail flick |
+| ☐ C2 | `move` | prowl / run — **free with the Meshy rig** |
+| ☐ C3 | `attack` | pounce / claw swipe |
+| ☐ C4 | `death` | collapse |
 
 ---
 
@@ -120,6 +129,6 @@ fish), so it is Meshy or nothing.
 
 | | Missing | Notes |
 |---|---|---|
-| Models | **2** | Meshy |
-| Sounds | **8 to find** + **2 to upload** | Pixabay |
-| Animations | **8** | Meshy |
+| Models | **1** (Panther) | Crocodile ✅ done — `Aligator` mesh, wired |
+| Sounds | **3 to find** (Panther idle/aggro/attack) | Crocodile ✅ all 5 done |
+| Animations | **4** (Panther only) | water creatures need none |

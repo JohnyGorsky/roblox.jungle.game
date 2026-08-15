@@ -27,6 +27,7 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
 local EnemyAssets = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyAssets"))
@@ -36,13 +37,16 @@ local EnemyRig = {}
 -- ── the AssetLibrary, flattened by NAME ───────────────────────────────────────────────────────────
 -- Same lookup `ExcursionServer` uses. The library groups models into folders and there is no `Enemies`
 -- group yet, so creature models can be dropped into any group — resolution is by name.
-local library: { [string]: Model } = {}
+-- ⚠️ Models AND single parts. The crocodile ships as one `MeshPart`, not a Model — exactly the trap
+-- that made `GoldNugget` silently never spawn in Job #077. A Model-only scan would leave the croc
+-- greyboxed with no warning.
+local library: { [string]: PVInstance } = {}
 do
 	local lib = ServerStorage:FindFirstChild("AssetLibrary")
 	if lib then
 		for _, group in ipairs(lib:GetChildren()) do
 			for _, m in ipairs(group:GetChildren()) do
-				if m:IsA("Model") then
+				if m:IsA("Model") or m:IsA("BasePart") then
 					library[m.Name] = m
 				end
 			end
@@ -56,6 +60,15 @@ type Rig = {
 	sounds: { [string]: Sound },
 	current: string?,
 	conns: { RBXScriptConnection },
+	-- water creatures: procedural motion instead of a skeleton
+	visual: PVInstance?,
+	yaw: number, -- radians; the model's authored-facing correction, re-applied every frame
+	eyes: { { part: BasePart, att: Attachment? } }?,
+	water: EnemyAssets.WaterMotion?,
+	wake: ParticleEmitter?,
+	splash: ParticleEmitter?,
+	lastPos: Vector3?,
+	phase: number, -- per-creature phase offset, so a pack doesn't bob in unison
 }
 local rigs: { [Model]: Rig } = {}
 
@@ -64,9 +77,13 @@ local rigs: { [Model]: Rig } = {}
 -- Neon spheres land on them; without those attachments it falls back to an offset from the body size,
 -- which is right for a greybox and wrong-looking on a real head. **Every sourced model should carry the
 -- two attachments** — see `EnemyAssets.EYE`.
-local function addEyes(model: Model, base: BasePart, def: EnemyDefs.EnemyDef)
+-- Returns the eye parts paired with the Attachment each came from (nil for the greybox fallback), so the
+-- water heartbeat can keep them glued to the head. Placing them once at build time is not enough: the
+-- visual sinks and bobs every frame afterwards, which left the eyes hanging in the air above the snout.
+local function addEyes(model: Model, base: BasePart, def: EnemyDefs.EnemyDef): { { part: BasePart, att: Attachment? } }
 	local E = EnemyAssets.EYE
-	local function eyeAt(cf: CFrame)
+	local made: { { part: BasePart, att: Attachment? } } = {}
+	local function eyeAt(cf: CFrame, att: Attachment?)
 		local e = Instance.new("Part")
 		e.Name = "Eye"
 		e.Shape = Enum.PartType.Ball
@@ -78,18 +95,91 @@ local function addEyes(model: Model, base: BasePart, def: EnemyDefs.EnemyDef)
 		e.CanQuery = false
 		e.CFrame = cf
 		e.Parent = model
+		table.insert(made, { part = e :: BasePart, att = att })
 	end
 	local aL = model:FindFirstChild(E.leftName, true)
 	local aR = model:FindFirstChild(E.rightName, true)
 	if aL and aL:IsA("Attachment") and aR and aR:IsA("Attachment") then
-		eyeAt(aL.WorldCFrame)
-		eyeAt(aR.WorldCFrame)
+		eyeAt(aL.WorldCFrame, aL)
+		eyeAt(aR.WorldCFrame, aR)
 	else
 		local s = def.size
 		-- front = -Z (the snout end), up = +Y, sides = ±X
-		eyeAt(base.CFrame * CFrame.new(-s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
-		eyeAt(base.CFrame * CFrame.new(s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
+		eyeAt(base.CFrame * CFrame.new(-s.X * 0.22, s.Y * 0.22, -s.Z * 0.42), nil)
+		eyeAt(base.CFrame * CFrame.new(s.X * 0.22, s.Y * 0.22, -s.Z * 0.42), nil)
 	end
+	return made
+end
+
+-- ── water VFX ─────────────────────────────────────────────────────────────────────────────────────
+-- A WAKE that only emits while the creature is actually moving, and a SPLASH burst it fires on strike
+-- and on death. Both are sized from `def.size`, so a hippo throws a bigger splash than a piranha
+-- without anyone maintaining two sets of numbers — the per-creature `vfx` values are multipliers.
+--
+-- ⚠️ These live on their own Attachment at the WATERLINE, not on the mesh: the mesh bobs and rolls
+-- every frame, and a wake that bobbed with it would spray upward as the creature rocked.
+local SPLASH_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local FOAM = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(196, 226, 232))
+
+local function buildWaterVfx(model: Model, body: BasePart, def: EnemyDefs.EnemyDef, vfx: EnemyAssets.CreatureVfx): (ParticleEmitter?, ParticleEmitter?)
+	local girth = math.max(def.size.X, def.size.Y) -- how wide it sits in the water
+	local att = Instance.new("Attachment")
+	att.Name = "WaterLine"
+	-- forward is -Z, so the bow wave belongs at the front third
+	att.Position = Vector3.new(0, -def.size.Y * 0.25, -def.size.Z * 0.3)
+	att.Parent = body
+
+	local wake: ParticleEmitter? = nil
+	if vfx.wakeRate > 0 then
+		local w = Instance.new("ParticleEmitter")
+		w.Name = "Wake"
+		w.Texture = SPLASH_TEXTURE
+		w.Color = FOAM
+		w.Rate = vfx.wakeRate
+		w.Lifetime = NumberRange.new(0.5, 1.1)
+		w.Speed = NumberRange.new(1, 3)
+		w.SpreadAngle = Vector2.new(28, 28)
+		w.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, girth * 0.25 * vfx.wakeScale),
+			NumberSequenceKeypoint.new(1, girth * 0.9 * vfx.wakeScale),
+		})
+		w.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.45),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		w.Acceleration = Vector3.new(0, -1.5, 0)
+		w.Rotation = NumberRange.new(0, 360)
+		w.Enabled = false -- only while moving
+		w.Parent = att
+		wake = w
+	end
+
+	local splash: ParticleEmitter? = nil
+	if vfx.splashOnAttack > 0 or vfx.splashOnDeath > 0 then
+		local sp = Instance.new("ParticleEmitter")
+		sp.Name = "Splash"
+		sp.Texture = SPLASH_TEXTURE
+		sp.Color = FOAM
+		sp.Rate = 0
+		sp.Lifetime = NumberRange.new(0.4, 0.9)
+		sp.Speed = NumberRange.new(9, 20)
+		sp.SpreadAngle = Vector2.new(55, 55)
+		sp.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, girth * 0.3 * vfx.splashScale),
+			NumberSequenceKeypoint.new(0.6, girth * 0.85 * vfx.splashScale),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		sp.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.15),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		sp.Acceleration = Vector3.new(0, -34, 0) -- thrown up, falls back
+		sp.Rotation = NumberRange.new(0, 360)
+		sp.Enabled = false -- :Emit() only
+		sp.Parent = att
+		splash = sp
+	end
+	return wake, splash
 end
 
 -- ── build ─────────────────────────────────────────────────────────────────────────────────────────
@@ -119,7 +209,9 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 
 		local visual = source:Clone()
 		visual.Name = "Visual"
-		for _, d in ipairs(visual:GetDescendants()) do
+		local vparts = visual:GetDescendants()
+		table.insert(vparts, visual) -- a MeshPart source IS the part; it has no BasePart descendants
+		for _, d in ipairs(vparts) do
 			if d:IsA("BasePart") then
 				d.Anchored = true -- the whole creature is moved by PivotTo, never by physics
 				d.CanCollide = false -- the AI is kinematic; a colliding croc would shove the boat
@@ -127,7 +219,19 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 			end
 		end
 		if art and art.scale then
-			visual:ScaleTo(art.scale)
+			if visual:IsA("Model") then
+				visual:ScaleTo(art.scale)
+			elseif visual:IsA("BasePart") then
+				visual.Size *= art.scale
+				-- ⚠️ Attachments do NOT scale with `Size`. `Model:ScaleTo` moves them; setting `Size` on a
+				-- part does not, so the eye attachments would stay out at the unscaled offsets and the
+				-- glowing eyes would float off the head. Scale them by hand.
+				for _, a in ipairs(visual:GetChildren()) do
+					if a:IsA("Attachment") then
+						a.Position *= art.scale
+					end
+				end
+			end
 		end
 		-- ⚠️ forward is -Z. `stepToward` drives every creature with `CFrame.lookAt(newPos, newPos + dir)`
 		-- and the greybox puts its Snout at -Z; a model authored facing +Z swims backwards.
@@ -150,15 +254,26 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 	model:SetAttribute("HP", def.hp)
 	model:SetAttribute("MaxHP", def.hp)
 	model:SetAttribute("Category", def.category)
-	addEyes(model, body, def)
+	local eyes = addEyes(model, body, def)
 
 	-- ── animator ────────────────────────────────────────────────────────────────────────────────
 	-- `AnimationController` + `Animator`, NOT a Humanoid: movement stays `PivotTo`, so animations are
 	-- purely cosmetic and the tuned server-authoritative AI is untouched (the decision recorded in the
 	-- Job #078 intake). No rig or no ids → this block simply produces nothing.
-	local rig: Rig = { tracks = {}, sounds = {}, current = nil, conns = {} }
-	local visual = model:FindFirstChild("Visual")
-	if visual and art then
+	local rig: Rig =
+		{ tracks = {}, sounds = {}, current = nil, conns = {}, phase = math.random() * 100, yaw = math.rad((art and art.yawOffset) or 0) }
+
+	-- water creature: procedural motion + wake/splash instead of a skeleton
+	if art and art.water and model:FindFirstChild("Visual") then
+		rig.visual = model:FindFirstChild("Visual") :: PVInstance
+		rig.water = art.water
+		rig.eyes = eyes -- glued to the head each frame; see the heartbeat
+		if art.vfx then
+			rig.wake, rig.splash = buildWaterVfx(model, body, def, art.vfx)
+		end
+	end
+	local visual = model:FindFirstChild("Visual") :: PVInstance?
+	if visual and visual:IsA("Model") and art then
 		local controller = Instance.new("AnimationController")
 		local animator = Instance.new("Animator")
 		animator.Parent = controller
@@ -226,6 +341,52 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 	return model
 end
 
+-- ── the water heartbeat ───────────────────────────────────────────────────────────────────────────
+-- One shared loop over every water creature, not a connection each — same reason `CampAmbience` and
+-- `LightController` are written that way: creatures spawn and die continuously for a whole run.
+--
+-- It offsets the **Visual only**, never the Body. `Body` is the hitbox the AI drives with `PivotTo`;
+-- bobbing it would make bite range and aggro distance wobble with the swell.
+--
+-- ⚠️ Running AFTER the AI's own Heartbeat is not guaranteed, so the visual can trail the hitbox by a
+-- single frame. At these speeds that is invisible, and it is far cheaper than forcing an ordering.
+RunService.Heartbeat:Connect(function()
+	local t = os.clock()
+	for model, rig in pairs(rigs) do
+		local water, visual = rig.water, rig.visual
+		local body = model.PrimaryPart
+		if water and visual and body and model.Parent then
+			local ph = rig.phase
+			local bob = math.sin((t + ph) * water.bobHz * math.pi * 2) * water.bobAmp
+			local roll = math.rad(math.sin((t + ph) * water.rollHz * math.pi * 2) * water.rollDeg)
+			local wag = math.rad(math.sin((t + ph) * water.wagHz * math.pi * 2) * water.wagDeg)
+			-- ⚠️ `rig.yaw` MUST be re-applied here. This overwrites the Visual's CFrame every frame, so the
+			-- authored-facing correction applied at build time is otherwise thrown away on frame 2 and the
+			-- crocodile swims tail-first. Caught exactly that way: the eyes were right, the body was not.
+			visual:PivotTo(body.CFrame * CFrame.new(0, -water.sink + bob, 0) * CFrame.Angles(0, rig.yaw + wag, roll))
+
+			-- keep the glowing eyes on the head as it sinks, bobs and rolls
+			local eyes = rig.eyes
+			if eyes then
+				for _, e in ipairs(eyes) do
+					if e.att then
+						e.part.CFrame = e.att.WorldCFrame
+					end
+				end
+			end
+
+			-- the wake only runs while it is actually swimming
+			local wake = rig.wake
+			if wake then
+				local last = rig.lastPos
+				local moved = last ~= nil and (body.Position - last).Magnitude > 0.05
+				wake.Enabled = moved
+			end
+			rig.lastPos = body.Position
+		end
+	end
+end)
+
 -- ── playback ──────────────────────────────────────────────────────────────────────────────────────
 
 -- Switch the looping state animation ("idle" / "move"). No-ops when the creature has no rig, which is
@@ -251,10 +412,26 @@ end
 -- One-shot animation ("attack" / "death") — does not become the motion state.
 function EnemyRig.playOnce(model: Model, name: string)
 	local rig = rigs[model]
-	local track = rig and rig.tracks[name]
+	if not rig then
+		return
+	end
+	local track = rig.tracks[name]
 	if track then
 		track.Looped = false
 		track:Play(EnemyAssets.ANIM_TUNING.attackFade)
+	end
+	-- a water creature has no attack animation to play, so the SPLASH is the strike — it is the only
+	-- thing that sells the lunge, which is why it fires here rather than alongside the sound.
+	local splash = rig.splash
+	if splash then
+		local art = EnemyAssets.ART[model.Name]
+		local vfx = art and art.vfx
+		if vfx then
+			local n = if name == "death" then vfx.splashOnDeath else vfx.splashOnAttack
+			if n > 0 then
+				splash:Emit(n)
+			end
+		end
 	end
 end
 
@@ -271,6 +448,9 @@ end
 -- creature that spawns and dies continuously for a whole run; dropping them is not optional.
 function EnemyRig.destroy(model: Model)
 	local rig = rigs[model]
+	if rig and rig.wake then
+		rig.wake.Enabled = false
+	end
 	if rig then
 		for _, t in pairs(rig.tracks) do
 			t:Stop()

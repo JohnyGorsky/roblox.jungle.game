@@ -145,6 +145,7 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 	if ((enemy:GetAttribute("HP") :: number?) or 0) <= 0 then
 		Workspace:SetAttribute("RunKills", ((Workspace:GetAttribute("RunKills") :: number?) or 0) + 1) -- run objective (Job 061)
+		EnemyRig.playOnce(enemy, "death") -- animation if it has one, splash burst if it's a water creature
 		EnemyRig.playSound(enemy, "death")
 		despawn(enemy)
 		return
