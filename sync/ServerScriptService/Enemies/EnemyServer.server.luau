@@ -12,8 +12,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
+local ServerScriptService = game:GetService("ServerScriptService")
+
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
+-- Job #078: the creature's BODY (model, glowing eyes, animator, sounds) is built by a shared module, so
+-- `ExcursionServer`'s camp guards get exactly the same treatment instead of their own greybox.
+local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
 local BASE_SEA_CAP, MAX_SEA_CAP = 4, 9 -- concurrent sea enemies: grows with distance (+2 at night)
@@ -36,77 +41,22 @@ local hull = boat:WaitForChild("Hull") :: BasePart
 local WATER_Y = RiverData.WATER_Y
 local rng = Random.new()
 
-type State = { biteTimer: number, anchor: Vector3?, side: number? }
+type State = { biteTimer: number, anchor: Vector3?, side: number?, roared: boolean? }
 local state: { [Model]: State } = {}
 
--- glowing Neon eyes so threats are visible in the dark (Job 039). Attachment-aware: a real model can put
--- EyeLeft/EyeRight Attachments where the eyes belong; greybox falls back to an offset from the body + size.
--- Parts are anchored in the model → they ride along with enemy:PivotTo, like the snout.
-local function addEyes(model: Model, base: BasePart, def: EnemyDefs.EnemyDef)
-	local function eyeAt(cf: CFrame)
-		local e = Instance.new("Part")
-		e.Name = "Eye"
-		e.Shape = Enum.PartType.Ball
-		e.Size = Vector3.new(0.5, 0.5, 0.5)
-		e.Material = Enum.Material.Neon
-		e.Color = Color3.fromRGB(255, 45, 45)
-		e.Anchored = true
-		e.CanCollide = false
-		e.CanQuery = false
-		e.CFrame = cf
-		e.Parent = model
-	end
-	local aL = model:FindFirstChild("EyeLeft", true)
-	local aR = model:FindFirstChild("EyeRight", true)
-	if aL and aL:IsA("Attachment") and aR and aR:IsA("Attachment") then
-		eyeAt(aL.WorldCFrame)
-		eyeAt(aR.WorldCFrame)
-	else
-		local s = def.size
-		-- front = -Z (the snout end), up = +Y, sides = ±X
-		eyeAt(base.CFrame * CFrame.new(-s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
-		eyeAt(base.CFrame * CFrame.new(s.X * 0.22, s.Y * 0.22, -s.Z * 0.42))
-	end
-end
-
+-- Job #078: model, glowing eyes (Job 039), animator and sounds all live in `EnemyRig` now — one builder
+-- shared with `ExcursionServer`'s camp guards. `def.size` remains the hitbox the AI reasons about; the
+-- sourced art hangs off it and never becomes it.
 local function spawnEnemy(def: EnemyDefs.EnemyDef, pos: Vector3, anchor: Vector3?): Model
-	local model = Instance.new("Model")
-	model.Name = def.name
-
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = def.size
-	body.Color = def.color
-	body.Material = Enum.Material.SmoothPlastic
-	body.Anchored = true -- kinematic (PivotTo)
-	body.CanCollide = false
-	body.CFrame = CFrame.new(pos)
-	body.Parent = model
-	model.PrimaryPart = body
-
-	local snout = Instance.new("Part")
-	snout.Name = "Snout"
-	snout.Size = Vector3.new(def.size.X * 0.6, def.size.Y * 0.7, def.size.Z * 0.35)
-	snout.Color = def.color
-	snout.Material = Enum.Material.SmoothPlastic
-	snout.Anchored = true
-	snout.CanCollide = false
-	snout.CFrame = body.CFrame * CFrame.new(0, 0, -def.size.Z * 0.6)
-	snout.Parent = model
-
-	model:SetAttribute("HP", def.hp)
-	model:SetAttribute("MaxHP", def.hp)
-	model:SetAttribute("Category", def.category)
-	addEyes(model, body, def) -- glowing eyes (Job 039)
+	local model = EnemyRig.build(def, pos, Workspace)
 	CollectionService:AddTag(model, "Enemy")
-	model.Parent = Workspace
 	state[model] = { biteTimer = def.biteCooldown, anchor = anchor }
 	return model
 end
 
 local function despawn(enemy: Model)
 	state[enemy] = nil
-	enemy:Destroy()
+	EnemyRig.destroy(enemy) -- NOT :Destroy() — AnimationTracks have to be stopped and dropped too
 end
 
 local flashing = false
@@ -191,6 +141,7 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 	if ((enemy:GetAttribute("HP") :: number?) or 0) <= 0 then
 		Workspace:SetAttribute("RunKills", ((Workspace:GetAttribute("RunKills") :: number?) or 0) + 1) -- run objective (Job 061)
+		EnemyRig.playSound(enemy, "death")
 		despawn(enemy)
 		return
 	end
@@ -203,6 +154,17 @@ local function tickEnemy(enemy: Model, dt: number)
 	st.biteTimer += dt
 	local dist = (Vector3.new(boatPos.X, 0, boatPos.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
 	local lead = boatPos + hull.AssemblyLinearVelocity * LEAD_TIME
+
+	-- Job #078: presentational only. `chasing` is what the creature is DOING, so the animation follows
+	-- the AI rather than the AI following the animation.
+	local chasing = dist <= def.aggroRadius
+	EnemyRig.setMotion(enemy, if chasing then "move" else "idle")
+	if chasing and not st.roared then
+		st.roared = true
+		EnemyRig.playSound(enemy, "aggro") -- once per aggro, not once per frame
+	elseif not chasing then
+		st.roared = false
+	end
 
 	if def.category == "sea" then
 		if dist <= def.aggroRadius then
@@ -223,6 +185,8 @@ local function tickEnemy(enemy: Model, dt: number)
 
 	if dist <= def.biteRange and st.biteTimer >= def.biteCooldown then
 		st.biteTimer = 0
+		EnemyRig.playOnce(enemy, "attack")
+		EnemyRig.playSound(enemy, "attack")
 		applyBite(def, pos)
 	end
 end

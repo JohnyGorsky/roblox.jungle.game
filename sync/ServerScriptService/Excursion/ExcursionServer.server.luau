@@ -28,6 +28,7 @@ local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChi
 local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampDefs"))
 local Campfire = require(ServerScriptService:WaitForChild("World"):WaitForChild("Campfire"))
 local CampAmbience = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampAmbience"))
+local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
 -- Models AND single parts: `GoldNugget` is a bare MeshPart (see `prop`).
 local campFloraLib: { [string]: PVInstance } = {}
 local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent -- village trading post (Job 023)
@@ -568,16 +569,18 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	crate:Destroy()
 end
 
+-- Job #078: camp guards go through the SAME `EnemyRig` builder the river threats use.
+--
+-- ⚠️ They used to have their own greybox path here — a bare `block("Body", …)` with **no glowing eyes**,
+-- while `EnemyServer` gave every river creature eyes since Job 039. Two builders for one creature meant
+-- a Panther model would have fixed the riverbank ambushers and left every camp guard a grey box.
+-- The model is still named `CampGuard` (Job 053's AI, the tag and the leash all key off that) but its
+-- body, eyes, animations and sounds are the Panther's.
 local function spawnGuard(anchorPos: Vector3, parent: Instance)
 	local def = EnemyDefs.Defs.Panther
-	local guard = Instance.new("Model")
+	local guard = EnemyRig.build(def, anchorPos + Vector3.new(0, def.size.Y / 2, 0), parent)
 	guard.Name = "CampGuard"
-	local body = block("Body", def.size, def.color, CFrame.new(anchorPos + Vector3.new(0, def.size.Y / 2, 0)), guard)
-	guard.PrimaryPart = body
-	guard:SetAttribute("HP", def.hp)
-	guard:SetAttribute("MaxHP", def.hp)
 	CollectionService:AddTag(guard, "CampGuard")
-	guard.Parent = parent
 	guardState[guard] = { biteTimer = def.biteCooldown, anchor = Vector3.new(anchorPos.X, CLEAR_Y + def.size.Y / 2, anchorPos.Z) }
 end
 
@@ -1158,7 +1161,7 @@ local function tickGuard(guard: Model, dt: number)
 	end
 	if ((guard:GetAttribute("HP") :: number?) or 0) <= 0 then
 		guardState[guard] = nil
-		guard:Destroy()
+		EnemyRig.destroy(guard) -- NOT :Destroy() — the rig holds AnimationTracks
 		return
 	end
 	st.biteTimer += dt

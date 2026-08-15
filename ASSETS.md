@@ -629,10 +629,55 @@ and identical to the lobby by construction.
 
 # 4) ENEMIES / CHARACTERS
 
+**Job #078 is the live job.** Prompts + Pixabay search terms for every row below are in
+[`Jobs/078/asset-shopping-list.md`](Jobs/078/asset-shopping-list.md). Ids go into
+`sync/ServerScriptService/Enemies/EnemyAssets.luau` — the ONE place a creature id is written.
+
+> ✅ **Wiring is already done (Job #078).** `EnemyRig` builds every creature — river threats *and* camp
+> guards, which previously had their own greybox path with **no eyes**. Everything degrades: no model →
+> greybox, no animation id → no animation, no sound id → silence. So these can be filled in one at a
+> time without breaking anything.
+>
+> ⚠️ Every sourced model needs **`EyeLeft`/`EyeRight` Attachments** on the head (the Job 039 glowing-eye
+> system is attachment-aware) and must face **-Z** (or set `yawOffset = 180`). Models go in
+> `ServerStorage.AssetLibrary` named **exactly** as the creature, and that path is **not Rojo-synced** —
+> save the place or they vanish.
+
+## 4.1 Creature models — Meshy
+
+| Creature | In-game size | Model | Rig | Status |
+|---|---|---|---|---|
+| **Crocodile** (sea) | 6×3×16 | Meshy M1 | walk/swim + attack + death | ▫ **in scope, not sourced** |
+| **Panther** (land, also every `CampGuard`) | 5×4×11 | Meshy M2 | prowl/run + pounce + death | ▫ **in scope, not sourced** |
+| Piranha (sea) | 2×1.2×4 | Meshy M3 | swim + dart | ▫ later — ⚠️ Creator Store has **nothing** usable |
+| RiverHippo (sea) | 8×5×12 | Meshy M4 | swim + charge + death | ▫ later |
+| Boar (land) | 4×3×7 | Meshy M5 | trot + charge + death | ▫ later |
+| Anaconda | TBD | Meshy M6 | slither + strike | ▫ later — **new enemy, needs stats + spawn rules first** |
+
+Concept art on disk: `assets/Enemies/{Crocodile,Hippo,Anaconda,Puma}.png`. ⚠️ There is art for **Puma**
+and **Anaconda** but the code has **Panther** and no snake; and there is **no art** for Piranha or Boar.
+
+## 4.2 Creature sounds — Pixabay (5 per creature)
+
+Keys are `idle` / `aggro` / `attack` / `hurt` / `death`. ⚠️ Roblox audio moderation is unpredictable —
+`night_starts` was rejected **twice** in Job #073, so grab a second choice for anything critical.
+
+| Asset | Status | Notes |
+|---|---|---|
+| `croc_idle` | <span style="color:#c9a13c">◐ on disk, not uploaded</span> | `assets/Objects/Monsters/Aligator/aligator_hissing.mp3` |
+| `croc_attack` | <span style="color:#c9a13c">◐ on disk, not uploaded</span> | `assets/Objects/Monsters/monster_bite_1.mp3` |
+| `croc_aggro` / `croc_hurt` / `croc_death` | ▫ not sourced | |
+| `panther_idle/aggro/attack/hurt/death` | ▫ not sourced | Panther audio also plays on every camp guard |
+| Piranha / Hippo / Boar / Anaconda sets | ▫ later | |
+
+⚠️ **The Creator Store is useless for these** — searching `crocodile growl hiss` returned *"Sandstorm
+part 2"* and a piano sample; `animal roar attack` returned a football chant. Pixabay + upload is the
+route, as it was for all existing Jungle audio.
+
+## 4.3 Other
+
 | Area | Items | Status | Notes |
 |---|---|---|---|
-| Sea + land enemies | Meshy via `roblox-chars` | ▫ stub | glowing-eyes treatment planned |
-| Alligator | model + SFX | <span style="color:#2e9c3f">✅ SFX exist</span> | in `assets/Objects/Monsters/` |
 | Player torch / lamp | carried light item | ▫ stub | night survival |
 
 # 5) UI / HUD (global)
