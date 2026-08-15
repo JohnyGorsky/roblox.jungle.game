@@ -15,6 +15,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
+local ServerStorage = game:GetService("ServerStorage")
+local WeaponAssets = require(script.Parent:WaitForChild("WeaponAssets"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 
 -- Job 067: the loadout is no longer a fixed 4 — the Extra Inventory Slots pass raises it per player, so
@@ -29,7 +31,90 @@ local function slotAttr(i: number): string
 	return "Slot" .. i
 end
 
--- (re)build the greybox held-item visual welded to the character's right hand
+-- ── the held item (Job #079) ──────────────────────────────────────────────────────────────────────
+-- Was a coloured box per kind: a 0.25x4x0.25 "blade", a 0.4x0.6x1.2 "barrel", a Neon "torch tip".
+-- Now every one of them is a real object: the Axe reused from roblox.defender, the guns from Meshy, and
+-- the Torch BUILT from the `Campfire` recipe.
+--
+-- ⚠️ The greybox path SURVIVES as the fallback. `WeaponAssets.ART` with no `model` (or a model missing
+-- from the library — `ServerStorage` is not Rojo-synced, so an unsaved place has none of them) drops
+-- straight back to the coloured box rather than leaving empty hands.
+local weaponLibrary: { [string]: BasePart } = {}
+do
+	local lib = ServerStorage:FindFirstChild("AssetLibrary")
+	local grp = lib and lib:FindFirstChild("Weapons")
+	if grp then
+		for _, m in ipairs(grp:GetChildren()) do
+			if m:IsA("BasePart") then
+				weaponLibrary[m.Name] = m
+			end
+		end
+	end
+end
+
+-- Positional world audio on the item itself, per the `GameSoundscape` rule.
+local function attachSound(parent: Instance, name: string, def: WeaponAssets.SoundDef)
+	local s = Instance.new("Sound")
+	s.Name = name
+	s.SoundId = def.id
+	s.Volume = def.volume
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = def.min
+	s.RollOffMaxDistance = def.max
+	s.Parent = parent
+	return s
+end
+
+-- The torch: a stick with a flame on it. Built rather than sourced — see `WeaponAssets.TORCH`.
+local function buildTorch(part: Part)
+	local T = WeaponAssets.TORCH
+	part.Size = T.shaft.size
+	part.Color = T.shaft.color
+	part.Material = Enum.Material.Wood
+
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Size = T.head.size
+	head.Color = T.head.color
+	head.Material = Enum.Material.Slate
+	head.Anchored = false
+	head.CanCollide = false
+	head.CanQuery = false
+	head.Massless = true
+	head.CFrame = part.CFrame * CFrame.new(0, T.shaft.size.Y / 2, 0)
+	local hw = Instance.new("WeldConstraint")
+	hw.Part0 = part
+	hw.Part1 = head
+	hw.Parent = head
+	head.Parent = part
+
+	local fire = Instance.new("Fire")
+	fire.Size = T.flame.size
+	fire.Heat = T.flame.heat
+	fire.Color = T.flame.color
+	fire.SecondaryColor = T.flame.secondary
+	fire.Parent = head
+
+	local ember = Instance.new("ParticleEmitter")
+	ember.Name = "Embers"
+	ember.Texture = "rbxasset://textures/particles/fire_main.dds"
+	ember.Rate = T.ember.rate
+	ember.Speed = NumberRange.new(T.ember.speed[1], T.ember.speed[2])
+	ember.Lifetime = NumberRange.new(T.ember.lifetime[1], T.ember.lifetime[2])
+	ember.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, T.ember.size), NumberSequenceKeypoint.new(1, 0) })
+	ember.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	ember.Color = ColorSequence.new(Color3.fromRGB(255, 190, 110), Color3.fromRGB(198, 74, 30))
+	ember.LightEmission = 0.85
+	ember.Acceleration = Vector3.new(0, 4, 0)
+	ember.SpreadAngle = Vector2.new(18, 18)
+	ember.Parent = head
+
+	attachSound(head, "Crackle", T.sound).Looped = true
+	local c = head:FindFirstChild("Crackle") :: Sound
+	c:Play()
+	return head
+end
+
 local function updateHeldVisual(player: Player)
 	local char = player.Character
 	if not char then
@@ -48,34 +133,70 @@ local function updateHeldVisual(player: Player)
 	if not hand or not hand:IsA("BasePart") then
 		return
 	end
-	local part = Instance.new("Part")
+
+	local art = if id then WeaponAssets.ART[id] else nil
+	local source = if art and art.model then weaponLibrary[art.model] else nil
+
+	local part: BasePart
+	if source then
+		-- the real object
+		local clone = source:Clone()
+		clone.Anchored = false
+		clone.CanCollide = false
+		clone.CanQuery = false
+		clone.Massless = true
+		if art and art.scale and math.abs(art.scale - 1) > 1e-3 then
+			-- ⚠️ Multiplies the CURRENT size. Attachments do not scale with `Size` on a part, so if a
+			-- weapon ever gains one (a muzzle point, say) it must be scaled by hand — the same trap the
+			-- creature eyes hit in Job #078.
+			clone.Size *= art.scale
+		end
+		local yaw = math.rad((art and art.yawOffset) or 0)
+		local grip = (art and art.gripOffset) or Vector3.zero
+		clone.CFrame = hand.CFrame * CFrame.Angles(0, yaw, 0) * CFrame.new(-grip.X, -grip.Y, -grip.Z)
+		part = clone
+	else
+		-- greybox fallback, unchanged
+		local p = Instance.new("Part")
+		p.Anchored = false
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Massless = true
+		p.Color = def.color
+		p.Material = Enum.Material.SmoothPlastic
+		if def.kind == "Melee" then
+			p.Size = Vector3.new(0.25, 4, 0.25)
+			p.CFrame = hand.CFrame * CFrame.new(0, -2, 0)
+		elseif def.kind == "Light" then
+			p.Size = Vector3.new(0.6, 1.2, 0.6)
+			p.CFrame = hand.CFrame * CFrame.new(0, 0.6, 0)
+		else
+			p.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 2.4 else 1.2)
+			p.CFrame = hand.CFrame * CFrame.new(0, 0, -0.6)
+		end
+		part = p
+	end
 	part.Name = "HeldItem"
-	part.Anchored = false
-	part.CanCollide = false
-	part.CanQuery = false
-	part.Massless = true
-	part.Color = def.color
-	part.Material = Enum.Material.SmoothPlastic
-	if def.kind == "Melee" then
-		part.Size = Vector3.new(0.25, 4, 0.25) -- blade
-		part.CFrame = hand.CFrame * CFrame.new(0, -2, 0)
-	elseif def.kind == "Light" then
-		-- a torch/lamp: a glowing tip + a PointLight so it lights the dark jungle at night (Job 037)
-		part.Size = Vector3.new(0.6, 1.2, 0.6)
-		part.Material = Enum.Material.Neon
-		part.CFrame = hand.CFrame * CFrame.new(0, 0.6, 0)
+
+	if def.kind == "Light" then
+		-- the torch is always built, model or not: it is a stick plus a flame
+		local head = buildTorch(part :: Part)
+		-- ⚠️ UNCHANGED WIRING (Job 037/038): the PointLight is tagged `NightLight`, so `LightController`
+		-- switches it on at dusk and off at dawn. Do not start it enabled.
 		local light = Instance.new("PointLight")
 		light.Range = def.lightRange or 26
 		light.Brightness = def.lightBrightness or 3
 		light.Color = Color3.fromRGB(255, 190, 120)
 		light.Shadows = true
-		light.Enabled = false -- night-only; LightController turns it on at night (Job 038)
+		light.Enabled = false
 		CollectionService:AddTag(light, "NightLight")
-		light.Parent = part
-	else
-		part.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 2.4 else 1.2) -- barrel
-		part.CFrame = hand.CFrame * CFrame.new(0, 0, -0.6)
+		light.Parent = head
+	elseif art then
+		for name, sdef in pairs(art.sound) do
+			attachSound(part, name, sdef)
+		end
 	end
+
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = hand
 	weld.Part1 = part
@@ -102,7 +223,7 @@ function InventoryService.seed(player: Player)
 	-- pass would leave slots 5–6 as nil and the hotbar would render holes.
 	for i = 1, ItemDefs.MAX_SLOTS do
 		-- start with the Sword (slot 1) + a Torch (slot 2) for night visibility (Job 037; lootable later)
-		player:SetAttribute(slotAttr(i), if i == 1 then "Sword" elseif i == 2 then "Torch" else "")
+		player:SetAttribute(slotAttr(i), if i == 1 then "Axe" elseif i == 2 then "Torch" else "")
 	end
 	player:SetAttribute("ActiveSlot", 1)
 	for _, def in pairs(ItemDefs.Items) do
@@ -137,7 +258,7 @@ function InventoryService.drop(player: Player, slot: number)
 	if slot < 1 or slot > slotsFor(player) then
 		return
 	end
-	if (player:GetAttribute(slotAttr(slot)) :: string?) == "Sword" then
+	if (player:GetAttribute(slotAttr(slot)) :: string?) == "Axe" then
 		return -- the sword is the permanent fallback; can't drop it
 	end
 	player:SetAttribute(slotAttr(slot), "")

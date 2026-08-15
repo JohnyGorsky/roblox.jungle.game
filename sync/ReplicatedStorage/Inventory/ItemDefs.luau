@@ -54,8 +54,11 @@ function ItemDefs.slotsFor(player: Player): number
 end
 
 ItemDefs.Items = {
-	Sword = {
-		name = "Sword",
+	-- Job #079: the starting weapon. RENAMED from `Sword` — the model is roblox.defender's Rusty Axe,
+	-- reused whole. Damage stays 15 deliberately (Defender's axe does 20): every other weapon is meant
+	-- to be an upgrade on this, and Jobs 015/058 tuned the on-foot camp raid against 15.
+	Axe = {
+		name = "Axe",
 		kind = "Melee",
 		color = Color3.fromRGB(200, 205, 215),
 		damage = 15,

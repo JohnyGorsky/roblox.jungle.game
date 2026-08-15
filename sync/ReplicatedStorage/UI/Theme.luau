@@ -228,7 +228,7 @@ Theme.groupIcon = { Boat = "boat", Crew = "crew" }
 -- no loadout, but the table lives here for the same reason skillIcon/moduleIcon do: asset keys belong
 -- in one file.
 Theme.itemIcon = {
-	Sword = "machete",
+	Axe = "machete", -- Job #079: the starting melee is an axe now (icon still the machete placeholder)
 	Torch = "spotlight", -- a carried lamp; the searchlight glyph is the closest in the set
 	Pistol = "pistol",
 	Shotgun = "shotgun",

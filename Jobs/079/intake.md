@@ -15,8 +15,8 @@ gave Jungle its Wolf, Bandit and Boar for zero credits in Job #078.
 - [x] Requirements reviewed (this intake)
 - [x] Audit done — both sides measured, all ids captured (below)
 - [x] Open questions answered (wizard) — see "Decisions taken"
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
+- [x] Implementation plan — folded into the intake; scope was small enough to build directly
+- [x] Implementation completed — all four held items real, verified in Play
 - [ ] Final summary + changelog written
 
 ---

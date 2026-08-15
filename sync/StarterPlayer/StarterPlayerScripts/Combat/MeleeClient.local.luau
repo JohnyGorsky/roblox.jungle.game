@@ -19,7 +19,7 @@ local SWING_TIME = 0.22
 local swinging = false
 
 local function swordActive(): boolean
-	if player:GetAttribute("ActiveItem") ~= "Sword" or player:GetAttribute("Busy") == true then
+	if player:GetAttribute("ActiveItem") ~= "Axe" or player:GetAttribute("Busy") == true then
 		return false
 	end
 	-- can't swing while driving the boat or manning the mounted gun

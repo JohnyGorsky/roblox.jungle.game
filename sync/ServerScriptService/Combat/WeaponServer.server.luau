@@ -111,12 +111,38 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 		return
 	end
 
+	-- ── Job #079: the gun you can hear ──────────────────────────────────────────────────────────
+	-- `gun_shot` has been uploaded and owned since 2026-08-02 and was never wired (ASSETS.md §3.2
+	-- deferred it: *"this will be a separate task"*). This is that task.
+	--
+	-- ⚠️ ONE Sound on the barrel, RESTARTED — never a new Sound per bullet. The pistol fires every
+	-- 0.22 s; an instance per shot is the stacking mistake `GameSoundscape`'s header documents with the
+	-- cicadas, where a clip fired faster than its own length layered six copies into noise.
+	-- `player.Character` directly: the local `char` is declared further down, after the ammo gate.
+	local heldChar = player.Character
+	local held = heldChar and heldChar:FindFirstChild("HeldItem")
+	local function cue(name: string)
+		local s = held and held:FindFirstChild(name)
+		if s and s:IsA("Sound") then
+			s.TimePosition = 0
+			s:Play()
+		end
+	end
+
 	-- per-player, per-gun ammo (Job 015)
 	local ammo = (player:GetAttribute(def.ammoAttr) :: number?) or 0
 	if ammo <= 0 then
+		cue("empty") -- dry-fire click, so an empty gun tells you WHY nothing happened
 		return -- out of ammo for this gun
 	end
 	player:SetAttribute(def.ammoAttr, ammo - 1)
+	cue("fire")
+	-- the pump is the shotgun's follow-through; it has no meaning on a semi-auto pistol
+	if held and held:FindFirstChild("pump") then
+		task.delay(0.18, function()
+			cue("pump")
+		end)
+	end
 
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?

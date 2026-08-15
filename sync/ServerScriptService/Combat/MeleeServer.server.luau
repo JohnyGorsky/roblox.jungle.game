@@ -9,7 +9,46 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
+local ServerStorage = game:GetService("ServerStorage")
+local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("WeaponAssets"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+
+-- animation tracks are cached per character: `LoadAnimation` on every swing leaks tracks fast at a
+-- 0.6 s interval.
+local tracks: { [Model]: { [string]: AnimationTrack } } = {}
+local swingCount: { [Player]: number } = {}
+
+local function playAnim(char: Model, name: string, id: string)
+	if id == "" then
+		return
+	end
+	local hum = char:FindFirstChildWhichIsA("Humanoid")
+	local animator = hum and hum:FindFirstChildWhichIsA("Animator")
+	if not animator then
+		return
+	end
+	local byChar = tracks[char]
+	if not byChar then
+		byChar = {}
+		tracks[char] = byChar
+	end
+	local track = byChar[name]
+	if not track then
+		local a = Instance.new("Animation")
+		a.AnimationId = id
+		local ok, loaded = pcall(function()
+			return animator:LoadAnimation(a)
+		end)
+		if not ok or not loaded then
+			warn(("[Melee] animation %q failed to load (%s)"):format(name, id))
+			return
+		end
+		loaded.Priority = Enum.AnimationPriority.Action
+		track = loaded
+		byChar[name] = track
+	end
+	track:Play(0.05)
+end
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "SwordSwing"
@@ -18,9 +57,10 @@ remote.Parent = ReplicatedStorage
 local lastSwing: { [Player]: number } = {}
 
 remote.OnServerEvent:Connect(function(player: Player)
-	local def = ItemDefs.get(player:GetAttribute("ActiveItem") :: string?)
+	local activeId = player:GetAttribute("ActiveItem") :: string?
+	local def = ItemDefs.get(activeId)
 	if not def or def.kind ~= "Melee" then
-		return -- not holding the sword
+		return -- not holding the melee weapon
 	end
 	if player:GetAttribute("Busy") == true then
 		return -- hands full (carrying)
@@ -44,6 +84,31 @@ remote.OnServerEvent:Connect(function(player: Player)
 		return
 	end
 	lastSwing[player] = now
+
+	-- ── Job #079: the swing you can see and hear ────────────────────────────────────────────────
+	-- Before this, a melee swing was SILENT and had NO animation — the server just applied damage.
+	-- Both come from `WeaponAssets.ART[id]`, so a weapon with neither still swings exactly as it did.
+	local held = char:FindFirstChild("HeldItem")
+	local art = if activeId then WeaponAssets.ART[activeId] else nil
+	if art then
+		-- alternate the two slashes, the way roblox.defender does, so repeated swings do not look canned
+		local names = {}
+		for n in pairs(art.anim) do
+			table.insert(names, n)
+		end
+		table.sort(names)
+		if #names > 0 then
+			local i = ((swingCount[player] or 0) % #names) + 1
+			swingCount[player] = (swingCount[player] or 0) + 1
+			playAnim(char, names[i], art.anim[names[i]])
+		end
+		if held then
+			local sw = held:FindFirstChild("swing")
+			if sw and sw:IsA("Sound") then
+				sw:Play()
+			end
+		end
+	end
 
 	local range = def.meleeRange or 9
 	local origin = root.Position
@@ -84,10 +149,33 @@ remote.OnServerEvent:Connect(function(player: Player)
 		local before = (best:GetAttribute("HP") :: number?) or 0
 		local after = math.max(0, before - (def.damage or 15))
 		best:SetAttribute("HP", after)
-		print(string.format("[Sword] HIT %s  HP %d -> %d%s", best.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
+		-- the CHOP only plays on a landed hit; the swing whoosh already played above. Two separate cues
+		-- is what makes a miss feel different from a hit.
+		if held then
+			local h = held:FindFirstChild("hit")
+			if h and h:IsA("Sound") then
+				h:Play()
+			end
+		end
+		print(string.format("[Melee] HIT %s  HP %d -> %d%s", best.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
 	end
 end)
 
 Players.PlayerRemoving:Connect(function(p)
 	lastSwing[p] = nil
+	swingCount[p] = nil
+end)
+
+-- drop cached tracks with the character, or they pile up across a run of deaths
+Players.PlayerAdded:Connect(function(p)
+	p.CharacterRemoving:Connect(function(char)
+		local byChar = tracks[char]
+		if byChar then
+			for _, t in pairs(byChar) do
+				t:Stop()
+				t:Destroy()
+			end
+			tracks[char] = nil
+		end
+	end)
 end)
