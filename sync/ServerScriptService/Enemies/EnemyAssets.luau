@@ -77,9 +77,11 @@ EnemyAssets.ART = {
 		-- measured: the mesh is 7.10 x 4.00 x 20.68 studs against a 6 x 3 x 16 hitbox, so 0.774 brings its
 		-- length onto the hitbox (→ 5.5 x 3.1 x 16.0).
 		scale = 0.774,
-		-- ⚠️ 180, MEASURED not guessed. The mesh is authored head-at-+Z; our forward is -Z, so at 0 the
-		-- crocodile swims tail-first. Spotted because the glowing eyes (placed at -Z) landed on its back.
-		yawOffset = 180,
+		-- 0 — the mesh is already authored head-at-**-Z**, which is our forward. MEASURED, after an earlier
+		-- guess of 180 got it backwards: raycast cross-sections along the mesh show the +Z end tapering to
+		-- 0.24 studs wide and drooping to y = -1.67 (a tail), while the -Z end stays blunt and level at
+		-- 1.44 wide (a snout). Do not "fix" this from a screenshot — re-measure.
+		yawOffset = 0,
 		water = {
 			sink = 1.0, -- waterline sits along its back; only spine, eyes and snout show
 			bobAmp = 0.22,

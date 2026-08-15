@@ -22,8 +22,21 @@ stylized low-poly game asset, chunky readable silhouette, hand-painted texture, 
 ### ✅ A1 — Crocodile — DONE
 Imported as `ServerStorage.AssetLibrary.Enemies.Aligator` (a single **MeshPart**, 7.10 × 4.00 × 20.68,
 PBR via SurfaceAppearance, **0 scripts**). Wired with `scale = 0.774` → 5.5 × 3.1 × 16.0 against the
-6 × 3 × 16 hitbox, and `yawOffset = 180` because the mesh is authored head-at-+Z.
-`EyeLeft`/`EyeRight` Attachments added to the source mesh.
+6 × 3 × 16 hitbox, and **`yawOffset = 0`** — the mesh is authored head-at-**-Z**, which is already our
+forward.
+
+**Orientation and eye placement were MEASURED, not eyeballed.** Raycast cross-sections along the mesh
+(`CollisionFidelity = PreciseConvexDecomposition` on a temp copy) gave:
+- +Z end tapers to **0.24 studs wide**, drooping to y **-1.67** → the **tail**
+- -Z end stays blunt and level at **1.44 wide** → the **snout**
+- twin bumps at **x = ±0.6…0.9, y = 1.88, z = -6.0…-5.1** with a dip between → the **eye ridges**
+
+→ `EyeLeft`/`EyeRight` Attachments on the source mesh at **(±0.75, 1.90, -5.60)**. In game the eyes land
+at world Y ≈ 12.25 against a water surface of 12 — just breaking the surface, which is the look a
+lurking crocodile should have.
+
+⚠️ Do not "correct" the facing or the eyes from a screenshot; both were got wrong that way first. Re-run
+the raycast profile instead.
 
 <details><summary>original prompt (kept for the record)</summary>
 Target in-game size **6 × 3 × 16 studs**.
