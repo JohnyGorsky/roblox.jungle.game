@@ -8,9 +8,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
-local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("SwordSwing") :: RemoteEvent
@@ -31,8 +29,9 @@ local function swordActive(): boolean
 	return true
 end
 
--- quick demo swing: a neon blade sweeps a downward arc in front of the character
-local function playSwingFx()
+-- Gate one swing per input. The VISUALS live on the server now (real model + slash animation +
+-- whoosh, Job #079); this only stops a held mouse button firing the remote every frame.
+local function beginSwing()
 	if swinging then
 		return
 	end
@@ -43,36 +42,19 @@ local function playSwingFx()
 	end
 	swinging = true
 
-	local blade = Instance.new("Part")
-	blade.Name = "SwingFx"
-	blade.Size = Vector3.new(0.25, 4, 0.6)
-	blade.Color = Theme.color.cream -- swing arc, on-palette (Job #075)
-	blade.Material = Enum.Material.Neon
-	blade.Transparency = 0.15
-	blade.CanCollide = false
-	blade.CanQuery = false
-	blade.Massless = true
-	blade.Anchored = true
-	blade.Parent = char
-
-	local t0 = os.clock()
-	local conn: RBXScriptConnection
-	conn = RunService.RenderStepped:Connect(function()
-		local a = (os.clock() - t0) / SWING_TIME
-		local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if a >= 1 or not root or not blade.Parent then
-			conn:Disconnect()
-			blade:Destroy()
-			swinging = false
-			return
-		end
-		-- sweep the blade from up-right to down-left across the front
-		local ang = math.rad(80 - a * 170)
-		blade.CFrame = root.CFrame
-			* CFrame.new(0, 1.5, -1.5)
-			* CFrame.Angles(0, 0, ang)
-			* CFrame.new(0, 1.8, 0)
-		blade.Transparency = 0.15 + a * 0.7
+	-- ⚠️ THE CREAM NEON ARC IS GONE (Job #079), and it should not come back.
+	--
+	-- Job #075 drew a 0.25 x 4 x 0.6 `SwingFx` slab in `Theme.color.cream`, Material Neon, swept across
+	-- the front on every swing. That was a GREYBOX stand-in for swing feedback at a time when the melee
+	-- was an invisible-ish coloured stick with no animation and no sound.
+	--
+	-- All three of those now exist: the axe has a real model, alternating `slash1`/`slash2` animations on
+	-- the character's own Animator, and an `AxeSwing` whoosh. The slab is not just redundant on top of
+	-- them, it reads in play as "a white object flying past" — which is exactly how it was reported.
+	--
+	-- The timer below still runs, because `swinging` gates the input so one tap is one swing.
+	task.delay(SWING_TIME, function()
+		swinging = false
 	end)
 end
 
@@ -84,7 +66,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		or input.UserInputType == Enum.UserInputType.Touch then
 		if swordActive() then
 			remote:FireServer()
-			playSwingFx()
+			beginSwing()
 		end
 	end
 end)

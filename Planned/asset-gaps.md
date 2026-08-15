@@ -8,42 +8,39 @@ the bible; this is a dated summary of what is still OPEN, ordered by what a play
 
 ---
 
-## 1. 🔴 HUD icons — 23 are wired, **16 are blank**, and ~6 of those can be reused
+## 1. 🔴 HUD icons — 23 wired, **16 still need real art**
 
-⚠️ **Correction to an earlier reading of this file.** The icon set is NOT unwired — `Theme.icon` has
-**39 keys and 23 of them carry real ids** (the lobby / shop / boat set: `close`, `coin`, `shop`, `star`,
-`wrench`, `party`, `calendar`, `check`, `bounty`, `engine`, `hull`, `fuel`, `crate`, `tools`, `boat`,
-`crew`, `wheel`, `medkit`, `gun`, `spotlight`, `loot`, `trophy`, `robux`).
+`Theme.icon` has 39 keys; **23 carry real ids** (the lobby / shop / boat set) and **16 are empty** — all
+of them Job #075's *in-run HUD* set, which is why the boot warning only names those:
 
-The **16 blanks are all from Job #075's in-run HUD set** — the icons the HUD needs *during a run*, which
-is why the boot warning only ever names those.
+`salvage` · `metal` · `ammoBox` · `heart` · `machete`→**axe** · `pistol` · `bandage` · `flag` ·
+`warning` · `sun` · `moon` · `skull` · `shotgun` · `rope` · `pin` · `clipboard`
 
-### ~6 of the 16 do not need sourcing at all — an existing icon already fits
+### ⚠️ They are NOT blank on screen — and that is the point
 
-| Blank key | Reuse this wired icon | id |
-|---|---|---|
-| `pistol` | **`gun`** | `120983452101559` |
-| `shotgun` | **`gun`** (same icon, both are firearms in the hotbar) | `120983452101559` |
-| `bandage` | **`medkit`** | `87252065857781` |
-| `salvage` | **`loot`** | `121749397596257` |
-| `ammoBox` | **`crate`** | `123909056802404` |
-| `metal` | **`crate`** or **`tools`** | `123909056802404` / `109933399936454` |
+`Theme.iconFallback` already maps every one of them to a semantically-close wired icon, and
+`Components.iconId` substitutes automatically whenever the real id is empty. The HUD has been drawing
+`tools` for the axe, `gun` for the pistol, `medkit` for the bandage, `crew` for the skull, and so on,
+the whole time.
 
-That is a one-line change each, no sourcing, no attribution, and it keeps the set consistent because
-they are already the same author.
+The file states the intent plainly, and it is worth respecting:
 
-### 10 genuinely need new art
+> *"semantically close enough to read correctly in a screenshot, never so close that we forget to
+> replace it. `Components.icon` consults this only when the real id is empty."*
 
-`heart` · `axe` *(currently keyed `machete`)* · `flag` · `warning` · `sun` · `moon` · `skull` · `rope` ·
-`pin` · `clipboard`
+So **the empty ids are the tracking mechanism**, not an oversight. Filling them with existing art (tried
+2026-08-15, reverted the same day) removes the boot warning, makes a deliberately-imperfect stand-in
+permanent, and duplicates a system that already exists.
 
-**Source:** Flaticon. ⚠️ **Same author as the §1.9 lobby set** — ASSETS.md's own rule: *"One pack, one
-author — mixed packs are the #1 way an icon set looks wrong."* Free Flaticon needs attribution, so
-prefer CC0 or paid.
+**"The axe icon looks wrong" is this working as designed** — the axe slot shows the `tools` wrench,
+because no axe glyph exists in the set yet. Nothing among the 23 wired icons is a blade or an axe, so
+that one cannot be fixed by reuse; it needs real art.
 
-> ⚠️ `machete` is wrong twice over: it is blank AND the starting weapon became an **axe** in Job #079.
-> The key wants renaming to `axe` at the same time. (`Theme.itemIcon` was already updated to `Axe` in
-> both trees.)
+**Source:** Flaticon. ⚠️ **Same author as the §1.9 lobby set** — ASSETS.md's rule: *"One pack, one
+author — mixed packs are the #1 way an icon set looks wrong."*
+
+> ⚠️ Rename `machete` → `axe` when the art lands: Job #079 made the starting melee an axe.
+> `Theme.itemIcon.Axe` currently points at the `machete` key in both trees.
 
 ## 2. 🔴 HUD sounds — 5 placeholders
 
@@ -111,8 +108,8 @@ and a balance pass before a model is worth generating.
 
 ## Suggested order
 
-1. **HUD icons + HUD sounds** (§1, §2) — but the real number is **10 icons + 5 sounds**, not 21:
-   six of the "missing" icons are satisfied by reusing one already wired.
+1. **HUD icons + HUD sounds** (§1, §2) — 16 icons + 5 sounds. Not urgent-broken (the icons fall back to
+   close-enough art automatically), but it is the most-seen rough edge in the game.
 2. **Upload the audio already on disk** (§3) — nearly free, and `gun_reload` closes the last weapon gap.
 3. **Boat upgrade models** (§4) — they are paid content and currently look like boxes.
 4. **World set-pieces** (§5) — biggest visual payoff per unit of work after the above.
