@@ -647,7 +647,7 @@ and identical to the lobby by construction.
 
 | Creature | In-game size | Model | Rig | Status |
 |---|---|---|---|---|
-| **Crocodile** (sea) | 6×3×16 | Meshy M1 | walk/swim + attack + death | ▫ **in scope, not sourced** |
+| **Crocodile** (sea) | 6×3×16 | <span style="color:#2e9c3f">✅ `Aligator` MeshPart `83415039015970`</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ DONE</span> — model, 5 sounds, procedural water motion, wake + splash, eyes |
 | **Panther** (land, also every `CampGuard`) | 5×4×11 | Meshy M2 | prowl/run + pounce + death | ▫ **in scope, not sourced** |
 | Piranha (sea) | 2×1.2×4 | Meshy M3 | swim + dart | ▫ later — ⚠️ Creator Store has **nothing** usable |
 | RiverHippo (sea) | 8×5×12 | Meshy M4 | swim + charge + death | ▫ later |
@@ -657,17 +657,19 @@ and identical to the lobby by construction.
 Concept art on disk: `assets/Enemies/{Crocodile,Hippo,Anaconda,Puma}.png`. ⚠️ There is art for **Puma**
 and **Anaconda** but the code has **Panther** and no snake; and there is **no art** for Piranha or Boar.
 
-## 4.2 Creature sounds — Pixabay (5 per creature)
+## 4.2 Creature sounds — Pixabay (5 per creature) — <span style="color:#2e9c3f">Crocodile ✅ complete</span>
 
 Keys are `idle` / `aggro` / `attack` / `hurt` / `death`. ⚠️ Roblox audio moderation is unpredictable —
 `night_starts` was rejected **twice** in Job #073, so grab a second choice for anything critical.
 
 | Asset | Status | Notes |
 |---|---|---|
-| `croc_idle` | <span style="color:#c9a13c">◐ on disk, not uploaded</span> | `assets/Objects/Monsters/Aligator/aligator_hissing.mp3` |
-| `croc_attack` | <span style="color:#c9a13c">◐ on disk, not uploaded</span> | `assets/Objects/Monsters/monster_bite_1.mp3` |
-| `croc_aggro` / `croc_hurt` / `croc_death` | ▫ not sourced | |
-| `panther_idle/aggro/attack/hurt/death` | ▫ not sourced | Panther audio also plays on every camp guard |
+| `croc_idle` | <span style="color:#2e9c3f">✅ 137066735880685</span> | gator hiss, 5.04 s — fires every 10–22 s while NOT chasing |
+| `croc_aggro` | <span style="color:#2e9c3f">✅ 108958436464973</span> | 1.59 s — widest rolloff of the set, must carry over the engine |
+| `croc_attack` | <span style="color:#2e9c3f">✅ 94063943857259</span> | 2.09 s — generic monster bite; swappable for an `alligator bite` clip |
+| `croc_hurt` / `panther_hurt` | <span style="color:#2e9c3f">✅ 137192983266942</span> | generic `animal-hurt`, **shared** by both creatures |
+| `croc_death` / `panther_death` | <span style="color:#2e9c3f">✅ 120708334083507</span> | generic `animal-die`, **shared** by both creatures |
+| `panther_idle` / `panther_aggro` / `panther_attack` | ▫ **not sourced (3 left)** | Panther audio also plays on every camp guard |
 | Piranha / Hippo / Boar / Anaconda sets | ▫ later | |
 
 ⚠️ **The Creator Store is useless for these** — searching `crocodile growl hiss` returned *"Sandstorm
