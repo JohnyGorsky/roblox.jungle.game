@@ -96,19 +96,79 @@ end
 --
 -- ⚠️ Rejects near-VERTICAL hits. The basin is ringed by terrain `wallBlock` walls; a ray landing on a wall
 -- face returns a height metres above the floor, which is what put a handful of props visibly out of place.
+-- 🔴 AND it must DESCEND PAST LEFTOVER SPIKES.
+--
+-- The basin is carved FLAT at `CLEAR_Y` (real surface ~17–18 after voxel snapping), but `carve` does not
+-- clear it perfectly: a measured **2.5% of columns survive above y=21** — stumps of the original hillside
+-- standing inside the basin. A prop that happens to land on one gets seated on top of it, and when you
+-- look at the camp the stump is invisible-ish but the tent is hanging 15 studs in the air.
+--
+-- That is exactly what produced the floating Tent / Barrel / AmmoBox: logged live, `Tent at (533,1621)
+-- groundAt=33.6` while an `AmmoBox` ten studs away read `17.0`. Not a seating bug, not a timing bug — a
+-- leftover terrain column.
+--
+-- So: take the LOWEST floor within the basin's plausible height band, stepping down past anything above
+-- it, rather than the FIRST thing the ray hits.
+local BASIN_RISE = 8 -- studs above CLEAR_Y that still counts as "the basin floor"; above this is a stump
+
+-- 🔴 YIELD AFTER WRITING TERRAIN, BEFORE RAYCASTING IT.
+--
+-- `roblox-terrain` §2: "re-reading immediately after a write IN THE SAME SCRIPT can return pre-write
+-- data". This is not theoretical here — it is the single biggest cause of the floating props in this
+-- job. Logged live: `BahayKubo7 groundAt=22.0` on ground that measures 17.0 a second later, because the
+-- trading post's levelling fill had not landed when the raycast ran. The camps escaped it only by
+-- accident, because enough other work happened between their fill and their first prop.
+--
+-- One frame is enough, and it is free: `buildLandingSite` already runs off a 0.5 s loop, and spreading a
+-- site build over a few frames is what the optimization skill asks for anyway.
+local function settleTerrain()
+	-- Two frames, not one: a single `task.wait()` still returned pre-write data for the trading post pad.
+	task.wait()
+	task.wait()
+end
+
 local function groundAt(x: number, z: number): number
 	local rp = RaycastParams.new()
 	rp.FilterType = Enum.RaycastFilterType.Include
 	rp.FilterDescendantsInstances = { Terrain }
 	rp.IgnoreWater = true
-	for _, from in ipairs({ CLEAR_Y + 60, CLEAR_Y + 6 }) do
-		local hit = Workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -300, 0), rp)
+
+	local function probe(px: number, pz: number): number?
+		local hit = Workspace:Raycast(Vector3.new(px, CLEAR_Y + 60, pz), Vector3.new(0, -300, 0), rp)
 		-- Normal.Y near 1 = a floor. A wall face gives ~0 and is not somewhere a tent belongs.
-		if hit and hit.Normal.Y > 0.7 then
+		-- Above `CLEAR_Y + BASIN_RISE` is a leftover stump, not the basin floor.
+		if hit and hit.Normal.Y > 0.7 and hit.Position.Y <= CLEAR_Y + BASIN_RISE then
 			return hit.Position.Y
 		end
+		return nil
 	end
-	return CLEAR_Y
+
+	local here = probe(x, z)
+	if here then
+		return here
+	end
+
+	-- The point itself is a stump or a wall face. The basin is FLAT by construction, so ask the ground
+	-- around it — do NOT step the ray down through the stump: a ray that starts inside solid terrain
+	-- registers no floor at all and falls through to the fallback, which seats the prop 3 studs UNDER
+	-- the real floor. (Measured: that turned a 15-stud float into a 3-stud burial.)
+	local best: number? = nil
+	for _, r in ipairs({ 7, 14, 22 }) do
+		for i = 0, 7 do
+			local a = (i / 8) * math.pi * 2
+			local g = probe(x + math.cos(a) * r, z + math.sin(a) * r)
+			if g and (not best or g < best) then
+				best = g
+			end
+		end
+		if best then
+			return best
+		end
+	end
+	-- Nothing readable anywhere near: fall back to the carve height plus the voxel-snap offset. The
+	-- carve fills to `CLEAR_Y` but voxels quantise to the RES=4 grid, so the real surface measures ~17–18
+	-- against a `CLEAR_Y` of 15 — returning bare `CLEAR_Y` here is what buried props by ~2.4 studs.
+	return CLEAR_Y + 2.5
 end
 
 -- Place a library model with its BASE on the ground, facing `lookAt`, and return it.
@@ -262,12 +322,34 @@ local function bankAt(z: number, side: number): number
 	return RiverData.centerlineX(z) + side * RiverData.widthAt(z) * 0.5
 end
 
+-- 🔴 A SLICE MUST USE ITS MOST-INLAND BANK, NOT ITS MIDPOINT.
+--
+-- Each carve slice is an axis-aligned box 20 studs deep in Z, but the river meanders WITHIN those 20
+-- studs. Taking the bank at the slice midpoint means that wherever the channel swings toward the camp
+-- inside the slice, the box starts out in open water and fills the river with solid ground. Measured at
+-- the basin's +Z end: 59 intrusions reaching **32 studs inside the bank**.
+--
+-- So sample across the slice and keep whichever bank is furthest INLAND (the one that leaves the most
+-- water alone), plus a margin for the bank's own irregularity.
+local BANK_MARGIN = 6
+
+local function bankForSlice(z0: number, z1: number, side: number): number
+	local best = bankAt(z0, side)
+	for i = 1, 4 do
+		local b = bankAt(z0 + (z1 - z0) * (i / 4), side)
+		if (b - best) * side > 0 then
+			best = b
+		end
+	end
+	return best + side * BANK_MARGIN
+end
+
 local function carve(cx: number, cz: number, size: number, side: number)
 	local half = size / 2
 	local outerX = cx + side * half -- the inland edge, which does not move
 	for z0 = cz - half, cz + half - CARVE_SLICE, CARVE_SLICE do
 		local zMid = z0 + CARVE_SLICE / 2
-		local innerX = bankAt(zMid, side) -- the water's edge HERE, not at the dock
+		local innerX = bankForSlice(z0, z0 + CARVE_SLICE, side) -- most-inland bank ACROSS the slice
 		local width = (outerX - innerX) * side
 		if width > 8 then
 			local xMid = (innerX + outerX) / 2
@@ -296,23 +378,34 @@ local function paintBasin(cx: number, cz: number, size: number, waterEdge: numbe
 	local G = CampDefs.GROUND
 	local half = size / 2 - 6
 
+	-- 🔴 A PAINT DISC CREATES GROUND, IT DOES NOT ONLY RECOLOUR IT.
+	--
+	-- `FillCylinder` fills solid, so a "repaint" disc whose centre sits near the bank builds NEW LAND out
+	-- over the river. This was the last source of solid ground in the channel: 14 samples, up to 32 studs
+	-- in, every one of them `Grass` or `Ground` — the scatter, not the carve or the walls.
+	--
+	-- So every disc is pushed inland until its whole radius clears the local bank.
+	local function inland(x: number, z: number, radius: number): number
+		local limit = bankForSlice(z - radius, z + radius, side) + side * radius
+		return if (x - limit) * side < 0 then limit else x
+	end
+
 	-- Grass patches, so the LeafyGrass default isn't one flat tone either
 	for _ = 1, G.grassPatches.count do
-		paintDisc(
-			cx + rng:NextNumber(-1, 1) * half,
-			cz + rng:NextNumber(-1, 1) * half,
-			rng:NextNumber(G.grassPatches.radius[1], G.grassPatches.radius[2]),
-			Enum.Material.Grass
-		)
+		local r = rng:NextNumber(G.grassPatches.radius[1], G.grassPatches.radius[2])
+		local z = cz + rng:NextNumber(-1, 1) * half
+		paintDisc(inland(cx + rng:NextNumber(-1, 1) * half, z, r), z, r, Enum.Material.Grass)
 	end
 
 	-- Bare-earth scatter. SMALL and SPARSE by decision — see the A3 risk note in `CampDefs.GROUND`: if
 	-- this reads as mush next to the path, the lever is `scatter.count`, never the path width.
 	for _ = 1, G.scatter.count do
+		local r = rng:NextNumber(G.scatter.radius[1], G.scatter.radius[2])
+		local z = cz + rng:NextNumber(-1, 1) * half
 		paintDisc(
-			cx + rng:NextNumber(-1, 1) * half,
-			cz + rng:NextNumber(-1, 1) * half,
-			rng:NextNumber(G.scatter.radius[1], G.scatter.radius[2]),
+			inland(cx + rng:NextNumber(-1, 1) * half, z, r),
+			z,
+			r,
 			G.scatter.materials[rng:NextInteger(1, #G.scatter.materials)]
 		)
 	end
@@ -325,7 +418,7 @@ local function paintBasin(cx: number, cz: number, size: number, waterEdge: numbe
 	local bankHalf = size / 2
 	for z0 = cz - bankHalf, cz + bankHalf - CARVE_SLICE, CARVE_SLICE do
 		local zMid = z0 + CARVE_SLICE / 2
-		local bankX = bankAt(zMid, side) + side * (G.bank.width / 2)
+		local bankX = bankForSlice(z0, z0 + CARVE_SLICE, side) + side * (G.bank.width / 2)
 		Terrain:FillBlock(
 			CFrame.new(bankX, CLEAR_Y - G.depth / 2, zMid),
 			Vector3.new(G.bank.width, G.depth, CARVE_SLICE),
@@ -534,8 +627,20 @@ local function buildCampAt(
 	-- a point back down the path, for everything that should face the way the player arrives
 	local approachFrom = campPos - approach * 80
 
-	-- ground FIRST: props raycast the terrain to seat themselves, so paint before you place.
+	-- 🔴 RE-CLEAR THE CAMP FOOTPRINT FIRST. `carve` is measurably imperfect — ~2.5% of columns survive
+	-- above y=21 as stumps of the original hillside. Anywhere else in the basin that is just scenery, but
+	-- a stump inside a camp is a rock spike in the middle of the clearing AND it makes any prop that
+	-- lands on it seat 15 studs in the air (the floating Tent/Barrel/AmmoBox). One extra pair of fills
+	-- per camp is far cheaper than trying to make the basin-wide carve perfect.
+	--
+	-- Safe from the river by construction: camps sit 120 and 300 studs inland, and this reaches 65.
+	local FOOT = 130
+	Terrain:FillBlock(CFrame.new(campPos.X, CLEAR_Y - 20, campPos.Z), Vector3.new(FOOT, 40, FOOT), CampDefs.GROUND.base)
+	Terrain:FillBlock(CFrame.new(campPos.X, CLEAR_Y + 32, campPos.Z), Vector3.new(FOOT, 64, FOOT), Enum.Material.Air)
+
+	-- ground next: props raycast the terrain to seat themselves, so paint before you place.
 	paintTrampled(campPos, approach)
+	settleTerrain()
 
 	-- The fire is the centre. Placed first; everything else is positioned relative to it.
 	local firePos = at(L.fire)
@@ -700,13 +805,11 @@ local function tree(x: number, z: number, parent: Instance, rng: Random)
 	-- ⚠️ RAYCAST THE GROUND, DO NOT ASSUME `CLEAR_Y`. The basin is filled to CLEAR_Y (=15), but terrain
 	-- voxels snap to the RES=4 grid, so the actual walkable surface is ~17 — and the first pass, which
 	-- trusted CLEAR_Y, buried every camp plant by a measured 2.4 studs. Measure, don't assume.
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { Terrain }
-	params.IgnoreWater = true
-	local hit = Workspace:Raycast(Vector3.new(x, CLEAR_Y + 80, z), Vector3.new(0, -300, 0), params)
-	local groundY = if hit then hit.Position.Y else CLEAR_Y
-	FoliageDefs.seatOnGround(clone, groundY, 0.4)
+	--
+	-- ⚠️ And use `groundAt`, NOT a raw first-hit raycast. A plain raycast happily lands on one of the
+	-- leftover hillside stumps `carve` leaves inside the basin, which put a `PalmCoconut` 23 studs in
+	-- the air. `groundAt` rejects stumps and asks the surrounding basin instead.
+	FoliageDefs.seatOnGround(clone, groundAt(x, z), 0.4)
 	clone.Parent = parent
 
 	-- The raycast above is a POINT test. Check the ground the plant actually STANDS on — a small disc,
@@ -726,8 +829,10 @@ end
 -- is the game place. Rather than depend on an asset that may not have been localized here, this is the
 -- lobby's own proven recipe — a WoodPlanks board on two posts (`ASSETS.md` §1.3) — rebuilt in code, with
 -- a `SurfaceGui` on BOTH faces so it reads from the water and from the path.
-local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance)
-	local ground = groundAt(pos.X, pos.Z)
+-- ⚠️ `ground` is PASSED IN, not re-probed. The sign stands on the same levelled pad as the post 16
+-- studs away, and an independent probe here read 22.0 on ground that measures 17.0 — leaving the sign
+-- hanging 4.7 studs up. One measurement, shared by everything on the pad.
+local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance, ground: number)
 	local d = Vector3.new(faceTo.X - pos.X, 0, faceTo.Z - pos.Z)
 	local yaw = if d.Magnitude > 0.01 then math.atan2(d.X, d.Z) else 0
 	local base = CFrame.new(pos.X, ground, pos.Z) * CFrame.Angles(0, yaw, 0)
@@ -858,6 +963,7 @@ end
 -- It is `BahayKubo7` now: a Filipino stilt house, which is what a river-village trading post actually
 -- looks like. ⚠️ 95 instances, by far the heaviest model in the job — ONE per village, never per camp.
 local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
+	local padGround = groundAt(pos.X, pos.Z) -- ONE measurement for the whole pad
 	prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo })
 
 	-- The counter survives as an INVISIBLE anchor, so the shop prompt keeps its name, its reach and its
@@ -865,12 +971,12 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	local approach = (Vector3.new(faceTo.X - pos.X, 0, faceTo.Z - pos.Z))
 	approach = if approach.Magnitude > 0.01 then approach.Unit else Vector3.new(0, 0, -1)
 	local counterPos = pos + approach * 10
-	local counter = block("Counter", Vector3.new(6, 4, 2), Theme.color.wood, CFrame.new(counterPos.X, groundAt(counterPos.X, counterPos.Z) + 2, counterPos.Z), parent, Enum.Material.WoodPlanks)
+	local counter = block("Counter", Vector3.new(6, 4, 2), Theme.color.wood, CFrame.new(counterPos.X, padGround + 2, counterPos.Z), parent, Enum.Material.WoodPlanks)
 	counter.Transparency = 1
 	counter.CanCollide = false
 	counter.CanQuery = false
 
-	buildShopSign(pos + approach * 16 + Vector3.new(approach.Z, 0, -approach.X) * 7, pos + approach * 40, parent)
+	buildShopSign(pos + approach * 16 + Vector3.new(approach.Z, 0, -approach.X) * 7, pos + approach * 40, parent, padGround)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ShopPrompt"
@@ -938,8 +1044,19 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 		Terrain:FillBlock(CFrame.new(cx, 17, cz), Vector3.new(sx, 50, sz), Enum.Material.Rock) -- solid Y[-8..42]
 	end
 	wallBlock(basinCenterX + dock.side * (half + 15), dock.z, 30, BASIN_SIZE + 60) -- far inland wall
-	wallBlock(basinCenterX + dock.side * 15, dock.z + half + 15, BASIN_SIZE + 30, 30) -- +Z wall
-	wallBlock(basinCenterX + dock.side * 15, dock.z - half - 15, BASIN_SIZE + 30, 30) -- -Z wall
+
+	-- ⚠️ The two Z walls run from the WATER inland, so their inner end must follow the LOCAL bank. They
+	-- sit 215 studs up- and downstream of the dock, and using the dock's own water edge for them put a
+	-- 50-stud-tall rock wall up to 32 studs INTO the channel — the last source of solid ground in the
+	-- river (measured 14/1691 samples against 0/1691 on control stretches with no camp).
+	for _, wz in ipairs({ dock.z + half + 15, dock.z - half - 15 }) do
+		local innerX = bankForSlice(wz - 15, wz + 15, dock.side)
+		local outerX = basinCenterX + dock.side * (half + 30)
+		local w = (outerX - innerX) * dock.side
+		if w > 8 then
+			wallBlock((innerX + outerX) / 2, wz, w, 30)
+		end
+	end
 
 	local model = Instance.new("Model")
 	model.Name = "LandingSite"
@@ -962,6 +1079,8 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local pathMid = Vector3.new((pathAx + pathBx) / 2, CLEAR_Y - 3, (pathAz + pathBz) / 2)
 	local pathCF = CFrame.lookAt(pathMid, Vector3.new(pathBx, CLEAR_Y - 3, pathBz))
 	Terrain:FillBlock(pathCF, Vector3.new(PATH_HALF * 1.2, 6, pathLen), Enum.Material.Ground)
+
+	settleTerrain() -- the ring and the scatter both raycast this terrain; let the writes land first
 
 	-- The canopy that frames the clearing goes in FIRST, around the three inland sides.
 	plantClearingRing(basinCenterX, dock.z, BASIN_SIZE, waterEdge, dock.side, model, rng)
@@ -999,7 +1118,19 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng)
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
-	local postPos = Vector3.new(waterEdge + dock.side * 65, CLEAR_Y, dock.z - 24)
+	--
+	-- ⚠️ Its X comes from the bank at ITS OWN Z, not the dock's. It sits 24 studs upstream of the dock,
+	-- and over that distance the meander moves the bank enough to put the post outside the carved basin,
+	-- standing on the raw bank shelf ~5 studs below the camp floor (measured: post, counter and sign all
+	-- floated +4.7).
+	--
+	-- ⚠️ AND IT GETS NO LEVELLING PAD, which was tried twice and reverted both times. The post stands
+	-- close to the water, so any axis-aligned pad big enough to hold it reaches the channel wherever the
+	-- meander swings in — measured at 32 studs of solid ground in the river, then 77. The basin carve
+	-- ALREADY flattens everything from the bank to 400 studs inland, so the fix is to stand the post on
+	-- that rather than to make new ground: move it inland until it is on the carve.
+	local postZ = dock.z - 24
+	local postPos = Vector3.new(bankForSlice(postZ - 30, postZ + 30, dock.side) + dock.side * 90, CLEAR_Y, postZ)
 	buildTradingPost(postPos, model, shorePoint) -- faces back toward the water, so you see its front on landing
 
 	-- rare gold nuggets (run-capped): a chance at each camp
