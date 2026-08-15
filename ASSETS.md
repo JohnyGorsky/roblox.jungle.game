@@ -649,8 +649,8 @@ and identical to the lobby by construction.
 |---|---|---|---|---|
 | **Crocodile** (sea) | 6×3×16 | <span style="color:#2e9c3f">✅ `Aligator` MeshPart `83415039015970`</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ DONE</span> — model, 5 sounds, procedural water motion, wake + splash, eyes |
 | **Panther** (land, also every `CampGuard`) | 5×4×11 | Meshy M2 | prowl/run + pounce + death | ▫ **in scope, not sourced** |
-| Piranha (sea) | 2×1.2×4 | Meshy M3 | swim + dart | ▫ later — ⚠️ Creator Store has **nothing** usable |
-| RiverHippo (sea) | 8×5×12 | Meshy M4 | swim + charge + death | ▫ later |
+| **Piranha** (sea) | 2×1.2×4 | <span style="color:#2e9c3f">✅ Meshy, imported</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ model done</span> · **deliberately SILENT** (see below) |
+| **RiverHippo** (sea) | 8×5×12 | <span style="color:#2e9c3f">✅ Meshy, imported</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ DONE</span> — shares the Crocodile's 5 sounds |
 | Boar (land) | 4×3×7 | Meshy M5 | trot + charge + death | ▫ later |
 | Anaconda | TBD | Meshy M6 | slither + strike | ▫ later — **new enemy, needs stats + spawn rules first** |
 
@@ -670,6 +670,8 @@ Keys are `idle` / `aggro` / `attack` / `hurt` / `death`. ⚠️ Roblox audio mod
 | `croc_hurt` / `panther_hurt` | <span style="color:#2e9c3f">✅ 137192983266942</span> | generic `animal-hurt`, **shared** by both creatures |
 | `croc_death` / `panther_death` | <span style="color:#2e9c3f">✅ 120708334083507</span> | generic `animal-die`, **shared** by both creatures |
 | `panther_idle` / `panther_aggro` / `panther_attack` | ▫ **not sourced (3 left)** | Panther audio also plays on every camp guard |
+| RiverHippo ×5 | <span style="color:#2e9c3f">✅ shares the Crocodile set</span> | wider rolloff — a hippo should carry further than a croc |
+| Piranha | <span style="color:#2e9c3f">✅ none, by design</span> | ~6 alive at once → any cue plays 6× (the cicada-stacking mistake). `boat_hit` already covers being bitten. |
 | Piranha / Hippo / Boar / Anaconda sets | ▫ later | |
 
 ⚠️ **The Creator Store is useless for these** — searching `crocodile growl hiss` returned *"Sandstorm

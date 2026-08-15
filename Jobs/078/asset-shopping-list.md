@@ -119,6 +119,32 @@ Meshy auto-rig already returns **walk + run** (included in the 5-credit rig); `m
 
 ---
 
+# D2. GENERATED 2026-08-15 — awaiting YOUR import
+
+Both are **water creatures**, so they need **no rig and no animations** — model + sounds only.
+Generated with meshy-6 + PBR refine, 30 credits each (60 total, balance 1,660 → 1,600).
+
+| Creature | File | Tris | Meshy task |
+|---|---|---|---|
+| **Piranha** | `assets/Enemies/Piranha.glb` (+ `Piranha_textures/`) | ~1,200 | `01a00695-9665-781f-896f-e5a203bc7a45` |
+| **RiverHippo** | `assets/Enemies/RiverHippo.glb` (+ `RiverHippo_textures/`) | ~3,000 | `01a00695-d3b1-7951-adc0-7b939ba5a6a3` |
+
+### ☐ Import steps (I cannot do this — there is no upload-mesh API; the 3D Importer is Studio UI)
+
+1. Studio → **Import 3D** → pick the `.glb`
+2. Name the result **exactly** `Piranha` / `RiverHippo` — the code resolves by name
+3. Put it under `ServerStorage.AssetLibrary.Enemies`
+4. **Save the place** — `ServerStorage` is not Rojo-synced
+
+Then tell me and I'll do the same measured pass the crocodile got: raycast the mesh to find its true
+size and which end is the head, set `scale` + `yawOffset`, and place `EyeLeft`/`EyeRight` on the skull.
+
+⚠️ The Piranha's water/VFX values are already deliberately the thinnest of any creature — up to 9 sea
+enemies are alive at once and the piranha is the most heavily weighted, so its wake rate is 6 against
+the crocodile's 22.
+
+---
+
 # D. Deferred — not needed for this job
 
 Listed only so you can search once instead of five times.
@@ -142,6 +168,6 @@ fish), so it is Meshy or nothing.
 
 | | Missing | Notes |
 |---|---|---|
-| Models | **1** (Panther) | Crocodile ✅ done — `Aligator` mesh, wired |
-| Sounds | **3 to find** (Panther idle/aggro/attack) | Crocodile ✅ all 5 done |
-| Animations | **4** (Panther only) | water creatures need none |
+| Models | **1** (Panther) | Croc ✅ in-game · Piranha + RiverHippo ✅ generated, **awaiting import** |
+| Sounds | **3** Panther + **~6** Piranha/Hippo | Crocodile ✅ all 5 done |
+| Animations | **4** (Panther only) | all three water creatures need none |

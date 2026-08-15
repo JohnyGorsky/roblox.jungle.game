@@ -74,16 +74,22 @@ EnemyAssets.ART = {
 		-- ⚠️ The library asset is a single **MeshPart** named `Aligator` (the user's spelling), not a Model
 		-- and not "Crocodile" — resolution is by the name in the library, so this string must match it.
 		model = "Aligator",
-		-- measured: the mesh is 7.10 x 4.00 x 20.68 studs against a 6 x 3 x 16 hitbox, so 0.774 brings its
-		-- length onto the hitbox (→ 5.5 x 3.1 x 16.0).
-		scale = 0.774,
+		-- ⚠️ RE-MEASURED 2026-08-15 after the mesh was re-imported at a DIFFERENT size — 8.10 x 7.86 x 28.98
+		-- against the previous 7.10 x 4.00 x 20.68, and NOT a uniform change (x1.14 / x1.97 / x1.40). Both
+		-- the scale and the eye attachments had to be redone. If the mesh is ever re-imported, re-measure;
+		-- do not assume the old numbers survive.
+		-- 16 / 28.98 = 0.552 → 4.5 x 4.3 x 16.0 against a 6 x 3 x 16 hitbox.
+		scale = 0.552,
 		-- 0 — the mesh is already authored head-at-**-Z**, which is our forward. MEASURED, after an earlier
 		-- guess of 180 got it backwards: raycast cross-sections along the mesh show the +Z end tapering to
 		-- 0.24 studs wide and drooping to y = -1.67 (a tail), while the -Z end stays blunt and level at
 		-- 1.44 wide (a snout). Do not "fix" this from a screenshot — re-measure.
 		yawOffset = 0,
 		water = {
-			sink = 1.0, -- waterline sits along its back; only spine, eyes and snout show
+			-- ⚠️ 1.5, raised from 1.0 when the mesh was re-imported TALLER (4.3 studs vs 3.1). Sink is an
+			-- absolute drop, so a taller mesh rides higher out of the water at the same value — re-check
+			-- this whenever the model changes.
+			sink = 1.5, -- waterline sits along its back; only spine, eyes and snout show
 			bobAmp = 0.22,
 			bobHz = 0.42,
 			rollDeg = 4,
@@ -135,11 +141,74 @@ EnemyAssets.ART = {
 		},
 	} :: CreatureArt,
 
-	-- ── Not yet in scope (Job #078 ships Crocodile + Panther first) ───────────────────────────────
-	-- Left declared rather than absent so the shape of the work is visible and adding one is a fill-in,
-	-- not a new structure.
-	Piranha = { model = nil, anim = NO_ANIM, sound = NO_SOUND } :: CreatureArt,
-	RiverHippo = { model = nil, anim = NO_ANIM, sound = NO_SOUND } :: CreatureArt,
+	-- ── Piranha — sea, and the one that spawns in NUMBERS ────────────────────────────────────────
+	-- ⚠️ Its VFX are deliberately the thinnest of any creature. `EnemyServer` allows up to 9 sea enemies
+	-- at once and the piranha is the most heavily weighted of the three, so whatever it emits is emitted
+	-- ~6 times over. A wake per fish at the crocodile's rate would be the single biggest particle cost
+	-- in the game.
+	Piranha = {
+		model = "Piranha",
+		-- measured: mesh 2.24 x 3.41 x 7.60; 4 / 7.60 = 0.526 → 1.2 x 1.8 x 4.0 against a 2 x 1.2 x 4 hitbox.
+		-- Taller than the hitbox, which is correct — a piranha is laterally compressed.
+		scale = 0.526,
+		-- head at -Z: the +Z end pinches to a 0.47-tall waist then flares tall with ZERO width — a caudal fin.
+		yawOffset = 0,
+		water = {
+			sink = 0.35, -- barely under; a piranha shows its dorsal fin, not its back
+			bobAmp = 0.1,
+			bobHz = 0.9,
+			rollDeg = 6,
+			rollHz = 0.8,
+			wagDeg = 9, -- fast and twitchy — it is a darting fish, not a drifting log
+			wagHz = 2.4,
+		},
+		vfx = { wakeRate = 6, wakeScale = 0.6, splashOnAttack = 6, splashScale = 0.5, splashOnDeath = 10 },
+		anim = NO_ANIM,
+		-- 🔴 SILENT ON PURPOSE — do not "finish" this by adding a sound set.
+		-- 1. Up to ~6 piranha are alive at once, so ANY per-creature cue plays six times over. That is
+		--    exactly the stacking mistake `GameSoundscape`'s header documents with the cicadas.
+		-- 2. The boat already has audio feedback when it is bitten: `boat_hit` (131954812341128) fires on
+		--    hull damage with volume scaled to the bite. A piranha attack is therefore ALREADY audible.
+		-- 3. A 2-stud fish has nothing to roar with. Its read is the swarm you can see plus the hull cue.
+		-- If the swarm ever needs its own voice, the right answer is ONE shared 2D/positional "frenzy" bed
+		-- owned by the spawn director, not five clips on every fish.
+		sound = NO_SOUND,
+	} :: CreatureArt,
+
+	-- ── RiverHippo — sea, slow and heavy ─────────────────────────────────────────────────────────
+	RiverHippo = {
+		model = "RiverHippo",
+		-- measured: mesh 6.04 x 6.70 x 11.40; 12 / 11.40 = 1.053 → 6.4 x 7.1 x 12.0 against an 8 x 5 x 12 hitbox.
+		scale = 1.053,
+		-- head at -Z: the muzzle drops to y -0.32 and there is a clear NECK PINCH at z = -2.76 (width 3.98
+		-- between 4.98 and 4.32) before the barrel body widens toward +Z.
+		yawOffset = 0,
+		water = {
+			sink = 1.9, -- sits DEEP: eyes, ears and the top of the back, which is the iconic hippo read
+			bobAmp = 0.3,
+			bobHz = 0.22, -- slow, heavy swell
+			rollDeg = 3,
+			rollHz = 0.18,
+			wagDeg = 1.5, -- barely wags; it wallows rather than swims
+			wagHz = 0.3,
+		},
+		vfx = { wakeRate = 30, wakeScale = 1.5, splashOnAttack = 55, splashScale = 1.8, splashOnDeath = 80 },
+		anim = NO_ANIM,
+		-- Shares the CROCODILE's set (user decision, 2026-08-15). They are both big reptilian-sounding
+		-- river threats and the clips are generic enough to carry it; the wider rolloff below is the only
+		-- difference, because a hippo should be audible further out than a croc. Give it its own bellow
+		-- later and these lines just get overridden.
+		sound = {
+			idle = { id = "rbxassetid://137066735880685", volume = 0.4, min = 20, max = 120, looped = false },
+			aggro = { id = "rbxassetid://108958436464973", volume = 0.65, min = 25, max = 170 },
+			attack = { id = "rbxassetid://94063943857259", volume = 0.7, min = 20, max = 130 },
+			hurt = { id = "rbxassetid://137192983266942", volume = 0.55, min = 15, max = 100 },
+			death = { id = "rbxassetid://120708334083507", volume = 0.7, min = 20, max = 140 },
+		},
+	} :: CreatureArt,
+
+	-- ── Not yet in scope ─────────────────────────────────────────────────────────────────────────
+	-- Land creature: needs a real skeleton, so it waits for the Panther to prove that pipeline.
 	Boar = { model = nil, anim = NO_ANIM, sound = NO_SOUND } :: CreatureArt,
 } :: { [string]: CreatureArt }
 
