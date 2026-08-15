@@ -43,6 +43,18 @@ export type WaterMotion = {
 
 -- VFX scale is derived from the creature's own `def.size`, so a hippo throws a bigger splash than a
 -- piranha without anyone tuning two sets of numbers. These are MULTIPLIERS on that.
+-- Land creatures reuse the rigs we already own from **roblox.defender**. Neither ships animation ids:
+--   · `Wolf` is an R6-style rig whose bundled `Animate` script swings `Motor6D.DesiredAngle` off
+--     `Humanoid.Running` — an event that NEVER FIRES here, because our creatures are anchored and moved
+--     by `PivotTo`. So we do what that script does, from our own "is it moving" flag. `joints` below.
+--   · `WesternBandit` is a full R15 rig, so it can just play Roblox's standard animation ids on the
+--     Animator it already has. `anim` below.
+export type JointSwing = {
+	parts: { string }, -- Motor6D names to swing, alternating phase (front-left/back-right together)
+	amplitude: number, -- radians at full stride
+	hz: number,
+}
+
 export type CreatureVfx = {
 	wakeRate: number, -- ripples per second while moving; 0 = no wake
 	wakeScale: number,
@@ -56,6 +68,7 @@ export type CreatureArt = {
 	scale: number?, -- corrective scale (library models are not authored for our stud sizes)
 	yawOffset: number?, -- degrees, if the model was authored facing something other than -Z (its "forward")
 	water: WaterMotion?, -- present = animate procedurally in water instead of with a skeleton
+	joints: JointSwing?, -- present = swing these Motor6Ds while moving (land rigs with no animation ids)
 	vfx: CreatureVfx?,
 	anim: { [string]: string }, -- idle / move / attack / death → rbxassetid://
 	sound: { [string]: SoundDef },
@@ -119,7 +132,7 @@ EnemyAssets.ART = {
 			-- uploaded 2026-08-15 from assets/Objects/Monsters/monster_bite_1.mp3 — a GENERIC monster bite,
 			-- not gator-specific. Fine for now, and swappable for an `alligator bite` clip later.
 			attack = { id = "rbxassetid://94063943857259", volume = 0.6, min = 15, max = 100 },
-			-- `animal-hurt` / `animal-die` are GENERIC animal sounds, deliberately shared with the Panther
+			-- `animal-hurt` / `animal-die` are GENERIC animal sounds, deliberately shared with the Wolf
 			-- below rather than sourced twice (the registry's dedupe-by-id rule). Give either creature its
 			-- own clip later and it just overrides this line.
 			hurt = { id = "rbxassetid://137192983266942", volume = 0.5, min = 12, max = 80 },
@@ -127,17 +140,57 @@ EnemyAssets.ART = {
 		},
 	} :: CreatureArt,
 
-	-- ── Panther — the land ambusher, and the same def the CampGuard uses ──────────────────────────
-	Panther = {
-		model = "Panther",
-		anim = { idle = "", move = "", attack = "", death = "" },
+	-- ── Wolf — the riverbank ambusher (was Panther) ──────────────────────────────────────────────
+	-- Reused wholesale from roblox.defender: rig, sounds and all. Its two bundled Sounds are named
+	-- `Sound` (played on noticing a player) and `Growl` (played on hitting one) — mapped straight onto
+	-- our aggro/attack slots so they do the same job here.
+	Wolf = {
+		model = "Wolf",
+		-- measured: the rig is 1.7 x 4.2 x 6.2 studs against a 5 x 4 x 11 hitbox. 1.3 brings it to ~8 studs
+		-- long — closer to the hitbox without turning a wolf into a horse. The hitbox stays generous on
+		-- purpose (it is the Panther's, and Job #058 is tuned against it), so you are bitten from slightly
+		-- further than the model reaches. Tune here, never in EnemyDefs.
+		scale = 1.3,
+		yawOffset = 0,
+		-- R6-style joints. The bundled `Animate` script is REMOVED at build time (it depends on
+		-- Humanoid.Running, which never fires here) and this replaces it.
+		joints = {
+			parts = { "Left Hip", "Right Hip", "Left Shoulder", "Right Shoulder" },
+			amplitude = 0.6,
+			hz = 2.2,
+		},
+		anim = NO_ANIM, -- no animation ids exist for this rig; the joint swing IS its animation
 		sound = {
 			idle = { id = "", volume = 0.3, min = 12, max = 70, looped = false },
-			aggro = { id = "", volume = 0.6, min = 20, max = 130 },
-			attack = { id = "", volume = 0.55, min = 15, max = 90 },
-			-- shared with the Crocodile — same generic `animal-hurt` / `animal-die` uploads
+			aggro = { id = "rbxassetid://1989743206", volume = 0.6, min = 20, max = 130 }, -- bundled `Sound`
+			attack = { id = "rbxassetid://4064886644", volume = 0.55, min = 15, max = 90 }, -- bundled `Growl`
 			hurt = { id = "rbxassetid://137192983266942", volume = 0.5, min = 12, max = 70 },
 			death = { id = "rbxassetid://120708334083507", volume = 0.55, min = 15, max = 90 },
+		},
+	} :: CreatureArt,
+
+	-- ── Bandit — the human raider guarding every camp ────────────────────────────────────────────
+	-- A full R15 rig from roblox.defender, so unlike the wolf it CAN play animations: these are the
+	-- standard Roblox ids Defender's `AnimationConstants` already uses, loaded onto the Animator the
+	-- model ships with. Its six bundled Sounds cover the whole set with no new uploads.
+	Bandit = {
+		model = "WesternBandit",
+		-- 1.0: it is a human and 5.6 studs tall is already right. The 5 x 4 x 11 hitbox is inherited from
+		-- the Panther and is deliberately left alone — see EnemyDefs.
+		scale = nil,
+		yawOffset = 0,
+		anim = {
+			idle = "rbxassetid://123087002046013", -- AnimationConstants.idleAnimation.idle1
+			move = "rbxassetid://913376220", -- runAnimation.first — it charges, it doesn't stroll
+			attack = "rbxassetid://80792212061667", -- hitAnimation.hitAnimation1
+			death = "",
+		},
+		sound = {
+			idle = { id = "rbxassetid://7995127481", volume = 0.35, min = 12, max = 70, looped = false }, -- Laugh1
+			aggro = { id = "rbxassetid://1454256125", volume = 0.6, min = 20, max = 130 }, -- EnemySpottedPlayer
+			attack = { id = "rbxassetid://6108540937", volume = 0.55, min = 15, max = 90 }, -- EnemyScream1
+			hurt = { id = "rbxassetid://9125652432", volume = 0.5, min = 12, max = 70 }, -- EnemyScream2
+			death = { id = "rbxassetid://9125652949", volume = 0.55, min = 15, max = 90 }, -- EnemyScream3
 		},
 	} :: CreatureArt,
 
@@ -208,8 +261,31 @@ EnemyAssets.ART = {
 	} :: CreatureArt,
 
 	-- ── Not yet in scope ─────────────────────────────────────────────────────────────────────────
-	-- Land creature: needs a real skeleton, so it waits for the Panther to prove that pipeline.
-	Boar = { model = nil, anim = NO_ANIM, sound = NO_SOUND } :: CreatureArt,
+	-- ── Boar — land pack hunter, reused from roblox.defender ─────────────────────────────────────
+	-- The same shape of asset as the Wolf: an R6 rig with the identical five joint names, a bundled
+	-- legacy `Animate` script and no animation ids. So it gets the identical treatment — script stripped
+	-- at build, joints swung by hand.
+	Boar = {
+		model = "Boar",
+		-- measured: the rig is 6.00 x 7.29 x 9.00 against a 4 x 3 x 7 hitbox. 0.778 puts its length on
+		-- the hitbox; it stays taller than the box, which is fine (the box is invisible).
+		scale = 0.778,
+		yawOffset = 0,
+		joints = {
+			parts = { "Left Hip", "Right Hip", "Left Shoulder", "Right Shoulder" },
+			-- faster and shorter than the wolf's stride: a boar trots and charges, it does not lope
+			amplitude = 0.5,
+			hz = 3.0,
+		},
+		anim = NO_ANIM,
+		sound = {
+			idle = { id = "", volume = 0.3, min = 12, max = 70, looped = false },
+			aggro = { id = "rbxassetid://104582648268587", volume = 0.6, min = 20, max = 130 }, -- pig-noticed_me
+			attack = { id = "rbxassetid://139588447817895", volume = 0.55, min = 15, max = 90 }, -- pig-attack
+			hurt = { id = "rbxassetid://137192983266942", volume = 0.5, min = 12, max = 70 }, -- shared animal-hurt
+			death = { id = "rbxassetid://125997883726975", volume = 0.55, min = 15, max = 90 }, -- pig-killed
+		},
+	} :: CreatureArt,
 } :: { [string]: CreatureArt }
 
 -- ── Glowing eyes (Job 039) ────────────────────────────────────────────────────────────────────────

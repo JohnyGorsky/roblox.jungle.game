@@ -73,7 +73,7 @@ local siteModels: { [number]: Model } = {} -- index → LandingSite model, for c
 -- touches it — the deposit prompt, `pickupLoot` — only ever reads an attribute or destroys it, both of
 -- which work identically on a Model.
 local carrying: { [Player]: Model } = {}
-type GuardState = { biteTimer: number, anchor: Vector3 }
+type GuardState = { biteTimer: number, anchor: Vector3, roared: boolean? }
 local guardState: { [Model]: GuardState } = {}
 
 local function block(name: string, size: Vector3, color: Color3, cf: CFrame, parent: Instance, mat: Enum.Material?): Part
@@ -575,9 +575,10 @@ end
 -- while `EnemyServer` gave every river creature eyes since Job 039. Two builders for one creature meant
 -- a Panther model would have fixed the riverbank ambushers and left every camp guard a grey box.
 -- The model is still named `CampGuard` (Job 053's AI, the tag and the leash all key off that) but its
--- body, eyes, animations and sounds are the Panther's.
+-- body, eyes, animations and sounds are the **Bandit's** — a human raider, which is what should be
+-- guarding a camp of loot crates and sandbags. Stats are the old Panther's, unchanged.
 local function spawnGuard(anchorPos: Vector3, parent: Instance)
-	local def = EnemyDefs.Defs.Panther
+	local def = EnemyDefs.Defs.Bandit
 	local guard = EnemyRig.build(def, anchorPos + Vector3.new(0, def.size.Y / 2, 0), parent)
 	guard.Name = "CampGuard"
 	CollectionService:AddTag(guard, "CampGuard")
@@ -1152,7 +1153,7 @@ end
 
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
 local function tickGuard(guard: Model, dt: number)
-	local def = EnemyDefs.Defs.Panther
+	local def = EnemyDefs.Defs.Bandit
 	local body = guard.PrimaryPart
 	local st = guardState[guard]
 	if not body or not st then
@@ -1161,6 +1162,7 @@ local function tickGuard(guard: Model, dt: number)
 	end
 	if ((guard:GetAttribute("HP") :: number?) or 0) <= 0 then
 		guardState[guard] = nil
+		EnemyRig.playSound(guard, "death")
 		EnemyRig.destroy(guard) -- NOT :Destroy() — the rig holds AnimationTracks
 		return
 	end
@@ -1178,6 +1180,18 @@ local function tickGuard(guard: Model, dt: number)
 				target, bestD = root, d
 			end
 		end
+	end
+
+	-- Job #078: drive the rig's presentation from the AI, exactly as `EnemyServer.tickEnemy` does.
+	-- ⚠️ This was the missed half of unifying the two creature paths: the BUILD was shared via
+	-- `EnemyRig.build`, but camp guards have their own tick loop here, so without this a guard was
+	-- built with animations and sounds and then never played any of them.
+	EnemyRig.setMotion(guard, if target then "move" else "idle")
+	if target and not st.roared then
+		st.roared = true
+		EnemyRig.playSound(guard, "aggro")
+	elseif not target then
+		st.roared = false
 	end
 
 	local goal = if target then target.Position else st.anchor
@@ -1198,6 +1212,8 @@ local function tickGuard(guard: Model, dt: number)
 
 	if target and bestD <= def.biteRange and st.biteTimer >= def.biteCooldown then
 		st.biteTimer = 0
+		EnemyRig.playOnce(guard, "attack")
+		EnemyRig.playSound(guard, "attack")
 		local char = target.Parent
 		if char then
 			char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - def.biteDamage))

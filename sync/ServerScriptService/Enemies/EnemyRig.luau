@@ -64,6 +64,9 @@ type Rig = {
 	visual: PVInstance?,
 	yaw: number, -- radians; the model's authored-facing correction, re-applied every frame
 	eyes: { { part: BasePart, att: Attachment? } }?,
+	joints: { Motor6D }?, -- land rigs with no animation ids: swung by hand while moving
+	jointSwing: EnemyAssets.JointSwing?,
+	moving: boolean?,
 	water: EnemyAssets.WaterMotion?,
 	wake: ParticleEmitter?,
 	splash: ParticleEmitter?,
@@ -209,18 +212,72 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 
 		local visual = source:Clone()
 		visual.Name = "Visual"
+
+		-- 🔴 A REAL RIG IS PREPARED DIFFERENTLY FROM A STATIC MESH.
+		-- The Wolf and the Bandit come from roblox.defender as full Humanoid rigs. If every part is
+		-- anchored the joints are ignored and NOTHING can animate — an anchored part obeys no Motor6D.
+		-- So for a rig: anchor ONLY the root, leave the limbs jointed, and make them massless so the
+		-- rig cannot sag or drag. For a plain mesh, keep anchoring everything as before.
+		local humanoid = visual:FindFirstChildWhichIsA("Humanoid", true)
+		local rootPart = if visual:IsA("Model") then (visual.PrimaryPart or visual:FindFirstChild("HumanoidRootPart")) else nil
+
+		-- 🔴 REBUILD THE JOINT REST POSE BEFORE UNANCHORING — for joint-swing rigs only.
+		--
+		-- A Motor6D holds `Part0.CFrame * C0 == Part1.CFrame * C1`. While every part is anchored those
+		-- offsets are ignored, but the moment we unanchor the limbs the joints snap them to whatever C0/C1
+		-- say. The Boar's offsets do not match how its parts are actually placed, so it collapsed into a
+		-- 1.6-stud clump instead of a 4.7-stud pig. roblox.defender hit this too — it ships a
+		-- `FixBoarMotor6DOffsets` script that patches the Boar by copying the Wolf's offsets.
+		--
+		-- Deriving the offsets from the parts' CURRENT placement makes the authored pose the rest pose,
+		-- which fixes it without depending on another animal's rig.
+		--
+		-- ⚠️ ONLY for rigs we animate by hand (`art.joints`). Doing this to the Bandit would destroy its
+		-- animations: R15 clips are authored against the STANDARD R15 rest offsets, not ours.
+		if art and art.joints and visual:IsA("Model") then
+			for _, d in ipairs(visual:GetDescendants()) do
+				if d:IsA("Motor6D") and d.Part0 and d.Part1 then
+					d.C0 = d.Part0.CFrame:Inverse() * d.Part1.CFrame
+					d.C1 = CFrame.identity
+				end
+			end
+		end
+
 		local vparts = visual:GetDescendants()
 		table.insert(vparts, visual) -- a MeshPart source IS the part; it has no BasePart descendants
 		for _, d in ipairs(vparts) do
 			if d:IsA("BasePart") then
-				d.Anchored = true -- the whole creature is moved by PivotTo, never by physics
+				d.Anchored = if humanoid then (d == rootPart) else true
+				d.Massless = humanoid ~= nil
 				d.CanCollide = false -- the AI is kinematic; a colliding croc would shove the boat
 				d.CastShadow = false -- up to 9 sea + 7 land creatures live at once
+			elseif d:IsA("LuaSourceContainer") then
+				-- ⚠️ The Wolf and Boar ship Defender's legacy `Animate` script. It drives the joints off
+				-- `Humanoid.Running`, an event that never fires here because we move by `PivotTo` — so it
+				-- would hold them frozen in the Standing pose AND fight our own joint swing.
+				d:Destroy()
+			elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+				-- ⚠️ The Boar arrives wearing Defender's floating health bar. Jungle shows enemy health its
+				-- own way, and another game's HUD hovering over a jungle pig is exactly the kind of thing
+				-- that ships unnoticed.
+				d:Destroy()
 			end
+		end
+		if humanoid then
+			-- park the state machine: it has no ground to walk on and nothing to decide
+			humanoid.EvaluateStateMachine = false
+			humanoid.BreakJointsOnDeath = false
+			humanoid.RequiresNeck = false
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
 		if art and art.scale then
 			if visual:IsA("Model") then
-				visual:ScaleTo(art.scale)
+				-- 🔴 RELATIVE, NOT ABSOLUTE. `Model:ScaleTo(x)` sets scale against the model's AUTHORED
+				-- size, so it throws away any scale the asset already carries. The Boar arrives from
+				-- roblox.defender already scaled ~3x; `ScaleTo(0.778)` shrank it to a quarter of its
+				-- intended size (measured 1.6 x 1.9 x 2.3 against an expected 4.7 x 5.7 x 7.0).
+				-- Multiplying the CURRENT scale means `scale` always reads as "x times how it looks now".
+				visual:ScaleTo(visual:GetScale() * art.scale)
 			elseif visual:IsA("BasePart") then
 				visual.Size *= art.scale
 				-- ⚠️ Attachments do NOT scale with `Size`. `Model:ScaleTo` moves them; setting `Size` on a
@@ -263,6 +320,24 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 	local rig: Rig =
 		{ tracks = {}, sounds = {}, current = nil, conns = {}, phase = math.random() * 100, yaw = math.rad((art and art.yawOffset) or 0) }
 
+	-- land rig with no animation ids (the Wolf): collect the Motor6Ds we will swing by hand
+	local rigVisual = model:FindFirstChild("Visual")
+	if art and art.joints and rigVisual then
+		local found: { Motor6D } = {}
+		for _, want in ipairs(art.joints.parts) do
+			local j = rigVisual:FindFirstChild(want, true)
+			if j and j:IsA("Motor6D") then
+				table.insert(found, j)
+			end
+		end
+		if #found > 0 then
+			rig.joints = found
+			rig.jointSwing = art.joints
+		else
+			warn(("[EnemyRig] %s: none of its joints were found — it will not animate"):format(def.name))
+		end
+	end
+
 	-- water creature: procedural motion + wake/splash instead of a skeleton
 	if art and art.water and model:FindFirstChild("Visual") then
 		rig.visual = model:FindFirstChild("Visual") :: PVInstance
@@ -272,12 +347,32 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 			rig.wake, rig.splash = buildWaterVfx(model, body, def, art.vfx)
 		end
 	end
+	local wantsAnim = false
+	if art then
+		for _, id in pairs(art.anim) do
+			if id ~= "" then
+				wantsAnim = true
+				break
+			end
+		end
+	end
 	local visual = model:FindFirstChild("Visual") :: PVInstance?
-	if visual and visual:IsA("Model") and art then
-		local controller = Instance.new("AnimationController")
-		local animator = Instance.new("Animator")
-		animator.Parent = controller
-		controller.Parent = visual
+	if visual and visual:IsA("Model") and art and wantsAnim then
+		-- ⚠️ REUSE the rig's own Animator when it has one (both Defender rigs ship a Humanoid + Animator).
+		-- Adding a second Animator alongside it silently plays nothing.
+		local existing = visual:FindFirstChildWhichIsA("Animator", true)
+		local animator: Animator
+		local controller: Instance
+		if existing then
+			animator = existing
+			controller = existing.Parent :: Instance
+		else
+			local c = Instance.new("AnimationController")
+			local a = Instance.new("Animator")
+			a.Parent = c
+			c.Parent = visual
+			animator, controller = a, c
+		end
 		for name, id in pairs(art.anim) do
 			if id ~= "" then
 				local a = Instance.new("Animation")
@@ -353,6 +448,26 @@ end
 RunService.Heartbeat:Connect(function()
 	local t = os.clock()
 	for model, rig in pairs(rigs) do
+		-- ── land rigs: swing the joints while moving ────────────────────────────────────────────
+		-- This is what the Wolf's bundled `Animate` script did off `Humanoid.Running`, reproduced from
+		-- our own movement flag because that event never fires for a `PivotTo`-driven creature.
+		-- Alternating phase so diagonal pairs swing together, which is how a quadruped actually walks.
+		local joints, swing = rig.joints, rig.jointSwing
+		if joints and swing then
+			local body = model.PrimaryPart
+			if body then
+				local last = rig.lastPos
+				local moving = last ~= nil and (body.Position - last).Magnitude > 0.05
+				rig.lastPos = body.Position
+				local a = if moving then math.sin((t + rig.phase) * swing.hz * math.pi * 2) * swing.amplitude else 0
+				for i, j in ipairs(joints) do
+					-- Motor6D drives the pose; C1 keeps the joint's own offset intact
+					local sign = if i % 2 == 0 then -1 else 1
+					j.Transform = CFrame.Angles(a * sign, 0, 0)
+				end
+			end
+		end
+
 		local water, visual = rig.water, rig.visual
 		local body = model.PrimaryPart
 		if water and visual and body and model.Parent then

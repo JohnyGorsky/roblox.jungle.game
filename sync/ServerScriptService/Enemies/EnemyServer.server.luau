@@ -209,7 +209,7 @@ local SEA_POOL = {
 	{ name = "RiverHippo", near = 0, far = 4 }, -- only appears deeper downriver
 }
 local LAND_POOL = {
-	{ name = "Panther", near = 5, far = 4 },
+	{ name = "Wolf", near = 5, far = 4 },
 	{ name = "Boar", near = 3, far = 5 },
 }
 

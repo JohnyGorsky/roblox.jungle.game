@@ -61,8 +61,13 @@ EnemyDefs.Defs = {
 		size = Vector3.new(8, 5, 12),
 	},
 	-- land: ambushes from the bank (leashed), fast lunge; most active by day
-	Panther = {
-		name = "Panther",
+	--
+	-- ⚠️ RENAMED from `Panther` (Job #078). We already own a rigged, sounded, animated Wolf in
+	-- roblox.defender, so reusing it beat generating a panther that would have needed a model, a rig,
+	-- 4 animations and 3 sounds. The STATS are unchanged from the Panther — this is an art swap wearing
+	-- a new name, so Job #058's crew-size difficulty scaling still holds.
+	Wolf = {
+		name = "Wolf",
 		category = "land",
 		hp = 55,
 		speed = 26,
@@ -70,8 +75,23 @@ EnemyDefs.Defs = {
 		biteRange = 14,
 		biteDamage = 12,
 		biteCooldown = 1.8,
-		color = Color3.fromRGB(32, 28, 36),
+		color = Color3.fromRGB(72, 66, 60),
 		size = Vector3.new(5, 4, 11),
+	},
+	-- land: the human raider who guards a camp. NOT part of the riverbank spawn pool — `ExcursionServer`
+	-- spawns these as `CampGuard`s, which is why a raider camp full of loot crates and sandbags is
+	-- defended by people rather than by wildlife.
+	Bandit = {
+		name = "Bandit",
+		category = "land",
+		hp = 55,
+		speed = 20, -- on two legs, so slower than the wolf but relentless
+		aggroRadius = 95,
+		biteRange = 12,
+		biteDamage = 12,
+		biteCooldown = 1.4,
+		color = Color3.fromRGB(96, 78, 58),
+		size = Vector3.new(5, 4, 11), -- ⚠️ unchanged from the Panther: Job #058 tuning depends on it
 	},
 	-- land: fast pack hunter; charges from the bank in numbers
 	Boar = {
