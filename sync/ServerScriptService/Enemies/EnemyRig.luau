@@ -55,6 +55,7 @@ type Rig = {
 	tracks: { [string]: AnimationTrack },
 	sounds: { [string]: Sound },
 	current: string?,
+	conns: { RBXScriptConnection },
 }
 local rigs: { [Model]: Rig } = {}
 
@@ -155,7 +156,7 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 	-- `AnimationController` + `Animator`, NOT a Humanoid: movement stays `PivotTo`, so animations are
 	-- purely cosmetic and the tuned server-authoritative AI is untouched (the decision recorded in the
 	-- Job #078 intake). No rig or no ids → this block simply produces nothing.
-	local rig: Rig = { tracks = {}, sounds = {}, current = nil }
+	local rig: Rig = { tracks = {}, sounds = {}, current = nil, conns = {} }
 	local visual = model:FindFirstChild("Visual")
 	if visual and art then
 		local controller = Instance.new("AnimationController")
@@ -201,6 +202,24 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 			end
 		end
 	end
+
+	-- ── "took a hit" ────────────────────────────────────────────────────────────────────────────
+	-- Watched HERE rather than hooked into the shooters, because damage arrives from THREE separate
+	-- places — `GunServer`, `MeleeServer` and `WeaponServer` all just write the `HP` attribute. One
+	-- listener on the attribute catches every source, including any added later.
+	--
+	-- Only a DROP counts, and only a non-fatal one: the killing blow gets `death`, not `hurt`.
+	local lastHP = def.hp
+	table.insert(
+		rig.conns,
+		model:GetAttributeChangedSignal("HP"):Connect(function()
+			local hp = (model:GetAttribute("HP") :: number?) or 0
+			if hp < lastHP and hp > 0 then
+				EnemyRig.playSound(model, "hurt")
+			end
+			lastHP = hp
+		end)
+	)
 
 	rigs[model] = rig
 	model.Parent = parent
@@ -256,6 +275,9 @@ function EnemyRig.destroy(model: Model)
 		for _, t in pairs(rig.tracks) do
 			t:Stop()
 			t:Destroy()
+		end
+		for _, c in ipairs(rig.conns) do
+			c:Disconnect()
 		end
 		rigs[model] = nil
 	end

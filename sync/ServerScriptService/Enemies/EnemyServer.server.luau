@@ -31,6 +31,10 @@ local CULL_BEHIND = 260
 local LEAD_TIME = 0.8
 local BASE_SEA_INTERVAL, BASE_LAND_INTERVAL = 4.0, 4.5 -- land shorter → banks feel alive with threats (Job 051)
 local ESCALATE_DISTANCE = 12000
+-- Job #078: how often a creature that is NOT chasing makes its idle noise. Deliberately sparse and
+-- randomised per creature — a gator hiss is a lurking cue, and on a timer short enough to notice it
+-- turns into a machine. Up to 9 sea + 7 land creatures are alive at once.
+local IDLE_SOUND_MIN, IDLE_SOUND_MAX = 10, 22
 -- ───────────────────────────────────────────────────────────────────────────
 
 if not Workspace:GetAttribute("RiverReady") then
@@ -41,7 +45,7 @@ local hull = boat:WaitForChild("Hull") :: BasePart
 local WATER_Y = RiverData.WATER_Y
 local rng = Random.new()
 
-type State = { biteTimer: number, anchor: Vector3?, side: number?, roared: boolean? }
+type State = { biteTimer: number, anchor: Vector3?, side: number?, roared: boolean?, idleTimer: number? }
 local state: { [Model]: State } = {}
 
 -- Job #078: model, glowing eyes (Job 039), animator and sounds all live in `EnemyRig` now — one builder
@@ -164,6 +168,12 @@ local function tickEnemy(enemy: Model, dt: number)
 		EnemyRig.playSound(enemy, "aggro") -- once per aggro, not once per frame
 	elseif not chasing then
 		st.roared = false
+		-- lurking: the occasional hiss/growl that tells you something is out there before it moves
+		st.idleTimer = (st.idleTimer or rng:NextNumber(IDLE_SOUND_MIN, IDLE_SOUND_MAX)) - dt
+		if st.idleTimer <= 0 then
+			st.idleTimer = rng:NextNumber(IDLE_SOUND_MIN, IDLE_SOUND_MAX)
+			EnemyRig.playSound(enemy, "idle")
+		end
 	end
 
 	if def.category == "sea" then

@@ -48,14 +48,19 @@ EnemyAssets.ART = {
 			death = "",
 		},
 		sound = {
-			-- ✅ ALREADY ON DISK, needs uploading only:
-			--    assets/Objects/Monsters/Aligator/aligator_hissing.mp3
-			idle = { id = "", volume = 0.35, min = 15, max = 90, looped = false },
-			aggro = { id = "", volume = 0.55, min = 20, max = 140 },
-			-- ✅ ALREADY ON DISK: assets/Objects/Monsters/monster_bite_1.mp3
-			attack = { id = "", volume = 0.6, min = 15, max = 100 },
-			hurt = { id = "", volume = 0.5, min = 12, max = 80 },
-			death = { id = "", volume = 0.6, min = 15, max = 110 },
+			-- uploaded 2026-08-15 from assets/Objects/Monsters/Aligator/aligator_hissing.mp3
+			idle = { id = "rbxassetid://137066735880685", volume = 0.35, min = 15, max = 90, looped = false },
+			-- uploaded 2026-08-15 as `aligator_aggro`. Widest rolloff of the five on purpose: this is the
+			-- "it's coming" cue and it has to carry over the boat engine.
+			aggro = { id = "rbxassetid://108958436464973", volume = 0.55, min = 20, max = 140 },
+			-- uploaded 2026-08-15 from assets/Objects/Monsters/monster_bite_1.mp3 — a GENERIC monster bite,
+			-- not gator-specific. Fine for now, and swappable for an `alligator bite` clip later.
+			attack = { id = "rbxassetid://94063943857259", volume = 0.6, min = 15, max = 100 },
+			-- `animal-hurt` / `animal-die` are GENERIC animal sounds, deliberately shared with the Panther
+			-- below rather than sourced twice (the registry's dedupe-by-id rule). Give either creature its
+			-- own clip later and it just overrides this line.
+			hurt = { id = "rbxassetid://137192983266942", volume = 0.5, min = 12, max = 80 },
+			death = { id = "rbxassetid://120708334083507", volume = 0.6, min = 15, max = 110 },
 		},
 	} :: CreatureArt,
 
@@ -67,8 +72,9 @@ EnemyAssets.ART = {
 			idle = { id = "", volume = 0.3, min = 12, max = 70, looped = false },
 			aggro = { id = "", volume = 0.6, min = 20, max = 130 },
 			attack = { id = "", volume = 0.55, min = 15, max = 90 },
-			hurt = { id = "", volume = 0.5, min = 12, max = 70 },
-			death = { id = "", volume = 0.55, min = 15, max = 90 },
+			-- shared with the Crocodile — same generic `animal-hurt` / `animal-die` uploads
+			hurt = { id = "rbxassetid://137192983266942", volume = 0.5, min = 12, max = 70 },
+			death = { id = "rbxassetid://120708334083507", volume = 0.55, min = 15, max = 90 },
 		},
 	} :: CreatureArt,
 

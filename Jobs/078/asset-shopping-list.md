@@ -1,120 +1,125 @@
-# Job #078 — asset shopping list
+# Job #078 — what's MISSING, one by one
 
-Everything the creatures need, with the exact prompt/search term to use. **Fill the `rbxassetid` column
-as you upload, then paste it into `sync/ServerScriptService/Enemies/EnemyAssets.luau`** — that file is
-the only place ids are written, and a blank id is not an error (no model → greybox, no sound → silence).
+Only things that do **not** exist yet. Tick them off as you go. Send me the ids and I'll wire them into
+`sync/ServerScriptService/Enemies/EnemyAssets.luau` — the one place a creature id is written.
 
-**In scope now: Crocodile + Panther.** The rest are listed so you can search once rather than five times.
+**In scope: Crocodile + Panther.** Nothing else is needed to finish this job.
 
----
-
-## 1. Models — Meshy (text-to-3D)
-
-**Settings for all of them:** stylized / low-poly · **PBR texture** · target **1.5–4k tris** ·
-**GLB** export · then **auto-rig** (Meshy rig = 5 credits, includes walk + run).
-
-**Style line to append to every prompt** — this is what keeps them matching the game
-(STYLEGUIDE §2: detailed-stylized, ~70% stylized Roblox / 20% cinematic / 10% realism):
-
-> `stylized low-poly game asset, chunky readable silhouette, hand-painted texture, matte not glossy, neutral pose, plain background`
-
-| # | Creature | In-game size (studs) | Meshy prompt |
-|---|---|---|---|
-| M1 | **Crocodile** | 6 × 3 × 16 | `a large river crocodile, long armoured snout, ridged scaly back, thick tail, dark olive-green with a pale underbelly, mouth slightly open showing teeth, standing on four short legs` + style line |
-| M2 | **Panther** | 5 × 4 × 11 | `a sleek black jungle panther, muscular shoulders, long tail, prowling stance, matte charcoal-black fur with faint darker rosettes` + style line |
-| M3 | Piranha *(later)* | 2 × 1.2 × 4 | `a small piranha fish, deep flat body, blunt jaw with jagged teeth, silver-grey scales with a red belly` + style line |
-| M4 | RiverHippo *(later)* | 8 × 5 × 12 | `a bulky river hippopotamus, huge blunt head, wide open jaws with tusks, thick grey-purple hide, short stubby legs` + style line |
-| M5 | Boar *(later)* | 4 × 3 × 7 | `a wild jungle boar, bristly brown-black fur, upward curving tusks, thick shoulders and a low head, charging stance` + style line |
-| M6 | Anaconda *(new enemy)* | TBD | `a giant green anaconda snake, thick coiled body, olive-green with dark blotches, head raised ready to strike` + style line |
-
-### ⚠️ Two things every model must have before it ships
-
-1. **`EyeLeft` and `EyeRight` Attachments on the head, at the eyes.** The glowing-eyes system (Job 039)
-   is already attachment-aware — with them, the Neon eyes sit in the sockets and track the head; without
-   them they fall back to a guess from the hitbox size and float in front of the chest.
-2. **Forward is `-Z`.** Every creature is driven by `CFrame.lookAt(pos, pos + direction)`. If the model
-   is authored facing `+Z` it will swim backwards — set `yawOffset = 180` in `EnemyAssets` rather than
-   re-exporting.
-
-Also: `CollisionFidelity` per the standing Meshy rule, and a `roblox-assets` SECURITY scan on anything
-that did not come out of Meshy.
+> Nothing here blocks anything else. The wiring is already live and degrades: no model → greybox,
+> no animation → no animation, no sound → silence.
 
 ---
 
-## 2. Sounds — Pixabay
+# A. MODELS — 2 missing (Meshy, text-to-3D)
 
-**Format:** short **mono** clips, **.mp3 or .ogg**, ideally < 3 s except the idle beds.
-**Naming:** upload as the `Asset name` below so the registry, the code key and the Creator Hub agree.
+**Settings for both:** stylized / low-poly · PBR texture · **1.5–4k tris** · **GLB** · then auto-rig.
+**Append this style line to every prompt** (it's what keeps them matching the game):
 
-> ⚠️ Roblox audio moderation rejects things unpredictably — `night_starts` was rejected **twice** in Job
-> #073 while its sibling uploaded fine. Grab a **second choice** for anything critical.
+```
+stylized low-poly game asset, chunky readable silhouette, hand-painted texture, matte not glossy, neutral pose, plain background
+```
 
-### Crocodile — the signature river threat *(in scope)*
+### ☐ A1 — Crocodile  *(must be named exactly `Crocodile`)*
+Target in-game size **6 × 3 × 16 studs**.
+```
+a large river crocodile, long armoured snout, ridged scaly back, thick tail, dark olive-green with a pale
+underbelly, mouth slightly open showing teeth, standing on four short legs
+```
 
-| Asset name | What it is | Pixabay search prompt | Notes |
-|---|---|---|---|
-| `croc_idle` | lurking hiss, fires occasionally while it waits | `alligator hiss` · `crocodile hiss` | ✅ **You already have this** — `assets/Objects/Monsters/Aligator/aligator_hissing.mp3`, just needs uploading. 1–2 s |
-| `croc_aggro` | the moment it locks on and starts the chase | `crocodile growl` · `alligator bellow` · `reptile roar` | Must cut through the engine — this is the "it's coming" cue. 1–2 s |
-| `croc_attack` | the lunge/bite | `monster bite` · `flesh chomp bite` · `jaw snap` | ✅ **You already have one** — `assets/Objects/Monsters/monster_bite_1.mp3`. 0.5–1 s |
-| `croc_hurt` | took a bullet | `animal pain grunt` · `creature hurt growl` | 0.5–1 s |
-| `croc_death` | killed | `monster death growl` · `animal dying groan` | 1–2 s |
+### ☐ A2 — Panther  *(must be named exactly `Panther`)*
+Target in-game size **5 × 4 × 11 studs**. Also becomes every **camp guard**.
+```
+a sleek black jungle panther, muscular shoulders, long tail, prowling stance, matte charcoal-black fur
+with faint darker rosettes
+```
 
-### Panther — land ambusher + every camp guard *(in scope)*
-
-| Asset name | What it is | Pixabay search prompt | Notes |
-|---|---|---|---|
-| `panther_idle` | low growl while prowling | `panther growl` · `big cat low growl` | 1–2 s |
-| `panther_aggro` | the pounce warning | `panther snarl` · `leopard roar` · `jaguar growl` | The one you hear before you're hit. 1–2 s |
-| `panther_attack` | claw/bite | `big cat attack snarl` · `cat hiss attack` | 0.5–1 s |
-| `panther_hurt` | took damage | `big cat yelp` · `animal pain cry` | 0.5–1 s |
-| `panther_death` | killed | `big cat death growl` · `animal last breath` | 1–2 s |
-
-### Later creatures — grab them in the same sitting if it's easy
-
-| Asset name | Pixabay search prompt |
-|---|---|
-| `piranha_swarm` | `fish frenzy water` · `piranha feeding frenzy` — **looping bed**, 3–5 s |
-| `piranha_bite` | `small bite water` · `fish nibble` |
-| `hippo_idle` | `hippo grunt` |
-| `hippo_aggro` | `hippo bellow` · `hippo roar` |
-| `hippo_attack` | `hippo bite` · `heavy jaw snap` |
-| `hippo_hurt` / `hippo_death` | `hippo groan` · `large animal dying` |
-| `boar_idle` | `wild boar snort` · `pig snort` |
-| `boar_aggro` | `boar squeal angry` · `pig squeal` |
-| `boar_attack` | `boar charge grunt` · `heavy impact thud` |
-| `boar_hurt` / `boar_death` | `pig squeal pain` · `boar dying` |
-| `anaconda_idle` | `snake hiss` |
-| `anaconda_attack` | `snake strike` · `snake hiss attack` |
+**Both models must have, before they ship:**
+1. **`EyeLeft` + `EyeRight` Attachments on the head, at the eyes.** The glowing-eye system is already
+   attachment-aware — with them the eyes sit in the sockets; without them they float in front of the chest.
+2. **Facing `-Z`.** Creatures are driven by `CFrame.lookAt(pos, pos + direction)`. If it faces `+Z` it
+   moves backwards — tell me and I'll set `yawOffset = 180` rather than you re-exporting.
+3. Dropped into `ServerStorage.AssetLibrary` (any group) and **the place saved** — that path is not
+   Rojo-synced, so unsaved models vanish (the Bahay Kubo trap from Job #077).
 
 ---
 
-## 3. Animations
+# B. SOUNDS
 
-Each creature needs four, and they are **cosmetic only** — movement stays `PivotTo`, so nothing here can
-break the AI:
+## B.1 — 2 you already have, just upload them
 
-| Key | Crocodile | Panther |
+Creator Hub → Creations → Development Items → Audio → Upload Audio. Under 6 s is free.
+
+| ☐ | Local file | Upload as | Description |
+|---|---|---|---|
+| ☐ B1 | `assets/Objects/Monsters/Aligator/aligator_hissing.mp3` | `croc_idle` | Crocodile idle hiss — Last River enemy SFX |
+| ☐ B2 | `assets/Objects/Monsters/monster_bite_1.mp3` | `croc_attack` | Crocodile bite — Last River enemy SFX |
+
+> B2 is a *generic* monster bite. If you're on Pixabay anyway, `alligator bite` / `jaw snap` would give
+> the croc a more specific attack. Optional — the generic one works.
+
+## B.2 — 8 missing, find on Pixabay
+
+Short **mono**, **under ~3 s**, .mp3 or .ogg. Upload under the exact `Asset name`.
+
+| ☐ | Asset name | What it is | Pixabay prompt |
+|---|---|---|---|
+| ☐ B3 | `croc_aggro` | locks on, starts the chase | `crocodile growl` · `alligator bellow` · `reptile roar` |
+| ☐ B4 | `croc_hurt` | took a bullet | `animal pain grunt` · `creature hurt growl` |
+| ☐ B5 | `croc_death` | killed | `monster death growl` · `animal dying groan` |
+| ☐ B6 | `panther_idle` | low growl while prowling | `panther growl` · `big cat low growl` |
+| ☐ B7 | `panther_aggro` | the pounce warning | `panther snarl` · `leopard roar` · `jaguar growl` |
+| ☐ B8 | `panther_attack` | claw / bite | `big cat attack snarl` · `cat hiss attack` |
+| ☐ B9 | `panther_hurt` | took damage | `big cat yelp` · `animal pain cry` |
+| ☐ B10 | `panther_death` | killed | `big cat death growl` · `animal last breath` |
+
+> ⚠️ **Grab a second choice for B3 and B7.** Those two are the "it's coming" cues that have to cut
+> through the boat engine, and Roblox audio moderation is unpredictable — `night_starts` was rejected
+> **twice** in Job #073 while its sibling uploaded fine.
+
+---
+
+# C. ANIMATIONS — 8 missing (4 per creature)
+
+Cosmetic only — movement stays `PivotTo`, so none of these can break the AI.
+Meshy auto-rig already returns **walk + run** (included in the 5-credit rig); `meshy_animate` is
+3 credits each for the rest.
+
+| ☐ | Creature | Key | What it is |
+|---|---|---|---|
+| ☐ C1 | Crocodile | `idle` | floating still, occasional tail sway |
+| ☐ C2 | Crocodile | `move` | swim |
+| ☐ C3 | Crocodile | `attack` | lunge + jaw snap |
+| ☐ C4 | Crocodile | `death` | roll over, sink |
+| ☐ C5 | Panther | `idle` | standing, tail flick |
+| ☐ C6 | Panther | `move` | prowl / run |
+| ☐ C7 | Panther | `attack` | pounce / claw swipe |
+| ☐ C8 | Panther | `death` | collapse |
+
+---
+
+# D. Deferred — not needed for this job
+
+Listed only so you can search once instead of five times.
+
+| Creature | Model prompt (+ style line) | Sound prompts |
 |---|---|---|
-| `idle` | floating still, occasional tail sway | standing, tail flick |
-| `move` | **swim** | **prowl / run** |
-| `attack` | lunge + jaw snap | pounce / claw swipe |
-| `death` | roll over, sink | collapse |
+| Piranha | `a small piranha fish, deep flat body, blunt jaw with jagged teeth, silver-grey scales with a red belly` | `fish frenzy water` (looping bed, 3–5 s) · `small bite water` |
+| RiverHippo | `a bulky river hippopotamus, huge blunt head, wide open jaws with tusks, thick grey-purple hide, short stubby legs` | `hippo grunt` · `hippo bellow` · `hippo bite` · `large animal dying` |
+| Boar | `a wild jungle boar, bristly brown-black fur, upward curving tusks, thick shoulders and a low head, charging stance` | `wild boar snort` · `boar squeal angry` · `heavy impact thud` · `pig squeal pain` |
+| Anaconda | `a giant green anaconda snake, thick coiled body, olive-green with dark blotches, head raised ready to strike` | `snake hiss` · `snake strike` |
 
-**Source:** Meshy's auto-rig already returns **walk + run** (5 credits, included). `meshy_animate`
-(3 credits each) covers the rest, or the Meshy animation library. Upload the resulting animations to
-Roblox and paste the ids into `EnemyAssets.ART[x].anim`.
+⚠️ **Anaconda is a new enemy, not an art swap** — it needs stats, a category and spawn rules before any
+model is worth generating.
+
+⚠️ **Piranha has nothing usable on the Creator Store** (searched: returns `Night Angler` and generic
+fish), so it is Meshy or nothing.
 
 ---
 
-## 4. Where each thing goes
+## Totals
 
-| Asset | Destination |
-|---|---|
-| Creature models | `ServerStorage.AssetLibrary` (any group — resolution is **by name**, so the model must be named exactly `Crocodile`, `Panther`, …) |
-| Sound ids | `EnemyAssets.ART[creature].sound[key].id` |
-| Animation ids | `EnemyAssets.ART[creature].anim[key]` |
-| Every id, also | the shared registry `roblox.workspace/Assets/registry/{models,audio,animations}.md` |
-| Status tracking | `ASSETS.md` §4 |
-
-> ⚠️ Models placed in `ServerStorage` live **only in the `.rbxl`** — it is not a Rojo-synced path, so the
-> place must be **saved** or they vanish. Same trap as the Bahay Kubo huts in Job #077.
+| | Missing | Notes |
+|---|---|---|
+| Models | **2** | Meshy |
+| Sounds | **8 to find** + **2 to upload** | Pixabay |
+| Animations | **8** | Meshy |
