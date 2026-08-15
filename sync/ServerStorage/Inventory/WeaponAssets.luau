@@ -91,6 +91,21 @@ WeaponAssets.ART = {
 	} :: HeldArt,
 }
 
+-- ── The boat's mounted turret ─────────────────────────────────────────────────────────────────────
+-- Not a held item, so it is not in `ART` — but its ids belong in the same file, because "the one place a
+-- weapon's sounds are listed" is the whole point of this module.
+--
+-- ⚠️ The turret is the ONLY weapon in the game with a real RELOAD moment: it feeds from boat cargo and
+-- swallows a whole `Ammo` crate when its rounds run out. Handheld guns have no magazine — their ammo is
+-- a counter topped up by loot — so `gun_reload` has nowhere else to play.
+WeaponAssets.TURRET = {
+	fire = { id = "rbxassetid://138178318678571", volume = 0.55, min = 15, max = 200 }, -- gun_shot
+	-- `gun_empty_clip` rather than the handheld `empty_gun`: a belt-fed turret running dry should not
+	-- click like a pistol.
+	empty = { id = "rbxassetid://135106168511714", volume = 0.45, min = 8, max = 60 },
+	reload = { id = "rbxassetid://134765294816468", volume = 0.5, min = 10, max = 80 }, -- gun_reload
+}
+
 -- ── Torch — BUILT, not sourced ────────────────────────────────────────────────────────────────────
 -- It is a stick plus a flame, and Job #077 already established that recipe in `Campfire.luau`
 -- (`Fire` + ember `ParticleEmitter` + `PointLight`). Building it costs nothing, stays on-palette, and

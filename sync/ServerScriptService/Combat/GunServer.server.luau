@@ -9,6 +9,8 @@
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("WeaponAssets"))
 -- part→art mapping (Job 066); a no-op until meshes are imported
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
@@ -95,6 +97,32 @@ local gunnerYaw, gunnerPitch = 0, 0
 local lastPublishedYaw = math.huge -- forces the first publish (Job 067 — see the Heartbeat loop)
 local lastFire = 0
 
+-- ── Job #079: the turret you can hear ────────────────────────────────────────────────────────────
+-- It had NO audio at all. Three cues, built ONCE on the barrel and restarted — never a new Sound per
+-- shot, which at this fire rate is the stacking mistake `GameSoundscape` documents about the cicadas.
+local turretSounds: { [string]: Sound } = {}
+do
+	for name, def in pairs(WeaponAssets.TURRET) do
+		local snd = Instance.new("Sound")
+		snd.Name = name
+		snd.SoundId = def.id
+		snd.Volume = def.volume
+		snd.RollOffMode = Enum.RollOffMode.InverseTapered
+		snd.RollOffMinDistance = def.min
+		snd.RollOffMaxDistance = def.max
+		snd.Parent = barrel
+		turretSounds[name] = snd
+	end
+end
+
+local function turretCue(name: string)
+	local s = turretSounds[name]
+	if s then
+		s.TimePosition = 0
+		s:Play()
+	end
+end
+
 local function humOf(player: Player): Humanoid?
 	local char = player.Character
 	return char and char:FindFirstChildOfClass("Humanoid")
@@ -166,12 +194,15 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 	if rounds <= 0 then
 		local crates = (boat:GetAttribute("Ammo") :: number?) or 0
 		if crates <= 0 then
+			turretCue("empty") -- out of cargo entirely: the click tells you WHY nothing happened
 			return
 		end
 		boat:SetAttribute("Ammo", crates - 1)
 		rounds = ROUNDS_PER_AMMO
+		turretCue("reload") -- a whole crate just went into the belt
 	end
 	boat:SetAttribute("Rounds", rounds - 1)
+	turretCue("fire")
 
 	local cf = aimCFrame()
 	local origin = (cf * CFrame.new(0, CAM_UP, CAM_BACK)).Position -- match the gunner camera → shot hits the crosshair

@@ -261,13 +261,13 @@ the `LastRiverLogo.png` used by `TeleportGui`.
 
 | Render | For | Status |
 |---|---|---|
-| Twin Motors Mount (engine) | `motor2` module | ▫ to generate |
-| Reinforced Hull (plating) | `hullkit` module | ▫ to generate |
-| Searchlight Rig | `searchlight` module | ▫ to generate |
-| Extended Fuel Tank | `fueltank` module | ▫ to generate |
-| Cargo capacity | `trailer` module | ▫ to generate — **crates/cargo ON the rear deck. NOT a towed barge** (see the note below) |
-| Mounted Gun Upgrade (turret) | `gunupgrade` module | ▫ to generate |
-| Gold chest | buy-popup art for the 4 gold packs | ▫ to generate |
+| Twin Motors Mount (engine) | `motor2` module | <span style="color:#2e9c3f">✅ `BoatParts.Motor`</span> |
+| Reinforced Hull (plating) | `hullkit` module | <span style="color:#2e9c3f">✅ `BoatParts.HullPlate`</span> |
+| Searchlight Rig | `searchlight` module | <span style="color:#2e9c3f">✅ `BoatParts.SearchlightMast` + `SearchLightHead`</span> |
+| Extended Fuel Tank | `fueltank` module | <span style="color:#2e9c3f">✅ `BoatParts.FuelTank`</span> |
+| Cargo capacity | `trailer` module | <span style="color:#2e9c3f">✅ `BoatParts.CargoRacks`</span> — crates ON the rear deck, as specified |
+| Mounted Gun Upgrade (turret) | `gunupgrade` module | <span style="color:#2e9c3f">✅ `BoatParts.GunBarrelHeavy`</span> |
+| Gold chest | buy-popup art for the 4 gold packs | ▫ to generate — **the only boat/shop art still missing** |
 
 **7 renders total.** Not blocking the restyle (panels/buttons/type/icons land first); blocks only the
 Boat-Upgrades panel and buy popup looking like the mockup.
