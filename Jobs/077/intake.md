@@ -2,8 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-05 20:46:29
-**Status**: **IN PROGRESS** — built and partly verified in Studio, with open bugs.
-👉 **Read [`STATUS.md`](STATUS.md) first** — it has what is done, what is broken, and where to resume.
+**Status**: **BUILT & VERIFIED** in the GAME place (2026-08-15). Seating 0 float / 0 buried, river
+unaffected (0/1691, same as a no-camp control), route walkable, night pass good. See
+[`final-summary.md`](final-summary.md) · [`changelog.md`](changelog.md) · [`STATUS.md`](STATUS.md).
 
 > **Why this job exists:** Job #076 was deliberately scoped to terrain + foliage + river obstacles, and I
 > wrote that camp structures would get "their own job" — then didn't create it. This is that job, created
@@ -23,8 +24,9 @@ Replace the greybox structures at the dock excursion camps and the river docks w
 - [x] Camp ground materials + ambience (audio / VFX / lights) added to scope
 - [x] Assumptions A1–A4 approved
 - [x] Plan agreed — build go-ahead given 2026-08-06 (#076 already shipped, so A4 was satisfied)
-- [ ] Implementation completed — **code written & analyzer-clean; 3 open bugs, see [`STATUS.md`](STATUS.md)**
-- [ ] Final summary + changelog written
+- [x] Implementation completed — verified live; measurements in [`final-summary.md`](final-summary.md)
+- [x] Final summary + changelog written
+- [ ] Full raid loop driven by hand + Device Emulator pass (see final summary, "Still outstanding")
 
 
 ---

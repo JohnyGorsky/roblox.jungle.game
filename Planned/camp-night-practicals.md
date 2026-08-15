@@ -1,5 +1,27 @@
 # Camp night practicals — warm pools of light at the spawn base
 
+> ## ⚠️ PARTLY DELIVERED by Job #077 (2026-08-15) — READ THIS FIRST
+>
+> **The RIVER CAMPS half is done.** `CampAmbience` + `Campfire` place 4 warm practicals per dock camp
+> (campfire + 2 along the sandbag line + 1 inside a hut), all tagged `NightLight`, plus a flickering
+> fire and night fireflies. Verified live: 8 lights switch on at dusk, fireflies on / motes off, fire
+> brightness flickering 1.93–3.11 around a base of 2.6. **The claim below that there are 0 `Light`
+> objects in the Workspace is no longer true.**
+>
+> **What is STILL OPEN, and it is the harder half:**
+> 1. **The SPAWN BASE has no practicals.** Job #077 only touched the streamed river camps. The plane
+>    wreck, dock and tents at the spawn base still have nothing to light with.
+> 2. **The night ambient is still artificially lifted.** Job #073 propped up `AtmosphereRig.NIGHT`
+>    (`outdoorAmbient (66,76,96)`, `exposure 0.26`) *purely because* there were no practicals — and this
+>    file said the two changes must land together. Job #077 deliberately did **not** touch it
+>    (assumption A1): those camps are 6 spots on an 18,000-stud river, and dropping the GLOBAL night
+>    ambient to suit a lit camp makes the other 17,000 studs unnavigable, with the river at night a core
+>    beat (`EnemyServer` scales sea threat by `Phase`).
+>
+>    So the camps are lit, but their pools read weaker than §8 wants against a night that is still
+>    lifted. **Dropping the ambient is its own job, and must be balanced against the boat searchlight
+>    and the player torch, not against a camp.**
+
 **Source:** Job #073 (ambient port), flagged during the day/night lighting build. **Depends:** #072
 (SpawnBase hand-built), #073 (day/night rig live).
 

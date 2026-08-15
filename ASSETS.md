@@ -558,12 +558,23 @@ y=26 and Snow above y=40 unchanged.
 > real device complains they are the first lever, and swapping them for MeshPart palms later is one line
 > per band-table entry. That is why we deliberately did NOT source replacements now.
 
-## 3.5 Dock camps & trading villages (Job #077, planned 2026-08-05)
+## 3.5 Dock camps & trading villages (Job #077 — ✅ BUILT & VERIFIED 2026-08-15)
 
-Greybox retired: `Hut` blocks → `Tent` / stilt huts · `LootCrate` → `Barrel` (bulk) + `CrateWood` (hero) ·
-the 8-block `TradingPost` → `BahayKubo7` · floating `BillboardGui` shop sign → a physical wooden sign ·
-`GoldNugget` Neon cube → the real mesh · `CarriedCrate` → `Barrel` · `DockServer` plank Deck → `Dock` ·
-`RangerTower` added at the 6 landing camps as a landmark visible from the water.
+<span style="color:#2e9c3f">✅ **All shipped.**</span> Greybox retired: `Hut` blocks → `Tent` (⚠️ scaled **0.42** —
+it ships at 43×13×34 and reads as a giant tarp at 1.0) + `BahayKubo5`/`BahayKubo1` stilt huts ·
+`LootCrate` → `Barrel` (bulk) + `CrateWood` (ONE hero per camp) · kind-crates → `AmmoBox` ·
+the 8-block `TradingPost` → `BahayKubo7` · floating `BillboardGui` shop sign → a physical WoodPlanks
+board on posts with a `SurfaceGui` on both faces (the billboard was `AlwaysOnTop` and rendered through
+the terrain) · `GoldNugget` Neon cube → the real mesh (⚠️ it is a bare **MeshPart**, not a Model) ·
+`CarriedCrate` → a scaled `Barrel` · `DockServer` plank Deck → `Dock` (the old `Deck` survives as an
+INVISIBLE anchor so `TieSpot`/rope/prompt geometry is unchanged) · `SandbagWall` ×3 as cover ·
+`RangerTower` at each landing.
+
+**Measured cost: 880 BaseParts per landing site.** Part counts are BasePart counts — do NOT re-derive
+them from `#model:GetDescendants()`, which runs 2–6× higher (`AmmoBox` is 22 parts but 140 descendants;
+`RangerTower` 128 vs 356). Camp clearing ring = ~80 cheap trees (`PalmCoconut`/`PalmLowPoly`/`BushPack`/
+`FernTall`), NOT `JungleTreesPack` — at 218 studs long it cannot fit a 400-stud basin that also holds
+two camps.
 
 ### NEW — jungle river-village huts (sourced 2026-08-05)
 
@@ -608,7 +619,7 @@ greybox — it is collected by ProximityPrompt) · **resized 1.40 → 2.00 studs
 > reverts `CollisionFidelity`**. Resize FIRST, then set fidelity, then verify by re-reading — the first
 > attempt silently reverted to `Default`.
 
-### Campfire — BUILD, do not source
+### Campfire — BUILD, do not source  <span style="color:#2e9c3f">✅ built</span>
 
 The re-dressed camps need a fire and the GAME place has none (the built campfire in §1 is the LOBBY's).
 **Every Creator Store result was the same spam-uploaded "realistic campfire"** — and "realistic" is the
