@@ -69,6 +69,12 @@ export type CreatureArt = {
 	yawOffset: number?, -- degrees, if the model was authored facing something other than -Z (its "forward")
 	water: WaterMotion?, -- present = animate procedurally in water instead of with a skeleton
 	joints: JointSwing?, -- present = swing these Motor6Ds while moving (land rigs with no animation ids)
+	-- ⚠️ `false` = NO glowing eyes. Default (nil) is eyes ON, which is right for wildlife — the Job #039
+	-- effect is a night-predator read. It is wrong twice over on a HUMAN: a raider with glowing eyes is a
+	-- monster, and `addEyes`' no-attachment fallback derives the position from the HITBOX, which for the
+	-- Bandit is the Panther's 5×4×11 quadruped box. On an upright biped that lands the eyes at knee
+	-- height, 4.6 studs out in front of him. Seen in play 2026-08-16.
+	eyes: boolean?,
 	vfx: CreatureVfx?,
 	anim: { [string]: string }, -- idle / move / attack / death → rbxassetid://
 	sound: { [string]: SoundDef },
@@ -179,6 +185,12 @@ EnemyAssets.ART = {
 		-- the Panther and is deliberately left alone — see EnemyDefs.
 		scale = nil,
 		yawOffset = 0,
+		-- 🔴 THE ONLY CREATURE WITH NO GLOWING EYES, and it should stay that way. He is a person; the
+		-- effect is for wildlife. He also has no `EyeLeft`/`EyeRight` attachments, so leaving it on sent
+		-- `addEyes` down its hitbox fallback and put two red orbs at his knees — the thing that made this
+		-- visible. Giving him attachments would fix the POSITION and still leave a bandit with glowing
+		-- eyes, which is not the look.
+		eyes = false,
 		anim = {
 			idle = "rbxassetid://123087002046013", -- AnimationConstants.idleAnimation.idle1
 			move = "rbxassetid://913376220", -- runAnimation.first — it charges, it doesn't stroll

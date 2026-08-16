@@ -20,10 +20,31 @@ export type HeldArt = {
 	model: string?, -- AssetLibrary.Weapons entry; nil = keep the greybox
 	scale: number?, -- multiplies the CURRENT size (see the note in InventoryService)
 	yawOffset: number?, -- degrees about Y, to point the model the way the greybox pointed
+	-- Degrees about X/Y/Z. Present = it REPLACES `yawOffset`'s yaw-only rotation, for a weapon that has
+	-- to sit at a compound angle in the hand rather than just be spun about the vertical.
+	holdAngles: Vector3?,
 	gripOffset: Vector3?, -- where the hand grabs it, relative to the model's origin
 	anim: { [string]: string },
 	sound: { [string]: SoundDef },
 }
+
+-- ── The carry pose ────────────────────────────────────────────────────────────────────────────────
+-- 🔴 ROBLOX'S OWN `toolnone` ANIMATION — the same asset the default `Animate` LocalScript plays, read
+-- straight out of a live character's `Animate.toolnone.ToolNoneAnim` (2026-08-16).
+--
+-- Why we play it ourselves rather than shipping a real `Tool`: `Animate` only poses the arm when the
+-- character has a **`Tool` that is a direct child of the Character AND has a child named `Handle`** —
+--     local tool = Character:FindFirstChildOfClass("Tool")
+--     if tool and tool:FindFirstChild("Handle") then animateTool() ... else stopToolAnimations()
+-- Our held item is a welded Part, so that branch never ran and the crew stood arms-down with an axe by
+-- their knees. A real Tool would work, but it drags in Roblox's Backpack UI (which `IntroHudGate`
+-- re-enables after the intro, so it WOULD render under our own hotbar), drop-on-Backspace, and
+-- `Tool.Activated` racing `MeleeClient`'s input. Playing the same asset directly costs none of that and
+-- is identical on screen — it is literally the animation a Tool would have played.
+--
+-- ⚠️ R15 only (the R6 equivalent is 182393478). This game is R15, verified on a live character; the
+-- loader is pcall'd, so anything else degrades to the old arms-down hold rather than erroring.
+WeaponAssets.HOLD_ANIM = "rbxassetid://507768375"
 
 -- ⚠️ ORIENTATION, MEASURED NOT GUESSED.
 -- The greybox gun was a box whose length ran along **Z**, pointing -Z (the way a character faces).
@@ -41,6 +62,14 @@ WeaponAssets.ART = {
 		model = "Axe",
 		scale = 1,
 		yawOffset = 0,
+		-- ⚠️ TUNED ON SCREEN AGAINST THE CARRY POSE, not derived. The right angle depends on where
+		-- `HOLD_ANIM` puts the forearm, so this had to be set after that animation was playing — with the
+		-- old arms-down stance any value here would have been wrong.
+		-- At (0,0,0) the haft stands dead vertical in the fist (what the axe looked like before this) and
+		-- the head sits in front of the face. Pitching back 40° lays it diagonally across the body; the
+		-- **negative** roll is what swings the head OUT past the shoulder instead of across the face —
+		-- +30 was tried first and put the blade over the character's nose.
+		holdAngles = Vector3.new(-40, 0, -30),
 		-- Defender's `Tool.Grip` was (0, -1.089, 0.026): the hand grabs the haft just below the head.
 		gripOffset = Vector3.new(0, -1.089, 0.026),
 		anim = {

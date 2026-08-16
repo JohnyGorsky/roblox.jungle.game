@@ -115,6 +115,50 @@ local function buildTorch(part: Part)
 	return head
 end
 
+-- ── the carry pose (Job #079, 2026-08-16) ────────────────────────────────────────────────────────
+-- Cached per character, exactly as `MeleeServer` caches its slash tracks: `LoadAnimation` on every slot
+-- switch would leak a track per keypress. Played at **Idle** priority — the same priority the default
+-- `Animate` script uses for `toolnone` — so the Action-priority slash animations still win over it.
+local holdTracks: { [Model]: AnimationTrack } = {}
+
+local function setHoldPose(char: Model, on: boolean)
+	local track = holdTracks[char]
+	if not track then
+		if not on then
+			return
+		end
+		local hum = char:FindFirstChildWhichIsA("Humanoid")
+		local animator = hum and hum:FindFirstChildWhichIsA("Animator")
+		if not animator then
+			return
+		end
+		local a = Instance.new("Animation")
+		a.AnimationId = WeaponAssets.HOLD_ANIM
+		local ok, loaded = pcall(function()
+			return animator:LoadAnimation(a)
+		end)
+		if not ok or not loaded then
+			warn("[Inventory] carry pose failed to load — held items keep the arms-down hold")
+			return
+		end
+		loaded.Priority = Enum.AnimationPriority.Idle
+		loaded.Looped = true
+		track = loaded
+		holdTracks[char] = track
+		-- the character model is destroyed on respawn; drop the track with it rather than leak one per life
+		char.Destroying:Once(function()
+			holdTracks[char] = nil
+		end)
+	end
+	if on then
+		if not track.IsPlaying then
+			track:Play(0.15)
+		end
+	elseif track.IsPlaying then
+		track:Stop(0.15)
+	end
+end
+
 local function updateHeldVisual(player: Player)
 	local char = player.Character
 	if not char then
@@ -126,6 +170,8 @@ local function updateHeldVisual(player: Player)
 	end
 	local id = player:GetAttribute("ActiveItem") :: string?
 	local def = ItemDefs.get(id)
+	-- Empty hands => drop the carry pose, so an empty slot stands normally instead of miming a weapon.
+	setHoldPose(char, def ~= nil)
 	if not def then
 		return
 	end
@@ -151,9 +197,19 @@ local function updateHeldVisual(player: Player)
 			-- creature eyes hit in Job #078.
 			clone.Size *= art.scale
 		end
-		local yaw = math.rad((art and art.yawOffset) or 0)
 		local grip = (art and art.gripOffset) or Vector3.zero
-		clone.CFrame = hand.CFrame * CFrame.Angles(0, yaw, 0) * CFrame.new(-grip.X, -grip.Y, -grip.Z)
+		-- `holdAngles` (compound X/Y/Z) wins over the yaw-only `yawOffset` when a weapon is present.
+		-- ⚠️ The rotation is applied BEFORE the grip translation on purpose: `-grip` is expressed in the
+		-- ROTATED frame, which is what keeps the model's grip point on the hand however it is angled.
+		-- Swap the order and tilting the axe also slides it out of the fist.
+		local rot
+		if art and art.holdAngles then
+			local a = art.holdAngles
+			rot = CFrame.Angles(math.rad(a.X), math.rad(a.Y), math.rad(a.Z))
+		else
+			rot = CFrame.Angles(0, math.rad((art and art.yawOffset) or 0), 0)
+		end
+		clone.CFrame = hand.CFrame * rot * CFrame.new(-grip.X, -grip.Y, -grip.Z)
 		part = clone
 	else
 		-- greybox fallback, unchanged

@@ -311,7 +311,9 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 	model:SetAttribute("HP", def.hp)
 	model:SetAttribute("MaxHP", def.hp)
 	model:SetAttribute("Category", def.category)
-	local eyes = addEyes(model, body, def)
+	-- `art.eyes == false` opts a creature out entirely (the Bandit — he is a person, see EnemyAssets).
+	-- Anything else keeps the Job #039 glow.
+	local eyes = if art and art.eyes == false then {} else addEyes(model, body, def)
 
 	-- ── animator ────────────────────────────────────────────────────────────────────────────────
 	-- `AnimationController` + `Animator`, NOT a Humanoid: movement stays `PivotTo`, so animations are
