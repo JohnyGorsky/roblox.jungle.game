@@ -23,7 +23,6 @@
 -- ⚠️ NOT A FLAT PART. Job #075 shipped a cream Neon slab as swing feedback and #079 removed it — on
 -- screen it read as "some white object flying past". Impacts here are particles only.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -38,10 +37,17 @@ local RISE = 5.5 -- studs a number floats upward over its life
 local LIFE = 0.9 -- seconds a number is visible
 local MAX_DIST = 260 -- past this the number is skipped entirely: unreadable, and pure cost
 
+-- ⚠️ BRIGHTER THAN THE UI PALETTE, DELIBERATELY. `Theme.color.green` (75,122,43) and `.red` (168,75,60)
+-- are tuned for flat UI panels behind a dark scrim; floating in the world over sunlit water and dark
+-- jungle they read as mud. These keep the palette's MEANING (green = you dealt it, red = you took it)
+-- at a value that survives a world-space background. The dark text stroke below does the rest.
+local DEAL_COLOR = Color3.fromRGB(150, 235, 120)
+local TAKE_COLOR = Color3.fromRGB(255, 120, 100)
+
 local camera = Workspace.CurrentCamera
 
 -- ── impact burst pool ─────────────────────────────────────────────────────────────────────────────
-local bursts: { { part: BasePart, emitter: ParticleEmitter } } = {}
+local bursts: { { part: Part, emitter: ParticleEmitter } } = {}
 local burstNext = 1
 
 local fxFolder = Instance.new("Folder")
@@ -91,7 +97,7 @@ end
 -- ── floating number pool ──────────────────────────────────────────────────────────────────────────
 -- One BillboardGui per slot, parented to a pooled anchor part that gets MOVED rather than recreated.
 -- `Adornee` churn is the expensive part of a naive implementation; there is none here.
-type Slot = { part: BasePart, gui: BillboardGui, label: TextLabel, born: number, base: Vector3, live: boolean }
+type Slot = { part: Part, gui: BillboardGui, label: TextLabel, born: number, base: Vector3, live: boolean }
 local slots: { Slot } = {}
 local slotNext = 1
 
@@ -109,8 +115,17 @@ for _ = 1, NUMBER_POOL do
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Number"
-	gui.Size = UDim2.fromOffset(90, 34)
-	gui.AlwaysOnTop = false -- a number readable THROUGH the terrain is worse than one occluded by it
+	gui.Size = UDim2.fromOffset(110, 40)
+	-- 🔴 WAS `AlwaysOnTop = false` WITH NO OFFSET, AND THAT MADE IT INVISIBLE IN PLAY.
+	-- The reasoning ("a number readable through terrain is worse than one occluded by it") was sound in
+	-- the abstract and wrong here: the number spawns at the EXACT impact point, which is inside the body
+	-- of whatever you just hit. So it z-failed behind the crocodile every single time.
+	--
+	-- Proven working before this fix, which is why it was worth diagnosing rather than rewriting: 19 of
+	-- 20 pooled parts had moved to real hit positions and their labels held real damage values
+	-- (8, 15, 18…). The whole pipeline was fine — nothing was ever on screen.
+	gui.AlwaysOnTop = true
+	gui.StudsOffset = Vector3.new(0, 2.5, 0) -- lift clear of the surface it was born on
 	gui.MaxDistance = MAX_DIST
 	gui.LightInfluence = 0
 	gui.Enabled = false
@@ -138,7 +153,7 @@ local function showNumber(pos: Vector3, amount: number, kind: string)
 	slot.live = true
 	slot.part.Position = pos
 	slot.label.Text = tostring(amount)
-	slot.label.TextColor3 = if kind == "take" then Theme.color.red else Theme.color.green
+	slot.label.TextColor3 = if kind == "take" then TAKE_COLOR else DEAL_COLOR
 	slot.label.TextTransparency = 0
 	slot.gui.Enabled = true
 end

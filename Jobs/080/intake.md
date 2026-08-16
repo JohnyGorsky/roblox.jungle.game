@@ -2,7 +2,12 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-16 10:19:03
-**Status**: Requirements Gathering (intake)
+**Status**: ⛔ **ABSORBED INTO [Job #084](../084/) on 2026-08-16 at the user's call** — built there, not here.
+
+> The playtest kept returning to "you can't tell if you hit anything", so hit feedback was folded into
+> #084 rather than run as a separate job. This intake's audit is still the reference for WHY it was
+> built the way it was; the build and the answers to the four open questions below live in
+> [../084/final-summary.md](../084/final-summary.md). **Do not build anything from this file.**
 
 ## Requirements / goal
 

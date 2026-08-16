@@ -8,6 +8,8 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 
+local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
+
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
 end
@@ -48,6 +50,7 @@ RunService.Heartbeat:Connect(function()
 				theHull.AssemblyLinearVelocity = theHull.AssemblyLinearVelocity * (1 - slow)
 				theBoat:SetAttribute("HP", math.max(0, ((theBoat:GetAttribute("HP") :: number?) or 100) - dmg))
 				flash()
+				CombatFx.hit(obs.Position, dmg, "take") -- Job #084: RED number at the impact
 				print(("[Obstacle] hit %s — slow %.0f%%, -%d HP"):format(obs.Name, slow * 100, dmg))
 				obs:Destroy() -- plowed through; no re-hit
 			end

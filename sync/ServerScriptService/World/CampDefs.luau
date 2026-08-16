@@ -321,7 +321,10 @@ CampDefs.TAG = {
 -- person holding them, and they cannot be found in the world at all (shop only, 50 Salvage).
 CampDefs.HEAL = {
 	radius = 14, -- studs from the fire core; matches Defender's DefaultRadius
-	rate = 4.0, -- HP/s once the camp is clear
+	-- ⚠️ 2.5, NOT 4.0. At 4 the fire out-healed the boat's Medic station (3 HP/s, `RoleServer:17`,
+	-- Job 057) while also working solo and ashore, which made the dedicated Medic role pointless.
+	-- The station must stay the best heal in the game; the fire is the fallback when you are off the boat.
+	rate = 2.5, -- HP/s once the camp is clear
 	contestedRate = 1.0, -- HP/s while a living CampGuard is near the fire — a trickle, never nothing
 	guardRange = 60, -- a guard within this of the fire counts as "contested"
 	interval = 0.5, -- how often the heal loop ticks

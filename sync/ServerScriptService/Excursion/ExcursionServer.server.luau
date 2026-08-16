@@ -478,17 +478,37 @@ deposit.RequiresLineOfSight = false
 deposit.MaxActivationDistance = 16
 deposit.Enabled = false
 deposit.Parent = hull
+-- ⚠️ Job #084: the deck's fullness is shown ON THE PROMPT, before it is pressed.
+-- Reported in play as *"i sometimes deposit and nothing happens"*. It was a full cargo deck and a bare
+-- `return` — the same unsignalled-gate bug as the pistol's `Busy` check earlier in this job. A refused
+-- action that says nothing reads as a broken button, and here it also strands the player: `Busy` stays
+-- true, so they are stuck carrying a crate they cannot deposit and cannot fight with.
+local function cargoTotal(): number
+	return ((boat:GetAttribute("Gasoline") :: number?) or 0)
+		+ ((boat:GetAttribute("Metal") :: number?) or 0)
+		+ ((boat:GetAttribute("Ammo") :: number?) or 0)
+end
+
+local function refreshDeposit()
+	deposit.Enabled = next(carrying) ~= nil
+	local full = cargoTotal() >= ((boat:GetAttribute("CargoMax") :: number?) or 10)
+	deposit.ActionText = if full then "Cargo FULL" else "Deposit"
+end
+
+-- the deck fills from the shop and the fuel station too, not just from deposits
+for _, attr in ipairs({ "Gasoline", "Metal", "Ammo", "CargoMax" }) do
+	boat:GetAttributeChangedSignal(attr):Connect(refreshDeposit)
+end
+
 deposit.Triggered:Connect(function(player: Player)
 	local carried = carrying[player]
 	if not carried then
 		return
 	end
 	local resource = (carried:GetAttribute("Resource") :: string?) or "Metal"
-	local total = ((boat:GetAttribute("Gasoline") :: number?) or 0)
-		+ ((boat:GetAttribute("Metal") :: number?) or 0)
-		+ ((boat:GetAttribute("Ammo") :: number?) or 0)
-	if total >= ((boat:GetAttribute("CargoMax") :: number?) or 10) then
-		return -- cargo deck full → keep carrying it
+	if cargoTotal() >= ((boat:GetAttribute("CargoMax") :: number?) or 10) then
+		refreshDeposit() -- deck full → keep carrying it, and SAY so on the prompt
+		return
 	end
 	boat:SetAttribute(resource, ((boat:GetAttribute(resource) :: number?) or 0) + 1)
 	carried:Destroy()
@@ -498,7 +518,7 @@ deposit.Triggered:Connect(function(player: Player)
 	if char then
 		char:SetAttribute("Carrying", nil)
 	end
-	deposit.Enabled = next(carrying) ~= nil
+	refreshDeposit()
 end)
 
 -- award in-run Salvage (Job 023) — cash rewards raiding, not passive driving.
@@ -593,7 +613,7 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	awardSalvage(player, 40)
 	char:SetAttribute("Carrying", resource)
 	player:SetAttribute("Busy", true) -- hands full → can't shoot
-	deposit.Enabled = true
+	refreshDeposit()
 	crate:Destroy()
 end
 
