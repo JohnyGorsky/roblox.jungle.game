@@ -87,18 +87,25 @@ Worth noting: the sea creatures (`Aligator`, `Piranha`, `RiverHippo`) **already 
 attachments, which is why only the land rigs looked wrong.
 
 At the user's request the missing attachments were created in
-`ServerStorage.AssetLibrary.Enemies`, parented to each model's `Head`, for hand-adjustment:
+`ServerStorage.AssetLibrary.Enemies`, parented to each model's `Head`, then **hand-adjusted by the
+user** and read back to confirm:
 
-| Model | Host part | Head size | Starting position |
-| --- | --- | --- | --- |
-| Wolf | `Head` | 1.00 × 1.00 × 1.00 | ±0.26, 0.16, −0.42 |
-| Boar | `Head` | 6.00 × 1.20 × 3.00 | ±1.56, 0.19, −1.26 |
-| WesternBandit | `Head` | 1.16 × 1.15 × 1.16 | ±0.30, 0.18, −0.49 |
+| Model | Host | Created at | Final (user-set) | |
+| --- | --- | --- | --- | --- |
+| Wolf | `Head` | ±0.26, 0.16, −0.42 | **±0.26, 0.86, −2.75** | adjusted, symmetric |
+| Boar | `Head` | ±1.56, 0.19, −1.26 | **±0.91, −1.95, −0.82** | adjusted, mirrored (see below) |
+| WesternBandit | `Head` | ±0.30, 0.18, −0.49 | unchanged | opted out of eyes anyway |
 
-Boar's `Head` is unusually wide and flat, so that pair will need the most adjustment. WesternBandit is
-opted out of eyes entirely (`art.eyes == false`); its attachments are harmless and ready if that ever
-changes. **No code change is needed** — the rig already prefers attachments and re-glues the eyes to
-their `WorldCFrame` every frame.
+The sea creatures were left untouched — they already had correct attachments:
+`Aligator ±0.85, 3.74, −8.00` · `Piranha ±0.70, 0.85, −1.90` · `RiverHippo ±1.00, 1.44, −3.62`.
+
+⚠️ The read-back caught the **Boar's pair being asymmetric** — `EyeRight` sat 0.24 studs lower and
+0.14 further out than `EyeLeft`, which at a 0.5-stud eye is about half an eye of vertical drift and
+would have read as a lopsided face once lit. On the user's decision `EyeRight` was mirrored from
+`EyeLeft`: `(1.05, −2.19, −0.74)` → `(0.91, −1.95, −0.82)`.
+
+**No code change was needed** — the rig already prefers attachments and re-glues the eyes to their
+`WorldCFrame` every frame.
 
 ---
 
