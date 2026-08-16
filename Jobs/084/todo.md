@@ -2,6 +2,9 @@
 
 Raised during the 2026-08-16 playtests. ✅ = done in this job · ⬜ = not built.
 
+> **Dropped 2026-08-16 at the user's call:** *deposit from the pier*. Not wanted — deposits stay a
+> boat-side action. Do not re-raise it from the playtest notes.
+
 ---
 
 ## ⬜ 1. 🔴 Drop what you are carrying, where you stand
@@ -75,7 +78,29 @@ post. They never drop from loot crates, camps or enemies. Making them findable i
 
 ---
 
-## ✅ 5. Deposit silently did nothing — FIXED (first diagnosis was WRONG)
+## ⬜ 5. 🟡 "Deposited X" message, visible to every player
+
+**Reported:** *"we need message like deposited x, and all players must see it."*
+
+**Reuse the existing broadcast, not a new one.** `ReplicatedStorage.Announce` is already a server→all
+RemoteEvent consumed by `ZoneBanner.local.luau`, fired by `ZoneServer` with:
+
+```lua
+announce:FireAllClients({ title = ..., subtitle = ..., color = ..., icon = ..., sound = ... })
+```
+
+⚠️ **Do not reuse `ZoneBanner` verbatim.** It is a large centre-screen banner with a HOLD, tuned for
+rare beats — zone crossings, nightfall. A deposit happens many times per landing; that banner firing
+each time would be obtrusive and would stomp real zone announcements. What is wanted is a small stacking
+toast / feed line. Reuse the *shape* (one `FireAllClients` payload, `Components.iconId` for the icon
+vocabulary, `Theme` colours) and give it its own lightweight client.
+
+Should say who did it as well as what, since the point is crew awareness — e.g. *"Janis deposited
+1 Gasoline · 4/25"*. The running total is already on the boat attributes.
+
+---
+
+## ✅ 6. Deposit silently did nothing — FIXED (first diagnosis was WRONG)
 
 **Reported:** *"i sometimes deposit and nothing happens."*
 
@@ -104,7 +129,7 @@ the boundary and cancels silently.
 Kept as well, since it is a correct guard even though it was not the bug: the prompt now reads
 **"Cargo FULL"** when the deck really is full, refreshing on `Gasoline`/`Metal`/`Ammo`/`CargoMax`.
 
-## ✅ 5b. Dying while carrying disarmed you for the rest of the run — FIXED
+## ✅ 6b. Dying while carrying disarmed you for the rest of the run — FIXED
 
 Found while investigating the above. **Nothing cleared `carrying` or `Busy` except a successful
 deposit** — the file had no `CharacterAdded`/`CharacterRemoving`/`PlayerRemoving` handler at all. On
@@ -117,7 +142,7 @@ Now cleared on character removal, character add, and player removal.
 
 ⚠️ Neither fix unsticks a **full** deck — that still needs the drop action in item 1.
 
-## ✅ 6. Damage numbers were invisible — FIXED
+## ✅ 7. Damage numbers were invisible — FIXED
 
 **Reported:** *"decals is not flying when i hit or i am hit."*
 
@@ -130,12 +155,12 @@ time. Now `AlwaysOnTop = true` with a 2.5-stud lift, a larger 110×40 box, and b
 colours (`Theme.color.green` is a dark olive tuned for flat UI behind a scrim; it read as mud over
 sunlit water).
 
-## ✅ 7. Campfire heal rate lowered to 2.5 HP/s
+## ✅ 8. Campfire heal rate lowered to 2.5 HP/s
 
 Shipped at 4.0, which **out-healed the boat's Medic station** (3 HP/s, `RoleServer:17`, Job 057) while
 also working solo and ashore — making the dedicated Medic role pointless. Now 2.5, so the station stays
 the best heal in the game and the fire is the off-boat fallback. Contested rate unchanged at 1.0.
 
-## ✅ 8. "HANDS FULL" chip overlapped the health bar — FIXED
+## ✅ 9. "HANDS FULL" chip overlapped the health bar — FIXED
 
 Moved from y=0.855 to y=0.797. Confirmed clear in a playtest screenshot.
