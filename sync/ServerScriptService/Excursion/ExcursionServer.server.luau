@@ -475,7 +475,19 @@ deposit.ActionText = "Deposit"
 deposit.ObjectText = "Cargo"
 deposit.HoldDuration = 0.5
 deposit.RequiresLineOfSight = false
-deposit.MaxActivationDistance = 16
+-- 🔴 WAS 16, AND THAT IS WHY DEPOSIT "SOMETIMES DID NOTHING" (reported 2026-08-16).
+-- This prompt hangs off `hull`, so it is anchored at the boat's CENTRE — but the boat is far bigger
+-- than the hull part. Measured live: hull is 14×3×32, the full boat bounds are 14.7×11×46, and the
+-- furthest COLLIDABLE (walkable) part sits **23.0 studs** from the hull origin. So the outer ~7 studs
+-- of deck — the bow and the stern — were outside the prompt entirely. The player who reported it was
+-- standing at 14.3, right on the edge.
+--
+-- Intermittent for two compounding reasons: where you stand on the deck decides whether it responds at
+-- all, and with a 0.5 s hold, taking one step mid-hold crosses the boundary and cancels it silently.
+--
+-- 26 covers the measured 23 with margin for the deck rocking. ⚠️ If the boat ever gets longer (a hull
+-- module, a bigger trailer), re-measure — this number tracks the BOAT, not the hull part it hangs on.
+deposit.MaxActivationDistance = 26
 deposit.Enabled = false
 deposit.Parent = hull
 -- ⚠️ Job #084: the deck's fullness is shown ON THE PROMPT, before it is pressed.
@@ -518,6 +530,46 @@ deposit.Triggered:Connect(function(player: Player)
 	if char then
 		char:SetAttribute("Carrying", nil)
 	end
+	refreshDeposit()
+end)
+
+-- 🔴 Job #084: DYING WHILE CARRYING USED TO DISARM YOU FOR THE REST OF THE RUN.
+-- Nothing anywhere cleared `carrying` or `Busy` except a successful deposit — this file had no
+-- `CharacterAdded`/`CharacterRemoving`/`PlayerRemoving` handler at all. So on death:
+--   · the carried model died with the character (it is parented to `char`), but
+--   · `carrying[player]` kept pointing at the destroyed instance — still TRUTHY in Luau, so the
+--     "already carrying" guard in `pickupLoot` blocked every future pickup, and
+--   · `Busy` is a PLAYER attribute, so it survived respawn — leaving the new character permanently
+--     unable to shoot or swing, with the "HANDS FULL" chip up and no crate to explain it.
+local function clearCarry(player: Player)
+	local carried = carrying[player]
+	if carried then
+		carried:Destroy() -- no-op if it already went with the character
+	end
+	carrying[player] = nil
+	player:SetAttribute("Busy", false)
+	local char = player.Character
+	if char then
+		char:SetAttribute("Carrying", nil)
+	end
+	refreshDeposit()
+end
+
+local function watchPlayer(player: Player)
+	player.CharacterRemoving:Connect(function()
+		clearCarry(player) -- the loot is lost with the body; that is the cost of dying on a raid
+	end)
+	-- belt and braces: a character can be replaced without CharacterRemoving firing first
+	player.CharacterAdded:Connect(function()
+		clearCarry(player)
+	end)
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	watchPlayer(p)
+end
+Players.PlayerAdded:Connect(watchPlayer)
+Players.PlayerRemoving:Connect(function(player)
+	carrying[player] = nil
 	refreshDeposit()
 end)
 
