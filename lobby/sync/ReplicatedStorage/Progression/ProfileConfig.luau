@@ -3,9 +3,25 @@
 -- Client-safe (no DataStore access here). IDENTICAL copy lives in sync/ and lobby/sync/ — one experience,
 -- one DataStore. Keep the two byte-identical (they are copied, not hand-edited separately).
 
+local RunService = game:GetService("RunService")
+
 local ProfileConfig = {}
 
-ProfileConfig.STORE_NAME = "PlayerProfiles_v1"
+-- Job 085: separate EDITOR (Studio) saves from LIVE (published) saves. Until now both wrote to the
+-- same store, so every playtest mutated the records real players would load.
+--
+-- The store name IS the save id: a new name is an empty store, so everyone loads as a brand-new
+-- player, and switching the name back restores the previous save set (the old store is left intact).
+-- To wipe live later, bump STORE_NAME_LIVE (_v1 -> _v2); dev data is never touched by that.
+--
+-- `RunService:IsStudio()` is true in any Studio playtest (solo, Team Test, Play Here) and false on a
+-- live server, and answers the same on client and server — so the lobby and game places always agree.
+-- Keeping the pick here rather than at the call site means `Profiles.luau` needs no change.
+ProfileConfig.STORE_NAME_DEV = "PlayerProfiles_v1" -- Studio testing: keeps our existing test progress
+ProfileConfig.STORE_NAME_LIVE = "PlayerProfiles_live_v1" -- published game: fresh store for real players
+ProfileConfig.STORE_NAME = if RunService:IsStudio()
+	then ProfileConfig.STORE_NAME_DEV
+	else ProfileConfig.STORE_NAME_LIVE
 ProfileConfig.KEY_PREFIX = "Player_"
 ProfileConfig.DATA_VERSION = 1
 

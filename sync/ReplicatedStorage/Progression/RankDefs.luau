@@ -2,12 +2,26 @@
 -- RankDefs.luau — River Score rank ladder (Job 026, design Job 020 §8). Shared client/server.
 -- River Score is a lifetime, non-decaying accumulator; tiers are read off it. IDENTICAL copy in both trees.
 
+local RunService = game:GetService("RunService")
+
 export type Tier = { index: number, name: string, min: number, color: Color3 }
 
 local RankDefs = {}
 
-RankDefs.BOARD_RIVERSCORE = "Board_RiverScore_v1"
-RankDefs.BOARD_DISTANCE = "Board_BestDistance_v1"
+-- Job 085: the two global boards are split EDITOR vs LIVE for the same reason the profile store is
+-- (see ProfileConfig) — otherwise every Studio playtest posts test scores onto the board real players
+-- see. Same rule: the board name is the board; bump the _LIVE name to reset the live ladder.
+RankDefs.BOARD_RIVERSCORE_DEV = "Board_RiverScore_v1"
+RankDefs.BOARD_RIVERSCORE_LIVE = "Board_RiverScore_live_v1"
+RankDefs.BOARD_DISTANCE_DEV = "Board_BestDistance_v1"
+RankDefs.BOARD_DISTANCE_LIVE = "Board_BestDistance_live_v1"
+
+RankDefs.BOARD_RIVERSCORE = if RunService:IsStudio()
+	then RankDefs.BOARD_RIVERSCORE_DEV
+	else RankDefs.BOARD_RIVERSCORE_LIVE
+RankDefs.BOARD_DISTANCE = if RunService:IsStudio()
+	then RankDefs.BOARD_DISTANCE_DEV
+	else RankDefs.BOARD_DISTANCE_LIVE
 
 -- ascending by min score; the highest tier whose min ≤ score wins
 RankDefs.Tiers = {
