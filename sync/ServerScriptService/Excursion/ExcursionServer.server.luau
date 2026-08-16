@@ -218,7 +218,15 @@ local function prop(name: string, x: number, z: number, parent: Instance, opts: 
 	local scale = (CampDefs.SCALE[name] or 1) * (o.scale or 1)
 	if math.abs(scale - 1) > 1e-3 then
 		if clone:IsA("Model") then
-			clone:ScaleTo(scale)
+			-- ⚠️ `Model:ScaleTo` is ABSOLUTE, and a bare `ScaleTo(scale)` here is a bug waiting for the
+			-- next import. The 3D Importer BAKES a scale into the model it creates (`GoldChest` arrives at
+			-- `GetScale() = 6.0`, `Lantern` 2.0, `LogJam` 4.0, `Boar` 3.0), so `ScaleTo(0.65)` measured
+			-- against the RAW mesh and produced a 1.02-stud chest instead of a 6.14-stud one.
+			-- Multiply the current scale so `CampDefs.SCALE` always means "× how this model looks now",
+			-- which is what its own comment claims and what `CampAmbience`/`WeaponAssets` already do.
+			-- Safe for the existing entries: `Tent` and `RangerTower` both sit at `GetScale() = 1.0`, where
+			-- absolute and relative are identical.
+			clone:ScaleTo(clone:GetScale() * scale)
 		elseif clone:IsA("BasePart") then
 			clone.Size *= scale
 		end
@@ -968,7 +976,7 @@ end
 -- looks like. ⚠️ 95 instances, by far the heaviest model in the job — ONE per village, never per camp.
 local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	local padGround = groundAt(pos.X, pos.Z) -- ONE measurement for the whole pad
-	prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo })
+	local postModel = prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo })
 
 	-- The counter survives as an INVISIBLE anchor, so the shop prompt keeps its name, its reach and its
 	-- position in front of the building rather than being buried inside 95 parts of geometry.
@@ -980,7 +988,25 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	counter.CanCollide = false
 	counter.CanQuery = false
 
-	buildShopSign(pos + approach * 16 + Vector3.new(approach.Z, 0, -approach.X) * 7, pos + approach * 40, parent, padGround)
+	local lateral = Vector3.new(approach.Z, 0, -approach.X)
+	buildShopSign(pos + approach * 16 + lateral * 7, pos + approach * 40, parent, padGround)
+
+	-- A chest of gold OUT FRONT of the vendor, so the trading post reads as the place gold is SPENT
+	-- (Job #079). ⚠️ Dressing only — no prompt, no attribute, no Gold granted.
+	--
+	-- ⚠️ IT CANNOT SIT AT THE COUNTER. `counterPos` is only `approach * 10`, and `BahayKubo7` measures
+	-- **40×50 studs** — so the counter (an invisible prompt anchor, which does not care) is INSIDE the
+	-- building footprint, and the first version of this put the chest under the stilt house's deck where
+	-- nobody can see it. Measure the building and step outside it instead of picking a number.
+	local standoff = 26
+	if postModel and postModel:IsA("Model") then
+		local _, pext = (postModel :: Model):GetBoundingBox()
+		-- the box's half-extent along `approach` (its support function), + room for the chest and a margin
+		standoff = (math.abs(approach.X) * pext.X + math.abs(approach.Z) * pext.Z) / 2 + 7
+	end
+	-- opposite side from the shop sign, so the two landmarks flank the approach instead of stacking
+	local chestPos = pos + approach * standoff - lateral * 7
+	prop(CampDefs.MODEL.goldChest, chestPos.X, chestPos.Z, parent, { collide = true, faceTo = faceTo })
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ShopPrompt"

@@ -53,6 +53,14 @@ CampDefs.MODEL = {
 	-- it off in one edit if a real device complains.
 	tower = "RangerTower",
 	nugget = "GoldNugget", -- ⚠️ a bare MeshPart, not a Model — 2.0×1.3×1.4, CanCollide off
+	-- The FIXTURE for the perimeter practicals — 1 part, 1.86×3.80×1.58. Before this the camp's night
+	-- lights were invisible 1×1×1 anchors floating 4.5 studs up: light coming from nothing.
+	lantern = "Lantern",
+	-- ⚠️ PURE DRESSING, beside the trading-post counter — 1 part. It grants NOTHING and carries no prompt.
+	-- It is here to say "this is where gold is spent"; the game's only gold SOURCE is `trySpawnNugget`,
+	-- which is run-capped on purpose (see its header on the Dead Rails trap). Do not give this a prompt
+	-- without deciding a value, a rate and a cap first — that is an economy change, not an art change.
+	goldChest = "GoldChest",
 	dock = "Dock", -- 62 parts, 32×8×13
 	rockSmall = "RockA",
 	rockMid = "RockB",
@@ -69,6 +77,13 @@ CampDefs.SCALE = {
 	Tent = 0.42, -- → ~18×5×14: a two-person supply tent, smaller than the hut it stands beside
 	RangerTower = 0.85, -- → ~43 studs tall; still reads from the water, without dwarfing the camp
 	GoldNugget = 1.0, -- already resized to 2 studs on import — do not scale again (ASSETS.md §3.5)
+	-- → ~2.4 studs tall. A hurricane lantern is a carried object: at 1.0 it ships at 3.8 studs, which is
+	-- three-quarters of a player's height sitting on a barricade.
+	Lantern = 0.63,
+	-- → ~6.1×4.8×7.4. ⚠️ Its 9.44×7.36×11.40 bounding box is INFLATED by coins modelled loose on the
+	-- ground around it, so the chest body is smaller than the box implies — scale to how it reads beside
+	-- the counter, not to the numbers. Measured against a 2.90×4.60 `Barrel` and a 6.28×2.34 `CrateWood`.
+	GoldChest = 0.65,
 }
 
 -- ── Layout slots — { right, forward } in the approach frame ───────────────────────────────────────
@@ -237,6 +252,18 @@ CampDefs.VFX = {
 CampDefs.LIGHT = {
 	fire = { brightness = 2.6, range = 34, color = Color3.fromRGB(255, 170, 88), shadows = true },
 	perimeter = { brightness = 1.1, range = 20, color = Color3.fromRGB(255, 196, 130), shadows = false },
+	-- ⚠️ WHERE THE PERIMETER LANTERN STANDS, AND WHY THERE IS NO HEIGHT CONSTANT HERE.
+	-- The two perimeter practicals reuse `LAYOUT.sandbags[1]` and `[3]` — the SAME x/z as two sandbag
+	-- walls — so a lantern on the ground would stand inside the barricade. It sits on TOP of the wall,
+	-- which is where a camp would put one anyway.
+	-- A constant for that height was tried and REMOVED: `groundY + 5.30` (SandbagWall's 5.60 height less
+	-- `prop`'s 0.30 sink) floated every lantern exactly 1.0 stud, because `groundY` here is the ground
+	-- under the CAMPFIRE while each sandbag is seated on its own `groundAt(x, z)`. `CampAmbience.mountFor`
+	-- measures the wall instead. Do not reintroduce a height here.
+	--
+	-- Height of the flame inside the lantern, as a fraction of the fixture's height — the light belongs at
+	-- the glass, not at the base.
+	lanternFlame = 0.55,
 	interior = { brightness = 1.4, range = 16, color = Color3.fromRGB(255, 205, 148), shadows = false },
 	-- Flicker is one shared task over the tagged set, not a connection per fire.
 	flicker = { amplitude = 0.35, hz = 11 },

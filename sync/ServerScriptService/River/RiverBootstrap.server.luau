@@ -49,6 +49,15 @@ local OBSTACLES: { Obstacle } = {
 	-- A sandbar is a MOUND rising off the bed to just under the surface — which is what it looks like once
 	-- it is seated properly, and it also stops the old flat slab reading as a plank floating on the water.
 	{ name = "Sandbar", model = nil, seatOn = "bed", protrude = 0.4, submerge = 0, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+	-- A log JAM — tangled debris wedged across the channel, so it hits harder than the single `Log` but
+	-- not as hard as a boulder. Floats like the log, because that is what it is made of.
+	--
+	-- ⚠️ THE SIZE IS CHOSEN TO SURVIVE THE RANDOM YAW BELOW, not picked for looks alone. Single-mesh
+	-- obstacles are STRETCHED to this box (`m.Size = p.Size`) and then yawed by `math.noise`, so a box
+	-- whose X and Z differ wildly would present its narrow side across the river half the time and
+	-- distort the logs the rest. 14×6×11 is within ~10% of the mesh's own 7.59×3.78×5.44 proportions,
+	-- so it stretches almost uniformly and reads the same from any angle.
+	{ name = "LogJam", model = "LogJam", seatOn = "float", protrude = 0, submerge = 0.45, size = Vector3.new(14, 6, 11), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.72, damage = 16 },
 }
 
 -- Real obstacle art, looked up once. Missing library => greybox fallback, warned once, river still playable.

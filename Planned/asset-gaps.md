@@ -4,7 +4,8 @@ Read from `ASSETS.md`, the shared registry, and the live code — **not** from m
 the bible; this is a dated summary of what is still OPEN, ordered by what a player notices first.
 
 > ✅ **Recently closed:** all 6 creatures (Job #078), all 4 held weapons + the whole weapon audio set
-> (Job #079), dock camps / docks / trading posts (Job #077). None of those appear below.
+> (Job #079), dock camps / docks / trading posts (Job #077), camp night practicals + the river log jam
+> (Job #079, 2026-08-16). None of those appear below.
 
 ---
 
@@ -66,28 +67,39 @@ All local `.mp3`s with no registry entry. Uploading is the whole job for most of
 → ASSETS.md §2 already flags on-fire / destroyed / metal-hit as ❌ not uploaded. The three engine files
 may be alternates for the engine loop that is already wired — check before uploading duplicates.
 
-**Gun** (`assets/Objects/Gun/`)
+**Gun** (`assets/Objects/Gun/`) — <span style="color:#2e9c3f">✅ nothing left here</span>
 `gun_reload` · `gun_empty_clip` · `gun_shot_1_sec`
-→ ⚠️ `gun_shot` and `empty_gun` are **already uploaded and wired** (Job #079), so these three are
-alternates *except* `gun_reload`, which has no equivalent yet.
+→ All three are now **uploaded and wired** (Job #079): `gun_shot` `138178318678571`, `empty_gun`
+`75733077651437`, `gun_empty_clip` `135106168511714`, `gun_reload` `134765294816468` (the turret is the
+only weapon with a reload moment). These local files are alternates — leave them.
 
-## 4. 🟡 Boat upgrade models — 7 to generate
+## 4. 🟡 Boat upgrade models — 6 to generate
 
 Every purchasable boat module is still greybox (`ASSETS.md` §2):
 
 `motor2` (twin motors) · `hullkit` (reinforced hull) · `searchlight` rig · `fueltank` (extended) ·
-`trailer` (**cargo ON the rear deck — NOT a towed barge**) · `gunupgrade` (turret) · gold-chest buy-popup art
+`trailer` (**cargo ON the rear deck — NOT a towed barge**) · `gunupgrade` (turret)
 
 **Source:** Meshy. These are bought with real money, so they are the assets most worth spending on.
+
+> ⚠️ **"Gold-chest buy-popup art" was on this list and is now closed** — not by generating it, but
+> because it never existed as a gap: `Theme.productIcon` already carries real transparent PNGs for all
+> four gold packs and every pass, and the shop draws flat images, not 3D. The `GoldChest` model
+> generated for it became trading-post dressing in #079 instead.
+>
+> ⚠️ Boat upgrade **purchasing already works** — it was built in the lobby. `BoatParts` holds 18 real
+> MeshParts, named by art rather than by module id, which is why an earlier sweep wrongly reported it
+> missing. Only the 6 models above are greybox.
 
 ## 5. 🟡 World set-pieces
 
 | Item | Note |
 |---|---|
-| Waterfalls, ramps, dam blockages | ASSETS.md §3 "Set-pieces — ▫ stub". River variety beyond obstacles |
-| Zone dressing / day-night set-pieces | per-zone props + lighting; 4 zones exist in code |
-| Lobby lanterns | §1 says the signpost is built but *"Lanterns still ▫ (need props)"* |
-| Plane-crash intro visuals | the cold open is scripted but has no bespoke art |
+| Waterfalls, ramps | ⚠️ **neither is Meshy work** — waterfalls are terrain + VFX, ramps need a design decision first |
+| ~~Dam blockages~~ | <span style="color:#2e9c3f">✅ closed (#079)</span> — `LogJam` is live as the 4th river obstacle |
+| Zone dressing / day-night set-pieces | per-zone props + lighting; 4 zones exist in code. **Needs a spec before generating anything** |
+| Lobby lanterns | §1 says the signpost is built but *"Lanterns still ▫ (need props)"*. ⚠️ **The `Lantern` model wired in #079 is in the GAME place** — the lobby is a separate place file and needs its own import |
+| Plane-crash intro visuals | the cold open is scripted but has no bespoke art (2D) |
 
 ## 6. 🟢 Enemies — only the Anaconda
 

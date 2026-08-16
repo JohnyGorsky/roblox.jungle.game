@@ -23,6 +23,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampDefs"))
+-- for `worldBottom` — seating the lantern on the sandbag line by its true base rather than its pivot
+local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
 
 local CampAmbience = {}
 
@@ -67,9 +69,136 @@ function CampAmbience.positionalSound(
 	return s
 end
 
+-- The lantern FIXTURE, looked up once. Missing library => `practical` falls back to its invisible anchor
+-- and the camp is lit exactly as it was before, which is the everything-degrades rule this codebase runs
+-- on: no art must ever mean no light.
+local lanternSource: PVInstance? = nil
+do
+	local lib = game:GetService("ServerStorage"):FindFirstChild("AssetLibrary")
+	if lib then
+		for _, group in ipairs(lib:GetChildren()) do
+			local m = group:FindFirstChild(CampDefs.MODEL.lantern)
+			-- BaseParts too, not only Models — the library stores some assets as lone MeshParts
+			if m and (m:IsA("Model") or m:IsA("BasePart")) then
+				lanternSource = m :: PVInstance
+				break
+			end
+		end
+	end
+end
+
+-- The highest point of an instance's parts, in world Y.
+local function topOf(inst: PVInstance): number?
+	local maxY = -math.huge
+	local parts = inst:GetDescendants()
+	table.insert(parts, inst) -- a MeshPart prop IS the part
+	for _, d in ipairs(parts) do
+		if d:IsA("BasePart") then
+			maxY = math.max(maxY, d.Position.Y + d.Size.Y / 2)
+		end
+	end
+	return if maxY > -math.huge then maxY else nil
+end
+
+-- 🔴 WHAT THE PERIMETER LANTERN STANDS ON — MEASURED, NOT CALCULATED.
+--
+-- The obvious version of this was `params.groundY + <sandbag height>`. It put every lantern exactly
+-- 1.0 stud in the air, because those two numbers come from different places: `prop` seats each sandbag
+-- on its OWN `groundAt(x, z)` raycast, while `params.groundY` is the ground under the CAMPFIRE. On
+-- anything but perfectly flat ground they disagree, and the camp floor is carved terrain, not a plane.
+--
+-- This is the same footprint-vs-point mistake `FoliageDefs` documents at length. The fix is the same:
+-- stop predicting where the wall ended up and go and measure the wall.
+local function mountFor(parent: Instance, x: number, z: number, fallbackY: number): number
+	local best, bestD = nil, math.huge
+	for _, d in ipairs(parent:GetChildren()) do
+		if d.Name == CampDefs.MODEL.sandbag and d:IsA("PVInstance") then
+			local p = d:GetPivot().Position
+			local flat = (Vector3.new(p.X, 0, p.Z) - Vector3.new(x, 0, z)).Magnitude
+			if flat < bestD then
+				best, bestD = d, flat
+			end
+		end
+	end
+	-- Only accept a wall actually AT this slot. `kind.sandbags = false` builds a camp with none at all,
+	-- and the nearest one then belongs to a different slot 19 studs away.
+	if best and bestD < 6 then
+		local t = topOf(best :: PVInstance)
+		if t then
+			return t
+		end
+	end
+	-- No wall here: stand it on the ground, measured at this x/z rather than borrowed from the campfire.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	params.IgnoreWater = true
+	local hit = Workspace:Raycast(Vector3.new(x, fallbackY + 40, z), Vector3.new(0, -120, 0), params)
+	return if hit then hit.Position.Y else fallbackY
+end
+
+-- Builds the lantern that a perimeter light shines OUT of, standing with its base at `baseY`.
+-- Returns the flame position for the caller to hang the `PointLight` at, or nil if there is no art.
+local function lanternFixture(x: number, z: number, baseY: number, parent: Instance): Vector3?
+	if not lanternSource then
+		return nil
+	end
+	local c = lanternSource:Clone()
+	local parts = c:GetDescendants()
+	table.insert(parts, c) -- a MeshPart source IS the part; it has no BasePart descendants
+	for _, d in ipairs(parts) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			-- Dressing on top of a barricade you fight over: a collidable one would snag players and
+			-- bullets on a 2-stud prop.
+			d.CanCollide = false
+			d.CastShadow = false
+		end
+	end
+
+	local scale = CampDefs.SCALE[CampDefs.MODEL.lantern] or 1
+	if math.abs(scale - 1) > 1e-3 then
+		if c:IsA("Model") then
+			c:ScaleTo(c:GetScale() * scale)
+		elseif c:IsA("BasePart") then
+			c.Size *= scale
+		end
+	end
+
+	c.Name = "Lantern"
+	c:PivotTo(CFrame.new(x, baseY, z))
+	-- Seat it on the mount by its TRUE base, not its pivot: an imported mesh's origin is wherever the
+	-- publisher left it, so pivoting to `baseY` alone would sink or float the lantern by an unknown amount.
+	local bottom = FoliageDefs.worldBottom(c)
+	if bottom then
+		c:PivotTo(c:GetPivot() + Vector3.new(0, baseY - bottom, 0))
+	end
+	c.Parent = parent
+
+	local height = if c:IsA("Model") then select(2, c:GetBoundingBox()).Y else (c :: BasePart).Size.Y
+	return Vector3.new(x, baseY + height * CampDefs.LIGHT.lanternFlame, z)
+end
+
 -- A warm practical. Tagged `NightLight`, so `LightController` — not this module — owns `Enabled`.
-local function practical(pos: Vector3, parent: Instance, def: { brightness: number, range: number, color: Color3, shadows: boolean }, name: string)
-	local a = anchor(name, Vector3.one, CFrame.new(pos), parent)
+--
+-- `mount` is the world Y the FIXTURE stands on. Pass it and the light gets a real lantern to come out of,
+-- positioned at that lantern's glass; omit it and the light hangs on an invisible anchor at `pos` exactly
+-- as it did before Job #079 (which is what the hut's interior light still wants — see the call site).
+local function practical(
+	pos: Vector3,
+	parent: Instance,
+	def: { brightness: number, range: number, color: Color3, shadows: boolean },
+	name: string,
+	mount: number?
+)
+	local lightPos = pos
+	if mount then
+		local flame = lanternFixture(pos.X, pos.Z, mount, parent)
+		if flame then
+			lightPos = flame
+		end
+	end
+	local a = anchor(name, Vector3.one, CFrame.new(lightPos), parent)
 	local l = Instance.new("PointLight")
 	l.Name = "Light"
 	l.Brightness = def.brightness
@@ -156,9 +285,22 @@ function CampAmbience.dress(params: DressParams)
 	local perim = CampDefs.LIGHT.perimeter
 	for _, slot in ipairs({ CampDefs.LAYOUT.sandbags[1], CampDefs.LAYOUT.sandbags[3] }) do
 		local at = CampDefs.slotToWorld(centre, params.approach, slot)
-		practical(Vector3.new(at.X, params.groundY + 4.5, at.Z), parent, perim, "PerimeterLight")
+		-- The lantern stands on the sandbag wall these slots also place — `mountFor` measures that wall
+		-- rather than assuming where it landed. The +4.5 stays as the no-art fallback height, so a place
+		-- file without the `Lantern` model lights the camp exactly as Job #077 did.
+		practical(
+			Vector3.new(at.X, params.groundY + 4.5, at.Z),
+			parent,
+			perim,
+			"PerimeterLight",
+			mountFor(parent, at.X, at.Z, params.groundY)
+		)
 	end
 	if params.hutPos then
+		-- ⚠️ NO FIXTURE HERE, DELIBERATELY. This one hangs 6 studs up inside a hut, where there is no
+		-- surface to stand a lantern on — a lantern floating under a roof with nothing holding it looks
+		-- worse than a light with no visible source, and you are rarely inside the hut to see it. It
+		-- wants a hook or a rafter modelled first.
 		practical(params.hutPos + Vector3.new(0, 6, 0), parent, CampDefs.LIGHT.interior, "HutLight")
 	end
 end

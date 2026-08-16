@@ -1,4 +1,14 @@
-# Job #079 — STATUS / session handoff (2026-08-16)
+# Job #079 — STATUS / session handoff
+
+> ⚠️ **SUPERSEDED 2026-08-16 — the job is COMPLETE.** Read
+> [`final-summary.md`](final-summary.md) instead. Everything below was written mid-job, before the three
+> GLBs were imported and wired; §3 ("NEXT STEP — import 3 models") is **done**, and its guess that
+> `GoldChest` would become camp hero loot turned out to be **wrong** (the hero slot is a resource crate
+> carrying Gasoline/Metal/Ammo — the chest is trading-post dressing instead). Kept for the history.
+
+---
+
+# (superseded) Job #079 — STATUS / session handoff (2026-08-16)
 
 **Project**: `roblox.jungle` · **Job**: #079 Axe melee weapon → grew to *all four held items* + all weapon audio
 

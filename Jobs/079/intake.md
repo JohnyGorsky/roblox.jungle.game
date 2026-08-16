@@ -2,7 +2,8 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-15
-**Status**: **Audited + decided — ready to plan.** Scope grew to ALL FOUR held items; see "Decisions".
+**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-16)</span> — see `final-summary.md`.
+Scope grew from one axe to ALL FOUR held items, then all weapon audio, then three Meshy props.
 
 ## Requirements / goal
 
@@ -17,7 +18,8 @@ gave Jungle its Wolf, Bandit and Boar for zero credits in Job #078.
 - [x] Open questions answered (wizard) — see "Decisions taken"
 - [x] Implementation plan — folded into the intake; scope was small enough to build directly
 - [x] Implementation completed — all four held items real, verified in Play
-- [ ] Final summary + changelog written
+- [x] Scope extension (2026-08-16): `Lantern`, `LogJam`, `GoldChest` imported and wired, verified in Play
+- [x] Final summary + changelog written
 
 ---
 

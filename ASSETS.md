@@ -479,9 +479,10 @@ never the deck, engines, seats or stations.
 | Area | Items | Status |
 |---|---|---|
 | **River foliage — 3 bands** | reuse the §1.1 set, banded by distance from the water | **planned — Job #076** · see §3.4 |
-| Obstacles | rocks, logs, sandbars, wreck debris | **Job #076** — `RockA/B/C` + `LogMossy` replace the greybox boxes |
+| Obstacles | rocks, logs, sandbars, wreck debris | **Job #076** — `RockA/B/C` + `LogMossy` replace the greybox boxes. **Job #079** adds a 4th type, `LogJam` (Meshy) — a floating debris tangle, slow 0.72 / dmg 16, between `Log` and `Rock` |
 | **Dock camps / trading villages** | tents, crates, sandbags, stilt huts, campfire | **planned — Job #077** · see §3.5 |
-| Set-pieces | waterfalls, ramps, dam blockages | ▫ stub |
+| Set-pieces | waterfalls, ramps, dam blockages | ▫ stub — **`LogJam` (#079) covers "dam blockages"** as a river obstacle; waterfalls and ramps remain open, and neither is Meshy work (terrain + VFX / a design decision) |
+| Camp night practicals | lantern fixtures on the perimeter | <span style="color:#2e9c3f">✅ done (#079)</span> — `Lantern` (Meshy) on the sandbag line; see §3.6 |
 | Docks / piers (river) | reuse `AssetLibrary/Structures/Dock` | **Job #077** — replaces `DockServer`'s plank Deck |
 | Zone dressing / day-night set-pieces | per-zone props + lighting | ▫ stub |
 | **GAME-place ambient rig** | lighting + water + soundscape | <span style="color:#2e9c3f">✅ done (#073)</span> — see §3.1 |
@@ -566,6 +567,56 @@ y=26 and Snow above y=40 unchanged.
 > greybox. `PalmCurved` + `PalmTall` are **2,875 of that — over half the budget from ~45 objects.** If a
 > real device complains they are the first lever, and swapping them for MeshPart palms later is one line
 > per band-table entry. That is why we deliberately did NOT source replacements now.
+
+## 3.6 Camp night practicals + the river log jam (Job #079 — ✅ BUILT & VERIFIED 2026-08-16)
+
+Two Meshy models, imported to `ServerStorage.AssetLibrary.Props`, both **1 BasePart**.
+
+| Model | Where it is used | Scale | Notes |
+|---|---|---|---|
+| `Lantern` | `CampAmbience` perimeter practicals — 2 per camp | **0.63** → 2.39 studs | ships at 3.80 studs, three-quarters of a player's height |
+| `LogJam` | `RiverBootstrap.OBSTACLES` — 4th obstacle type | stretched to the trigger | floats, `submerge 0.45`, slow **0.72** / damage **16** |
+
+### The camps had lights with nothing making the light
+
+Job #077 lit each camp with three `PointLight`s on **invisible 1×1×1 anchors floating 4.5 studs up**.
+The `Lantern` gives the two perimeter ones a real fixture, with the light at the glass (`lanternFlame
+0.55` up the model). The hut's interior light is **deliberately left bare** — it hangs 6 studs up inside
+a hut with no surface to stand a lantern on, and a lantern floating under a roof looks worse than an
+unexplained glow. It wants a modelled hook or rafter first.
+
+### 🔴 The bug this shipped with, and the rule that follows from it
+
+The perimeter practicals reuse `LAYOUT.sandbags[1]` and `[3]` — the **same x/z as two sandbag walls** —
+so the lantern has to sit on TOP of the wall (on the ground it would be inside the barricade).
+
+The first version computed that height as a constant: `groundY + 5.30`, from `SandbagWall`'s measured
+5.60 height less `prop`'s 0.30 sink. **Every lantern floated exactly 1.0 stud.** The arithmetic was
+right and the inputs were wrong — `prop` seats each sandbag on its OWN `groundAt(x, z)` raycast, while
+`params.groundY` is the ground under the **campfire**. Carved camp floors are not flat, so the two
+disagree by a stud.
+
+> ⚠️ **Do not reintroduce a mount-height constant.** `CampAmbience.mountFor` finds the actual
+> `SandbagWall` at the slot and measures its top, falling back to a terrain raycast at that x/z when the
+> camp has no sandbags (`kind.sandbags = false`). Verified: 4/4 fixtures seated, worst gap **0.000**.
+
+This is the same footprint-vs-point mistake `FoliageDefs` documents at length, in a new disguise: *don't
+predict where another system put something — go and measure it.*
+
+### ⚠️ Verifying anything at a camp: streaming follows the CHARACTER, not the camera
+
+Three screenshots during this job showed "no lantern" and were **all invalid**. `StreamingEnabled` is on,
+and moving only the client camera to the camp leaves the client with **0 BaseParts** for that whole
+landing site — the replication focus is the character, 2,000 studs away at the spawn base. The camp
+still *appeared* to render, which is what made it convincing.
+
+> **Move the character, wait, then confirm the client actually has the parts** (`939` for a landing site)
+> before trusting any in-game screenshot. `WorldToViewportPoint` reporting "onScreen, clear line of
+> sight" does **not** mean the thing exists client-side.
+
+Also worth knowing: teleporting the player into a camp gets them downed by the guards within seconds,
+and the "YOU ARE DOWN" panel sits exactly over the middle of the screen. Stand ~120 studs off — outside
+the 55-stud guard leash, inside the streaming radius.
 
 ## 3.5 Dock camps & trading villages (Job #077 — ✅ BUILT & VERIFIED 2026-08-15)
 
