@@ -294,6 +294,44 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 		-- and the greybox puts its Snout at -Z; a model authored facing +Z swims backwards.
 		local yaw = math.rad((art and art.yawOffset) or 0)
 		visual:PivotTo(body.CFrame * CFrame.Angles(0, yaw, 0))
+
+		-- 🔴 Job #088: STAND A LAND CREATURE ON ITS FEET, don't bury it.
+		--
+		-- The pivot goes to the hitbox CENTRE, which is only correct if the rig's pivot happens to sit at
+		-- its own vertical middle. The Wolf's does not: measured at 1.71 × 4.23 × 6.22 authored (× 1.3 =
+		-- 5.50 tall) with its pivot 0.69 ABOVE the bounding-box centre. Against a 4-tall hitbox centred at
+		-- ground + 2, that put the rig's feet at ground − 1.44 — a quarter of the wolf underground.
+		--
+		-- It was ALWAYS mis-seated; over water it read as "swimming", which is why the first report of it
+		-- was a wolf apparently swimming. Job #086 put wolves on land at camps, and it became a wolf
+		-- buried to the shoulders.
+		--
+		-- ⚠️ LAND ONLY. Sea creatures are deliberately half-submerged at the water line — seating a
+		-- crocodile on its "feet" would lift it clean out of the river.
+		--
+		-- Measured from the model rather than hand-tuned per creature, so a re-scaled or re-imported rig
+		-- stays seated without anyone remembering to update a magic number. `art.yOffset` remains
+		-- available on top for deliberate art nudges.
+		-- `visual` is a Model for the rigs and a plain MeshPart for the single-mesh creatures, so the
+		-- bottom is measured whichever way applies.
+		if def.category == "land" then
+			local visualBottom: number? = nil
+			if visual:IsA("Model") then
+				local vcf, vsize = visual:GetBoundingBox()
+				visualBottom = vcf.Position.Y - vsize.Y / 2
+			elseif visual:IsA("BasePart") then
+				visualBottom = visual.Position.Y - visual.Size.Y / 2
+			end
+			if visualBottom then
+				local hitboxBottom = body.Position.Y - body.Size.Y / 2
+				local lift = hitboxBottom - visualBottom
+				local nudge = (art and (art :: any).yOffset) or 0
+				if math.abs(lift) > 0.01 or nudge ~= 0 then
+					visual:PivotTo(visual:GetPivot() + Vector3.new(0, lift + nudge, 0))
+				end
+			end
+		end
+
 		visual.Parent = model
 	else
 		-- greybox fallback, unchanged from Jobs 006→009

@@ -179,6 +179,45 @@ local function nearestSwimmer(pos: Vector3): BasePart?
 	return best
 end
 
+-- ── Job #088: who is ASHORE right now ─────────────────────────────────────────────────────────────
+-- The land counterpart to `swimmers`, and it exists for the same reason: rebuilt ONCE per Heartbeat,
+-- before the enemy loop, because up to 7 land creatures ask the same question every frame.
+--
+-- Land creatures used to target the boat and nothing else — the old comment reasoned that they are
+-- leashed to a bank and "cannot cross open water to reach a swimmer anyway", which is true of a
+-- SWIMMER and quietly wrong about someone standing on the bank right next to them. Reported in play
+-- as "why do boars just follow on shore?": going ashore made you SAFER than staying aboard, because
+-- the only thing a boar wanted was a hull it could no longer wade out to.
+--
+-- "Ashore" is simply "not swimming" — a player on the bank, in a camp, or on the boat's deck. The
+-- deck case is harmless: a creature already prefers whichever is nearer, and someone on deck is at
+-- the boat's position anyway.
+local ashore: { BasePart } = {}
+
+local function refreshAshore()
+	table.clear(ashore)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if root and char and hum and not char:GetAttribute("Downed") and hum:GetState() ~= Enum.HumanoidStateType.Swimming then
+			table.insert(ashore, root)
+		end
+	end
+end
+
+local function nearestAshore(pos: Vector3): BasePart?
+	local best: BasePart? = nil
+	local bestD = math.huge
+	for _, root in ashore do
+		local d = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
+		if d < bestD then
+			best, bestD = root, d
+		end
+	end
+	return best
+end
+
 local function flatDist(a: Vector3, b: Vector3): number
 	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
 end
@@ -323,17 +362,21 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 	st.biteTimer += dt
 
-	-- ── Job #084: pick the target ─────────────────────────────────────────────────────────────────
-	-- Sea creatures take the NEARER of {the boat, the nearest swimmer}. Land creatures stay on the boat:
-	-- they are leashed to a bank anchor and cannot cross open water to reach a swimmer anyway.
+	-- ── Job #084 / #088: pick the target ──────────────────────────────────────────────────────────
+	-- Both categories take the NEARER of {the boat, the nearest reachable PERSON}. They differ only in
+	-- which people they can reach:
+	--   · SEA  — swimmers (Job #084). Swimming stopped being a free safe route.
+	--   · LAND — anyone ashore (Job #088). The old code targeted the boat and NOTHING else, reasoning
+	--     that a bank-leashed creature "cannot cross open water to reach a swimmer anyway". True of a
+	--     swimmer, and quietly wrong about someone standing on the bank beside it — so stepping ashore
+	--     made you SAFER than staying aboard, and boar just paced the shoreline following the hull.
+	--     Reported in play as "why do boars just follow on shore?".
 	local targetPos, targetVel = boatPos, hull.AssemblyLinearVelocity
-	local huntingSwimmer = false
-	if def.category == "sea" then
-		local sw = nearestSwimmer(pos)
-		if sw and flatDist(sw.Position, pos) < flatDist(boatPos, pos) then
-			targetPos, targetVel = sw.Position, sw.AssemblyLinearVelocity
-			huntingSwimmer = true
-		end
+	local huntingPerson = false
+	local person = if def.category == "sea" then nearestSwimmer(pos) else nearestAshore(pos)
+	if person and flatDist(person.Position, pos) < flatDist(boatPos, pos) then
+		targetPos, targetVel = person.Position, person.AssemblyLinearVelocity
+		huntingPerson = true
 	end
 
 	local dist = flatDist(targetPos, pos)
@@ -367,7 +410,7 @@ local function tickEnemy(enemy: Model, dt: number)
 
 	if def.category == "sea" then
 		if chasing then
-			if huntingSwimmer then
+			if huntingPerson then
 				-- Straight at the person. FLANK_DIST exists to stop crocs surfacing UNDERNEATH the
 				-- hull; applied to a swimmer it would make them circle just out of reach instead of
 				-- closing. Stop at bite range rather than 2 studs so they don't swim through them.
@@ -400,7 +443,11 @@ local function tickEnemy(enemy: Model, dt: number)
 		st.biteTimer = 0
 		EnemyRig.playOnce(enemy, "attack")
 		EnemyRig.playSound(enemy, "attack")
-		applyBite(def, pos, not huntingSwimmer)
+		-- ⚠️ `canHitBoat = not huntingPerson`. A creature that closed on a PERSON must not fall through
+		-- and damage the hull instead when its victim slips out of reach (Job #084's reasoning, which
+		-- now covers land creatures hunting someone ashore too — a boar biting you on the bank is not
+		-- also chewing a boat 80 studs away).
+		applyBite(def, pos, not huntingPerson)
 	end
 end
 
@@ -479,6 +526,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- Job #084: both of these are the SAME for every creature this frame, so they are resolved once
 	-- here rather than recomputed inside `tickEnemy` up to 17 times.
 	refreshSwimmers()
+	refreshAshore() -- Job #088: the land counterpart, same once-per-frame reason
 	tiedNow = boat:GetAttribute("Tied") == true
 	for _, enemy in CollectionService:GetTagged("Enemy") do
 		if enemy:IsA("Model") and enemy.Parent == Workspace then

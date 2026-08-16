@@ -612,7 +612,12 @@ local function makeCarried(root: BasePart, resource: string): Model
 	if source and source:IsA("Model") then
 		carried = source:Clone()
 		carried:ScaleTo(0.5) -- shoulder-sized, not the full camp barrel
-		carried:PivotTo(root.CFrame * CFrame.new(0, 3, 0))
+		-- Job #088: ON THE BACK, not balanced on the head. This was `(0, 3, 0)` — three studs straight up
+		-- from the root, which put a rusted barrel on top of the player's hat.
+		-- ⚠️ +Z is BEHIND: `HumanoidRootPart.CFrame.LookVector` is the way the character faces (−Z), so a
+		-- positive Z offset sits between the shoulder blades. Tilted back slightly so it reads as slung
+		-- and carried rather than stuck on.
+		carried:PivotTo(root.CFrame * CFrame.new(0, 0.6, 1.3) * CFrame.Angles(math.rad(-12), 0, 0))
 	else
 		-- The library is missing (unsaved place file). Still give the player something to carry rather
 		-- than an invisible haul — the Busy/deposit flow depends on this object existing.
@@ -622,7 +627,7 @@ local function makeCarried(root: BasePart, resource: string): Model
 		box.Size = Vector3.new(3, 3, 3)
 		box.Color = Color3.fromRGB(150, 120, 70)
 		box.Material = Enum.Material.WoodPlanks
-		box.CFrame = root.CFrame * CFrame.new(0, 2.5, 0)
+		box.CFrame = root.CFrame * CFrame.new(0, 0.6, 1.6) -- Job #088: back, not head (matches the model path)
 		box.Parent = carried
 		carried.PrimaryPart = box
 	end
