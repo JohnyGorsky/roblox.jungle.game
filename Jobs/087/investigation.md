@@ -1,126 +1,290 @@
-# Job #087 — Boat ride quality: investigation notes
+# Job #087 — Boat ride quality: diagnosis
 
 **Project**: `roblox.jungle`
-**Status**: In progress — measured on the live Studio server 2026-08-16
-**Deliverable**: diagnosis + options. No code changes until a direction is approved.
+**Status**: ✅ Diagnosis complete — awaiting a decision on direction. **No code changed.**
+**Measured**: live Studio game place, 2026-08-16, user driving
 
 ---
 
-## Measurements taken (live game place, Studio server)
+## Verdict
 
-### At rest — the physics is clean
+**The boat's physics is smooth. What you are seeing is the client rendering a pose it never
+simulated.** Under identical steady-cruise conditions the server holds 50.7–53.2 studs/s while the
+client's *rendered position* lands, on average, half a frame's travel away from where the boat's own
+velocity says it should be — and at worst seven frames' worth away, in a single frame.
 
-```
-mass = 991          awakeParts = 60      physFPS = 59.9
-networkOwner = nil (server)              Tied = false   Anchored = false
-Y      peak-to-peak over 2s = 0.000 studs
-velY   min -0.003  max 0.004             (numerical noise, not oscillation)
-```
-
-**The buoyancy spring is not the problem.** A mistuned spring-damper would show as a standing
-oscillation in `Y` even at rest, and there is none — the hull is dead flat to three decimal places.
-
-This is consistent with the code: `BoatServer.server.luau:316-318` applies the damping term
-**outside** the up-only `math.max(spring, 0)` clamp, and the buoyancy cutoff is `WATER_Y + 12`, far
-above any bob amplitude. Both of the buoyancy traps recorded in the `roblox-physics` skill (both
-learned on this very boat) are already correctly handled. Ruled out.
-
-### Configuration found
-
-```
-StreamingEnabled          = true
-InterpolationThrottling   = Default
-Gravity                   = 196.2
-Hull  Size 14×3×32   density 0.70   AssemblyMass 991   EnableFluidForces = TRUE
-Hull movers  VectorForce:Buoy, :Thrust, :Current, :Drag   AlignOrientation:Level
-assembly parts = 61
-anchored parts inside Boat = 3  { GunBarrel, SearchlightHead, Skin_searchlightHead }
-```
-
-### Still needed
-
-A **moving** sample: client-rendered frame-to-frame displacement while the boat is under way, to
-separate "the simulation is unsteady" from "the simulation is fine and the client is seeing it
-badly". Attempted; timed out because the boat was never driven above 4 studs/s during the window.
+The hull is server-owned by deliberate design, so the driver's machine never simulates the boat. It
+receives periodic snapshots and reconciles. At 52 studs/s those corrections are large enough to see.
 
 ---
 
-## Candidate causes, ranked
+## Measurements
 
-### 1. Server ownership → the driver never simulates their own boat *(prime suspect)*
+### 1. At rest — the simulation is clean
 
-`BoatServer.server.luau:268` sets `hull:SetNetworkOwner(nil)`, and the Heartbeat loop at `:284-300`
-**re-grabs** server ownership every frame whenever a client takes it. Confirmed live:
-`networkOwner = nil`.
+```
+Y peak-to-peak over 2s = 0.000 studs      velY noise = ±0.004
+mass 991   awakeParts 60   physFPS 59.9   networkOwner = nil (server)
+```
 
-That was a deliberate, well-reasoned decision (Job 003 review, 2026-07-18) and the reasoning is
-recorded in the `roblox-physics` skill as a verified Jungle lesson: buoyancy is computed in a server
-loop, and **a server-computed force on a client-owned body is a delayed-feedback loop** — the spring
-pumps energy and the boat bounces higher and higher. That is real and it must not be re-broken.
+Rules out the buoyancy spring. A mistuned spring-damper would stand and oscillate. It does not.
+Consistent with the code: damping is applied **outside** the up-only `math.max(spring, 0)` clamp
+(`BoatServer:316-318`) and the cutoff sits at `WATER_Y + 12`, far above any bob. Both buoyancy traps
+recorded in the `roblox-physics` skill — both learned on this boat — are already handled correctly.
 
-But it has a cost that was never priced in: the driver sees their own vehicle only through
-replication. Every other smooth-driving Roblox vehicle hands network ownership to the driver so the
-vehicle simulates locally at the client's frame rate with zero input latency. Server-owned means:
+### 2. Under way, server side, mid-channel at steady throttle — also clean
 
-- **input latency** — throttle → server → force → physics → replicate back → render;
-- **interpolation artefacts** — the hull's pose arrives in discrete updates and is smoothed by the
-  engine, not simulated;
-- **the rider mismatch** — the player's own character *is* client-owned and simulates locally, while
-  the platform under their feet arrives interpolated. A locally-simulated character standing on a
-  remotely-simulated platform is a classic source of foot jitter and micro-vibration.
+```
+SPEED      min 50.7  max 53.2  avg 52.3      (5% variation)
+HEIGHT     range 0.53 studs
+sharpest deceleration in one step: -0.20 studs/s
+touching = 0 at all times;  0 of 344 frames within 20 studs of a bank
+```
 
-The third point deserves emphasis because it matches the reported symptom ("it vibrates somehow")
-better than input latency does, and it is invisible to any server-side measurement.
+Rules out bank scraping, obstacle collisions, and force instability. An earlier sample showed speed
+dipping to 8.7 studs/s, but that was during acceleration and manoeuvring, not steady cruise.
 
-**The trade-off to resolve is not "which is better" but "how do we get local simulation without
-re-creating the feedback loop".** The standard answer is to move the force computation to the owner:
-if the driver owns the hull, the buoyancy/thrust/drag loop must run on the driver's client, with the
-server validating rather than driving. That is a real redesign, not a toggle.
+### 3. Under way, client side, **same conditions** — this is the fault
 
-### 2. `InterpolationThrottling = Default` *(cheap to test, possibly significant)*
+```
+SPEED (client)      avg 52.09   min 50.88   max 52.94   std-dev 1.4%
+   -> velocity replicates FAITHFULLY; it matches the server almost exactly
 
-This property governs how aggressively the engine throttles the smoothing of replicated parts. Under
-load it *reduces* interpolation quality — and because the boat is server-owned, the boat is precisely
-a replicated part. `Disabled` forces full interpolation.
+POSITION RESIDUAL vs the boat's own constant-velocity prediction
+   avg 0.4726 studs   max 7.1258   std-dev 0.6895
+   as % of per-frame travel (0.95 studs):   avg 49.7%   max 749.6%
 
-This does not fix input latency, and it is not a substitute for #1, but if the vibration is partly a
-throttled-interpolation artefact it is a one-property change. Worth measuring before anything else
-because it costs nothing to try.
+RENDERED YAW change per frame   avg 0.403°   max 3.956°
+```
 
-### 3. `EnableFluidForces = true` on the hull *(likely contributor to "clumsy", not to "vibrates")*
+The velocity stream is clean. The **pose** is not. And the yaw figure is the clearest single proof:
+3.956° in one frame at 55 fps is **218°/s**, while the boat's maximum turn rate is `TURN = 0.8 rad/s`
+= **46°/s**. The boat cannot physically rotate that fast. That rotation was never simulated — it is a
+correction being applied to the render.
 
-The engine applies its own aerodynamic drag **and torque** to the hull, on top of the custom `Drag`
-VectorForce at `:374`. On a 14×3×32 slab that is a substantial, orientation-dependent force the
-tuning never accounted for — and because it produces torque as well as drag, it fights the
-`AlignOrientation` during banked turns. Most vehicle recipes turn it off and do their own drag.
+### 4. What the middle measurement did *not* show
 
-The custom drag is horizontal-only by design (`:374`, "Y left to buoyancy"); the engine's fluid force
-is not, so it also injects vertical force the buoyancy spring then has to absorb.
+An intermediate sample found the pose changing on 97% of frames (~56 Hz against 58 fps) and I briefly
+concluded replication was healthy. **That was wrong.** "The pose changed" and "the pose changed to a
+correct value" are different questions; only measurement 3 separates them. Recorded here because the
+same trap will catch the next person: a high update rate is not evidence of smoothness.
 
-### 4. Forces are applied in `Heartbeat` (post-simulation), not `PreSimulation`
+### 5. Incidental findings
 
-`RunService.Heartbeat:Connect` at `:284` computes and writes every force **after** the frame's
-physics step, so each force value is one frame stale relative to the step it affects. For a stiff
-spring this adds phase lag. Worth checking against the current Creator Docs guidance on where vehicle
-force updates belong — but it is a refinement, not the headline, and the at-rest measurement shows it
-is not currently destabilising anything.
-
-### 5. Ruled out
-
-- **Buoyancy spring tuning** — 0.000 studs peak-to-peak at rest (see above).
-- **Assembly splitting by anchored parts** — the three anchored parts (`GunBarrel`,
-  `SearchlightHead`, `Skin_searchlightHead`) are *not* welded into the hull assembly, so they are not
-  splitting it. They are independent CFrame-driven parts. That is a separate visual bug, `todo/0047`.
-- **Physics throttling / step rate** — `physFPS = 59.9` with 60 awake parts; the simulation is not
-  starved.
+- `ThrustMul = 1.625`, `CurrentMul = 0.85` — cruising at 52 studs/s against a base design cap of
+  `THRUST/DRAG = 30` is **engine upgrades working**, not a bug.
+- `EnableFluidForces = true` on the hull: the engine applies its own aerodynamic drag *and torque* to
+  a 14×3×32 slab, on top of the custom `Drag` VectorForce, and unlike that force it is not
+  horizontal-only. Not the cause of the snapping, but an untuned force nobody accounted for, and a
+  likely contributor to the "clumsy" half of the complaint.
+- `StreamingEnabled = true` with the boat covering ground at 52 studs/s — worth keeping in mind as a
+  source of occasional hitches, though it cannot explain a sustained 50% residual.
 
 ---
 
-## Next steps
+## Why it is this way (and why the reason was good)
 
-1. Capture the moving sample (needs the boat driven for ~10s).
-2. Compare client-rendered displacement against server-reported velocity in the same window — this is
-   the measurement that distinguishes cause #1 from cause #2.
-3. Consult the Creator Docs on network ownership for driven vehicles and on `InterpolationThrottling`
-   before proposing, per the job's method note.
-4. Write the diagnosis + options for approval.
+`BoatServer:268` claims `SetNetworkOwner(nil)` and the Heartbeat loop at `:284-300` re-grabs it every
+frame whenever a client takes it. From the Job 003 review, 2026-07-18, and recorded in the
+`roblox-physics` skill as a verified lesson from this very boat:
+
+> **Server-computed force on a client-owned body = delayed-feedback instability.** If a server loop
+> computes a force from the body's position/velocity (a buoyancy spring-damper), the body MUST be
+> server-owned — otherwise the server reads lagged replicated state and applies the force a round
+> trip late, so the spring pumps energy instead of removing it and the boat bounces higher and higher.
+
+That is real, it was measured, and **any fix that simply hands ownership to the driver without moving
+the force computation will re-break it.** The buoyancy loop and the ownership are one decision, not
+two.
+
+---
+
+## Options
+
+### A. Move the force loop to the owner, and give the driver ownership
+
+The standard answer for a Roblox vehicle that must feel good. The driver's client simulates the boat
+locally: zero input latency, zero reconciliation, nothing to snap. The server validates rather than
+drives.
+
+- **Fixes:** the snapping and the input latency, for the driver — the person judging "feel".
+- **Cost:** the buoyancy/thrust/drag/orientation loop moves client-side, which is a real redesign of
+  `BoatServer`, not a toggle. Needs server-side sanity checks (position/speed bounds) because the
+  client now authors the boat's motion — and GAME.md calls out that real money rides on this game's
+  authority model.
+- **Caveat:** passengers still receive a replicated body and will still see some reconciliation. It is
+  the driver's experience that improves most.
+- **Mobile:** local simulation runs at the phone's frame rate. Better than today (a phone currently
+  reconciles the same snapshots with fewer frames to hide them), but worth measuring.
+
+### B. Remove the *reason* for server ownership, then hand it over
+
+The elegant version of A. The server loop exists mainly to compute buoyancy. If flotation becomes
+**constraint-driven** — no per-frame script reading the body's state — then nothing needs the
+un-lagged view and ownership can move to the driver with no feedback loop to re-create.
+
+The hull is already `density 0.7` in terrain water with `EnableFluidForces = true`, so the engine can
+float it natively; damping would come from a constraint rather than a scripted spring.
+
+- **Fixes:** same as A, with a smaller client-side surface and less to get wrong.
+- **Cost:** the `roblox-physics` skill explicitly warns *"Don't rely on terrain-water auto-buoyancy
+  alone (density<1 floats, but it's hard to tune/keep stable)"*. This option is the most attractive on
+  paper and the one most likely to fight us in practice. It needs a prototype before it is trusted.
+
+### C. Keep server ownership; smooth the pose on the client
+
+Render the boat through a client-side visual that follows the replicated pose with critical damping,
+so snapshots stop being visible directly.
+
+- **Fixes:** the visible snapping only.
+- **Does not fix:** input latency, and it does not help a player *standing on the deck*, who collides
+  with the real hull rather than the smoothed visual — so the rider experience is unchanged.
+- **Cheapest and least risky.** A stopgap, not an answer.
+
+### D. Weld the gun and searchlight into the assembly *(new — likely the actual fix)*
+
+Added after the user narrowed the report to *"only light and gun jiggles"*. Stop driving those parts
+by server CFrame writes and let them ride the boat assembly natively, the way `GunBase` and `GunSeat`
+already do (measured offset drift: exactly 0.0000). Aim would come from a constraint — a
+`HingeConstraint` servo for the turret yaw/pitch — rather than a per-frame `barrel.CFrame =` write, so
+the barrel is part of the physics body and replicates with it.
+
+- **Fixes:** the jiggle the user actually reports, and `todo/0047`, together.
+- **Cost:** far smaller than A or B. No ownership change, no buoyancy redesign, no new exploit surface.
+- **Risk:** turret aim becomes a constraint rather than a direct CFrame set, which changes how
+  `GunServer` drives it; and an anchored part becoming part of the assembly alters the assembly's mass
+  properties unless kept `Massless`.
+- ⚠️ **Verify first.** The mechanism is confirmed but the magnitude at rest is only 0.002 studs. Take
+  the under-throttle position+rotation measurement before committing.
+
+### Recommendation — FINAL
+
+**There are TWO independent faults, both real, both only visible under power. Fix both: D first
+because it is trivial, then A/B because it is the one the user objects to.**
+
+The user's reports and the measurements agree once they are matched by condition, which is what took
+this investigation three passes to get right:
+
+| Condition | User report | Measurement |
+| --- | --- | --- |
+| At rest / floating | "as a passenger it feels smooth" | hull Y 0.000; anchored-part drift 0.002 studs |
+| Under throttle | **"whole boat was just shaking, i do not like that"** | hull rendered residual **avg 0.47 / max 7.13 studs** |
+| Under throttle | "only light and gun jiggles" | anchored-part drift **avg 1.14 / max 6.38 studs** |
+
+**Fault 1 — the hull's rendered pose (the main complaint).** Proven in measurement 3: at cruise the
+client renders the hull half a frame's travel away from its own velocity prediction on average, and up
+to seven frames' worth at worst, with yaw snaps of 3.96°/frame against a physical maximum of 46°/s.
+The physics is smooth (measurement 2); it is the *rendering of a server-owned body* that is not.
+Requires **A or B**.
+
+**Fault 2 — the gun and searchlight.** Proven in measurement 8: anchored parts driven by server CFrame
+writes drift up to 6.38 studs from a hull whose welded parts hold exactly 0.0000. Requires **D**.
+
+**Do not do C.** It smooths the hull's visual but leaves a player standing on the deck colliding with
+the real, unsmoothed hull — and it fixes neither fault at the source.
+
+⚠️ **The A/B caution stands and is the most important line in this document:** do not change network
+ownership without also moving the force loop off the server. A server loop computing buoyancy from a
+client-owned body's lagged state is the Job 003 bounce, and it will come straight back.
+
+### A note on how this investigation went wrong twice
+
+Recorded because the same traps are waiting for the next person:
+
+1. **"The pose updated on 97% of frames" was read as "replication is healthy."** Updating every frame
+   and updating to the *correct* value are different questions. Only a residual against the body's own
+   velocity separates them.
+2. **A subjective report was applied outside the condition it was gathered in.** "Smooth as a
+   passenger" came from a floating boat and was used to discount a fault that only appears at 52
+   studs/s. Always record the condition alongside the impression.
+
+---
+
+## 6. The passenger test — driver vs passenger
+
+**User report, 2026-08-16, asked directly and confirmed twice: "as a passenger it feels smooth."**
+Not smoother — smooth. That is the most decisive datum in this investigation, and it re-ranks
+everything above.
+
+Server ownership costs two different things, and the two roles pay differently:
+
+| | sees pose snapping | feels input latency | reported feel |
+| --- | --- | --- | --- |
+| Passenger | yes | no | **smooth** |
+| Driver | yes | yes | glitchy, vibrating, clumsy |
+
+⚠️ **BUT THE PASSENGER TEST WAS NOT RUN UNDER THROTTLE, AND THAT LIMITS WHAT IT PROVES.** The user
+plays solo: to stand on the deck they had to leave the driver's seat, so "passenger feels smooth" was
+observed on a **floating or coasting** boat, never at cruise. It therefore does **not** clear the
+snapping measured at 52 studs/s. The user flagged this themselves — *"maybe passenger will feel it
+with throttle, I had to jump out of seat"* — and they are right.
+
+What the passenger report does establish: **a stationary or slow boat feels fine.** Everything
+objectionable happens under power.
+
+**The user then narrowed it much further: "only light and gun jiggles."** Not the hull — the mounted
+gun and the searchlight. Those are exactly the three anchored parts found earlier (`GunBarrel`,
+`SearchlightHead`, `Skin_searchlightHead`), which sit *outside* the 61-part assembly and are driven by
+a server-side CFrame write every Heartbeat while the hull replicates as an interpolated physics body.
+That is `todo/0047`'s mechanism, and it may be the whole of the visible complaint.
+
+### 7. Anchored-part drift, measured while floating
+
+```
+75 frames over 5s, boat stationary (hull Y peak-to-peak 0.000)
+
+part              anchored   movement relative to the hull
+GunBarrel         true       avg 0.0022 / max 0.0101 studs
+SearchlightHead   true       avg 0.0010 / max 0.0046 studs
+GunBase           false      avg 0.0000 / max 0.0001 studs
+GunSeat           false      avg 0.0000 / max 0.0001 studs
+```
+
+The mechanism is **confirmed** — the anchored parts drift ~20× more than the welded ones, which hold
+a mathematically constant offset. But at rest the magnitude is 0.002 studs: invisible. So this
+measurement proves the *pathway* exists without yet proving it is the visible fault.
+
+### 8. Anchored-part drift **under throttle** — the fault, quantified
+
+Taken riding straight, so turning cannot account for it (max hull yaw change 1.089°/frame):
+
+```
+341 frames over 6s (57 fps)   speed avg 53.3 studs/s (range 0.5)
+
+part              anchored   POSITION drift                    ROTATION drift
+GunBarrel         true       avg 1.1427 / max 6.0795 studs     avg 0.231 / max 4.855 deg
+SearchlightHead   true       avg 1.1538 / max 6.3765 studs     avg 0.231 / max 4.855 deg
+GunBase           false      avg 0.0000 / max 0.0002 studs     avg 0.000 / max 0.000 deg
+GunSeat           false      avg 0.0000 / max 0.0001 studs     avg 0.000 / max 0.000 deg
+```
+
+**This is the visible fault, and it is now unambiguous.** The anchored parts wander over a stud on
+average and up to 6.4 studs — on a barrel roughly 8 studs long — while the welded parts hold a
+mathematically perfect zero offset. Against the same measurement at rest (0.0022 studs), being under
+power makes it **~500× worse**, which is precisely the reported "jiggles while riding, snaps back when
+stopped".
+
+The magnitude identifies the mechanism exactly: at 53.3 studs/s and 57 fps the boat covers 0.93 studs
+per frame, and the average drift is 1.14 studs — **almost exactly one frame of travel.** The parts are
+being placed from a hull pose one step out of date with the one the client renders.
+
+**Conclusion: the hull is not the problem. Two anchored parts are.**
+
+⚠️ **The instrumented rider test was inconclusive and should not be quoted.** Sampling the player's
+position in the hull's frame while standing produced 0.245 studs/frame of movement, but the metric
+cannot distinguish replication jitter from a character genuinely sliding on an accelerating deck, and
+the large x/y/z spreads (0.33 / 2.43 / 4.10) came from 108 clean frames scattered across 25 s in
+*different standing spots* rather than from vibration. A first attempt was also contaminated by the
+player walking (movement input averaged 0.562). Rebuild it as a fixed-spot, fixed-heading capture if
+the question ever needs a number; for now the subjective report is the better evidence.
+
+## Still to check before implementing
+- Whether `EnableFluidForces` should be disabled on the hull, measured rather than assumed.
+- A mobile capture, since the fix must hold on a phone.
+
+## Related
+
+`todo/0047` — the turret and searchlight lag is the **same fault seen from another angle**: anchored
+parts whose CFrame is written server-side each frame, replicating as discrete writes alongside an
+interpolated hull. Whatever is decided here should resolve that too, and it was deferred from Job #086
+for exactly this reason.
