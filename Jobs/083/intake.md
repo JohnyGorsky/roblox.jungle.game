@@ -44,6 +44,59 @@ Letting the +10% ramp push past it would put 10+ rigs at the last village. Once 
 escalation continues through **strength**, which costs nothing to render. A ramp that appears to stop is
 the intended behaviour, not a bug.
 
+---
+
+# Second pass, same day — playtest feedback
+
+## 🔴 "from start to first camp I had one log and not a single ramp"
+
+Measured, and the complaint was literally exact: **z 0→1600 contained 1 hook — an obstacle — and zero
+ramps.** Cause: the Headwaters zone ran `obs = 0.55`, and `keep = 0.55 × obs = 0.30`, so 70% of an
+already-sparse 120-stud candidate grid was discarded in the opening.
+
+`ZONE_PROFILE` Headwaters **obs 0.55/0.60 → 1.00/1.10**. Result: the opening now holds **9 hooks — 3
+ramps and 6 obstacles** (`z=240`, `720`, `1200` are ramps). Whole river 94 → 114 hooks, 44 ramps.
+The Rapids (1.90) is still the clear peak, so zone escalation is preserved.
+
+## 🔴 "logs" meant the FLOATING obstacle, not shore dressing — my mistake
+
+I had increased `FoliageDefs`' `LogMossy` **bank foliage**. The user meant the thing the boat runs into.
+Corrected by adding a `weight` field to `OBSTACLES` and steering the mix:
+
+| | Rock | Log | Sandbar | LogJam |
+|---|---|---|---|---|
+| weight | 1.0 | **2.6** | 0.8 | **1.6** |
+| measured over 7000 studs | 17% | **49%** | 11% | **23%** |
+
+Floating debris is now **72% of the mix**, against 50% when all four types were equally likely. The
+shore-foliage increase is kept — it is good dressing and cost nothing.
+
+## 🔴 Ramps faced the wrong way
+
+The wedge was yawed 180° "so the slope faces the boat" and did the exact opposite: driving downstream you
+met a **sheer vertical rock wall**, slope on the far side. Fixed by removing the rotation.
+
+> ⚠️ **My verification was what failed here, not just the code.** A raycast sampling the wedge's top
+> surface at two z values reported "CORRECT" — that test passes for BOTH orientations. It only showed up
+> by putting the camera at the boat's eye and looking. For anything directional, look from the player's
+> position.
+
+## 🔴 "what is that?" — the mystery tan tile was the Sandbar
+
+Its trigger seats on the riverbed, making it an **18-stud-tall column** whose only visible face is a flat
+square top 0.4 studs above the water. The existing comment claimed this seating had stopped it "reading
+as a plank floating on the water" — it hadn't. Now the column is invisible and a squashed **dome**
+(22×9×16 Ball, crown 1.0 above the waterline) is drawn at the surface, which is what a shoal looks like.
+
+## Hippo doubled again
+
+`scale 1.369 → 2.738` (2.6× its original), **sink 0.8 → 1.6** so the submerged fraction is unchanged at
+41% — it reads exactly as before, at twice the size.
+
+> ⚠️ It is now **16.5 × 18.3 × 31.2 studs — as long as the 32-stud boat hull.** That is a boss-scale read.
+> The HITBOX stays 8×5×12, so every aggro/bite/leash distance is untouched and the art simply overhangs.
+> Say if that is too far and it should come back to ~1.5×.
+
 ## Notes
 
 - Guard strength is a **per-spawn multiplier**, never a mutation of `EnemyDefs.Defs.Bandit`. Editing that
