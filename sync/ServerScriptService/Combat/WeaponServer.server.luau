@@ -105,11 +105,15 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 	if last and now - last < interval then
 		return
 	end
-	lastShot[player] = now
 
 	if not canShoot(player) then
 		return
 	end
+
+	-- Job #084: stamped AFTER the gates, not before. Stamping on arrival meant a REJECTED attempt still
+	-- consumed the rate-limit window, so a player who tapped while carrying a crate stayed briefly
+	-- rate-limited after putting it down. The clock should measure shots fired, not shots attempted.
+	lastShot[player] = now
 
 	-- ── Job #079: the gun you can hear ──────────────────────────────────────────────────────────
 	-- `gun_shot` has been uploaded and owned since 2026-08-02 and was never wired (ASSETS.md §3.2

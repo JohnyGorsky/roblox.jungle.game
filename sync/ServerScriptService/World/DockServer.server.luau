@@ -28,6 +28,7 @@
 --      constant here is what buried every camp prop by 2.4 studs in Job #076 (see `ExcursionServer`).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
@@ -43,6 +44,45 @@ local REFUEL_RANGE = 65 -- the boat must be within this of the dock to refuel
 local TICK = 0.5
 
 local PILING_CLEAR = 2 -- anything topping out below WATER_Y + this loses collision (see note 1 above)
+
+-- ── Job #084: tying MOORS the boat, it does not ANCHOR it ─────────────────────────────────────────
+-- This used to be `hull.Anchored = true` on tie and `= false` on untie. That is the exact transition
+-- `StagingServer`'s header documents as the old "boat disappears" bug:
+--
+--     "Anchoring an assembly and later unanchoring it while a client-owned player stands on it makes
+--      the physics explode in one step (the engine then removes the boat)."
+--
+-- and it was running at all 11+ streamed river docks. The reported symptom was milder — riders SLID on
+-- the tied deck, because an anchored hull is static ground that no longer participates in Roblox's
+-- native moving-platform carry (the carry the project rule says riders must rely on, and which a manual
+-- per-frame carry must never replace).
+--
+-- Same fix as the spawn dock, same shape: keep the hull DYNAMIC and server-owned, hold it with a
+-- `LinearVelocity` in PLANE mode. ⚠️ NOT an AlignPosition — `StagingServer:132` records why: plane mode
+-- controls world X/Z only and never touches Y, so buoyancy alone keeps owning the float. An
+-- AlignPosition fights buoyancy on Y and the boat bounces.
+local HOLD_SPEED = 16 -- studs/s max correction, matching StagingServer
+local HOLD_FORCE = 1000000 -- must beat BoatServer's constant `Current` force
+-- The rope was decoration only while the hull was anchored (anchored parts ignore constraints). A
+-- dynamic hull makes it LOAD-BEARING, and this repo has already been bitten by that once:
+-- `StagingServer:186` — "the rope was actively harmful (it is what suspended the boat above the
+-- waterline)". Slack keeps it decoration: the hold parks the boat within 0.3 studs, so a rope this much
+-- longer than the tie-moment distance can never go taut through the bob.
+local ROPE_SLACK = 3
+
+-- The hull's mooring attachment. `StagingServer` creates `MoorRoot` at startup and only ever destroys
+-- the CONSTRAINT, so it is normally already there — reuse it rather than piling up one attachment per
+-- dock tied over a run.
+local function moorAttachment(hullPart: BasePart): Attachment
+	local existing = hullPart:FindFirstChild("MoorRoot") or hullPart:FindFirstChild("Root")
+	if existing and existing:IsA("Attachment") then
+		return existing
+	end
+	local a = Instance.new("Attachment")
+	a.Name = "MoorRoot"
+	a.Parent = hullPart
+	return a
+end
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -212,8 +252,20 @@ local function buildDock(dock: RiverData.Dock, index: number)
 
 	local rope: RopeConstraint? = nil
 	local ropeAtts: { Attachment } = {}
+	local moor: LinearVelocity? = nil
+	local moorConn: RBXScriptConnection? = nil
+
 	local function doUntie()
-		hull.Anchored = false
+		-- Release = destroy the hold. No anchor→unanchor transition, so there is nothing to explode
+		-- even with the whole crew standing on deck.
+		if moorConn then
+			moorConn:Disconnect()
+			moorConn = nil
+		end
+		if moor then
+			moor:Destroy()
+			moor = nil
+		end
 		boat:SetAttribute("Tied", false)
 		tie.ActionText = "Tie Boat"
 		creak:Stop()
@@ -227,11 +279,54 @@ local function buildDock(dock: RiverData.Dock, index: number)
 		ropeAtts = {}
 		activeUntie = nil
 	end
+
 	tie.Triggered:Connect(function()
 		if boat:GetAttribute("Tied") then
 			doUntie()
 		elseif (hull.Position - pos).Magnitude <= REFUEL_RANGE then
-			hull.Anchored = true -- greybox hold
+			-- server-owned so the hold loop below reads un-lagged position, not a client's estimate
+			pcall(function()
+				hull:SetNetworkOwner(nil)
+			end)
+
+			-- ⚠️ MOORED WHERE IT FLOATS, not at the pier. `TiePrompt` fires anywhere within
+			-- REFUEL_RANGE (65 studs), so holding at `pos` would reel the boat up to 65 studs across
+			-- the river on a single keypress. Freezing the current spot is what the anchor did, so the
+			-- tie FEEL is unchanged — only the mechanism is.
+			local moorX, moorZ = hull.Position.X, hull.Position.Z
+
+			local hold = Instance.new("LinearVelocity")
+			hold.Name = "Moor"
+			hold.Attachment0 = moorAttachment(hull)
+			hold.RelativeTo = Enum.ActuatorRelativeTo.World
+			hold.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+			hold.PrimaryTangentAxis = Vector3.new(1, 0, 0) -- world X
+			hold.SecondaryTangentAxis = Vector3.new(0, 0, 1) -- world Z (plane = horizontal; Y free for buoyancy)
+			hold.PlaneVelocity = Vector2.zero
+			hold.MaxForce = HOLD_FORCE
+			hold.Parent = hull
+			moor = hold
+
+			-- Planar correction toward the berth, eased on arrival: the current cannot drift the boat
+			-- off, and neither can a shove from a player or an enemy.
+			local conn: RBXScriptConnection
+			conn = RunService.Heartbeat:Connect(function()
+				if not hold.Parent then
+					conn:Disconnect() -- self-disconnect if the hold goes any way other than doUntie
+					return
+				end
+				local hp = hull.Position
+				local ex, ez = moorX - hp.X, moorZ - hp.Z
+				local d = math.sqrt(ex * ex + ez * ez)
+				if d < 0.3 then
+					hold.PlaneVelocity = Vector2.zero
+				else
+					local s = math.min(HOLD_SPEED, d * 3)
+					hold.PlaneVelocity = Vector2.new(ex / d * s, ez / d * s)
+				end
+			end)
+			moorConn = conn
+
 			boat:SetAttribute("Tied", true)
 			tie.ActionText = "Untie Boat"
 			local a0 = Instance.new("Attachment")
@@ -243,7 +338,7 @@ local function buildDock(dock: RiverData.Dock, index: number)
 			local newRope = Instance.new("RopeConstraint")
 			newRope.Attachment0 = a0
 			newRope.Attachment1 = a1
-			newRope.Length = (a0.WorldPosition - a1.WorldPosition).Magnitude
+			newRope.Length = (a0.WorldPosition - a1.WorldPosition).Magnitude + ROPE_SLACK -- slack: see ROPE_SLACK
 			newRope.Thickness = 0.15
 			newRope.Visible = true
 			newRope.Color = BrickColor.new("Brown")

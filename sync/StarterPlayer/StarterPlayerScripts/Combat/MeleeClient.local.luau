@@ -10,14 +10,24 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 
+local UISound = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("UISound"))
+
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("SwordSwing") :: RemoteEvent
 
 local SWING_TIME = 0.22
 local swinging = false
 
+-- Job #084: the carry gate is split out of `swordActive` for the same reason as the gun's
+-- (`WeaponClient`) — a swing refused because your hands are full must be AUDIBLE. The axe has no
+-- reticle to recolour, so the "HANDS FULL — CAN'T FIGHT" chip carries the explanation and this
+-- carries the acknowledgement.
+local function blockedByCarry(): boolean
+	return player:GetAttribute("Busy") == true
+end
+
 local function swordActive(): boolean
-	if player:GetAttribute("ActiveItem") ~= "Axe" or player:GetAttribute("Busy") == true then
+	if player:GetAttribute("ActiveItem") ~= "Axe" then
 		return false
 	end
 	-- can't swing while driving the boat or manning the mounted gun
@@ -64,9 +74,14 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1
 		or input.UserInputType == Enum.UserInputType.Touch then
-		if swordActive() then
-			remote:FireServer()
-			beginSwing()
+		if not swordActive() then
+			return -- no axe up, or seated at the helm/turret
 		end
+		if blockedByCarry() then
+			UISound.play("emptyClick") -- debounced 0.3 s; safe on a mashed tap
+			return
+		end
+		remote:FireServer()
+		beginSwing()
 	end
 end)

@@ -84,7 +84,11 @@ carryLabel.Size = UDim2.fromScale(0.78, 0.66)
 carryLabel.TextXAlignment = Enum.TextXAlignment.Left
 Components.applyText(carryLabel, Theme.text.caption, Theme.font.button)
 carryLabel.TextColor3 = Theme.color.yellow
-carryLabel.Text = "HANDS FULL — CARRYING"
+-- Job #084: names the CONSEQUENCE, not the state. "CARRYING" was accurate and useless — it restated
+-- the crate already visible on your head, while the thing the player actually needed to know (the
+-- pistol and the axe are both disabled) went unsaid. Reported in the 2026-08-16 playtest as "the
+-- pistol does not fire"; the gate was `Busy` the whole time.
+carryLabel.Text = "HANDS FULL — CAN'T FIGHT"
 carryLabel.Parent = carry
 
 -- ── slots ────────────────────────────────────────────────────────────────────────────────────────

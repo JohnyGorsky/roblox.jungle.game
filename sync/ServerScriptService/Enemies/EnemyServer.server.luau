@@ -42,6 +42,16 @@ local ESCALATE_DISTANCE = 12000
 -- randomised per creature — a gator hiss is a lurking cue, and on a timer short enough to notice it
 -- turns into a machine. Up to 9 sea + 7 land creatures are alive at once.
 local IDLE_SOUND_MIN, IDLE_SOUND_MAX = 10, 22
+-- ── Job #084: the tied-dock safe zone ──────────────────────────────────────
+-- Two playtest decisions meet here and, taken literally, contradict:
+--   • tying the boat makes threats BACK OFF (the dock is a safe place to regroup)
+--   • sea creatures now hunt SWIMMERS (swimming is no longer a free safe route)
+-- A player swimming beside a tied boat satisfies both. This radius resolves it with one number
+-- instead of leaving it to emerge in play: while the boat is tied, sea creatures neither approach nor
+-- bite ANYTHING within this distance of the hull — the boat or a swimmer. Step outside it and normal
+-- targeting resumes. So the dock is genuinely safe, and swimming away from it is genuinely not.
+-- ⚠️ This is the lever if docks play too generous (lower it) or the safe zone feels stingy (raise it).
+local TIED_SAFE_RADIUS = 55
 -- ───────────────────────────────────────────────────────────────────────────
 
 if not Workspace:GetAttribute("RiverReady") then
@@ -108,6 +118,45 @@ local function nearestPlayer(pos: Vector3, range: number): Model?
 	return best
 end
 
+-- ── Job #084: who is in the water right now ───────────────────────────────────────────────────────
+-- Rebuilt ONCE per Heartbeat, before the enemy loop — never per enemy. Up to 10 sea creatures are
+-- alive at once and the answer is identical for all of them, so doing it inside `tickEnemy` would walk
+-- the player list ten times a frame for one list.
+--
+-- `nearestPlayer` was never the problem with swimmers (it excludes only `Downed`, so a swimmer has
+-- always been a valid BITE target). The hole was TARGETING: every sea enemy chased `hull.Position`, so
+-- a player who swam away was never approached and could only be bitten by standing next to the boat.
+local swimmers: { BasePart } = {}
+local tiedNow = false
+
+local function refreshSwimmers()
+	table.clear(swimmers)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if root and char and hum and not char:GetAttribute("Downed") and hum:GetState() == Enum.HumanoidStateType.Swimming then
+			table.insert(swimmers, root)
+		end
+	end
+end
+
+local function nearestSwimmer(pos: Vector3): BasePart?
+	local best: BasePart? = nil
+	local bestD = math.huge
+	for _, root in swimmers do
+		local d = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
+		if d < bestD then
+			best, bestD = root, d
+		end
+	end
+	return best
+end
+
+local function flatDist(a: Vector3, b: Vector3): number
+	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
+end
+
 -- move an enemy one step toward target (flat, on the water surface); optionally leashed to an anchor
 local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: number, dt: number, stopAt: number, anchor: Vector3?)
 	local dir = Vector3.new(target.X - from.X, 0, target.Z - from.Z)
@@ -128,14 +177,21 @@ local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: n
 	enemy:PivotTo(CFrame.lookAt(newPos, newPos + dir))
 end
 
-local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3)
+-- ⚠️ `canHitBoat` (Job #084) is NOT redundant with the tie check this used to do. Sea creatures can now
+-- chase a SWIMMER far from the boat; without this flag, a croc that lunged at a swimmer who slipped
+-- away would find no victim in range and fall through to damaging a hull 200 studs behind it.
+-- The caller passes false whenever the creature was hunting a person rather than the boat.
+--
+-- The tie check itself has moved to the CALL SITE: while tied, `applyBite` is not reached at all, so
+-- the crew standing on deck stops being bitten too — which was the broken half of the tied-boat report
+-- (the hull was already spared; the people on it were not).
+local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: boolean)
 	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase())
 	local victim = nearestPlayer(pos, def.biteRange)
 	if victim then
 		victim:SetAttribute("HP", math.max(0, ((victim:GetAttribute("HP") :: number?) or 0) - dmg))
 		flashHull()
-	elseif not boat:GetAttribute("Tied") then
-		-- tied up at a dock = the boat is safe; threats just patrol around it (no attack)
+	elseif canHitBoat then
 		local hp = (boat:GetAttribute("HP") :: number?) or 0
 		boat:SetAttribute("HP", math.max(0, hp - dmg))
 		flashHull()
@@ -172,12 +228,35 @@ local function tickEnemy(enemy: Model, dt: number)
 		return
 	end
 	st.biteTimer += dt
-	local dist = (Vector3.new(boatPos.X, 0, boatPos.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
-	local lead = boatPos + hull.AssemblyLinearVelocity * LEAD_TIME
+
+	-- ── Job #084: pick the target ─────────────────────────────────────────────────────────────────
+	-- Sea creatures take the NEARER of {the boat, the nearest swimmer}. Land creatures stay on the boat:
+	-- they are leashed to a bank anchor and cannot cross open water to reach a swimmer anyway.
+	local targetPos, targetVel = boatPos, hull.AssemblyLinearVelocity
+	local huntingSwimmer = false
+	if def.category == "sea" then
+		local sw = nearestSwimmer(pos)
+		if sw and flatDist(sw.Position, pos) < flatDist(boatPos, pos) then
+			targetPos, targetVel = sw.Position, sw.AssemblyLinearVelocity
+			huntingSwimmer = true
+		end
+	end
+
+	local dist = flatDist(targetPos, pos)
+	-- lead the TARGET, not always the hull — leading a swimmer on the boat's velocity would aim at open
+	-- water whenever the two are moving differently, which is most of the time.
+	local lead = targetPos + targetVel * LEAD_TIME
+
+	-- The tied-dock safe zone (see TIED_SAFE_RADIUS). Measured on the TARGET's distance from the hull,
+	-- so one rule covers both halves: the boat itself is always inside its own bubble (→ everything
+	-- disengages while tied), and a swimmer is protected only while they stay near the dock.
+	local suppressed = tiedNow and flatDist(targetPos, boatPos) <= TIED_SAFE_RADIUS
 
 	-- Job #078: presentational only. `chasing` is what the creature is DOING, so the animation follows
-	-- the AI rather than the AI following the animation.
-	local chasing = dist <= def.aggroRadius
+	-- the AI rather than the AI following the animation. Suppressed creatures settle to idle in view
+	-- rather than freezing mid-stroke, and re-aggro (roar included — `st.roared` resets below) the
+	-- instant the boat is untied.
+	local chasing = dist <= def.aggroRadius and not suppressed
 	EnemyRig.setMotion(enemy, if chasing then "move" else "idle")
 	if chasing and not st.roared then
 		st.roared = true
@@ -193,27 +272,36 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 
 	if def.category == "sea" then
-		if dist <= def.aggroRadius then
-			-- attack from the boat's SIDE, not underneath it: aim at a flank point beside the hull
-			local right = hull.CFrame.RightVector
-			local flatRight = Vector3.new(right.X, 0, right.Z)
-			flatRight = if flatRight.Magnitude > 0.01 then flatRight.Unit else Vector3.new(1, 0, 0)
-			local target = lead + flatRight * ((st.side or 1) * FLANK_DIST)
-			stepToward(enemy, pos, target, def.speed, dt, 2, nil)
+		if chasing then
+			if huntingSwimmer then
+				-- Straight at the person. FLANK_DIST exists to stop crocs surfacing UNDERNEATH the
+				-- hull; applied to a swimmer it would make them circle just out of reach instead of
+				-- closing. Stop at bite range rather than 2 studs so they don't swim through them.
+				stepToward(enemy, pos, lead, def.speed, dt, def.biteRange, nil)
+			else
+				-- attack from the boat's SIDE, not underneath it: aim at a flank point beside the hull
+				local right = hull.CFrame.RightVector
+				local flatRight = Vector3.new(right.X, 0, right.Z)
+				flatRight = if flatRight.Magnitude > 0.01 then flatRight.Unit else Vector3.new(1, 0, 0)
+				local target = lead + flatRight * ((st.side or 1) * FLANK_DIST)
+				stepToward(enemy, pos, target, def.speed, dt, 2, nil)
+			end
 		end
 	else -- land: leashed bank ambush
-		if dist <= def.aggroRadius then
+		if chasing then
 			stepToward(enemy, pos, lead, def.speed, dt, def.biteRange, st.anchor)
 		elseif st.anchor then
-			stepToward(enemy, pos, st.anchor, def.speed * 0.6, dt, 2, nil) -- slink back to the bank
+			-- also the tied-dock behaviour: suppressed land creatures slink back to their bank rather
+			-- than standing in the shallows, which is exactly what this branch already did.
+			stepToward(enemy, pos, st.anchor, def.speed * 0.6, dt, 2, nil)
 		end
 	end
 
-	if dist <= def.biteRange and st.biteTimer >= def.biteCooldown then
+	if not suppressed and dist <= def.biteRange and st.biteTimer >= def.biteCooldown then
 		st.biteTimer = 0
 		EnemyRig.playOnce(enemy, "attack")
 		EnemyRig.playSound(enemy, "attack")
-		applyBite(def, pos)
+		applyBite(def, pos, not huntingSwimmer)
 	end
 end
 
@@ -282,6 +370,10 @@ end
 
 -- global AI tick
 RunService.Heartbeat:Connect(function(dt: number)
+	-- Job #084: both of these are the SAME for every creature this frame, so they are resolved once
+	-- here rather than recomputed inside `tickEnemy` up to 17 times.
+	refreshSwimmers()
+	tiedNow = boat:GetAttribute("Tied") == true
 	for _, enemy in CollectionService:GetTagged("Enemy") do
 		if enemy:IsA("Model") and enemy.Parent == Workspace then
 			tickEnemy(enemy, dt)

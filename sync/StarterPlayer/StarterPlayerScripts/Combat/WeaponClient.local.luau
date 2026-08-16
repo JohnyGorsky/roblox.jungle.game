@@ -9,6 +9,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
@@ -79,20 +80,30 @@ local function tracer(toPos: Vector3)
 	end)
 end
 
--- you can only fire while a gun is equipped, not driving/manning the mounted gun, and not busy (carrying)
-local function localCanShoot(): boolean
-	if not activeGun() then
-		return false
-	end
+-- ── the three reasons a gun won't fire, kept APART ────────────────────────────────────────────────
+-- Job #084: these used to be one `localCanShoot()` that hid the reticle for all of them. Hiding is
+-- right for two of them and wrong for the third:
+--
+--   • no gun equipped / seated at the helm or turret → HIDE. The hotbar hides in a control seat too
+--     (`InventoryHud:114`), so the whole loadout UI disappears together and reads as intentional.
+--   • carrying a crate → SHOW IT, YELLOW. A dot that vanishes reads as a UI glitch, and the player
+--     concludes the weapon is broken — which is exactly what happened in the 2026-08-16 playtest.
+--     A yellow reticle says "the game knows you pulled the trigger, and this is deliberate".
+local function seatedAtStation(): boolean
 	local char = player.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum and hum.SeatPart and (hum.SeatPart.Name == "DriverSeat" or hum.SeatPart.Name == "GunSeat") then
-		return false
-	end
-	if player:GetAttribute("Busy") == true then
-		return false
-	end
-	return true
+	local seat = hum and hum.SeatPart
+	return seat ~= nil and (seat.Name == "DriverSeat" or seat.Name == "GunSeat")
+end
+
+-- carrying loot: the server refuses the shot (`WeaponServer:54`) and the axe too (`MeleeServer:65`)
+local function blockedByCarry(): boolean
+	return player:GetAttribute("Busy") == true
+end
+
+-- is the reticle drawn at all? (a gun is up and you are not at a station)
+local function reticleShown(): boolean
+	return activeGun() ~= nil and not seatedAtStation()
 end
 
 local function haveAmmo(): boolean
@@ -104,13 +115,46 @@ local function haveAmmo(): boolean
 end
 
 local function updateCrosshair()
-	dot.Visible = localCanShoot()
-	dot.BackgroundColor3 = if haveAmmo() then Theme.color.cream else Theme.color.red
+	dot.Visible = reticleShown()
+	-- yellow outranks the ammo colour: with your hands full the ammo count is not why you can't shoot,
+	-- and showing red there would send the player hunting for ammo they already have.
+	dot.BackgroundColor3 = if blockedByCarry()
+		then Theme.color.yellow
+		elseif haveAmmo() then Theme.color.cream
+		else Theme.color.red
+end
+
+-- A blocked trigger pull has to answer BACK. The steady yellow says "blocked"; this says "blocked, and
+-- I registered that tap" — without it a refused shot is indistinguishable from an input that never
+-- landed, which on a phone is the explanation a player reaches for first (the same reasoning that put
+-- the click on the empty-ammo path in Job #075).
+local PULSE = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local RESTORE = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local pulsing = false
+local function pulseBlocked()
+	UISound.play("emptyClick") -- debounced 0.3 s in UISound; safe to call on every mashed tap
+	if pulsing then
+		return
+	end
+	pulsing = true
+	local grow = TweenService:Create(dot, PULSE, { Size = UDim2.fromOffset(16, 16) })
+	grow.Completed:Connect(function()
+		local shrink = TweenService:Create(dot, RESTORE, { Size = UDim2.fromOffset(7, 7) })
+		shrink.Completed:Connect(function()
+			pulsing = false
+		end)
+		shrink:Play()
+	end)
+	grow:Play()
 end
 
 local function fire(screenPos: Vector2)
-	if not localCanShoot() then
-		return -- server enforces this too; skip the round trip
+	if not reticleShown() then
+		return -- no gun up, or seated at the helm/turret: nothing is drawn, nothing to explain
+	end
+	if blockedByCarry() then
+		pulseBlocked() -- hands full — the chip says why, this says "yes, I heard you"
+		return
 	end
 	if not haveAmmo() then
 		-- Empty: flash the crosshair red AND click. The flash was already here; the sound was not, and a

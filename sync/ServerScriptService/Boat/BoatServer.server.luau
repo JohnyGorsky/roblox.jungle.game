@@ -328,6 +328,28 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 
+	-- ── Job #084: a TIED boat ignores the helm ────────────────────────────────────────────────────
+	-- ⚠️ REQUIRED COMPANION to DockServer's move off `hull.Anchored`. While tying anchored the hull
+	-- these forces were inert — anchored parts ignore them — so this loop never needed to know about
+	-- `Tied` and never checked it. Docks now MOOR the hull with a `LinearVelocity` hold instead, which
+	-- means thrust is live at the pier: a driver holding W would fight the hold and walk the boat off
+	-- its berth.
+	--
+	-- Returning here also (correctly) stops the rudder integrating and stops the fuel burn above: a
+	-- boat roped to a dock is not running its engine. Buoyancy is computed BEFORE this point, so it
+	-- still floats and bobs exactly as it does anywhere else.
+	if boat:GetAttribute("Tied") == true then
+		thrust.Force = Vector3.zero
+		-- `current` is deliberately LEFT ON. The hold's MaxForce is sized to beat it (StagingServer:149
+		-- — "beat the boat's constant Current force"), and cancelling it here would quietly change the
+		-- load the spawn dock's identical hold has always been tuned against.
+		drag.Force = Vector3.new(-vel.X * DRAG, 0, -vel.Z * DRAG)
+		-- sit flat and hold the moored heading (no bank, no throttle trim)
+		level.MaxTorque = LEVEL_TORQUE
+		level.CFrame = CFrame.Angles(0, desiredYaw, 0)
+		return
+	end
+
 	-- drive (look computed above)
 	local t = seat.Throttle -- 1 (W) / -1 (S) / 0
 	local s = seat.Steer    -- 1 (D) / -1 (A) / 0

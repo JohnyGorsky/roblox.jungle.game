@@ -12,10 +12,12 @@ Five items from the 2026-08-16 playtest: (1) pistol does not fire, (2) player sl
 
 - [x] Requirements reviewed (this intake)
 - [x] Each item traced to a specific line — see below. **Nothing here is guessed.**
-- [ ] Open questions answered (wizard) — items 3 and 4 are design calls, not just fixes
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Open questions answered (wizard) — items 3 and 4 are design calls, not just fixes
+      → decisions D1–D4 in [implementation-plan.md](implementation-plan.md), answered 2026-08-16
+- [x] Implementation plan created & agreed — [implementation-plan.md](implementation-plan.md)
+- [x] Implementation completed — analyzer clean, all 7 scripts synced to the place;
+      ⚠️ **Studio playtest outstanding** (see "Still to verify" in the final summary)
+- [x] Final summary + changelog written
 
 ---
 
