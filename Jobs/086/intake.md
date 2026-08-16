@@ -60,8 +60,10 @@ dangerous and the trading post sits between the shore and the near camp.
 
 ## Checklist
 
-- [ ] Batch closed by the user (more items expected)
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Batch closed by the user (4 items; boat ride quality split out to Job #087)
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created & agreed
+- [x] Implementation completed (analyzer clean, sync verified 11/11 in Studio)
+- [x] Final summary + changelog written
+
+**Status: ✅ CLOSED 2026-08-16.** Not committed. Playtest verification still listed in final-summary.md.

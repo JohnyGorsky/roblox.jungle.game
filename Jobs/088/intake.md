@@ -18,7 +18,9 @@ NOT IN SCOPE - glowing eyes sit wrong on every creature because no model has Eye
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created & agreed (items chosen by the user from traced root causes)
+- [x] Implementation completed (analyzer clean, seating verified by measurement)
+- [x] Final summary + changelog written
+
+**Status: ✅ CLOSED 2026-08-16.** Not committed. Playtest verification still listed in final-summary.md.
