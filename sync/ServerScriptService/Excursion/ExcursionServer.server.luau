@@ -490,6 +490,11 @@ deposit.RequiresLineOfSight = false
 deposit.MaxActivationDistance = 26
 deposit.Enabled = false
 deposit.Parent = hull
+-- Job #084: the crew feed. One small stacking toast channel, consumed by `CrewToast.local.luau`.
+local crewToast = Instance.new("RemoteEvent")
+crewToast.Name = "CrewToast"
+crewToast.Parent = ReplicatedStorage
+
 -- ⚠️ Job #084: the deck's fullness is shown ON THE PROMPT, before it is pressed.
 -- Reported in play as *"i sometimes deposit and nothing happens"*. It was a full cargo deck and a bare
 -- `return` — the same unsignalled-gate bug as the pistol's `Busy` check earlier in this job. A refused
@@ -523,6 +528,15 @@ deposit.Triggered:Connect(function(player: Player)
 		return
 	end
 	boat:SetAttribute(resource, ((boat:GetAttribute(resource) :: number?) or 0) + 1)
+	-- Job #084: tell the WHOLE crew, not just the depositor — the cargo hold is shared, so a deposit is
+	-- crew news. Deliberately its own feed and not the `Announce`/`ZoneBanner` channel: that is a large
+	-- centre-screen banner with a hold, tuned for rare beats (zone crossings, nightfall), and firing it
+	-- several times per landing would both nag and stomp real zone announcements.
+	crewToast:FireAllClients({
+		icon = "crate",
+		text = ("%s deposited 1 %s"):format(player.DisplayName, resource),
+		detail = ("%d/%d"):format(cargoTotal() + 1, (boat:GetAttribute("CargoMax") :: number?) or 10),
+	})
 	carried:Destroy()
 	carrying[player] = nil
 	player:SetAttribute("Busy", false)
@@ -668,6 +682,92 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	refreshDeposit()
 	crate:Destroy()
 end
+
+-- ── Job #084: put it down ─────────────────────────────────────────────────────────────────────────
+-- Carrying sets `Busy`, which disables the gun AND the axe, and until now the ONLY way out was a
+-- successful deposit. With a full cargo deck that was a dead end: you could not deposit, could not
+-- fight, and could not put the crate down — a run could be soft-locked until you died.
+--
+-- The dropped crate stays RE-LOOTABLE (user's call): nothing is destroyed, so you can stage a haul by
+-- the pier and ferry it aboard in trips, and a mis-tap costs seconds instead of the whole crate.
+local dropRemote = Instance.new("RemoteEvent")
+dropRemote.Name = "DropCarried"
+dropRemote.Parent = ReplicatedStorage
+
+-- Build a ground crate that can be picked back up. Deliberately NOT `makeCarried` — that one is welded
+-- to the player and massless. This is a free-standing object with its own prompt.
+local function makeDropped(resource: string, cf: CFrame): Model
+	local crate: Model
+	local source = campFloraLib[CampDefs.MODEL.barrel]
+	if source and source:IsA("Model") then
+		crate = source:Clone()
+		crate:ScaleTo(0.5) -- same size it was on the player's shoulder
+		crate:PivotTo(cf)
+	else
+		crate = Instance.new("Model")
+		local box = Instance.new("Part")
+		box.Name = "Crate"
+		box.Size = Vector3.new(3, 3, 3)
+		box.Color = Color3.fromRGB(150, 120, 70)
+		box.Material = Enum.Material.WoodPlanks
+		box.CFrame = cf
+		box.Parent = crate
+		crate.PrimaryPart = box
+	end
+	crate.Name = "DroppedCrate"
+	crate:SetAttribute("Resource", resource)
+	-- ⚠️ ANCHORED. A dynamic crate on the boat's deck slides off the moment the boat turns, and a
+	-- dynamic crate on a river bank rolls into the water. Anchoring it is also what makes dropping on
+	-- the deck safe at all — the deck is a moving platform, and an unanchored crate is not carried by it
+	-- reliably (see the held-item drift in `InventoryService`).
+	for _, d in ipairs(crate:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false -- never a snag hazard underfoot on a 14-stud-wide deck
+			d.CastShadow = false
+		end
+	end
+	crate.Parent = Workspace
+	return crate
+end
+
+local function dropCarried(player: Player)
+	local carried = carrying[player]
+	if not carried then
+		return
+	end
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local resource = (carried:GetAttribute("Resource") :: string?) or "Metal"
+
+	-- "where you stand": just in front of the player's feet, so it never lands inside them.
+	local at = if root then root.CFrame * CFrame.new(0, -1.5, -3) else CFrame.new(0, CLEAR_Y, 0)
+	local crate = makeDropped(resource, at)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "LootPrompt"
+	prompt.ActionText = "Pick up"
+	prompt.ObjectText = resource
+	prompt.HoldDuration = 0.4 -- quicker than a camp crate (1.2): you already earned this one
+	prompt.RequiresLineOfSight = false
+	prompt.MaxActivationDistance = 10
+	prompt.Parent = promptAnchor(crate, 3)
+	prompt.Triggered:Connect(function(taker: Player)
+		pickupLoot(taker, crate)
+	end)
+
+	carried:Destroy()
+	carrying[player] = nil
+	player:SetAttribute("Busy", false)
+	if char then
+		char:SetAttribute("Carrying", nil)
+	end
+	refreshDeposit()
+end
+
+dropRemote.OnServerEvent:Connect(function(player: Player)
+	dropCarried(player) -- no payload to validate; the server decides entirely from its own state
+end)
 
 -- Job #078: camp guards go through the SAME `EnemyRig` builder the river threats use.
 --

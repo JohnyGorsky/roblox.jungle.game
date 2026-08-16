@@ -1,5 +1,10 @@
 🛠️ Update Notes
 
+📦 You can put loot down. Carrying a crate disables your weapons, so if the hold is full or you just change your mind, tap the HANDS FULL banner (or press G) and it lands at your feet — still there to pick back up.
+📢 The crew sees every deposit. "Janis deposited 1 Gasoline · 4/25" pops up for everyone, so the driver knows the haul is coming in without turning round.
+🔧 Your gun and torch stay in your hand on a moving boat instead of trailing behind you.
+⚓ Depositing works from anywhere on the deck now, not just amidships — and the prompt tells you when the hold is actually full.
+💀 Dying while carrying no longer leaves you unable to fight for the rest of the run.
 💥 You can finally see your hits land — sparks burst on impact, damage numbers float up off whatever you hit, and your gun has a muzzle flash. Green is damage you and your crew deal, red is damage coming your way.
 🔫 Your gun and axe tell you why they won't fire — carrying a crate disarms you, and now the game says so instead of silently doing nothing. The crosshair turns yellow and clicks back at you.
 🔥 Campfires heal you. Sit by one to patch up — fast once the camp is cleared, a slow trickle while its guards are still standing. Until now nothing in the game restored health at all.

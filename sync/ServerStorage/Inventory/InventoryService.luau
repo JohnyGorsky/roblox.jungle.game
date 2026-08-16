@@ -234,11 +234,35 @@ local function updateHeldVisual(player: Player)
 		end
 	end
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = hand
-	weld.Part1 = part
-	weld.Parent = part
+	-- 🔴 Job #084: A MOTOR6D, NOT A WELDCONSTRAINT. Reported in play as *"weapon and lamp flys away from
+	-- boat when move, they are like drifting"* — the gun and the torch lagged behind the character while
+	-- the boat was under way.
+	--
+	-- ⚠️ The first suspicion was the parent-after-weld ordering below, and that was WRONG: `makeCarried`
+	-- in `ExcursionServer` builds its weld in exactly the same order and the carried barrel rides
+	-- perfectly. The real difference is WHAT is being welded to.
+	--
+	-- The carried crate welds to `HumanoidRootPart`. This welds to `RightHand` — an ANIMATED limb, moved
+	-- every frame by the Animator through the rig's Motor6Ds. A `WeldConstraint` is a physics constraint
+	-- resolved by the solver, so it is always chasing a limb whose motion comes from somewhere else; put
+	-- that character on a moving platform and the error becomes visible drift.
+	--
+	-- A `Motor6D` is the engine's own answer: it IS a rig joint, transformed by the animation system
+	-- alongside the limb rather than catching up to it afterwards. This is exactly how a Roblox `Tool`
+	-- attaches its Handle (the "RightGrip" Motor6D) — the canonical mechanism, not a workaround.
+	--
+	-- Parented FIRST so the joint is built against parts that are both already in the DataModel.
 	part.Parent = char
+
+	local grip = Instance.new("Motor6D")
+	grip.Name = "HeldGrip"
+	grip.Part0 = hand
+	grip.Part1 = part
+	-- Preserve the pose solved above EXACTLY: Part0.CFrame * C0 == Part1.CFrame * C1, and C1 is identity,
+	-- so C0 is the held item's current offset in the hand's frame. All the `holdInChar` work above
+	-- survives untouched.
+	grip.C0 = hand.CFrame:ToObjectSpace(part.CFrame)
+	grip.Parent = hand
 end
 
 -- refresh ActiveItem from the active slot + rebuild the held visual

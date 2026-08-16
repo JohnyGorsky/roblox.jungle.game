@@ -7,98 +7,89 @@ Raised during the 2026-08-16 playtests. ✅ = done in this job · ⬜ = not buil
 
 ---
 
-## ⬜ 1. 🔴 Drop what you are carrying, where you stand
+## ✅ 1. Drop what you are carrying, where you stand — BUILT
+
 
 **Reported:** *"we need to be able drop if you something holding, then it drops where you stand."*
 
-**Why it is urgent, not cosmetic.** Carrying sets `Busy = true`, which disables the gun AND the axe.
-Combined with the full-cargo case below, a player can reach a state with **no way out**: the deck is
-full so `Deposit` refuses, and there is no drop — so they are stuck hauling a crate they cannot deposit,
-cannot fight with, and cannot put down, until they die. There is currently **no code path anywhere that
-clears `Carrying` except a successful deposit** (`ExcursionServer`).
+Carrying sets `Busy`, disabling the gun AND the axe, and the only exit was a successful deposit — so a
+full cargo deck could soft-lock a run outright.
 
-**Design to settle before building:**
-- **Input** — a `ProximityPrompt` competes with Deposit and the loot prompts when they overlap. A
-  keybind (G) plus a HUD hint is probably cleaner, but it needs a mobile equivalent — this game is
-  mobile-first, so a button on the carry chip may be the real answer.
-- **What lands** — does it drop as a re-lootable crate (a new `LootPrompt` object, so nothing is
-  destroyed), or does it just vanish? Re-lootable is the honest choice; the crate model already exists.
-- **Where** — "where you stand" per the report. Needs a ground raycast so it does not land inside
-  terrain, and must be safe on the moving boat deck (weld it or it slides off — see the drifting-item
-  bug below, same class of problem).
+**Input (user's call):** the HANDS FULL chip **is** the drop button, plus `G` on desktop. Putting it on
+that card was deliberate — the card only exists while carrying and already states the problem, so the
+thing telling you you are encumbered is the thing that un-encumbers you. It also dodges the prompt
+collision a world prompt would cause: the crate rides on your head, inside the Deposit prompt's 26-stud
+reach and on top of camp LootPrompts.
 
-**Must clear all three:** `carrying[player]`, `player.Busy`, `char.Carrying` — and call
-`refreshDeposit()`.
+**The dropped crate stays RE-LOOTABLE (user's call)** — `DroppedCrate` with its own `LootPrompt` (0.4 s
+hold, quicker than a camp crate's 1.2 s: you already earned this one). Nothing is destroyed, so you can
+stage a haul by the pier and ferry it aboard in trips, and a mis-tap costs seconds not the whole crate.
 
----
+⚠️ **The dropped crate is ANCHORED and non-colliding.** A dynamic crate slides off the deck the moment
+the boat turns, and rolls into the river on a bank. Non-colliding because a solid crate underfoot on a
+14-stud-wide deck is a snag hazard.
 
-## ⬜ 2. 🔴 The held weapon / torch drifts off the boat while it moves
+`ExcursionServer` — `DropCarried` RemoteEvent (no payload; the server decides entirely from its own
+state), `makeDropped`, `dropCarried`. Clears all three of `carrying[player]`, `Busy`, `char.Carrying`.
+
+## ✅ 2. The held weapon / torch drifts off the boat — FIXED (first hypothesis was WRONG)
+
 
 **Reported:** *"weapon and lamp flys away from boat when move, they are like drifting."*
 
-**Where:** `ServerStorage/Inventory/InventoryService.luau:237-241`
+⚠️ **My first diagnosis was wrong and is recorded so it is not repeated.** I blamed the parent-after-weld
+ordering at `InventoryService:237-241`. But `makeCarried` in `ExcursionServer` builds its weld in exactly
+the same order and the carried barrel rides perfectly — so ordering was not it.
 
-```lua
-local weld = Instance.new("WeldConstraint")
-weld.Part0 = hand
-weld.Part1 = part
-weld.Parent = part      -- ⚠️ part.Parent is still nil here
-part.Parent = char      -- ← only enters the DataModel on the NEXT line
-```
+**The real difference is WHAT is being welded to.** The carried crate welds to `HumanoidRootPart`. The
+held item welds to `RightHand` — an **animated** limb, moved every frame by the Animator through the
+rig's Motor6Ds. A `WeldConstraint` is a physics constraint resolved by the solver, so it is permanently
+chasing a limb whose motion comes from somewhere else. Put that character on a moving platform and the
+error becomes visible drift.
 
-**Likely cause — constraint ordering.** A `WeldConstraint` binds `Part0`/`Part1` when it becomes active
-in the DataModel; here it is parented to a part not yet in the world. The held item is otherwise a free
-physics body (`Anchored = false`, `Massless = true`) whose only tie to the hand IS that weld — so if the
-bind is weak or missed it keeps its own momentum and lags behind a moving boat. Matches the report: fine
-on land, drifts at speed.
+**Fixed with a `Motor6D`** — the engine's own mechanism, and exactly how a Roblox `Tool` attaches its
+Handle (the "RightGrip" Motor6D). It IS a rig joint, transformed by the animation system alongside the
+limb instead of catching up to it. `C0` is solved from the live CFrames so all of Job #079's
+`holdInChar` pose work survives untouched.
 
-**Fix direction (verify, don't assume):**
-- Parent the part FIRST, then create the weld.
-- If it still drifts, the weld binds but is soft in the boat's moving frame → use a `Motor6D` to the
-  hand (the joint type the R15 rig itself uses).
-- ⚠️ Check network ownership: the character is client-owned, and a server-created loose part beside it
-  can end up server-owned, which looks exactly like this lag.
+⚠️ **Not yet confirmed in Play** — Studio was in Edit mode when this was written, so it could not be
+measured live. If it still drifts, check network ownership next (a server-created loose part beside a
+client-owned character can end up server-owned, which looks identical).
 
-Affects the gun **and** the torch — one code path builds both.
+## ⛔ 3. Bandages have no world source — CLOSED, no change wanted
 
----
 
-## ⬜ 3. 🟡 Bandages have no world source
+User's call: **leave it shop-only.** 3 at run start (`PlayerCombat:17`), 50 Salvage each at the village
+trading post, no world drops. Scarcity is intended. Do not re-raise from the playtest notes.
 
-Only sources are the 3 you start with (`PlayerCombat:17`) and 50 Salvage each at the village trading
-post. They never drop from loot crates, camps or enemies. Making them findable is a change to
-`ExcursionServer`'s loot tables — not started.
+## ✅ 4. Docs debt — CLEARED
 
----
 
-## ⬜ 4. 🟢 Docs debt — 7 Jungle jobs built with no `final-summary.md`
+`final-summary.md` written for **072, 076, 078, 080, 081, 082, 083**. All were built; only the write-up
+was missing. Each is marked as reconstructed retroactively, with the code named as authoritative where
+it disagrees with a stale intake.
 
-072, 076, 078, 080, 081, 082, 083. All verified built in code; only the write-up is missing.
-(080 is marked as absorbed into this job.)
+Jungle is now **84/84 jobs documented**. (Defender still has 19 open — a separate backlog.)
 
----
+Two carry real outstanding caveats, restated so they are not lost:
+- **#081** — the boat wake has *never* been watched at speed on open water; driving in Studio kept
+  beaching the boat. Rates are measured, the look is not.
+- **#082** — ramps render as a `WedgePart`; the real Meshy art awaits credit approval.
 
-## ⬜ 5. 🟡 "Deposited X" message, visible to every player
+## ✅ 5. "Deposited X" message, visible to every player — BUILT
 
-**Reported:** *"we need message like deposited x, and all players must see it."*
 
-**Reuse the existing broadcast, not a new one.** `ReplicatedStorage.Announce` is already a server→all
-RemoteEvent consumed by `ZoneBanner.local.luau`, fired by `ZoneServer` with:
+**Style (user's call):** a small stacking corner toast — `CrewToast.local.luau` (new) fed by a
+`CrewToast` RemoteEvent from `ExcursionServer`. Reads *"Janis deposited 1 Gasoline · 4/25"*, fired to
+**all** clients because the hold is shared, so a deposit is crew news.
 
-```lua
-announce:FireAllClients({ title = ..., subtitle = ..., color = ..., icon = ..., sound = ... })
-```
+⚠️ **Deliberately NOT the `Announce`/`ZoneBanner` channel**, even though reusing it would have been
+free. That is a large centre-screen banner with a HOLD, tuned for rare beats (zone crossings,
+NIGHTFALL). A deposit fires several times per landing — reusing it would nag AND stomp the real zone
+announcements it exists for. Same server→all-clients *shape*, own lightweight presentation.
 
-⚠️ **Do not reuse `ZoneBanner` verbatim.** It is a large centre-screen banner with a HOLD, tuned for
-rare beats — zone crossings, nightfall. A deposit happens many times per landing; that banner firing
-each time would be obtrusive and would stomp real zone announcements. What is wanted is a small stacking
-toast / feed line. Reuse the *shape* (one `FireAllClients` payload, `Components.iconId` for the icon
-vocabulary, `Theme` colours) and give it its own lightweight client.
-
-Should say who did it as well as what, since the point is crew awareness — e.g. *"Janis deposited
-1 Gasoline · 4/25"*. The running total is already on the boat attributes.
-
----
+Bottom-right, stacking upward, 3 slots with the oldest recycled. Bottom-right because the left column is
+fully spoken for: hotbar 0.865–0.975, health 0.803–0.845, HANDS FULL 0.761–0.797, RoleChip 0.42.
 
 ## ✅ 6. Deposit silently did nothing — FIXED (first diagnosis was WRONG)
 

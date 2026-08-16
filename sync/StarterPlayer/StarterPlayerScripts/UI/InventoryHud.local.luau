@@ -96,6 +96,49 @@ carryLabel.TextColor3 = Theme.color.yellow
 carryLabel.Text = "HANDS FULL — CAN'T FIGHT"
 carryLabel.Parent = carry
 
+-- ── Job #084: the chip IS the drop button ─────────────────────────────────────────────────────────
+-- Carrying disables the gun and the axe, and before this the only way out was a successful deposit —
+-- so a full cargo deck could soft-lock a run with no way to put the crate down.
+--
+-- Putting the action ON this card rather than in a new HUD element or a ProximityPrompt is deliberate:
+-- the card already appears only while carrying and already states the problem, so the thing telling you
+-- you are encumbered becomes the thing that un-encumbers you. It also dodges the prompt collision a
+-- world prompt would cause — the crate rides on your head, inside the Deposit prompt's 26-stud reach
+-- and on top of camp LootPrompts.
+--
+-- Mobile-first: a tap target, with G as the desktop convenience (matching the 1-N / Q pattern above).
+local dropRemote = ReplicatedStorage:WaitForChild("DropCarried") :: RemoteEvent
+
+local dropBtn = Instance.new("TextButton")
+dropBtn.Name = "DropButton"
+dropBtn.Size = UDim2.fromScale(1, 1)
+dropBtn.BackgroundTransparency = 1
+dropBtn.Text = ""
+dropBtn.AutoButtonColor = false
+dropBtn.ZIndex = 5
+dropBtn.Parent = carry
+
+local dropHint = Instance.new("TextLabel")
+dropHint.Name = "DropHint"
+dropHint.AnchorPoint = Vector2.new(0.5, 0)
+dropHint.Position = UDim2.fromScale(0.5, 1.05)
+dropHint.Size = UDim2.fromScale(1, 0.62)
+dropHint.BackgroundTransparency = 1
+dropHint.TextXAlignment = Enum.TextXAlignment.Center
+Components.applyText(dropHint, Theme.text.caption, Theme.font.button)
+dropHint.TextColor3 = Theme.color.cream
+dropHint.TextTransparency = 0.25
+dropHint.Text = if UserInputService.TouchEnabled then "TAP TO DROP" else "TAP OR [G] TO DROP"
+dropHint.Parent = carry
+
+local function requestDrop()
+	if player:GetAttribute("Busy") == true then
+		dropRemote:FireServer() -- server owns the decision; no payload to forge
+	end
+end
+
+dropBtn.Activated:Connect(requestDrop)
+
 -- ── slots ────────────────────────────────────────────────────────────────────────────────────────
 
 local slots: { RunComponents.Slot } = {}
@@ -179,6 +222,10 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		return
 	end
 	local key = input.KeyCode
+	if key == Enum.KeyCode.G then
+		requestDrop() -- Job #084: desktop twin of tapping the HANDS FULL chip
+		return
+	end
 	local NUMBER: { [Enum.KeyCode]: number } = {
 		[Enum.KeyCode.One] = 1,
 		[Enum.KeyCode.Two] = 2,
