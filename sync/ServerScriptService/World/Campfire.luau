@@ -68,6 +68,9 @@ function Campfire.build(params: BuildParams): Model
 	core.CanTouch = false
 	core.Transparency = 1
 	core.Size = Vector3.one
+	-- Job #084: this is what makes a fire a rest point. Tagged on the CORE rather than the model so the
+	-- heal radius is measured from the flame itself and cannot drift when dressing models are swapped.
+	CollectionService:AddTag(core, CampDefs.TAG.campfire)
 	core.CFrame = CFrame.new(pos + Vector3.new(0, 1.2, 0))
 	core.Parent = fire
 	fire.PrimaryPart = core

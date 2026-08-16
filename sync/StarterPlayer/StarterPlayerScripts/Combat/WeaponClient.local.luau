@@ -62,6 +62,45 @@ local function aimPointFrom(screenPos: Vector2): Vector3
 	return if hit then hit.Position else ray.Origin + ray.Direction * 1000
 end
 
+-- ── Job #084: the muzzle flash ────────────────────────────────────────────────────────────────────
+-- Lives here rather than in `CombatFeedback` because it must fire on a MISS too, and that file only
+-- hears about landed hits. One pooled emitter, moved to the barrel and burst — never one per shot.
+local muzzlePart = Instance.new("Part")
+muzzlePart.Name = "MuzzleFlash"
+muzzlePart.Size = Vector3.new(0.2, 0.2, 0.2)
+muzzlePart.Transparency = 1
+muzzlePart.Anchored = true
+muzzlePart.CanCollide = false
+muzzlePart.CanQuery = false
+muzzlePart.CanTouch = false
+muzzlePart.CastShadow = false
+muzzlePart.Parent = Workspace
+
+local muzzle = Instance.new("ParticleEmitter")
+muzzle.Color = ColorSequence.new(Color3.fromRGB(255, 240, 190), Theme.color.yellow)
+muzzle.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.05),
+	NumberSequenceKeypoint.new(1, 1),
+})
+muzzle.Size = NumberSequence.new(0.9, 0.1)
+muzzle.Lifetime = NumberRange.new(0.05, 0.09)
+muzzle.Speed = NumberRange.new(2, 6)
+muzzle.SpreadAngle = Vector2.new(28, 28)
+muzzle.LightEmission = 1
+muzzle.Rate = 0 -- burst-only
+muzzle.Enabled = false
+muzzle.Parent = muzzlePart
+
+local function muzzleFlash()
+	local char = player.Character
+	local held = char and char:FindFirstChild("HeldItem")
+	if held and held:IsA("BasePart") then
+		-- the barrel end: the held gun's long axis is -Z (see `InventoryService:211`)
+		muzzlePart.CFrame = held.CFrame * CFrame.new(0, 0, -held.Size.Z / 2)
+		muzzle:Emit(6)
+	end
+end
+
 local function tracer(toPos: Vector3)
 	local char = player.Character
 	local head = char and char:FindFirstChild("Head") :: BasePart?
@@ -166,6 +205,7 @@ local function fire(screenPos: Vector2)
 	end
 	local aim = aimPointFrom(screenPos)
 	remote:FireServer(aim)
+	muzzleFlash() -- on the shot, not on the hit: a miss must look like a shot too
 	tracer(aim)
 end
 

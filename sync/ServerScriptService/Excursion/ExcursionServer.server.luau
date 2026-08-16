@@ -80,6 +80,22 @@ local carrying: { [Player]: Model } = {}
 type GuardState = { biteTimer: number, anchor: Vector3, roared: boolean? }
 local guardState: { [Model]: GuardState } = {}
 
+-- ── Job #084: camps re-man themselves BY DAY ──────────────────────────────────────────────────────
+-- Guards used to spawn once when a camp was built and never return, so clearing a camp cleared it for
+-- the rest of the run and the player could stroll it at leisure.
+--
+-- Per the user's call: respawn happens **only during the day phase**, and **one guard at a time** — not
+-- a wave. That also sits correctly with `EnemyDefs.strengthFor`, where LAND threats peak by day and sea
+-- threats by night: the shore getting busier while the sun is up is the rule the rest of the game
+-- already follows. At night a cleared camp stays cleared, which makes a night landing the safe one to
+-- make and gives the night set-piece its own distinct shape.
+type Garrison = { campPos: Vector3, parent: Instance, target: number, strength: number?, timer: number }
+local garrisons: { Garrison } = {}
+
+local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
+local GUARD_RESPAWN_EVERY = 45 -- seconds of DAYTIME between one camp regaining one guard
+local GUARD_COUNT_RANGE = 90 -- a guard within this of the camp centre counts as part of its garrison
+
 local function block(name: string, size: Vector3, color: Color3, cf: CFrame, parent: Instance, mat: Enum.Material?): Part
 	local p = Instance.new("Part")
 	p.Name = name
@@ -753,6 +769,15 @@ local function buildCampAt(
 	for i = 1, guards do
 		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength)
 	end
+
+	-- Job #084: remember this camp's garrison so it can be re-manned by day (see the respawn loop).
+	table.insert(garrisons, {
+		campPos = campPos,
+		parent = parent,
+		target = guards,
+		strength = strength,
+		timer = 0,
+	})
 end
 
 -- a loadout crate: Kind "Weapon" (grants a gun to a slot) or "Ammo" (tops up that gun's ammo). No carry.
@@ -1327,6 +1352,49 @@ forceCamp.OnInvoke = function(): Vector3?
 	local waterEdge = RiverData.centerlineX(first.z) + first.side * halfW
 	return Vector3.new(waterEdge + first.side * 120, CLEAR_Y + 3, first.z) -- the near camp
 end
+
+-- ── Job #084: the day-shift garrison ──────────────────────────────────────────────────────────────
+-- One guard, at one camp, every `GUARD_RESPAWN_EVERY` seconds of daylight — never a wave, and never at
+-- night. The per-camp timer only advances while that camp is actually short-handed, so a full camp does
+-- not bank credit and then dump three guards on the player the moment they kill one.
+task.spawn(function()
+	while true do
+		task.wait(GUARD_RESPAWN_TICK)
+		if (Workspace:GetAttribute("Phase") :: string?) == "night" then
+			continue -- night belongs to the river; a cleared camp stays cleared until dawn
+		end
+		for i = #garrisons, 1, -1 do
+			local g = garrisons[i]
+			-- the camp's landing site was culled behind the boat: drop the record with it
+			if not g.parent or not g.parent.Parent then
+				table.remove(garrisons, i)
+				continue
+			end
+			local alive = 0
+			for _, guard in CollectionService:GetTagged("CampGuard") do
+				if guard:IsA("Model") and guard.Parent then
+					local body = guard.PrimaryPart
+					if body and ((guard:GetAttribute("HP") :: number?) or 0) > 0 then
+						if (Vector3.new(body.Position.X, 0, body.Position.Z) - Vector3.new(g.campPos.X, 0, g.campPos.Z)).Magnitude <= GUARD_COUNT_RANGE then
+							alive += 1
+						end
+					end
+				end
+			end
+			if alive >= g.target then
+				g.timer = 0 -- at full strength: no credit accrues
+				continue
+			end
+			g.timer += GUARD_RESPAWN_TICK
+			if g.timer >= GUARD_RESPAWN_EVERY then
+				g.timer = 0
+				-- the next unoccupied slot in the original line, so replacements stand where the
+				-- garrison always stood (Job #058 tuned difficulty against these exact positions)
+				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength)
+			end
+		end
+	end
+end)
 
 while true do
 	local boatZ = hull.Position.Z

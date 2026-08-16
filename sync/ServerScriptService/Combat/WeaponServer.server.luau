@@ -13,6 +13,7 @@ local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "FireWeapon"
@@ -57,8 +58,13 @@ local function canShoot(player: Player): boolean
 	return true
 end
 
+-- Job #084: one entry per ENEMY hit by a single trigger pull, not per pellet. A shotgun is 6 pellets;
+-- six separate numbers stacked over one crocodile is unreadable, and six remotes per shot × a six-player
+-- crew is the kind of traffic `CombatFx`'s header warns about. Damage is summed here and reported once.
+type Tally = { [Model]: { amount: number, pos: Vector3 } }
+
 -- apply one ray of damage; returns true if it hit an enemy
-local function fireRay(char: Model, origin: Vector3, dir: Vector3, range: number, damage: number): boolean
+local function fireRay(char: Model, origin: Vector3, dir: Vector3, range: number, damage: number, tally: Tally): boolean
 	local dist = math.min(dir.Magnitude, range)
 	if dist < 0.1 then
 		return false
@@ -79,6 +85,12 @@ local function fireRay(char: Model, origin: Vector3, dir: Vector3, range: number
 			local before = (enemy:GetAttribute("HP") :: number?) or 0
 			local after = math.max(0, before - damage)
 			enemy:SetAttribute("HP", after)
+			local entry = tally[enemy]
+			if entry then
+				entry.amount += before - after
+			else
+				tally[enemy] = { amount = before - after, pos = result.Position }
+			end
 			print(string.format("[Weapon] HIT %s  HP %d -> %d%s", enemy.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
 			return true
 		end
@@ -165,6 +177,7 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 	local pellets = def.pellets or 1
 	local spread = def.spread or 0
 
+	local tally: Tally = {}
 	for i = 1, pellets do
 		local dir = baseDir
 		if i > 1 and spread > 0 then
@@ -175,7 +188,11 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 				rng:NextNumber(-spread, spread)
 			)).Unit
 		end
-		fireRay(char, origin, dir * range, range, damage)
+		fireRay(char, origin, dir * range, range, damage, tally)
+	end
+	-- one burst + one number per enemy struck by this shot, however many pellets found it
+	for _, entry in tally do
+		CombatFx.hit(entry.pos, entry.amount, "deal")
 	end
 end)
 

@@ -65,7 +65,12 @@ bar.Parent = gui
 local carry = RunComponents.card({
 	name = "HandsFull",
 	anchor = Vector2.new(0, 1),
-	position = UDim2.fromScale(0.015, 0.855),
+	-- ⚠️ Job #084: STACKED ON THE HEALTH BAR at the old 0.855. `HealthHud`'s holder is anchored
+	-- bottom-left at y=0.845 and is 0.042 tall, so it occupies 0.803–0.845; this card is 0.036 tall, so
+	-- at 0.855 it covered 0.819–0.855 and sat straight over the HEALTH gauge and the bandage chip.
+	-- 0.797 puts its bottom edge just clear of the health row's top. Left column, bottom-up:
+	-- hotbar 0.865–0.975 · health 0.803–0.845 · THIS 0.761–0.797 · RoleChip 0.42.
+	position = UDim2.fromScale(0.015, 0.797),
 	size = UDim2.fromScale(0.2, 0.036),
 	accent = Theme.color.yellow,
 	parent = gui,

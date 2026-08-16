@@ -309,6 +309,22 @@ CampDefs.TAG = {
 	fireLight = "CampFireLight", -- the flicker task's set
 	nightVFX = "CampNightVFX", -- fireflies: enabled only while Phase == "night"
 	dayVFX = "CampDayVFX", -- motes: enabled only while Phase ~= "night"
+	-- Job #084: the fire's `Core` part. `CampfireHeal` finds every fire in the world through this one
+	-- tag, the way Defender's `AIHealingPad` finds its pads — so a fire built anywhere (camp, spawn
+	-- base, a future hand-placed one) becomes a rest point with no extra wiring.
+	campfire = "Campfire",
+}
+
+-- ── Job #084: resting at a fire ───────────────────────────────────────────────────────────────────
+-- Until now NOTHING in the game restored player HP: 100 down to 0 across an 18,000-stud run, with the
+-- only recovery being downed-and-revived to 50. Bandages are spent by the REVIVER and never heal the
+-- person holding them, and they cannot be found in the world at all (shop only, 50 Salvage).
+CampDefs.HEAL = {
+	radius = 14, -- studs from the fire core; matches Defender's DefaultRadius
+	rate = 4.0, -- HP/s once the camp is clear
+	contestedRate = 1.0, -- HP/s while a living CampGuard is near the fire — a trickle, never nothing
+	guardRange = 60, -- a guard within this of the fire counts as "contested"
+	interval = 0.5, -- how often the heal loop ticks
 }
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────────────────────────

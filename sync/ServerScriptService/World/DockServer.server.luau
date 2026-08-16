@@ -70,17 +70,33 @@ local HOLD_FORCE = 1000000 -- must beat BoatServer's constant `Current` force
 -- longer than the tie-moment distance can never go taut through the bob.
 local ROPE_SLACK = 3
 
--- The hull's mooring attachment. `StagingServer` creates `MoorRoot` at startup and only ever destroys
--- the CONSTRAINT, so it is normally already there — reuse it rather than piling up one attachment per
--- dock tied over a run.
-local function moorAttachment(hullPart: BasePart): Attachment
-	local existing = hullPart:FindFirstChild("MoorRoot") or hullPart:FindFirstChild("Root")
-	if existing and existing:IsA("Attachment") then
-		return existing
+-- 🔴 THE MOOR POINT MUST SIT ON THE ASSEMBLY'S CENTRE OF MASS. Reported 2026-08-16: untying at a river
+-- dock and driving off sent the boat into a violent spin.
+--
+-- A `LinearVelocity` applies its force AT ITS ATTACHMENT, and it has no `ApplyAtCenterOfMass` escape
+-- hatch — which is exactly why every `VectorForce` in `BoatServer` sets `ApplyAtCenterOfMass = true`
+-- (`BoatServer:174`). Anchored on `MoorRoot` at the hull's origin, `MaxForce = 1e6` acting on a lever
+-- arm to the real centre of mass is an enormous torque.
+--
+-- ⚠️ WHY THE SPAWN DOCK NEVER SHOWED THIS, and why copying it verbatim was not enough: `StagingServer`
+-- moors a ONE-PART boat, before modules exist, so its origin and its centre of mass are the same point
+-- and the lever arm is zero. By the time a river dock is reached the boat is 12 parts — fuel tank, a
+-- second motor, a trailer, a searchlight — and the centre of mass has moved well off the hull origin.
+-- Confirmed by the console ordering: "[Staging] moored boat online" precedes "[BoatModules] applied"
+-- and "Boat -> navy (12 parts)".
+--
+-- A dedicated attachment, re-solved on every tie because the centre of mass moves when modules or cargo
+-- change, and destroyed on untie. Deliberately NOT `StagingServer`'s shared `MoorRoot` — moving that
+-- would silently retarget anything else that ever hangs off it.
+local function makeMoorPoint(hullPart: BasePart): Attachment
+	local stale = hullPart:FindFirstChild("DockMoorPoint")
+	if stale then
+		stale:Destroy()
 	end
 	local a = Instance.new("Attachment")
-	a.Name = "MoorRoot"
+	a.Name = "DockMoorPoint"
 	a.Parent = hullPart
+	a.WorldPosition = hullPart.AssemblyCenterOfMass -- zero lever arm ⇒ pure translation, no torque
 	return a
 end
 
@@ -266,6 +282,10 @@ local function buildDock(dock: RiverData.Dock, index: number)
 			moor:Destroy()
 			moor = nil
 		end
+		local point = hull:FindFirstChild("DockMoorPoint")
+		if point then
+			point:Destroy() -- re-solved from the centre of mass on the next tie, so never reused
+		end
 		boat:SetAttribute("Tied", false)
 		tie.ActionText = "Tie Boat"
 		creak:Stop()
@@ -295,9 +315,18 @@ local function buildDock(dock: RiverData.Dock, index: number)
 			-- tie FEEL is unchanged — only the mechanism is.
 			local moorX, moorZ = hull.Position.X, hull.Position.Z
 
+			-- Defensive: if a previous tie ever leaked its hold (a dock model culled and rebuilt while
+			-- tied would orphan one on the hull), a live 1e6-force constraint would fight the driver
+			-- forever. Clear any stale one before adding ours.
+			local orphan = hull:FindFirstChild("DockMoor")
+			if orphan then
+				orphan:Destroy()
+			end
+
+			local moorPoint = makeMoorPoint(hull)
 			local hold = Instance.new("LinearVelocity")
-			hold.Name = "Moor"
-			hold.Attachment0 = moorAttachment(hull)
+			hold.Name = "DockMoor"
+			hold.Attachment0 = moorPoint
 			hold.RelativeTo = Enum.ActuatorRelativeTo.World
 			hold.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
 			hold.PrimaryTangentAxis = Vector3.new(1, 0, 0) -- world X

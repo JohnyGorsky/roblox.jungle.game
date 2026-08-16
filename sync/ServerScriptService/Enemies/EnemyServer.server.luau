@@ -19,6 +19,7 @@ local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild
 -- Job #078: the creature's BODY (model, glowing eyes, animator, sounds) is built by a shared module, so
 -- `ExcursionServer`'s camp guards get exactly the same treatment instead of their own greybox.
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
+local CombatFx = require(ServerScriptService:WaitForChild("Combat"):WaitForChild("CombatFx"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
 -- ⚠️ **+20% on user direction 2026-08-16.** Expressed as ONE multiplier rather than by editing four
@@ -65,6 +66,19 @@ local rng = Random.new()
 type State = { biteTimer: number, anchor: Vector3?, side: number?, roared: boolean?, idleTimer: number? }
 local state: { [Model]: State } = {}
 
+-- 🔴 Job #084: THE DEATH ANIMATION STILL NEVER PLAYED, and the earlier fix is why.
+--
+-- Killing an enemy clears `state[enemy]` so a corpse stops chasing, then hands the body to
+-- `EnemyRig.die` for a 1.1 s topple-and-sink. But `tickEnemy`'s FIRST guard despawns any enemy with no
+-- state entry — so on the very next Heartbeat (~16 ms later) the corpse hit that guard and was
+-- destroyed outright. The topple, the splash and the death sound were all started on a model that had
+-- microseconds to live, which is the same "enemies blink out of existence" report as before, caused
+-- the second time by the fix for the first.
+--
+-- A dying body is now TRACKED rather than merely stateless: the tick skips it and leaves it alone
+-- until `EnemyRig.die`'s own callback despawns it.
+local dying: { [Model]: boolean } = {}
+
 -- Job #078: model, glowing eyes (Job 039), animator and sounds all live in `EnemyRig` now — one builder
 -- shared with `ExcursionServer`'s camp guards. `def.size` remains the hitbox the AI reasons about; the
 -- sourced art hangs off it and never becomes it.
@@ -77,6 +91,7 @@ end
 
 local function despawn(enemy: Model)
 	state[enemy] = nil
+	dying[enemy] = nil
 	EnemyRig.destroy(enemy) -- NOT :Destroy() — AnimationTracks have to be stopped and dropped too
 end
 
@@ -189,16 +204,28 @@ local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: bool
 	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase())
 	local victim = nearestPlayer(pos, def.biteRange)
 	if victim then
-		victim:SetAttribute("HP", math.max(0, ((victim:GetAttribute("HP") :: number?) or 0) - dmg))
+		local before = (victim:GetAttribute("HP") :: number?) or 0
+		local after = math.max(0, before - dmg)
+		victim:SetAttribute("HP", after)
 		flashHull()
+		local vroot = victim:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if vroot then
+			CombatFx.hit(vroot.Position, before - after, "take") -- Job #084: RED, damage taken
+		end
 	elseif canHitBoat then
 		local hp = (boat:GetAttribute("HP") :: number?) or 0
-		boat:SetAttribute("HP", math.max(0, hp - dmg))
+		local after = math.max(0, hp - dmg)
+		boat:SetAttribute("HP", after)
 		flashHull()
+		CombatFx.hit(hull.Position, hp - after, "take")
 	end
 end
 
 local function tickEnemy(enemy: Model, dt: number)
+	-- ⚠️ BEFORE the guard below, which would otherwise destroy the corpse mid-topple (see `dying`).
+	if dying[enemy] then
+		return -- EnemyRig.die owns this body until its callback despawns it
+	end
 	local body = enemy.PrimaryPart
 	local def = EnemyDefs.Defs[enemy.Name]
 	local st = state[enemy]
@@ -216,6 +243,7 @@ local function tickEnemy(enemy: Model, dt: number)
 		-- `EnemyRig.die` now plays the cues, topples the body and THEN despawns. `state[enemy]` is cleared
 		-- here so `tickEnemy` stops driving it the instant it dies — a corpse must not keep chasing.
 		state[enemy] = nil
+		dying[enemy] = true -- Job #084: keeps the tick's guard off the body while it topples
 		EnemyRig.die(enemy, function()
 			despawn(enemy)
 		end)

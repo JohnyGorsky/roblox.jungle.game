@@ -14,6 +14,7 @@ local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChil
 -- part→art mapping (Job 066); a no-op until meshes are imported
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
 local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
@@ -223,6 +224,7 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 			local before = (enemy:GetAttribute("HP") :: number?) or 0
 			local after = math.max(0, before - dmg)
 			enemy:SetAttribute("HP", after)
+			CombatFx.hit(result.Position, before - after, "deal") -- Job #084: at the impact point
 			print(string.format("[Gun] HIT %s  HP %d -> %d%s", enemy.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
 		else
 			print(string.format("[Gun] hit %s (%s) — not an enemy", result.Instance:GetFullName(), result.Material.Name))
