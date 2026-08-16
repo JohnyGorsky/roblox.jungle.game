@@ -89,7 +89,9 @@ local guardState: { [Model]: GuardState } = {}
 -- threats by night: the shore getting busier while the sun is up is the rule the rest of the game
 -- already follows. At night a cleared camp stays cleared, which makes a night landing the safe one to
 -- make and gives the night set-piece its own distinct shape.
-type Garrison = { campPos: Vector3, parent: Instance, target: number, strength: number?, timer: number }
+-- `wolves` (Job #086) = how many of this camp's `target` guards are Wolves rather than Bandits. They
+-- occupy the first slots, so the day-respawn loop can rebuild the same mix from the count alone.
+type Garrison = { campPos: Vector3, parent: Instance, target: number, wolves: number?, strength: number?, timer: number }
 local garrisons: { Garrison } = {}
 
 local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
@@ -781,10 +783,16 @@ end)
 -- village's ordinal (see `VILLAGE_STRENGTH_STEP`), so the same Bandit gets tougher the further downriver
 -- you meet him. `EnemyDefs.Defs.Bandit` itself is never mutated — a shared table edited per-spawn would
 -- leak the buff onto every camp built afterwards, including earlier ones on a re-dress.
-local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number?)
-	local def = EnemyDefs.Defs.Bandit
+-- ⚠️ Job #086: `guardType` selects the def. Camps used to be Bandit-only; wolves moved here off the
+-- riverbank pool (user direction: "wolves should be in bases"), so a camp's roster is now mixed. The
+-- type is written to a `GuardType` attribute rather than held in a side table, because `tickGuard`
+-- runs off the `CampGuard` TAG and would otherwise have no way back to the def for a given model.
+local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number?, guardType: string?)
+	local typeName = guardType or "Bandit"
+	local def = EnemyDefs.Defs[typeName] or EnemyDefs.Defs.Bandit
 	local guard = EnemyRig.build(def, anchorPos + Vector3.new(0, def.size.Y / 2, 0), parent)
 	guard.Name = "CampGuard"
+	guard:SetAttribute("GuardType", typeName)
 	CollectionService:AddTag(guard, "CampGuard")
 	local mul = strength or 1
 	if mul ~= 1 then
@@ -938,8 +946,14 @@ local function buildCampAt(
 	-- ⚠️ SPAWN POSITIONS UNCHANGED, AND THEY MUST STAY UNCHANGED. Job #058 tunes difficulty by crew size
 	-- against these exact positions. The 2026-08-16 village ramp changes the COUNT and the STRENGTH that
 	-- reach here; it does not move where a guard stands.
+	-- Job #086: the roster is now MIXED. The NEAR camp stays all-Bandit — it is the human raider outpost,
+	-- the one with the sandbags and the landing tower. The DEEP camp, which holds the Metal and Ammo the
+	-- crew actually needs, gets at least one Wolf. The TOTAL count is untouched (see the warning above):
+	-- this only decides what each of those guards is, so Job #058's crew-size tuning still holds.
+	local wolves = if kind == CampDefs.KIND.deep then math.max(1, math.floor(guards / 3)) else 0
 	for i = 1, guards do
-		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength)
+		-- wolves take the first slots, which is also what the respawn loop assumes when it re-mans a gap
+		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength, if i <= wolves then "Wolf" else "Bandit")
 	end
 
 	-- Job #084: remember this camp's garrison so it can be re-manned by day (see the respawn loop).
@@ -947,6 +961,7 @@ local function buildCampAt(
 		campPos = campPos,
 		parent = parent,
 		target = guards,
+		wolves = wolves, -- Job #086: so a re-manned garrison keeps its mix instead of drifting all-Bandit
 		strength = strength,
 		timer = 0,
 	})
@@ -1407,7 +1422,9 @@ end
 
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
 local function tickGuard(guard: Model, dt: number)
-	local def = EnemyDefs.Defs.Bandit
+	-- Job #086: read the per-guard type (Bandit or Wolf). Falls back to Bandit so a guard built before
+	-- this change — or one whose attribute was stripped — still ticks with the stats it was built from.
+	local def = EnemyDefs.Defs[(guard:GetAttribute("GuardType") :: string?) or "Bandit"] or EnemyDefs.Defs.Bandit
 	local body = guard.PrimaryPart
 	local st = guardState[guard]
 	if not body or not st then
@@ -1562,7 +1579,10 @@ task.spawn(function()
 				g.timer = 0
 				-- the next unoccupied slot in the original line, so replacements stand where the
 				-- garrison always stood (Job #058 tuned difficulty against these exact positions)
-				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength)
+				-- Job #086: keep the camp's Wolf/Bandit mix on re-man. Wolves hold the first slots, so the
+				-- replacement filling slot `alive + 1` is a Wolf exactly while that slot is within the count.
+				local wolfSlots = (g.wolves :: number?) or 0
+				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit")
 			end
 		end
 	end

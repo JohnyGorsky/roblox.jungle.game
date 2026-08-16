@@ -52,6 +52,14 @@ local IDLE_SOUND_MIN, IDLE_SOUND_MAX = 10, 22
 -- bite ANYTHING within this distance of the hull — the boat or a swimmer. Step outside it and normal
 -- targeting resumes. So the dock is genuinely safe, and swimming away from it is genuinely not.
 -- ⚠️ This is the lever if docks play too generous (lower it) or the safe zone feels stingy (raise it).
+--
+-- ⚠️ Job #086 — THE SAFE ZONE IS WILDLIFE-ONLY, AND THAT IS DELIBERATE. CAMP GUARDS ARE EXEMPT BY
+-- DESIGN. Reported in the 2026-08-16 playtest as "I can still be killed while the boat is tied", and
+-- the user's decision was that a mooring should be safe from THE RIVER ONLY: the crocs let go, the
+-- raiders do not. `ExcursionServer` therefore has no tie check and must not grow one — you moor next
+-- to a raider camp at your own risk, which is what keeps a dock beside a camp a real choice.
+-- (The boat's HULL is fully safe while tied: wildlife is suppressed here, obstacles bail out on `Tied`
+-- in ObstacleServer:37, and guards only damage a player's HP. Nothing can damage a moored boat.)
 local TIED_SAFE_RADIUS = 55
 -- ───────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +71,10 @@ local hull = boat:WaitForChild("Hull") :: BasePart
 local WATER_Y = RiverData.WATER_Y
 local rng = Random.new()
 
-type State = { biteTimer: number, anchor: Vector3?, side: number?, roared: boolean?, idleTimer: number? }
+-- `side` = SEA flank side (which side of the hull a croc attacks from).
+-- `bank` = LAND bank side, +1 right / −1 left (Job #086). Deliberately a SEPARATE field: the two mean
+-- different things and a land creature clamped by a croc's flank choice would wade into the channel.
+type State = { biteTimer: number, anchor: Vector3?, side: number?, bank: number?, roared: boolean?, idleTimer: number? }
 local state: { [Model]: State } = {}
 
 -- 🔴 Job #084: THE DEATH ANIMATION STILL NEVER PLAYED, and the earlier fix is why.
@@ -172,8 +183,47 @@ local function flatDist(a: Vector3, b: Vector3): number
 	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
 end
 
--- move an enemy one step toward target (flat, on the water surface); optionally leashed to an anchor
-local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: number, dt: number, stopAt: number, anchor: Vector3?)
+-- ── Job #086: keeping LAND creatures on land ──────────────────────────────────────────────────────
+-- Until now `stepToward` pinned EVERY creature to `WATER_Y`, sea and land alike, so a "land ambusher"
+-- was really a water-plane entity with a leash: anchored 8–20 studs past the bank with `LAND_LEASH`
+-- of 65, it had ~45 studs of lunge straight into the channel. Reported in play as "why does the wolf
+-- swim?". Two things were missing — a bank clamp and a ground height. Both live here.
+
+-- How far inland of the water's edge a land creature must stay. Enough that it reads as standing ON
+-- the bank rather than paddling at its lip, while still letting it reach a boat hugging the shore
+-- (`biteRange` is 12–14, so the bite still lands).
+local BANK_MARGIN = 6
+
+-- The water's edge at this z on the given bank. Fork-aware: the river splits, so the OUTERMOST branch
+-- edge is the shoreline — the same computation the land spawner uses to place the anchor.
+-- side = +1 → right bank (land is at x ≥ edge); side = −1 → left bank (land is at x ≤ edge).
+local function bankEdgeAt(z: number, side: number): number
+	local edge = if side == 1 then -math.huge else math.huge
+	for _, b in RiverData.branchesAt(z) do
+		if side == 1 then
+			edge = math.max(edge, b.c + b.halfW)
+		else
+			edge = math.min(edge, b.c - b.halfW)
+		end
+	end
+	return edge
+end
+
+-- Terrain height under a point. MEASURED, never assumed: the bank is generated, not carved flat, so
+-- there is no `CLEAR_Y` equivalent to trust out here. Returns nil when the ray misses (streamed-out
+-- terrain), and the caller keeps its previous height rather than teleporting the creature.
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+groundParams.FilterDescendantsInstances = { Workspace.Terrain }
+local function groundYAt(x: number, z: number): number?
+	local hit = Workspace:Raycast(Vector3.new(x, WATER_Y + 120, z), Vector3.new(0, -400, 0), groundParams)
+	return if hit then hit.Position.Y else nil
+end
+
+-- move an enemy one step toward target (flat); optionally leashed to an anchor.
+-- `side` (land creatures only) clamps the step to the creature's own bank and seats it on the ground;
+-- omit it and the old water-plane behaviour is used, which is correct for sea creatures.
+local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: number, dt: number, stopAt: number, anchor: Vector3?, side: number?, standHeight: number?)
 	local dir = Vector3.new(target.X - from.X, 0, target.Z - from.Z)
 	if dir.Magnitude < 0.01 then
 		return
@@ -189,6 +239,22 @@ local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: n
 			newPos = Vector3.new(clamped.X, WATER_Y, clamped.Z)
 		end
 	end
+
+	if side then
+		-- Clamp to the LAND side of the shoreline. The edge is recomputed at the DESTINATION z, not at
+		-- the anchor's — the river winds, so a creature walking downstream would otherwise wade out as
+		-- the channel bent toward it.
+		local edge = bankEdgeAt(newPos.Z, side)
+		local x = newPos.X
+		if side == 1 then
+			x = math.max(x, edge + BANK_MARGIN)
+		else
+			x = math.min(x, edge - BANK_MARGIN)
+		end
+		local y = groundYAt(x, newPos.Z)
+		newPos = Vector3.new(x, if y then y + (standHeight or 0) else from.Y, newPos.Z)
+	end
+
 	enemy:PivotTo(CFrame.lookAt(newPos, newPos + dir))
 end
 
@@ -316,12 +382,17 @@ local function tickEnemy(enemy: Model, dt: number)
 			end
 		end
 	else -- land: leashed bank ambush
+		-- Job #086: `st.bank` (±1) is the shore this creature belongs to, kept by the land spawner. It is
+		-- passed to BOTH branches — advancing and retreating — so a land creature is clamped to its bank
+		-- whichever way it is moving. ⚠️ NOT `st.side`: that is the SEA flank side (:369) and reusing it
+		-- would have made crocs pick their attack side from a bank they do not have.
+		local standHeight = def.size.Y / 2
 		if chasing then
-			stepToward(enemy, pos, lead, def.speed, dt, def.biteRange, st.anchor)
+			stepToward(enemy, pos, lead, def.speed, dt, def.biteRange, st.anchor, st.bank, standHeight)
 		elseif st.anchor then
 			-- also the tied-dock behaviour: suppressed land creatures slink back to their bank rather
 			-- than standing in the shallows, which is exactly what this branch already did.
-			stepToward(enemy, pos, st.anchor, def.speed * 0.6, dt, 2, nil)
+			stepToward(enemy, pos, st.anchor, def.speed * 0.6, dt, 2, nil, st.bank, standHeight)
 		end
 	end
 
@@ -339,8 +410,15 @@ local SEA_POOL = {
 	{ name = "Piranha", near = 4, far = 5 },
 	{ name = "RiverHippo", near = 0, far = 4 }, -- only appears deeper downriver
 }
+-- ⚠️ Job #086: WOLF IS NO LONGER A RIVERBANK SPAWN — it is camp fauna now, built by `ExcursionServer`
+-- as a `CampGuard` at the DEEP camp (user direction: "wolves should be in bases"). Bandit set that
+-- precedent; Wolf follows it.
+--
+-- This does NOT thin the bank. `pickType` normalises these weights and the COUNT of land spawns comes
+-- from `landCap()`/`spawnInterval`, not from the pool — so removing Wolf changes only WHICH creature
+-- appears, and every bank ambusher is now a Boar. The one thing the bank lost was durability
+-- (Wolf 55 HP vs Boar 40), which is compensated in `EnemyDefs` by Boar 40 → 50 rather than here.
 local LAND_POOL = {
-	{ name = "Wolf", near = 5, far = 4 },
 	{ name = "Boar", near = 3, far = 5 },
 }
 
@@ -448,8 +526,17 @@ task.spawn(function()
 			end
 			local baseEdge = if side == 1 then rightEdge else leftEdge
 			local edge = baseEdge + side * rng:NextNumber(8, 20)
-			local anchor = Vector3.new(edge, WATER_Y, z)
-			spawnEnemy(def, anchor, anchor)
+			-- Job #086: seat the anchor on the GROUND, not at the water line. The anchor is where a
+			-- creature stands when it is not chasing, so leaving it at `WATER_Y` parked every idle land
+			-- ambusher at water height on a bank that is metres higher.
+			local anchorY = groundYAt(edge, z)
+			local anchor = Vector3.new(edge, (anchorY and anchorY + def.size.Y / 2) or WATER_Y, z)
+			local model = spawnEnemy(def, anchor, anchor)
+			-- remember which bank it belongs to, so `stepToward` can clamp it there (see BANK_MARGIN)
+			local st = state[model]
+			if st then
+				st.bank = side
+			end
 		end
 		task.wait(spawnInterval(BASE_LAND_INTERVAL, "land"))
 	end

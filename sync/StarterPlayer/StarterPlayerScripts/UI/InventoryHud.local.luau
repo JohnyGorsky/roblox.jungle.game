@@ -69,7 +69,9 @@ local carry = RunComponents.card({
 	-- bottom-left at y=0.845 and is 0.042 tall, so it occupies 0.803–0.845; this card is 0.036 tall, so
 	-- at 0.855 it covered 0.819–0.855 and sat straight over the HEALTH gauge and the bandage chip.
 	-- 0.797 puts its bottom edge just clear of the health row's top. Left column, bottom-up:
-	-- hotbar 0.865–0.975 · health 0.803–0.845 · THIS 0.761–0.797 · RoleChip 0.42.
+	-- hotbar 0.865–0.975 · health 0.803–0.845 · THIS 0.761–0.797 · DropHint 0.733–0.756 · RoleChip 0.42.
+	-- ⚠️ Job #086 added the DropHint row. It is a CHILD of this card positioned above it, so moving this
+	-- card moves the hint with it — but anything new in 0.733–0.797 now collides with one of the two.
 	position = UDim2.fromScale(0.015, 0.797),
 	size = UDim2.fromScale(0.2, 0.036),
 	accent = Theme.color.yellow,
@@ -120,9 +122,17 @@ dropBtn.Parent = carry
 
 local dropHint = Instance.new("TextLabel")
 dropHint.Name = "DropHint"
-dropHint.AnchorPoint = Vector2.new(0.5, 0)
-dropHint.Position = UDim2.fromScale(0.5, 1.05)
+-- ⚠️ Job #086: ABOVE the card, not below it. It used to hang under the card at (0.5, 1.05) anchored
+-- top-centre, which put it at 0.799–0.821 in screen scale — straight over the HEALTH row at
+-- 0.803–0.845 (reported in the 2026-08-16 playtest, and the arithmetic confirms it). Job #084 moved
+-- the card itself clear of the health bar but never budgeted a row for the hint it added underneath.
+-- Anchored BOTTOM-centre just above the card's top edge, it now sits at ~0.733–0.756: clear of the
+-- card at 0.761 and of everything else up to the RoleChip at 0.42. Keeps the left column stacking
+-- upward, which is the convention the budget comment above describes.
+dropHint.AnchorPoint = Vector2.new(0.5, 1)
+dropHint.Position = UDim2.fromScale(0.5, -0.15)
 dropHint.Size = UDim2.fromScale(1, 0.62)
+dropHint.ZIndex = 5 -- chosen, not incidental: matches `dropBtn` so the hint is never buried by it
 dropHint.BackgroundTransparency = 1
 dropHint.TextXAlignment = Enum.TextXAlignment.Center
 Components.applyText(dropHint, Theme.text.caption, Theme.font.button)

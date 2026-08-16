@@ -94,10 +94,18 @@ EnemyDefs.Defs = {
 		size = Vector3.new(5, 4, 11), -- ⚠️ unchanged from the Panther: Job #058 tuning depends on it
 	},
 	-- land: fast pack hunter; charges from the bank in numbers
+	--
+	-- ⚠️ Job #086: HP 40 → 50, and the reason is worth keeping. Wolf left the riverbank pool for the
+	-- camps, making Boar the ONLY bank ambusher. Comparing what the bank had to what it has:
+	--     Wolf  55 HP · speed 26 · 12 dmg / 1.8s = 6.67 DPS
+	--     Boar  40 HP · speed 30 · 10 dmg / 1.4s = 7.14 DPS
+	-- Boar already hits harder per second AND moves faster, so the only thing the bank actually lost
+	-- was hit points. 50 rather than a straight 55: matching the Wolf's HP while keeping Boar's higher
+	-- DPS and speed would leave the riverbank harder than it was, not equal to it.
 	Boar = {
 		name = "Boar",
 		category = "land",
-		hp = 40,
+		hp = 50,
 		speed = 30,
 		aggroRadius = 90,
 		biteRange = 12,

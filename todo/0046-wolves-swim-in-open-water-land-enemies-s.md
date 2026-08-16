@@ -1,7 +1,7 @@
 # TODO 0046: Wolves swim in open water; land enemies should hold the bank / bases
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-16) — Job #086. Land creatures are clamped to their own bank (BANK_MARGIN) and seated on raycast ground height; Wolf moved off LAND_POOL to the deep camp as a CampGuard; Boar hp 40->50 to hold the bank's difficulty.
 **Created:** 2026-08-16 22:11:44
 
 Observed in a Studio playtest (screenshot 2026-08-16): a Wolf glided across open river at water level, straight at the boat.

@@ -13,6 +13,6 @@
 🛞 A tied boat ignores the throttle. Rope's on: the engine rests, and you stop burning fuel at the dock.
 🐊 Tie up and the river backs off. Crocs and piranha stop closing in and hold offshore where you can see them — the moment you untie, they come straight back.
 🏊 The water is no longer a safe route. Swim away from the boat and whatever is in the river will come after you, so plan the crossing before you jump in.
-🛟 Docks are a genuine safe zone — creatures leave you alone near a tied boat, whether you're on deck or in the water beside it. Stray too far from the pier and that protection ends.
+🛟 Tie up and the river lets go — crocs and piranha leave you alone near a moored boat, whether you're on deck or in the water beside it. Stray too far from the pier and that protection ends. Raiders are another matter: camp guards don't care that you're tied up.
 ☠️ Enemies actually die now — they topple over and sink instead of blinking out of existence.
 🩹 The "hands full" warning no longer covers your health bar.

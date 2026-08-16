@@ -1,7 +1,7 @@
 # TODO 0048: Drop hint text overlaps the health bar
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-16) — Job #086. Drop hint moved above the HANDS FULL card (0.733-0.756), clear of the health row at 0.803-0.845.
 **Created:** 2026-08-16 22:14:40
 
 Reported 2026-08-16 playtest (screenshot): 'TAP OR [G] TO DROP' is drawn on top of the HEALTH 100 bar, making both hard to read.
