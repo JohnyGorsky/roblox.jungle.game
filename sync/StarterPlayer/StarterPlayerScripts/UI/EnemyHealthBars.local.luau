@@ -16,6 +16,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -30,8 +31,26 @@ local function makeBar(model: Instance)
 	if bars[model] or not model:IsA("Model") then
 		return
 	end
+	-- 🔴 THE MODEL'S PARTS MAY NOT HAVE REPLICATED YET, AND THIS USED TO GIVE UP FOREVER.
+	-- The server tags an enemy the moment it builds it, so `GetInstanceAddedSignal` can fire on the
+	-- client BEFORE any BasePart inside it has arrived. The old code did `if not part then return end`
+	-- with no retry, so that enemy silently never got a bar for its whole life — which is why enemies
+	-- "don't have health bars" in play while the script looked fine in isolation. Measured: a freshly
+	-- tagged Bandit had none while three older enemies did.
 	local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
 	if not part then
+		task.spawn(function()
+			-- wait for the first part, then build. Bounded so a malformed model can't leak a thread.
+			local deadline = os.clock() + 10
+			while model.Parent and os.clock() < deadline do
+				local p = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+				if p then
+					makeBar(model)
+					return
+				end
+				task.wait(0.2)
+			end
+		end)
 		return
 	end
 
@@ -92,9 +111,18 @@ RunService.Heartbeat:Connect(function(dt: number)
 		local max = math.max((model:GetAttribute("MaxHP") :: number?) or 1, 1)
 		local fraction = math.clamp(hp / max, 0, 1)
 
-		-- An undamaged enemy needs no bar. Twenty crocodiles at full health would otherwise be twenty
-		-- green rectangles drawn over the river for no information at all.
-		bar.gui.Enabled = fraction < 1
+		-- ⚠️ VISIBILITY RULE CHANGED 2026-08-16 (user: "enemies don't have health bars").
+		-- It used to be `fraction < 1` — a bar appeared only AFTER you damaged something. Combined with
+		-- there being no hit feedback yet, that made combat read as having no feedback at all: you shoot,
+		-- nothing visibly happens, and the bar you were looking for was hidden by design.
+		--
+		-- Now: visible if damaged OR close enough to matter. Distant, untouched enemies still draw
+		-- nothing, so the original point — a calm river is not a field of green rectangles — survives.
+		local NEAR = 140 -- studs; roughly the range at which an enemy is a threat you are aiming at
+		local camPos = Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.Position
+		local near = camPos ~= nil and (bar.model:IsA("Model") and bar.model.PrimaryPart)
+			and (bar.model.PrimaryPart.Position - camPos).Magnitude <= NEAR
+		bar.gui.Enabled = fraction < 1 or near == true
 		if not bar.gui.Enabled then
 			continue
 		end

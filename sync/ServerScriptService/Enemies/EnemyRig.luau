@@ -563,6 +563,55 @@ end
 
 -- ⚠️ Call this instead of `enemy:Destroy()`. `AnimationTrack`s and the rig table hold references to a
 -- creature that spawns and dies continuously for a whole run; dropping them is not optional.
+-- ── dying (Job #083) ──────────────────────────────────────────────────────────────────────────────
+-- 🔴 AN ENEMY MUST NOT BLINK OUT. Before this, `EnemyServer` played the death cues and destroyed the
+-- model on the same frame, so nothing was ever seen: no animation, no splash, no sound. This gives the
+-- corpse a moment — cues fire, the body topples onto its side and sinks, then it is destroyed.
+--
+-- ⚠️ It TOPPLES rather than ragdolls. These creatures are anchored parts driven by `PivotTo` with no
+-- Humanoid (the decision recorded in Job #078), so unanchoring them to "fall" would drop a rig with no
+-- joints through the terrain. A tween on the visual is what actually reads as falling here.
+local DEATH_TIME = 1.15 -- how long the corpse is visible for
+local DEATH_SINK = 2.2 -- studs it settles as it goes
+
+function EnemyRig.die(model: Model, onDone: () -> ())
+	local rig = rigs[model]
+	EnemyRig.playOnce(model, "death") -- animation if it has one, splash burst if it's a water creature
+	EnemyRig.playSound(model, "death")
+
+	-- stop the idle/move loop so a dead thing is not still walking on the spot
+	if rig then
+		for name, t in pairs(rig.tracks) do
+			if name ~= "death" then
+				t:Stop(0.15)
+			end
+		end
+		rig.current = nil
+		if rig.wake then
+			rig.wake.Enabled = false
+		end
+		-- the water heartbeat re-pivots the visual every frame and would fight the topple
+		rig.water = nil
+	end
+
+	local visual = model:FindFirstChild("Visual")
+	if visual and visual:IsA("PVInstance") then
+		local start = visual:GetPivot()
+		-- roll onto its side and settle; a land kill falls over, a water kill rolls and sinks
+		local target = start * CFrame.Angles(0, 0, math.rad(78)) + Vector3.new(0, -DEATH_SINK, 0)
+		task.spawn(function()
+			local t0 = os.clock()
+			while os.clock() - t0 < DEATH_TIME and visual.Parent do
+				local a = math.clamp((os.clock() - t0) / DEATH_TIME, 0, 1)
+				visual:PivotTo(start:Lerp(target, a * a)) -- ease-in: it tips, then drops
+				task.wait()
+			end
+		end)
+	end
+
+	task.delay(DEATH_TIME, onDone)
+end
+
 function EnemyRig.destroy(model: Model)
 	local rig = rigs[model]
 	if rig and rig.wake then

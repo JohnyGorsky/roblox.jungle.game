@@ -152,9 +152,17 @@ local function tickEnemy(enemy: Model, dt: number)
 	end
 	if ((enemy:GetAttribute("HP") :: number?) or 0) <= 0 then
 		Workspace:SetAttribute("RunKills", ((Workspace:GetAttribute("RunKills") :: number?) or 0) + 1) -- run objective (Job 061)
-		EnemyRig.playOnce(enemy, "death") -- animation if it has one, splash burst if it's a water creature
-		EnemyRig.playSound(enemy, "death")
-		despawn(enemy)
+		-- 🔴 THE DEATH USED TO BE INVISIBLE. `playOnce("death")` was followed by `despawn()` on the SAME
+		-- FRAME, so the animation, the splash and the sound were all started on a model that was destroyed
+		-- microseconds later. Enemies simply blinked out of existence — reported in play as "enemies just
+		-- die by disappearing, not falling on the ground".
+		--
+		-- `EnemyRig.die` now plays the cues, topples the body and THEN despawns. `state[enemy]` is cleared
+		-- here so `tickEnemy` stops driving it the instant it dies — a corpse must not keep chasing.
+		state[enemy] = nil
+		EnemyRig.die(enemy, function()
+			despawn(enemy)
+		end)
 		return
 	end
 	local pos = body.Position
