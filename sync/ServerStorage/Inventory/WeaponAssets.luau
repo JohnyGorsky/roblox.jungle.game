@@ -20,9 +20,14 @@ export type HeldArt = {
 	model: string?, -- AssetLibrary.Weapons entry; nil = keep the greybox
 	scale: number?, -- multiplies the CURRENT size (see the note in InventoryService)
 	yawOffset: number?, -- degrees about Y, to point the model the way the greybox pointed
-	-- Degrees about X/Y/Z. Present = it REPLACES `yawOffset`'s yaw-only rotation, for a weapon that has
-	-- to sit at a compound angle in the hand rather than just be spun about the vertical.
-	holdAngles: Vector3?,
+	-- 🔴 HOW THE WEAPON SHOULD SIT, EXPRESSED IN **CHARACTER SPACE** — not as an offset from the hand.
+	-- Present = it replaces `yawOffset`. In character space +Y is up and **-Z is forward**, so:
+	--   `CFrame.identity`                                    -> stands upright, facing the way you face
+	--   `CFrame.fromMatrix(zero, -Z, +Y)`                    -> the model's +X aims where you look
+	--   `CFrame.Angles(...)`                                 -> any deliberate tilt off that
+	-- `InventoryService` converts this to a hand-relative offset AT WELD TIME using the live posed hand,
+	-- so it is correct by construction and needs no re-solving if the carry animation changes.
+	holdInChar: CFrame?,
 	gripOffset: Vector3?, -- where the hand grabs it, relative to the model's origin
 	anim: { [string]: string },
 	sound: { [string]: SoundDef },
@@ -42,9 +47,10 @@ export type HeldArt = {
 -- `Tool.Activated` racing `MeleeClient`'s input. Playing the same asset directly costs none of that and
 -- is identical on screen — it is literally the animation a Tool would have played.
 --
--- ⚠️ R15 only (the R6 equivalent is 182393478). This game is R15, verified on a live character; the
--- loader is pcall'd, so anything else degrades to the old arms-down hold rather than erroring.
-WeaponAssets.HOLD_ANIM = "rbxassetid://507768375"
+-- ⚠️ THE ID ITSELF LIVES IN `ItemDefs.HOLD_ANIM`, NOT HERE, and deliberately so: only the CLIENT can
+-- play it (a player's Animator is client-owned — a server-side `Play()` never renders for its owner), and
+-- the client cannot reach `ServerStorage`. `HeldPose.local.luau` reads it from ReplicatedStorage.
+-- Do not add a second copy here; one hand-written id in two files is exactly how these drift.
 
 -- ⚠️ ORIENTATION, MEASURED NOT GUESSED.
 -- The greybox gun was a box whose length ran along **Z**, pointing -Z (the way a character faces).
@@ -52,6 +58,27 @@ WeaponAssets.HOLD_ANIM = "rbxassetid://507768375"
 -- along X: the pistol is 2.02 studs tall at x=-1.22 (grip + slide) and tapers to 0.12 at x=+1.82 (the
 -- muzzle); the shotgun is thickest at x=-2.28 (the stock). A 90° yaw turns +X into -Z.
 local BARREL_X_TO_MINUS_Z = 90
+
+-- ── 🔴 WHY THESE ARE CFrames IN CHARACTER SPACE AND NOT EULER ANGLES ──────────────────────────────
+-- The carry pose (`ItemDefs.HOLD_ANIM`) rotates the forearm ~90°, so anything authored against the old
+-- arms-down stance broke the moment it went in: the torch lay flat like a wand and both guns aimed ~80°
+-- off where the player was looking.
+--
+-- Storing a hand-relative Euler triple to fix that failed **three times**, and the failures are worth
+-- recording because they all look like something else:
+--   1. Averaging samples put the two guns 36° apart — near the Y≈±90° gimbal the X and Z terms are
+--      degenerate and samples straddle the ±180° wrap, so the mean is meaningless.
+--   2. Single samples round-tripped through `CFrame.Angles` at 0.00° error and STILL came out ~67° off.
+--   3. The axe's stored (-48, 0, -30) read back off the live weld as (-48, 0, 0) — a term silently gone.
+--
+-- So the angle is not stored at all any more. Each weapon declares the orientation it WANTS, in character
+-- space (+Y up, **-Z forward**), and `InventoryService` derives the hand-relative offset at weld time from
+-- the live posed hand. That is correct by construction, immune to gimbal, and — the real win — it does not
+-- need re-solving if the carry animation is ever changed.
+local UP = Vector3.yAxis
+local CHAR_FORWARD = -Vector3.zAxis
+-- the model's +X points where the character looks, its +Y stays up (both Meshy guns are barrel-along-+X)
+local BARREL_FORWARD = CFrame.fromMatrix(Vector3.zero, CHAR_FORWARD, UP)
 
 WeaponAssets.ART = {
 	-- ── Axe — the starting weapon, reused wholesale from roblox.defender ─────────────────────────
@@ -62,14 +89,11 @@ WeaponAssets.ART = {
 		model = "Axe",
 		scale = 1,
 		yawOffset = 0,
-		-- ⚠️ TUNED ON SCREEN AGAINST THE CARRY POSE, not derived. The right angle depends on where
-		-- `HOLD_ANIM` puts the forearm, so this had to be set after that animation was playing — with the
-		-- old arms-down stance any value here would have been wrong.
-		-- At (0,0,0) the haft stands dead vertical in the fist (what the axe looked like before this) and
-		-- the head sits in front of the face. Pitching back 40° lays it diagonally across the body; the
-		-- **negative** roll is what swings the head OUT past the shoulder instead of across the face —
-		-- +30 was tried first and put the blade over the character's nose.
-		holdAngles = Vector3.new(-40, 0, -30),
+		-- The haft is the model's +Y. Upright (identity) stands it dead vertical in the fist with the head
+		-- in front of the face — what it looked like before this. Pitching back 40° lays it diagonally
+		-- across the body; the **negative** roll swings the head OUT past the shoulder rather than across
+		-- the face (+30 was tried first and put the blade over the character's nose). Tuned on screen.
+		holdInChar = CFrame.Angles(math.rad(-40), 0, math.rad(-30)),
 		-- Defender's `Tool.Grip` was (0, -1.089, 0.026): the hand grabs the haft just below the head.
 		gripOffset = Vector3.new(0, -1.089, 0.026),
 		anim = {
@@ -91,7 +115,8 @@ WeaponAssets.ART = {
 		model = "Pistol",
 		-- measured 3.80 x 2.22 x 0.55; the greybox barrel it replaces was 1.20 long -> 1.20/3.80
 		scale = 0.316,
-		yawOffset = BARREL_X_TO_MINUS_Z,
+		yawOffset = BARREL_X_TO_MINUS_Z, -- kept for the record; `holdInChar` supersedes it
+		holdInChar = BARREL_FORWARD,
 		gripOffset = Vector3.new(-0.35, -0.30, 0), -- grip end is -X before the yaw
 		anim = {},
 		sound = {
@@ -106,7 +131,8 @@ WeaponAssets.ART = {
 		model = "Shotgun",
 		-- measured 5.70 x 1.33 x 0.34; the greybox barrel was 2.40 long -> 2.40/5.70
 		scale = 0.421,
-		yawOffset = BARREL_X_TO_MINUS_Z,
+		yawOffset = BARREL_X_TO_MINUS_Z, -- kept for the record; `holdInChar` supersedes it
+		holdInChar = BARREL_FORWARD,
 		gripOffset = Vector3.new(-0.6, -0.15, 0),
 		anim = {},
 		sound = {
@@ -117,6 +143,17 @@ WeaponAssets.ART = {
 			pump = { id = "rbxassetid://113837896417526", volume = 0.4, min = 8, max = 60 },
 			empty = { id = "rbxassetid://75733077651437", volume = 0.4, min = 6, max = 40 },
 		},
+	} :: HeldArt,
+
+	-- ── Torch ───────────────────────────────────────────────────────────────────────────────────
+	-- ⚠️ NO `model` ON PURPOSE — the torch is BUILT (stick + flame, `WeaponAssets.TORCH` below), so it
+	-- goes down `updateHeldVisual`'s greybox branch. This entry exists ONLY to carry `holdInChar`, which
+	-- is why that branch has to apply the rotation too. Identity = stand the stick straight up, facing the
+	-- way the character faces — instead of lying flat along the forearm.
+	Torch = {
+		holdInChar = CFrame.identity,
+		anim = {},
+		sound = {},
 	} :: HeldArt,
 }
 

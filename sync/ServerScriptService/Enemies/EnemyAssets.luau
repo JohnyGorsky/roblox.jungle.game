@@ -98,7 +98,11 @@ EnemyAssets.ART = {
 		-- the scale and the eye attachments had to be redone. If the mesh is ever re-imported, re-measure;
 		-- do not assume the old numbers survive.
 		-- 16 / 28.98 = 0.552 → 4.5 x 4.3 x 16.0 against a 6 x 3 x 16 hitbox.
-		scale = 0.552,
+		-- ⚠️ **+30% (0.552 → 0.718) on user direction 2026-08-16** — "scale enemies in water like 30%".
+		-- → 5.8 x 5.6 x 20.8. The HITBOX is deliberately NOT scaled with it: `def.size` is what every
+		-- aggro/bite/leash distance is tuned against (Jobs 006-009, 053, 058), and this file's rule is that
+		-- the art hangs off the hitbox rather than becoming it. The art now overhangs, which is fine.
+		scale = 0.718,
 		-- 0 — the mesh is already authored head-at-**-Z**, which is our forward. MEASURED, after an earlier
 		-- guess of 180 got it backwards: raycast cross-sections along the mesh show the +Z end tapering to
 		-- 0.24 studs wide and drooping to y = -1.67 (a tail), while the -Z end stays blunt and level at
@@ -108,7 +112,11 @@ EnemyAssets.ART = {
 			-- ⚠️ 1.5, raised from 1.0 when the mesh was re-imported TALLER (4.3 studs vs 3.1). Sink is an
 			-- absolute drop, so a taller mesh rides higher out of the water at the same value — re-check
 			-- this whenever the model changes.
-			sink = 1.5, -- waterline sits along its back; only spine, eyes and snout show
+			-- ⚠️ 1.5 → 0.6 on user direction 2026-08-16 ("crocodile and hippo must be more out of water, i
+			-- can barely see them"). Sink is an ABSOLUTE drop of the visual below the hitbox, so the +30%
+			-- scale already lifted it ~0.65 studs; this takes it the rest of the way. Now the whole back and
+			-- head ride clear of the surface instead of just the spine.
+			sink = 0.6,
 			bobAmp = 0.22,
 			bobHz = 0.42,
 			rollDeg = 4,
@@ -215,7 +223,9 @@ EnemyAssets.ART = {
 		model = "Piranha",
 		-- measured: mesh 2.24 x 3.41 x 7.60; 4 / 7.60 = 0.526 → 1.2 x 1.8 x 4.0 against a 2 x 1.2 x 4 hitbox.
 		-- Taller than the hitbox, which is correct — a piranha is laterally compressed.
-		scale = 0.526,
+		-- ⚠️ **+30% (0.526 → 0.684) on user direction 2026-08-16.** Its `sink` is left alone — at 0.35 it
+		-- already shows its dorsal fin, and the bigger body shows more of it for free.
+		scale = 0.684,
 		-- head at -Z: the +Z end pinches to a 0.47-tall waist then flares tall with ZERO width — a caudal fin.
 		yawOffset = 0,
 		water = {
@@ -244,12 +254,21 @@ EnemyAssets.ART = {
 	RiverHippo = {
 		model = "RiverHippo",
 		-- measured: mesh 6.04 x 6.70 x 11.40; 12 / 11.40 = 1.053 → 6.4 x 7.1 x 12.0 against an 8 x 5 x 12 hitbox.
-		scale = 1.053,
+		-- ⚠️ **DOUBLED AGAIN (1.369 → 2.738) on user direction 2026-08-16** — "increase hippo like twice".
+		-- Compounded on the earlier +30%, so it is 2.6x its original 1.053. Rendered size is now
+		-- **16.5 x 18.3 x 31.2 studs** — as long as the 32-stud boat hull. That is a deliberate boss-scale
+		-- read, not a mistake; the HITBOX is still 8 x 5 x 12, so every aggro/bite/leash distance the AI
+		-- was tuned against is untouched and the art simply overhangs it.
+		scale = 2.738,
 		-- head at -Z: the muzzle drops to y -0.32 and there is a clear NECK PINCH at z = -2.76 (width 3.98
 		-- between 4.98 and 4.32) before the barrel body widens toward +Z.
 		yawOffset = 0,
 		water = {
-			sink = 1.9, -- sits DEEP: eyes, ears and the top of the back, which is the iconic hippo read
+			-- ⚠️ 1.9 → 0.8 → **1.6**, tracking the scale changes. Sink is an ABSOLUTE drop, so doubling the
+			-- model without doubling this would have shoved a now-18-stud-tall hippo 9 studs into the air.
+			-- 1.6 keeps the SUBMERGED FRACTION identical to the 0.8 version (41% of it shows), so it reads
+			-- exactly as before, just twice the size.
+			sink = 1.6,
 			bobAmp = 0.3,
 			bobHz = 0.22, -- slow, heavy swell
 			rollDeg = 3,

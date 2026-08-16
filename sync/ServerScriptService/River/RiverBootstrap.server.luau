@@ -19,10 +19,16 @@ local CollectionService = game:GetService("CollectionService")
 -- as the FALLBACK, not deleted, because the library lives in the place file rather than in git — a fresh
 -- clone with no saved .rbxl must still get playable obstacles rather than an invisible river hazard.
 --
--- `Sandbar` has no model and doesn't want one: it is a flat shoal, so it stays a low box on Sand material,
--- which is exactly what a sandbar looks like from a boat.
+-- `Sandbar` has no model. It is drawn as a squashed DOME at the waterline (`shape = "dome"`) — the raw
+-- trigger box is an 18-stud column whose only visible face is a flat square top, which read in game as an
+-- unidentifiable tan tile rather than a shoal.
 type Obstacle = {
 	name: string,
+	-- Relative pick weight (absent = 1). Added 2026-08-16 so the MIX can be steered without adding or
+	-- removing types — the user wanted more of the floating debris you actually run into.
+	weight: number?,
+	-- "dome" = build a rounded shoal instead of showing the raw trigger box. Sandbar only.
+	shape: string?,
 	model: string?, -- nil = the greybox box IS the visual (Sandbar)
 	-- "bed"   rests on the RIVERBED and is stretched so its top breaks the surface
 	-- "float" floats AT the surface (a log), positioned by `submerge`
@@ -43,12 +49,12 @@ local OBSTACLES: { Obstacle } = {
 	-- A boulder RESTS ON THE BOTTOM. Positioning it relative to the water surface (the first attempt) left
 	-- it suspended: the bed is 18 studs down (`CHANNEL_DEPTH`), so a "55% submerged" rock hung 13 studs
 	-- above the riverbed and read as floating through the clear water.
-	{ name = "Rock", model = "RockA", seatOn = "bed", protrude = 3, submerge = 0, size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
+	{ name = "Rock", model = "RockA", weight = 1.0, seatOn = "bed", protrude = 3, submerge = 0, size = Vector3.new(10, 10, 10), color = Color3.fromRGB(110, 112, 122), mat = Enum.Material.Rock, slow = 0.85, damage = 25 },
 	-- A log genuinely FLOATS, so this one is surface-relative and stays that way.
-	{ name = "Log", model = "LogMossy", seatOn = "float", protrude = 0, submerge = 0.35, size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
-	-- A sandbar is a MOUND rising off the bed to just under the surface — which is what it looks like once
-	-- it is seated properly, and it also stops the old flat slab reading as a plank floating on the water.
-	{ name = "Sandbar", model = nil, seatOn = "bed", protrude = 0.4, submerge = 0, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
+	{ name = "Log", model = "LogMossy", weight = 2.6, seatOn = "float", protrude = 0, submerge = 0.35, size = Vector3.new(4, 3, 20), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.5, damage = 12 },
+	-- A sandbar is a MOUND rising off the bed to just under the surface. ⚠️ Seating alone did NOT make it
+	-- read as one — see `shape = "dome"`; the box's flat top is all you ever see of it above water.
+	{ name = "Sandbar", model = nil, weight = 0.8, shape = "dome", seatOn = "bed", protrude = 0.4, submerge = 0, size = Vector3.new(22, 1.5, 16), color = Color3.fromRGB(205, 188, 132), mat = Enum.Material.Sand, slow = 0.7, damage = 4 },
 	-- A log JAM — tangled debris wedged across the channel, so it hits harder than the single `Log` but
 	-- not as hard as a boulder. Floats like the log, because that is what it is made of.
 	--
@@ -57,7 +63,24 @@ local OBSTACLES: { Obstacle } = {
 	-- whose X and Z differ wildly would present its narrow side across the river half the time and
 	-- distort the logs the rest. 14×6×11 is within ~10% of the mesh's own 7.59×3.78×5.44 proportions,
 	-- so it stretches almost uniformly and reads the same from any angle.
-	{ name = "LogJam", model = "LogJam", seatOn = "float", protrude = 0, submerge = 0.45, size = Vector3.new(14, 6, 11), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.72, damage = 16 },
+	{ name = "LogJam", model = "LogJam", weight = 1.6, seatOn = "float", protrude = 0, submerge = 0.45, size = Vector3.new(14, 6, 11), color = Color3.fromRGB(92, 62, 40), mat = Enum.Material.Wood, slow = 0.72, damage = 16 },
+}
+
+-- ── Jump ramps (Job #082) ─────────────────────────────────────────────────────────────────────────
+-- `RiverData` has emitted `kind = "ramp"` hooks since the river existed and nothing ever used them for
+-- more than a marker. Job 019 proved the jump works and left the physics in a DEV-only script; this is
+-- that feature promoted onto the real hooks. `RampServer` owns the launch.
+--
+-- ⚠️ The ANGLE is the whole difficulty knob: launch scales with it (`LAUNCH_BASE + angle * PER_DEG`),
+-- so these three are a gentle/medium/big spread rather than three cosmetic variants. Keep the steepest
+-- rare — `RiverData` favours obstacles over ramps ~3:2, and a river of big air stops reading as a river.
+local RAMP_MODEL = "RiverRamp" -- AssetLibrary name; absent => the WedgePart greybox below
+local RAMP_WIDTH = 34 -- Job 019's proven footprint: wide enough to hit without aiming
+local RAMP_HEIGHT = 8
+local RAMPS = {
+	{ angle = 12 }, -- a nudge — clears a log, lands flat
+	{ angle = 22 }, -- the standard jump
+	{ angle = 32 }, -- big air; with the Ramp Bow module this is the one that clears real gaps
 }
 
 -- Real obstacle art, looked up once. Missing library => greybox fallback, warned once, river still playable.
@@ -128,21 +151,91 @@ local function placeHooks(index: number)
 	local zMin = RiverData.Z_START + index * CHUNK_LEN
 	for _, h in ipairs(RiverData.hooksBetween(zMin, zMin + CHUNK_LEN - 1)) do
 		if h.kind == "ramp" then
-			-- ramp hooks stay greybox markers for now (ramp jumps are prototyped separately, Job 019)
+			-- ── REAL jump ramp (Job #082; was a translucent green Neon slab) ──────────────────────
+			-- 🔴 NON-COLLIDING, AND THAT IS NOT AN OVERSIGHT. Job 019 proved a heavy, buoyant,
+			-- level-controlled boat CANNOT climb a solid ramp — it jams and stalls against it. So the
+			-- ramp is a trigger you drive THROUGH, and `RampServer` applies the launch directly.
+			-- Making this collidable would break the feature, not improve it.
+			local pick = RAMPS[(math.floor(math.abs(math.noise(h.z * 0.09, 3.3)) * 89) % #RAMPS) + 1]
+			local run = RAMP_HEIGHT / math.tan(math.rad(pick.angle))
+
 			local p = Instance.new("Part")
-			p.Name = "Hook_ramp"
+			p.Name = "Ramp"
 			p.Anchored = true
 			p.CanCollide = false
-			p.Material = Enum.Material.Neon
-			p.Transparency = 0.4
-			p.Size = Vector3.new(30, 6, 22)
-			p.Position = Vector3.new(h.x, RiverData.WATER_Y + 1, h.z)
-			p.Color = Color3.fromRGB(90, 220, 120)
+			p.Size = Vector3.new(RAMP_WIDTH, RAMP_HEIGHT, run)
+			-- sunk so the low end starts under the surface and the high end breaks it, like a rock shelf
+			p.Position = Vector3.new(h.x, RiverData.WATER_Y - 2 + RAMP_HEIGHT / 2, h.z)
+			p.Color = Color3.fromRGB(104, 108, 116)
+			p.Material = Enum.Material.Rock
+			p.Transparency = 1 -- the wedge/art below is the visual; this box is the trigger footprint
 			p:SetAttribute("HookKind", "ramp")
+			p:SetAttribute("Angle", pick.angle)
+			CollectionService:AddTag(p, "Ramp")
+
+			-- The visual. A real model if the library has one, else a WedgePart — which is a genuine
+			-- slope you can read at speed, unlike the flat Neon box this replaces.
+			local art = obstacleArt[RAMP_MODEL]
+			if art then
+				local clone = art:Clone()
+				clone.Name = "Art"
+				local meshes = {}
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CastShadow = false
+						table.insert(meshes, d)
+					end
+				end
+				if #meshes == 1 then
+					-- same single-mesh stretch the obstacles use: what you see IS the trigger box
+					meshes[1].Size = p.Size
+					meshes[1].CFrame = p.CFrame
+				else
+					clone:PivotTo(p.CFrame)
+				end
+				clone.Parent = p
+			else
+				local w = Instance.new("WedgePart")
+				w.Name = "Art"
+				w.Anchored = true
+				w.CanCollide = false
+				w.Size = p.Size
+				-- 🔴 NO YAW. The first version rotated this 180° "so the slope faces the boat" and did the
+				-- exact opposite: driving downstream you met a sheer vertical rock wall with the ramp
+				-- surface on the far side. A WedgePart's slope already rises toward +Z, which IS the way
+				-- the boat travels, so the UNROTATED part presents its low edge to the approach.
+				-- ⚠️ Verified by LOOKING from the boat's eye, not by measuring. A height sample at two z
+				-- values reads "correct" for BOTH orientations — which is what made this look fine on
+				-- paper while being a wall in game.
+				w.CFrame = p.CFrame
+				w.Color = p.Color
+				w.Material = Enum.Material.Rock
+				w.Parent = p
+			end
 			p.Parent = folder
 		else
 			-- REAL obstacle (Job 036): pick a type deterministically by z; slow + damage on contact
-			local pick = OBSTACLES[(math.floor(math.abs(math.noise(h.z * 0.11, 7.7)) * 97) % #OBSTACLES) + 1]
+			-- WEIGHTED pick, still fully deterministic in z: the same noise value is mapped onto a
+			-- cumulative weight line instead of a flat index. Log + LogJam — the floating debris you run
+			-- into — are now ~70% of the mix between them, against 50% when all four types were equal.
+			local pick = OBSTACLES[1]
+			do
+				local total = 0
+				for _, o in ipairs(OBSTACLES) do
+					total += o.weight or 1
+				end
+				local roll = ((math.abs(math.noise(h.z * 0.11, 7.7)) * 97) % 1) * total
+				local acc = 0
+				for _, o in ipairs(OBSTACLES) do
+					acc += o.weight or 1
+					if roll <= acc then
+						pick = o
+						break
+					end
+				end
+			end
 
 			-- Find the RIVERBED under this hook. generateChunk() has already run for this chunk (see
 			-- ensureChunk), so the terrain is there to hit.
@@ -179,6 +272,30 @@ local function placeHooks(index: number)
 			p:SetAttribute("Slow", pick.slow)
 			p:SetAttribute("Damage", pick.damage)
 			CollectionService:AddTag(p, "Obstacle")
+
+			-- ── the sandbar's SHAPE ────────────────────────────────────────────────────────────
+			-- ⚠️ A sandbar seats "on the bed", so its trigger is an **18-stud-tall column** running from
+			-- the riverbed to 0.4 studs above the surface. Left visible, all you ever see is its flat
+			-- square top — precisely the "plank floating on the water" the old comment claimed this
+			-- seating had fixed. It had not; it read as an unidentifiable tan tile ("what is that?").
+			-- So the column goes invisible and a squashed DOME sits at the waterline, which is what a
+			-- shoal actually looks like.
+			if pick.shape == "dome" then
+				p.Transparency = 1
+				local dome = Instance.new("Part")
+				dome.Name = "Art"
+				dome.Shape = Enum.PartType.Ball
+				dome.Anchored = true
+				dome.CanCollide = false
+				dome.CastShadow = false
+				dome.Material = pick.mat
+				dome.Color = pick.color
+				local domeH = pick.size.X * 0.42
+				dome.Size = Vector3.new(pick.size.X, domeH, pick.size.Z)
+				-- most of the ball under the surface so only a sand crown breaks it
+				dome.CFrame = CFrame.new(h.x, RiverData.WATER_Y - domeH * 0.5 + pick.protrude + 0.6, h.z)
+				dome.Parent = p
+			end
 
 			local art = if pick.model then obstacleArt[pick.model] else nil
 			if art then

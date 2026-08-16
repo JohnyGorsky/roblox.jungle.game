@@ -74,7 +74,11 @@ FoliageDefs.BANDS = ({
 			{ model = "FernTall", spacing = 20, scale = { 0.7, 1.25 }, tiltMax = 8 },
 			{ model = "PalmLowPoly", spacing = 50, scale = { 0.6, 1.0 }, tiltMax = 6 },
 			-- a fallen log is something you climb over, so it earns collision
-			{ model = "LogMossy", spacing = 120, scale = { 0.9, 1.4 }, collide = true, tiltMax = 4 },
+			-- ⚠️ spacing 120 -> 50 on user direction 2026-08-16 ("more logs on river, too few of them").
+			-- Spacing is studs-between, so this is ~2.4x the logs. It is the SHORE dressing; the floating
+			-- `Log` obstacle in `RiverBootstrap.OBSTACLES` is a separate hazard and is deliberately
+			-- untouched — changing that would move difficulty, not scenery.
+			{ model = "LogMossy", spacing = 50, scale = { 0.9, 1.4 }, collide = true, tiltMax = 4 },
 			{ model = "RockA", spacing = 90, scale = { 0.8, 2.2 }, collide = true },
 			{ model = "RockB", spacing = 110, scale = { 0.8, 2.0 }, collide = true },
 			{ model = "RockC", spacing = 130, scale = { 0.8, 2.4 }, collide = true },

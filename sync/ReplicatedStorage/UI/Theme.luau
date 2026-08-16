@@ -128,59 +128,45 @@ Theme.icon = {
 	trophy = "rbxassetid://72442029972402", -- winner_trophy
 	robux = "rbxassetid://100088930369566", -- roblox
 
-	-- ── Job #075 — in-run HUD set. ⚠️ PLACEHOLDERS, NOT YET UPLOADED ─────────────────────────────
-	-- Every key below is `""` on purpose. `Components.icon` resolves an empty id through
-	-- `Theme.iconFallback` (right-hand column of that table), so the HUD renders a sensible stand-in at
-	-- the correct size and position instead of an empty square — layout and screenshots stay honest
-	-- while the art is being sourced.
+	-- ── Job #075's in-run HUD set — ✅ ALL 16 LANDED 2026-08-16 ──────────────────────────────────
+	-- Uploaded in one batch, same Flaticon author as the 23 above (ASSETS.md §1.9's "one pack, one
+	-- author" rule). These were the last empty ids in this file; `iconFallback` is now empty and
+	-- `reportPendingIcons` prints nothing, which is the intended end state and not a broken check.
 	--
-	-- TO LAND THE REAL ART: paste the rbxassetid here, then delete that key's row from BOTH
-	-- `iconPending` and `iconFallback`. `Theme.reportPendingIcons()` prints what's still outstanding.
-	-- Sourcing table: ASSETS.md §5.2. Same Flaticon author as the 23 above (ASSETS.md §1.9).
-	salvage = "", -- scrap/salvage pile — Salvage currency chip
-	metal = "", -- metal plate/girder — cargo chip, repair resource
-	ammoBox = "", -- ammo box/bullets — cargo chip, ammo readout
-	heart = "", -- heart — player health bar
-	machete = "", -- machete/sword — hotbar slot (default weapon)
-	pistol = "", -- pistol — hotbar slot
-	bandage = "", -- bandage — hotbar slot
-	flag = "", -- checkered flag — END marker on the river bar
-	warning = "", -- warning triangle — low fuel, boat under attack
-	sun = "", -- sun — day phase
-	moon = "", -- moon — night phase
-	skull = "", -- skull — downed overlay, crew-lost result
-	shotgun = "", -- shotgun — hotbar slot (optional)
-	rope = "", -- rope/knot — untie affordance (optional)
-	pin = "", -- map pin — dock marker on the river bar (optional)
-	clipboard = "", -- clipboard — objectives tab (optional)
+	-- ⚠️ `machete` IS GONE — the key is `axe`. Job #079 made the starting melee an axe, and the old key
+	-- only survived because the art hadn't landed. `itemIcon.Axe` points here now.
+	salvage = "rbxassetid://132515599590557", -- salvage — Salvage currency chip
+	metal = "rbxassetid://108134748683437", -- metal — cargo chip, repair resource
+	ammoBox = "rbxassetid://124618084720086", -- ammo_box — cargo chip, ammo readout
+	heart = "rbxassetid://80874640548406", -- heart — player health bar
+	axe = "rbxassetid://103330813920018", -- axe — hotbar slot (the starting weapon)
+	pistol = "rbxassetid://114130100634737", -- pistol — hotbar slot
+	bandage = "rbxassetid://92778620303649", -- bandage — hotbar slot
+	flag = "rbxassetid://74100920362068", -- flag — END marker on the river bar
+	warning = "rbxassetid://134738155945948", -- warning — low fuel, boat under attack
+	sun = "rbxassetid://135456974401661", -- sun — day phase
+	moon = "rbxassetid://133722357110403", -- crescent-moon — night phase
+	skull = "rbxassetid://124574187863147", -- skull — downed overlay, crew-lost result
+	shotgun = "rbxassetid://114671213665544", -- shotgun — hotbar slot
+	rope = "rbxassetid://93692735532470", -- rope — untie affordance
+	pin = "rbxassetid://74040077993361", -- mapp_pin — dock marker on the river bar
+	clipboard = "rbxassetid://128096944326660", -- clipboardt — objectives tab
 }
 
 -- Which §075 keys are still awaiting art. Delete a row when its id lands above.
-Theme.iconPending = {
-	"salvage", "metal", "ammoBox", "heart", "machete", "pistol", "bandage", "flag",
-	"warning", "sun", "moon", "skull", "shotgun", "rope", "pin", "clipboard",
-}
+-- ✅ EMPTY as of 2026-08-16 — every icon in the game is real art.
+Theme.iconPending = {}
 
 -- Stand-in art for a pending key -> an EXISTING key from the verified 23. Chosen so the substitute is
 -- semantically close enough to read correctly in a screenshot, never so close that we forget to
 -- replace it. `Components.icon` consults this only when the real id is empty.
 Theme.iconFallback = {
-	salvage = "crate", -- scrap goes in a crate
-	metal = "tools",
-	ammoBox = "gun",
-	heart = "medkit",
-	machete = "tools",
-	pistol = "gun",
-	bandage = "medkit",
-	flag = "bounty", -- target = the thing you're heading for
-	warning = "bounty",
-	sun = "star",
-	moon = "star",
-	skull = "crew",
-	shotgun = "gun",
-	rope = "tools",
-	pin = "fuel", -- the pin we draw marks a FUEL landing
-	clipboard = "check",
+	-- ✅ EMPTY as of 2026-08-16. Every key that used to need a stand-in now has real art, and the file's
+	-- own rule was "delete that key's row from BOTH iconPending and iconFallback" when the id lands.
+	--
+	-- ⚠️ THE TABLE STAYS, EMPTY, ON PURPOSE. `Components.icon` indexes it for every icon it draws; an
+	-- empty table is a clean miss, a nil table is a crash. It is also the mechanism to reach for the
+	-- next time a key is added ahead of its art — that is what it is for, and it worked.
 }
 
 -- Studio-only nag so a placeholder can't quietly ship. Called once by HudState on start-up.
@@ -228,7 +214,7 @@ Theme.groupIcon = { Boat = "boat", Crew = "crew" }
 -- no loadout, but the table lives here for the same reason skillIcon/moduleIcon do: asset keys belong
 -- in one file.
 Theme.itemIcon = {
-	Axe = "machete", -- Job #079: the starting melee is an axe now (icon still the machete placeholder)
+	Axe = "axe", -- Job #079 made this an axe; its real glyph landed 2026-08-16
 	Torch = "spotlight", -- a carried lamp; the searchlight glyph is the closest in the set
 	Pistol = "pistol",
 	Shotgun = "shotgun",
@@ -301,19 +287,21 @@ Theme.sound = {
 	dayBreak = "rbxassetid://88638394432005", -- morning_starts (jungle)
 	nightFall = "rbxassetid://75443344927115", -- night_starts_2 (jungle)
 
-	-- ⚠️ PLACEHOLDERS, NOT YET SOURCED — Pixabay, see ASSETS.md §5.2.
-	-- Empty ids are a silent no-op in UISound (it skips them rather than building a dead Sound), so
-	-- everything below is wired at its call site already and starts working the moment an id lands.
-	lowFuel = "", -- single soft warning beep — fuel < 20%
-	lowHull = "", -- metallic stress groan — hull < 30%
-	downed = "", -- low thud + breath — you go down
+	-- ── Job #075's five run-turning cues — ✅ ALL SOURCED 2026-08-16 ────────────────────────────
+	-- Uploaded by the user; these were the last empty ids in this table. They were wired at their call
+	-- sites from the day the keys existed, so landing the ids is all that was needed to make them audible.
+	lowFuel = "rbxassetid://76291949644634", -- low_fuel_warning   — fuel < 20%
+	lowHull = "rbxassetid://77018431817918", -- low_hull_warning   — hull < 30%
+	downed = "rbxassetid://139285102940691", -- palyer_dawned      — you go down (upload's spelling)
 	emptyClick = "rbxassetid://75733077651437", -- empty_gun (uploaded 2026-08-05) — dry trigger click
-	revived = "", -- rising recovery swell — picked back up
-	runLost = "", -- somber descending sting — crew wiped
+	revived = "rbxassetid://74705196258655", -- palyer_revived     — picked back up
+	runLost = "rbxassetid://94363214324807", -- run_lost_sound     — crew wiped
 }
 
 -- Same contract as iconPending: delete a row when its id lands above.
-Theme.soundPending = { "lowFuel", "lowHull", "downed", "revived", "runLost" }
+-- ✅ EMPTY as of 2026-08-16 — every HUD sound is sourced. `reportPendingSounds` now prints nothing,
+-- which is the intended end state, not a broken check.
+Theme.soundPending = {}
 
 function Theme.reportPendingSounds()
 	local missing = {}

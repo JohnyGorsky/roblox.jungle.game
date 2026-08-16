@@ -38,7 +38,11 @@ local CULL_BEHIND = 1200 -- destroy a landing site once the boat is this far pas
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
 local GUARD_LEASH = 55
 local PATH_HALF = 18 -- keep a tree-free walking lane this wide (half) from the shore to the camps (Job 053)
-local MAX_GUARDS = 6 -- escalation cap per camp (Job 053)
+local MAX_GUARDS = 6 -- escalation cap per camp (Job 053) — a PERF ceiling: each guard is a full R15 rig
+-- Per-village escalation (user, 2026-08-16). Compounds on the landing's ordinal: village N is
+-- `VILLAGE_STEP^(N-1)` times the first, applied to BOTH guard count and guard strength (HP + bite).
+-- Village 1 is deliberately unchanged, so this only ever makes the river harder as you go.
+local VILLAGE_STEP = 1.10
 
 -- perpendicular distance (X/Z) from point (px,pz) to segment A→B — used to keep the path lane clear of trees
 local function distToSeg(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number
@@ -585,11 +589,24 @@ end
 -- The model is still named `CampGuard` (Job 053's AI, the tag and the leash all key off that) but its
 -- body, eyes, animations and sounds are the **Bandit's** — a human raider, which is what should be
 -- guarding a camp of loot crates and sandbags. Stats are the old Panther's, unchanged.
-local function spawnGuard(anchorPos: Vector3, parent: Instance)
+-- ⚠️ `strength` is a MULTIPLIER on this guard's HP and bite, not a new stat block. It comes from the
+-- village's ordinal (see `VILLAGE_STRENGTH_STEP`), so the same Bandit gets tougher the further downriver
+-- you meet him. `EnemyDefs.Defs.Bandit` itself is never mutated — a shared table edited per-spawn would
+-- leak the buff onto every camp built afterwards, including earlier ones on a re-dress.
+local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number?)
 	local def = EnemyDefs.Defs.Bandit
 	local guard = EnemyRig.build(def, anchorPos + Vector3.new(0, def.size.Y / 2, 0), parent)
 	guard.Name = "CampGuard"
 	CollectionService:AddTag(guard, "CampGuard")
+	local mul = strength or 1
+	if mul ~= 1 then
+		-- `EnemyRig.build` has already written HP/MaxHP from the def; scale what it wrote.
+		local hp = math.floor(def.hp * mul + 0.5)
+		guard:SetAttribute("HP", hp)
+		guard:SetAttribute("MaxHP", hp)
+		-- read back by the bite in `tickGuard`, which falls back to `def.biteDamage` when unset
+		guard:SetAttribute("BiteDamage", math.floor(def.biteDamage * mul + 0.5))
+	end
 	guardState[guard] = { biteTimer = def.biteCooldown, anchor = Vector3.new(anchorPos.X, CLEAR_Y + def.size.Y / 2, anchorPos.Z) }
 end
 
@@ -630,7 +647,8 @@ local function buildCampAt(
 	resources: { string },
 	kind: CampDefs.CampKind,
 	approach: Vector3,
-	rng: Random
+	rng: Random,
+	strength: number? -- per-village HP/bite multiplier; nil = 1 (village 1)
 )
 	local L = CampDefs.LAYOUT
 	local function at(slot: CampDefs.Slot): Vector3
@@ -729,10 +747,11 @@ local function buildCampAt(
 		hutPos = Vector3.new(hutAt.X, groundAt(hutAt.X, hutAt.Z), hutAt.Z),
 	})
 
-	-- ⚠️ UNCHANGED, AND MUST STAY UNCHANGED. Job #058 tunes difficulty by crew size against these exact
-	-- spawn positions and this exact count. The re-dress moved everything else; it does not move guards.
+	-- ⚠️ SPAWN POSITIONS UNCHANGED, AND THEY MUST STAY UNCHANGED. Job #058 tunes difficulty by crew size
+	-- against these exact positions. The 2026-08-16 village ramp changes the COUNT and the STRENGTH that
+	-- reach here; it does not move where a guard stands.
 	for i = 1, guards do
-		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent)
+		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength)
 	end
 end
 
@@ -1133,8 +1152,20 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local tier = math.max(1, math.ceil(index / 2))
 	-- SOLO tuning (Job 058): fewer guards for a small crew so a lone raider can clear a camp (min 1).
 	local scale = 0.55 + (1 - 0.55) * math.clamp((#Players:GetPlayers() - 1) / 5, 0, 1)
-	local nearGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier) * scale))
-	local deepGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier + 1) * scale))
+
+	-- ⚠️ **PER-VILLAGE ESCALATION, user direction 2026-08-16: "each next village +10% more monsters, and
+	-- stronger by 10%".** Compounding on the landing's ordinal, so village 1 is unchanged and each one
+	-- after is 1.10x the last on BOTH axes.
+	--
+	-- ⚠️ The COUNT multiplier is applied INSIDE the `MAX_GUARDS` clamp on purpose. The cap is a
+	-- performance ceiling (each guard is a full R15 rig), not a difficulty knob — letting the ramp push
+	-- past it would put 10+ rigs at the last village. Once the count saturates at 6, the escalation
+	-- continues through STRENGTH, which costs nothing to render. That is the intended behaviour, not a
+	-- ramp that quietly stops.
+	local villageStep = VILLAGE_STEP ^ math.max(0, index - 1)
+	local strength = villageStep
+	local nearGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier * villageStep) * scale))
+	local deepGuards = math.max(1, math.floor(math.min(MAX_GUARDS, (tier + 1) * villageStep) * scale))
 	-- Job #077: the direction the player walks INTO each camp. The near camp is approached from the shore
 	-- landing; the deep camp is approached from the near camp — which is the real route, so the deep camp
 	-- presents its front to someone who has just fought through the first one.
@@ -1144,8 +1175,8 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local deepApproach = (deepPos - nearPos) * Vector3.new(1, 0, 1)
 	deepApproach = if deepApproach.Magnitude > 0.01 then deepApproach.Unit else nearApproach
 
-	buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng) -- 2 gas → a haul can fund skipping a stop (Job 054)
-	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng)
+	buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng, strength) -- 2 gas → a haul can fund skipping a stop (Job 054)
+	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng, strength)
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
 	--
@@ -1242,7 +1273,9 @@ local function tickGuard(guard: Model, dt: number)
 		EnemyRig.playSound(guard, "attack")
 		local char = target.Parent
 		if char then
-			char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - def.biteDamage))
+			-- per-guard `BiteDamage` (the village strength ramp) with the def as the floor
+			local bite = (guard:GetAttribute("BiteDamage") :: number?) or def.biteDamage
+			char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - bite))
 		end
 	end
 end

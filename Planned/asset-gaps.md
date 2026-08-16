@@ -1,105 +1,71 @@
-# Asset gaps — everything Last River still needs (snapshot 2026-08-15)
+# Asset gaps — everything Last River still needs (snapshot 2026-08-16)
 
 Read from `ASSETS.md`, the shared registry, and the live code — **not** from memory. `ASSETS.md` stays
 the bible; this is a dated summary of what is still OPEN, ordered by what a player notices first.
 
-> ✅ **Recently closed:** all 6 creatures (Job #078), all 4 held weapons + the whole weapon audio set
-> (Job #079), dock camps / docks / trading posts (Job #077), camp night practicals + the river log jam
-> (Job #079, 2026-08-16). None of those appear below.
+> ✅ **Recently closed:** all 6 creatures (#078) · all 4 held weapons + the whole weapon audio set (#079)
+> · dock camps / docks / trading posts (#077) · camp night practicals + the river log jam (#079) · boat
+> wake VFX + boat damage audio (#081) · **all 5 HUD sounds (#081, 2026-08-16)** · **all 6 boat upgrade
+> models — verified, they were already done in the lobby** · waterfalls / zone dressing / intro art /
+> lobby lanterns (**user: not needed, already done**). None of those appear below.
 
 ---
 
-## 1. 🔴 HUD icons — 23 wired, **16 still need real art**
+## 1. ✅ HUD icons — CLOSED 2026-08-16
 
-`Theme.icon` has 39 keys; **23 carry real ids** (the lobby / shop / boat set) and **16 are empty** — all
-of them Job #075's *in-run HUD* set, which is why the boot warning only names those:
+All 16 landed in one Flaticon batch and are wired in `Theme.icon` (both trees, byte-identical). Verified
+in Play: `iconPending` empty, `iconFallback` empty, boot warning gone, and **all 16 resolve**
+(`ImageLabel.IsLoaded` after `PreloadAsync`).
 
-`salvage` · `metal` · `ammoBox` · `heart` · `machete`→**axe** · `pistol` · `bandage` · `flag` ·
-`warning` · `sun` · `moon` · `skull` · `shotgun` · `rope` · `pin` · `clipboard`
+> ⚠️ `axe` briefly failed to load on first check and passed minutes later — it was in **image
+> moderation**, not broken. `GetProductInfo` confirmed the asset existed and was a valid Image the whole
+> time. If a fresh upload fails to render, check moderation before touching code.
 
-### ⚠️ They are NOT blank on screen — and that is the point
+**The `machete` key is gone** — renamed to `axe` (Job #079 made the starting melee an axe), and
+`Theme.itemIcon.Axe` points at it. No `machete` reference survives anywhere in either tree.
 
-`Theme.iconFallback` already maps every one of them to a semantically-close wired icon, and
-`Components.iconId` substitutes automatically whenever the real id is empty. The HUD has been drawing
-`tools` for the axe, `gun` for the pistol, `medkit` for the bandage, `crew` for the skull, and so on,
-the whole time.
+## 2. ✅ HUD sounds — CLOSED 2026-08-16
 
-The file states the intent plainly, and it is worth respecting:
+All five landed in one upload batch and are wired in `Theme.sound` (both trees, byte-identical):
+`lowFuel` 76291949644634 · `lowHull` 77018431817918 · `downed` 139285102940691 ·
+`revived` 74705196258655 · `runLost` 94363214324807.
 
-> *"semantically close enough to read correctly in a screenshot, never so close that we forget to
-> replace it. `Components.icon` consults this only when the real id is empty."*
+`Theme.soundPending` is now empty and the boot warning is gone — verified in Play. All five resolve and
+are moderation-approved (`ContentProvider:PreloadAsync` + `IsLoaded`, 0 failures).
 
-So **the empty ids are the tracking mechanism**, not an oversight. Filling them with existing art (tried
-2026-08-15, reverted the same day) removes the boot warning, makes a deliberately-imperfect stand-in
-permanent, and duplicates a system that already exists.
+## 3. ✅ Boat audio — CLOSED 2026-08-16
 
-**"The axe icon looks wrong" is this working as designed** — the axe slot shows the `tools` wrench,
-because no axe glyph exists in the set yet. Nothing among the 23 wired icons is a blade or an axe, so
-that one cannot be fixed by reuse; it needs real art.
+Wired in `BoatSound` (Job #081): `metal_hit_1_sec` 108683025674193 on a hit ≥18% MaxHP ·
+`boat_on_fire` 76815433524413 looping under 30% hull (17.2 s clip) · `boat_destroyed` 102492807352506
+at zero.
 
-**Source:** Flaticon. ⚠️ **Same author as the §1.9 lobby set** — ASSETS.md's rule: *"One pack, one
-author — mixed packs are the #1 way an icon set looks wrong."*
-
-> ⚠️ Rename `machete` → `axe` when the art lands: Job #079 made the starting melee an axe.
-> `Theme.itemIcon.Axe` currently points at the `machete` key in both trees.
-
-## 2. 🔴 HUD sounds — 5 placeholders
-
-`Theme.sound` keys with empty ids, warned about on every boot:
-
-| Key | What it is |
-|---|---|
-| `lowFuel` | single soft warning beep — fuel < 20% |
-| `lowHull` | metallic stress groan — hull < 30% |
-| `downed` | low thud + breath — you go down |
-| `revived` | rising recovery swell — picked back up |
-| `runLost` | somber descending sting — crew wiped |
-
-**Source:** Pixabay, then upload. These are the moments the run turns — currently silent.
-
-## 3. 🟡 Audio sitting on disk, never uploaded
-
-All local `.mp3`s with no registry entry. Uploading is the whole job for most of them.
-
-**Boat** (`assets/Objects/Boat/Sounds/`)
-`boat_destroyed` · `boat_on_fire` · `metal_hit_1_sec` · `boat_engine_loop_5_sek` ·
-`diesel_motor_start` · `motor_loop`
-→ ASSETS.md §2 already flags on-fire / destroyed / metal-hit as ❌ not uploaded. The three engine files
-may be alternates for the engine loop that is already wired — check before uploading duplicates.
-
-**Gun** (`assets/Objects/Gun/`) — <span style="color:#2e9c3f">✅ nothing left here</span>
-`gun_reload` · `gun_empty_clip` · `gun_shot_1_sec`
-→ All three are now **uploaded and wired** (Job #079): `gun_shot` `138178318678571`, `empty_gun`
-`75733077651437`, `gun_empty_clip` `135106168511714`, `gun_reload` `134765294816468` (the turret is the
-only weapon with a reload moment). These local files are alternates — leave them.
-
-## 4. 🟡 Boat upgrade models — 6 to generate
-
-Every purchasable boat module is still greybox (`ASSETS.md` §2):
-
-`motor2` (twin motors) · `hullkit` (reinforced hull) · `searchlight` rig · `fueltank` (extended) ·
-`trailer` (**cargo ON the rear deck — NOT a towed barge**) · `gunupgrade` (turret)
-
-**Source:** Meshy. These are bought with real money, so they are the assets most worth spending on.
-
-> ⚠️ **"Gold-chest buy-popup art" was on this list and is now closed** — not by generating it, but
-> because it never existed as a gap: `Theme.productIcon` already carries real transparent PNGs for all
-> four gold packs and every pass, and the shop draws flat images, not 3D. The `GoldChest` model
-> generated for it became trading-post dressing in #079 instead.
+> ⚠️ **Two dead duplicates to delete from the account.** `boat_destroyed 89814954215320` and
+> `boat_on_fire 85716055048481` were uploaded earlier the same day and briefly wired; the batch above
+> supersedes them and nothing references them now.
 >
-> ⚠️ Boat upgrade **purchasing already works** — it was built in the lobby. `BoatParts` holds 18 real
-> MeshParts, named by art rather than by module id, which is why an earlier sweep wrongly reported it
-> missing. Only the 6 models above are greybox.
+> The remaining local `.mp3`s (`boat_engine_loop_5_sek`, `diesel_motor_start`, `motor_loop`) are
+> **alternates** for the engine loop that is already wired. Leave them; do not upload duplicates.
 
-## 5. 🟡 World set-pieces
+## 4. ✅ Boat upgrade models — CLOSED (already done, verified 2026-08-16)
 
-| Item | Note |
+Every purchasable module resolves real mesh art through `BoatParts.skin()`; the greybox in
+`BoatModules` is only the fallback for when art is missing. Verified live via `BoatParts.hasArt`:
+
+`motor2`→Motor · `hullPlate`→HullPlate · `fuelTank`→FuelTank · `searchlightMast`→SearchlightMast ·
+`searchlightHead`→SearchLightHead · `trailer`→CargoRacks · `gunBarrel`→GunBarrel — **all 7 hasArt=YES.**
+
+> ⚠️ `ASSETS.md` §2 still describes these as greybox. **That is stale** — it predates the lobby work.
+
+## 5. 🟡 World set-pieces — ramp GAMEPLAY done, only its ART left
+
+| Item | State |
 |---|---|
-| Waterfalls, ramps | ⚠️ **neither is Meshy work** — waterfalls are terrain + VFX, ramps need a design decision first |
-| ~~Dam blockages~~ | <span style="color:#2e9c3f">✅ closed (#079)</span> — `LogJam` is live as the 4th river obstacle |
-| Zone dressing / day-night set-pieces | per-zone props + lighting; 4 zones exist in code. **Needs a spec before generating anything** |
-| Lobby lanterns | §1 says the signpost is built but *"Lanterns still ▫ (need props)"*. ⚠️ **The `Lantern` model wired in #079 is in the GAME place** — the lobby is a separate place file and needs its own import |
-| Plane-crash intro visuals | the cold open is scripted but has no bespoke art (2D) |
+| **River ramps — logic** | ✅ **DONE (#082, 2026-08-16).** Job 019's proven launch promoted onto the real `ramp` hooks; verified in Play at **+22.2 studs** off a 32° ramp. Non-colliding triggers. |
+| **River ramps — art** | 🟡 **THE ONLY OPEN ASSET besides the icons.** Currently a grey `WedgePart` — correctly angled and readable, but blocky. A Meshy `RiverRamp` drops in by name with no code change. |
+| Waterfalls · zone dressing · plane-crash intro · lobby lanterns | ✅ user 2026-08-16: not needed / already done |
+
+> ⚠️ Do not confuse the river ramp with `BoatParts.ramp` → `RampBow`, the BOAT's bow-ramp module, which
+> already has art (`hasArt = YES`).
 
 ## 6. 🟢 Enemies — only the Anaconda
 
@@ -120,9 +86,6 @@ and a balance pass before a model is worth generating.
 
 ## Suggested order
 
-1. **HUD icons + HUD sounds** (§1, §2) — 16 icons + 5 sounds. Not urgent-broken (the icons fall back to
-   close-enough art automatically), but it is the most-seen rough edge in the game.
-2. **Upload the audio already on disk** (§3) — nearly free, and `gun_reload` closes the last weapon gap.
-3. **Boat upgrade models** (§4) — they are paid content and currently look like boxes.
-4. **World set-pieces** (§5) — biggest visual payoff per unit of work after the above.
-5. **Anaconda** (§6) — only once its gameplay is decided.
+1. **River ramp ART** (§5) — the only remaining asset in the game.
+   edge, and the only remaining ART gap in the game.
+2. **Anaconda** (§6) — only if its gameplay is ever decided (currently skipped).

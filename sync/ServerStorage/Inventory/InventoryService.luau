@@ -115,50 +115,13 @@ local function buildTorch(part: Part)
 	return head
 end
 
--- ── the carry pose (Job #079, 2026-08-16) ────────────────────────────────────────────────────────
--- Cached per character, exactly as `MeleeServer` caches its slash tracks: `LoadAnimation` on every slot
--- switch would leak a track per keypress. Played at **Idle** priority — the same priority the default
--- `Animate` script uses for `toolnone` — so the Action-priority slash animations still win over it.
-local holdTracks: { [Model]: AnimationTrack } = {}
-
-local function setHoldPose(char: Model, on: boolean)
-	local track = holdTracks[char]
-	if not track then
-		if not on then
-			return
-		end
-		local hum = char:FindFirstChildWhichIsA("Humanoid")
-		local animator = hum and hum:FindFirstChildWhichIsA("Animator")
-		if not animator then
-			return
-		end
-		local a = Instance.new("Animation")
-		a.AnimationId = WeaponAssets.HOLD_ANIM
-		local ok, loaded = pcall(function()
-			return animator:LoadAnimation(a)
-		end)
-		if not ok or not loaded then
-			warn("[Inventory] carry pose failed to load — held items keep the arms-down hold")
-			return
-		end
-		loaded.Priority = Enum.AnimationPriority.Idle
-		loaded.Looped = true
-		track = loaded
-		holdTracks[char] = track
-		-- the character model is destroyed on respawn; drop the track with it rather than leak one per life
-		char.Destroying:Once(function()
-			holdTracks[char] = nil
-		end)
-	end
-	if on then
-		if not track.IsPlaying then
-			track:Play(0.15)
-		end
-	elseif track.IsPlaying then
-		track:Stop(0.15)
-	end
-end
-
+-- ⚠️ THE CARRY POSE IS NOT PLAYED HERE, AND MUST NOT BE MOVED BACK.
+-- It was, first: a cached track on the character's Animator, played from this module. It does not work —
+-- a player's Animator is owned by that player's CLIENT, so a server-side `Play()` shows up in the
+-- server's `GetPlayingAnimationTracks()` and never renders for the player it belongs to. Measured, not
+-- assumed: server read `507768375 w1.00 Idle` while the owning client's list held only the default idle
+-- and the arm hung at the hip on screen. `HeldPose.local.luau` owns it now (and the id lives in
+-- `ItemDefs`, which the client can actually reach).
 local function updateHeldVisual(player: Player)
 	local char = player.Character
 	if not char then
@@ -170,8 +133,6 @@ local function updateHeldVisual(player: Player)
 	end
 	local id = player:GetAttribute("ActiveItem") :: string?
 	local def = ItemDefs.get(id)
-	-- Empty hands => drop the carry pose, so an empty slot stands normally instead of miming a weapon.
-	setHoldPose(char, def ~= nil)
 	if not def then
 		return
 	end
@@ -182,6 +143,34 @@ local function updateHeldVisual(player: Player)
 
 	local art = if id then WeaponAssets.ART[id] else nil
 	local source = if art and art.model then weaponLibrary[art.model] else nil
+
+	-- ── the hold rotation ────────────────────────────────────────────────────────────────────────
+	-- ⚠️ SHARED BY BOTH BRANCHES, and it has to be: the torch is BUILT down the greybox path (a stick
+	-- plus a flame, never a sourced model), so a rotation applied only to real models left it pointing
+	-- wherever the hand pointed — which, once the carry pose went in, is straight forward. It read as a
+	-- wand lying along the forearm.
+	--
+	-- 🔴 DERIVED FROM THE LIVE HAND, NOT STORED AS AN ANGLE. `holdInChar` says where the weapon should
+	-- sit in CHARACTER space; the hand-relative offset that achieves it depends on where the carry
+	-- animation currently has the wrist, so it is solved here, now:
+	--     rot = handRotation⁻¹ · characterRotation · holdInChar
+	-- Three earlier attempts stored a hand-relative Euler triple instead and all three failed silently
+	-- (see the long note in `WeaponAssets`) — averaging across the ±180° wrap, terms vanishing on
+	-- read-back, values that round-tripped perfectly and were still 67° off. This form has no angles to
+	-- lose and needs no re-solving if the carry animation is ever changed.
+	--
+	-- The server sees the POSED hand (the owning client replicates its animated CFrames back), which is
+	-- what makes solving it here work at all — verified: server-side `RightHand.UpVector` reads (0.21,
+	-- 0.04, 0.98) while the pose is playing, not (0, 1, 0).
+	local rot: CFrame
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if art and art.holdInChar and root then
+		local handRot = hand.CFrame - hand.CFrame.Position
+		local charRot = root.CFrame - root.CFrame.Position
+		rot = handRot:Inverse() * charRot * art.holdInChar
+	else
+		rot = CFrame.Angles(0, math.rad((art and art.yawOffset) or 0), 0)
+	end
 
 	local part: BasePart
 	if source then
@@ -198,17 +187,9 @@ local function updateHeldVisual(player: Player)
 			clone.Size *= art.scale
 		end
 		local grip = (art and art.gripOffset) or Vector3.zero
-		-- `holdAngles` (compound X/Y/Z) wins over the yaw-only `yawOffset` when a weapon is present.
 		-- ⚠️ The rotation is applied BEFORE the grip translation on purpose: `-grip` is expressed in the
 		-- ROTATED frame, which is what keeps the model's grip point on the hand however it is angled.
 		-- Swap the order and tilting the axe also slides it out of the fist.
-		local rot
-		if art and art.holdAngles then
-			local a = art.holdAngles
-			rot = CFrame.Angles(math.rad(a.X), math.rad(a.Y), math.rad(a.Z))
-		else
-			rot = CFrame.Angles(0, math.rad((art and art.yawOffset) or 0), 0)
-		end
 		clone.CFrame = hand.CFrame * rot * CFrame.new(-grip.X, -grip.Y, -grip.Z)
 		part = clone
 	else
@@ -222,13 +203,13 @@ local function updateHeldVisual(player: Player)
 		p.Material = Enum.Material.SmoothPlastic
 		if def.kind == "Melee" then
 			p.Size = Vector3.new(0.25, 4, 0.25)
-			p.CFrame = hand.CFrame * CFrame.new(0, -2, 0)
+			p.CFrame = hand.CFrame * rot * CFrame.new(0, -2, 0)
 		elseif def.kind == "Light" then
 			p.Size = Vector3.new(0.6, 1.2, 0.6)
-			p.CFrame = hand.CFrame * CFrame.new(0, 0.6, 0)
+			p.CFrame = hand.CFrame * rot * CFrame.new(0, 0.6, 0)
 		else
 			p.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 2.4 else 1.2)
-			p.CFrame = hand.CFrame * CFrame.new(0, 0, -0.6)
+			p.CFrame = hand.CFrame * rot * CFrame.new(0, 0, -0.6)
 		end
 		part = p
 	end

@@ -25,7 +25,26 @@ local SFX = {
 	start = "rbxassetid://105048345579705", -- boat_engine_starts   3.7 s one-shot
 	loop = "rbxassetid://74719520771875", -- speed_boat_loop      5.6 s loop
 	hit = "rbxassetid://131954812341128", -- boat_hit             one-shot on damage
+	-- Job #081: the boat's damage-state cues, from the user's 2026-08-16 upload batch.
+	--
+	-- ⚠️ THERE ARE OLDER DUPLICATES OF TWO OF THESE. `boat_destroyed 89814954215320` and
+	-- `boat_on_fire 85716055048481` were uploaded earlier the same day and briefly wired here; the ids
+	-- below supersede them so the whole damage set comes from ONE upload batch rather than two. The old
+	-- pair are now unreferenced and can be deleted from the account — see registry `audio.md`.
+	debris = "rbxassetid://108683025674193", -- metal_hit_1_sec     layered on a BIG hit only
+	burning = "rbxassetid://76815433524413", -- boat_on_fire        loop while the hull is critical
+	destroyed = "rbxassetid://102492807352506", -- boat_destroyed      one-shot when the hull reaches 0
 }
+
+-- ── hull condition (Job #081) ───────────────────────────────────────────────────────────────
+-- ⚠️ These are AUDIO thresholds and nothing else — no gameplay reads them. The boat has always had
+-- an `HP` attribute that anything can damage; this file just listens, exactly as the hit cue does.
+local BURN_AT = 0.3 -- hull below 30% => the fire loop comes up
+local BURN_VOL = 0.5
+local BURN_FADE = 1.2
+-- A hit this big also throws metal. Deliberately higher than `HIT_REF_FRAC` (0.12) so the debris
+-- layer stays an occasional punctuation rather than doubling every single hit.
+local DEBRIS_FRAC = 0.18
 
 -- ── engine ──────────────────────────────────────────────────────────────────────────────────
 -- "It must be live" is driven by NEITHER the throttle key alone nor the speed alone:
@@ -203,12 +222,59 @@ local function attach(boat: Model)
 	end))
 
 	-- ── damage ──
+	--
+	-- Job #081 hangs three more cues off this SAME `HP` hook rather than off each damage source.
+	-- Enemy bites (`EnemyServer`) and river obstacles (`ObstacleServer`) both just write `HP`, so one
+	-- listener covers both and anything added later — the reasoning the hit cue was built on.
+	local burning = makeSound(SFX.burning, true, 0)
+	burning.Name = "BoatBurning"
+	burning.Parent = hull
+	local isBurning = false
+	local dead = false
+
 	local lastHP = (boat:GetAttribute("HP") :: number?) or 0
 	local lastHitAt = 0
+
+	-- ⚠️ Fire and destruction are driven by the RESULTING hull fraction, not by the size of the hit,
+	-- so they are correct however the boat got there (many small bites or one obstacle) — and they
+	-- self-clear when the Repair station brings HP back up.
+	local function updateCondition()
+		local hp = (boat:GetAttribute("HP") :: number?) or 0
+		local maxHP = (boat:GetAttribute("MaxHP") :: number?) or 100
+		local frac = if maxHP > 0 then hp / maxHP else 1
+
+		if hp <= 0 then
+			if not dead then
+				dead = true
+				playOneShot(SFX.destroyed, hull, 0.9)
+			end
+		else
+			dead = false -- a rebuilt/repaired boat can be destroyed again
+		end
+
+		local shouldBurn = hp > 0 and frac <= BURN_AT
+		if shouldBurn and not isBurning then
+			isBurning = true
+			burning.Volume = 0
+			burning:Play()
+			TweenService:Create(burning, TweenInfo.new(BURN_FADE), { Volume = BURN_VOL }):Play()
+		elseif not shouldBurn and isBurning then
+			isBurning = false
+			local fade = TweenService:Create(burning, TweenInfo.new(BURN_FADE), { Volume = 0 })
+			fade.Completed:Once(function()
+				if not isBurning then
+					burning:Stop()
+				end
+			end)
+			fade:Play()
+		end
+	end
+
 	table.insert(conns, boat:GetAttributeChangedSignal("HP"):Connect(function()
 		local hp = (boat:GetAttribute("HP") :: number?) or 0
 		local lost = lastHP - hp
 		lastHP = hp
+		updateCondition()
 		if lost <= 0 then
 			return -- healed (Repair station regen), or no change
 		end
@@ -221,7 +287,12 @@ local function attach(boat: Model)
 		-- a bigger bite hits harder
 		local frac = math.clamp(lost / (maxHP * HIT_REF_FRAC), 0, 1)
 		playOneShot(SFX.hit, hull, lerp(HIT_VOL_MIN, HIT_VOL_MAX, frac))
+		-- ...and a really big one throws metal with it
+		if lost >= maxHP * DEBRIS_FRAC then
+			playOneShot(SFX.debris, hull, 0.7)
+		end
 	end))
+	updateCondition() -- a boat that is already damaged when we attach should already be burning
 end
 
 -- BoatServer builds the boat at start-up, but a run can rebuild it, so bind by name and re-attach.

@@ -21,6 +21,13 @@ local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
+-- ⚠️ **+20% on user direction 2026-08-16.** Expressed as ONE multiplier rather than by editing four
+-- numbers, so the original Job 051 tuning stays legible and the next density change is a single edit.
+-- Applied where the cap is computed, and floored — so 4 -> 4 (4.8) and 9 -> 10 (10.8) for sea,
+-- 3 -> 3 (3.6) and 7 -> 8 (8.4) for land. The base is barely moved, the ceiling is what grows, which is
+-- what "more monsters" means on a run that escalates with distance.
+local ENEMY_DENSITY = 1.2
+
 local BASE_SEA_CAP, MAX_SEA_CAP = 4, 9 -- concurrent sea enemies: grows with distance (+2 at night)
 local BASE_LAND_CAP, MAX_LAND_CAP = 3, 7 -- banks are dangerous — more land ambushers (Job 051)
 local SEA_AHEAD_MIN, SEA_AHEAD_MAX = 180, 320 -- spawn well ahead → time to react at speed
@@ -244,14 +251,14 @@ local function crewScale(): number
 end
 
 local function seaCap(): number
-	local c = BASE_SEA_CAP + math.floor((MAX_SEA_CAP - BASE_SEA_CAP) * distFrac())
+	local c = math.floor((BASE_SEA_CAP + (MAX_SEA_CAP - BASE_SEA_CAP) * distFrac()) * ENEMY_DENSITY)
 	if currentPhase() == "night" then
 		c += 3 -- NIGHT SET-PIECE: the water surges (Job 035) — reach a dock and hold out
 	end
 	return math.max(1, math.floor(c * crewScale()))
 end
 local function landCap(): number
-	local c = BASE_LAND_CAP + math.floor((MAX_LAND_CAP - BASE_LAND_CAP) * distFrac())
+	local c = math.floor((BASE_LAND_CAP + (MAX_LAND_CAP - BASE_LAND_CAP) * distFrac()) * ENEMY_DENSITY)
 	return math.max(1, math.floor(c * crewScale()))
 end
 

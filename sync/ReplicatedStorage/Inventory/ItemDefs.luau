@@ -40,6 +40,20 @@ ItemDefs.MAX_SLOTS = 6 -- with the Extra Inventory Slots pass
 -- (Distinct from `ammoPerCrate` above, which is a HANDHELD gun picking up an ammo crate.)
 ItemDefs.TURRET_ROUNDS_PER_CRATE = 12
 
+-- 🔴 THE CARRY POSE — Roblox's own `toolnone`, the animation the default `Animate` LocalScript plays when
+-- a character holds a Tool. Without it the crew stand arms-down and a held axe hangs by their knees.
+--
+-- ⚠️ IT LIVES HERE, IN REPLICATED STORAGE, BECAUSE ONLY THE CLIENT CAN PLAY IT.
+-- A player's character Animator is owned by that player's client: an `Animator:LoadAnimation():Play()`
+-- run on the SERVER shows up in the server's `GetPlayingAnimationTracks()` and never renders for the
+-- owning player. That was measured, not assumed — the track read `507768375 w1.00 Idle` on the server
+-- while the client's own list held only the default idle, and the arm hung down on screen.
+-- So `HeldPose.local.luau` plays it, and the id cannot sit in `WeaponAssets` (ServerStorage, unreachable
+-- from the client). One copy, here, rather than the same id hand-written into two files.
+--
+-- ⚠️ R15 only (R6's equivalent is 182393478). This game is R15, verified on a live character.
+ItemDefs.HOLD_ANIM = "rbxassetid://507768375"
+
 -- How many slots this player has. Convenience only — more room to carry, no damage/health/speed change,
 -- which is what keeps it on the right side of GAME.md's "core power stays earnable" rule.
 --

@@ -60,8 +60,14 @@ local FORK_MIN_WIDTH = 220 -- only fork where the base channel is at least this 
 -- zones). width in studs · turn = meander multiplier · obs = obstacle-density multiplier (1.0 ≈ old spacing)
 -- · currentMul = downstream-flow multiplier (data now; wired into BoatServer in overhaul job #2).
 local ZONE_PROFILE = {
-	{ f = 0.000, width = 150, turn = 0.65, obs = 0.55, currentMul = 1.0 }, -- Headwaters (start)
-	{ f = 0.125, width = 150, turn = 0.70, obs = 0.60, currentMul = 1.0 }, -- Headwaters
+	-- ⚠️ obs 0.55/0.60 -> **1.00/1.10 on user direction 2026-08-16** ("start to first camp felt too
+	-- simple — one log and not a single ramp"). MEASURED, and the complaint was exact: the first 1600
+	-- studs to the first landing contained **1 hook, an obstacle, and zero ramps**. `keep` is
+	-- `0.55 * obs`, so at 0.55 only 30% of an already-sparse 120-stud candidate grid survived.
+	-- At 1.00 the opening matches Croc Country's density; The Rapids (1.90) is still the clear peak, so
+	-- the zone escalation is preserved — the opening just stops being empty.
+	{ f = 0.000, width = 150, turn = 0.65, obs = 1.00, currentMul = 1.0 }, -- Headwaters (start)
+	{ f = 0.125, width = 150, turn = 0.70, obs = 1.10, currentMul = 1.0 }, -- Headwaters
 	{ f = 0.375, width = 210, turn = 1.00, obs = 1.00, currentMul = 1.0 }, -- Croc Country
 	{ f = 0.625, width = 110, turn = 1.35, obs = 1.90, currentMul = 1.5 }, -- The Rapids (tight, twisty, dense, fast)
 	{ f = 0.875, width = 300, turn = 0.85, obs = 1.00, currentMul = 0.8 }, -- Lost Delta (wide)
@@ -274,8 +280,15 @@ function RiverData.hooksBetween(z0: number, z1: number): { Hook }
 			local roll = math.noise(z * 0.017 + offW, 31.7) * 0.5 + 0.5 -- deterministic [0, 1]
 			-- no obstacles inside a fork (keep the braided island stretch clean)
 			if roll <= keep and RiverData.forkOffsetAt(z) <= 0 then
-				-- favour obstacles (dodge, common) over ramps (jump, special) ~2:1
-				local kind = if math.noise(z * 0.05 + offW, 12.3) > -0.15 then "obstacle" else "ramp"
+				-- Favour obstacles (dodge, common) over ramps (jump, special).
+				-- ⚠️ Threshold -0.15 -> **-0.08 on user direction 2026-08-16 ("more ramps, +30%")**.
+				-- MEASURED, not derived: both thresholds were run against the real hook stream over all
+				-- 18,000 studs on seed 2026 — 94 hooks either way, of which
+				--     -0.15 -> 27 ramps (28.7%)      -0.08 -> 36 ramps (38.3%)
+				-- 36/27 = **+33% more ramps**, which is the ask. The split is now ~3:2, not 2:1.
+				-- ⚠️ Note this is +33% MORE RAMPS, not +30 percentage points — raising it further keeps
+				-- adding ramps at the expense of obstacles, since every hook is one or the other.
+				local kind = if math.noise(z * 0.05 + offW, 12.3) > -0.08 then "obstacle" else "ramp"
 				local x = RiverData.centerlineX(z)
 				if kind == "obstacle" then
 					local side = if math.noise(z * 0.07 + offX1, 4.2) >= 0 then 1 else -1
