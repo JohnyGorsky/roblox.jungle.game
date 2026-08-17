@@ -2,7 +2,11 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-16 22:11:55
-**Status**: Requirements Gathering (intake) — batch open, more items expected
+**Status**: <span style="color:#2e9c3f">✅ **SHIPPED** (2026-08-16)</span> — batch closed; see
+[`final-summary.md`](final-summary.md). The intake status was left stale when the work shipped.
+⚠️ **Not formally playtest-signed-off** like #088/#089/#090 were — its changes (wolves inland, land
+creatures holding the bank) have been in play since and nothing has been reported against them, but
+that is absence of complaint, not confirmation.
 
 ## Requirements / goal
 

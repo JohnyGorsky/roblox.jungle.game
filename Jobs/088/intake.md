@@ -2,7 +2,8 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-16 22:48:19
-**Status**: Requirements Gathering (intake)
+**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-17)</span> — playtest-confirmed by the user.
+The intake status was left stale when the work shipped on 2026-08-16; see [`final-summary.md`](final-summary.md).
 
 ## Requirements / goal
 

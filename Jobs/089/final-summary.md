@@ -2,7 +2,8 @@
 
 **Project**: `roblox.jungle`
 **Completed**: 2026-08-17
-**Status**: ✅ Code complete, both trees analyzer-clean — ⏳ **awaiting playtest verification**
+**Status**: ✅ **COMPLETE (2026-08-17)** — playtest-confirmed by the user: progress survives the
+lobby → river teleport and a rejoin. ⚠️ **One half is NOT confirmed — see "Still to verify" below.**
 
 Persistence moved off the hand-rolled session lock (Job 021) onto **ProfileStore 1.0.3**. The facade
 held: **13 progression scripts were not touched.**
@@ -118,21 +119,33 @@ the official pattern.
       stashing this job's changes and re-running, so they are not from #089.
 - [x] All five files byte-identical across `sync/` and `lobby/sync/` (sha256-checked)
 
-### ⏳ Still to verify — none of this can be read off the code
+### ✅ Confirmed by the user's playtest, 2026-08-17
 
-1. **The teleport handover.** Lobby → game with a profile actually held. This is the case the old
-   90-second timer handled badly and the whole reason for the migration.
-2. **A real purchase.** Buy a Gold pack; confirm the Gold lands immediately, the receipt settles, and
-   buying twice grants twice while a re-delivered receipt grants once.
-3. **Studio-with-API-off.** Confirm a purchase there is **refused** rather than consumed (finding 2).
-4. **Round trip.** Gold, modules, skills, paint, streak, weekly progress, stats out of the lobby,
-   through a run, and back.
-5. **Failed load.** Force it; confirm the session is playable, never written, and refuses purchases.
-6. **Dev store is empty by design** (Q2) — re-grant test progress with `AdminServer` on first run.
+Saving works end to end: progress survives the lobby → game teleport and a rejoin. That exercises the
+session handover — the case the old 90-second lock timer handled badly and the whole reason for the job.
+
+### ⚠️ STILL NOT CONFIRMED — the money path
+
+**No Robux purchase was made during this playtest**, so the part of #089 with the highest consequence
+is unproven in practice. It is the strictest code in the job and the most changed. Before the
+experience goes Public, run these three deliberately:
+
+1. **Buy a Gold pack.** The Gold should appear immediately and the receipt settle once.
+2. **Buy the same pack again.** It should grant again (a second purchase is a second grant).
+3. **Studio with API services OFF.** A purchase there must be **refused**, not consumed — finding 2 in
+   this summary is precisely the case where a receipt could be eaten into a mock store.
+
+### Remaining (lower risk)
+
+1. **Round trip of every field.** Gold, modules, skills, paint, streak, weekly progress and stats out of
+   the lobby, through a run, and back. The teleport itself is confirmed; the full field set is not.
+2. **Failed load.** Force one; confirm the session is playable, never written, and refuses purchases.
 
 ⚠️ Verify through shared Instances (attributes / leaderstats / a real Play session), **not** by reading
 module internals from the command bar — Studio and live DataStores differ.
 
 ## Not done
 
-`todo 0017` stays **open until the playtest above passes**. The code is in; the guarantee is not proven.
+`todo 0017` is **resolved** — the persistence migration itself is confirmed. The unproven remainder is
+the **receipt path** specifically, tracked in `todo 0055` rather than by holding 0017 open, so the
+launch checklist reads honestly: persistence done, purchases untested.

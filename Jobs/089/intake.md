@@ -2,8 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-17
-**Status**: <span style="color:#2e9c3f">✅ **CODE COMPLETE** (2026-08-17)</span> — both trees analyzer-clean,
-⏳ awaiting playtest. See [`implementation-plan.md`](implementation-plan.md) · [`final-summary.md`](final-summary.md).
+**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-17)</span> — playtest-confirmed by the user
+(saving + teleport). ⚠️ The Robux receipt path is NOT separately confirmed — see `final-summary.md`.
+See [`implementation-plan.md`](implementation-plan.md) · [`final-summary.md`](final-summary.md).
 
 **Source:** [todo 0017](../../todo/0017-migrate-persistence-to-profilestore-befo.md) (open since 2026-07-19),
 raised again as a launch blocker in the 2026-08-17 readiness review.

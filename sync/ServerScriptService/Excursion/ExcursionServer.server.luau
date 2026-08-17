@@ -37,6 +37,24 @@ local CAMP_AHEAD = 1400
 local CULL_BEHIND = 1200 -- destroy a landing site once the boat is this far past it (frees trees/huts/guards) — Job 060
 local BASIN_SIZE = 400 -- walkable jungle zone size (studs)
 local GUARD_LEASH = 55
+-- 🔴 Job #090 — GETTING SHOT PULLS THE CAMP.
+--
+-- The exploit, measured from the defs rather than guessed: a gun reaches **350** studs
+-- (`GunServer.GUN_RANGE`, or 220 for a handheld) while a guard aggros at `def.aggroRadius` = **95** and
+-- could never travel more than `GUARD_LEASH` = **55** studs from its camp. A player standing ~110 studs
+-- out was untouchable BY CONSTRUCTION and could empty magazines into a camp at zero risk. The weapon
+-- outranged the enemy's maximum possible reach by 4–6×.
+--
+-- The fix is deliberately NOT "raise aggroRadius". Raising sight alone just means guards sprint to the
+-- end of a 55-stud rope and stand there being shot, and raising both permanently makes them abandon
+-- camp on sight and trail the player back to the boat. Instead, **taking damage** is what escalates:
+-- shooting from cover starts a fight rather than farming one, and an unprovoked camp still behaves
+-- like a camp.
+--
+-- While alerted a guard ignores `aggroRadius` entirely (it knows it is being shot at — it does not need
+-- to see you) and its leash opens up to `GUARD_LEASH_ALERT`. Both revert on their own.
+local GUARD_LEASH_ALERT = 250 -- reach while alerted; covers a handheld's 220 and most of a gun's 350
+local GUARD_ALERT_SECONDS = 15 -- refreshed on every hit; after this long untouched the camp stands down
 local PATH_HALF = 18 -- keep a tree-free walking lane this wide (half) from the shore to the camps (Job 053)
 local MAX_GUARDS = 6 -- escalation cap per camp (Job 053) — a PERF ceiling: each guard is a full R15 rig
 -- Per-village escalation (user, 2026-08-16). Compounds on the landing's ordinal: village N is
@@ -77,8 +95,33 @@ local siteModels: { [number]: Model } = {} -- index → LandingSite model, for c
 -- touches it — the deposit prompt, `pickupLoot` — only ever reads an attribute or destroys it, both of
 -- which work identically on a Model.
 local carrying: { [Player]: Model } = {}
-type GuardState = { biteTimer: number, anchor: Vector3, roared: boolean? }
+-- `camp` is the camp's own centre position, and it is what makes campmates findable: alerting a camp is
+-- a scan of `guardState` for guards sharing that key.
+--
+-- ⚠️ IT IS THE CAMP POSITION, NOT THE PARENT INSTANCE, AND THAT MATTERS. Every landing site builds a
+-- NEAR camp and a DEEP camp (`buildCampAt` is called twice) and passes both the SAME `model` as parent.
+-- Keying on the parent would therefore pull both camps at once — up to 12 guards, 180 studs apart —
+-- when the user's decision was that getting shot pulls *the camp*, not the whole shore.
+--
+-- `alertUntil`/`lastHP` are the Job #090 pull; `lastHP` exists because an attribute-changed signal says
+-- *that* HP changed, not *which way*, and healing must never count as being attacked.
+type GuardState =
+	{ biteTimer: number, anchor: Vector3, roared: boolean?, camp: Vector3?, alertUntil: number?, lastHP: number? }
 local guardState: { [Model]: GuardState } = {}
+
+-- Wake every guard of one camp, whoever got hit. Called when any of them takes damage — see
+-- `GUARD_LEASH_ALERT` above for why damage, and not sight, is the trigger.
+local function alertCamp(camp: Vector3?)
+	if camp == nil then
+		return -- no camp key (shouldn't happen): alert nobody rather than alert the whole map
+	end
+	local until_ = os.clock() + GUARD_ALERT_SECONDS
+	for _, st in pairs(guardState) do
+		if st.camp == camp then
+			st.alertUntil = until_
+		end
+	end
+end
 
 -- ── Job #084: camps re-man themselves BY DAY ──────────────────────────────────────────────────────
 -- Guards used to spawn once when a camp was built and never return, so clearing a camp cleared it for
@@ -810,7 +853,13 @@ end)
 --
 -- The seated Y is stored in `guardState.anchor` and is the single source of truth from then on —
 -- `tickGuard` reads it rather than recomputing, so no raycast runs per guard per frame.
-local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number?, guardType: string?)
+local function spawnGuard(
+	anchorPos: Vector3,
+	parent: Instance,
+	strength: number?,
+	guardType: string?,
+	campPos: Vector3? -- Job #090: which CAMP this guard belongs to, for the alert pull
+)
 	local typeName = guardType or "Bandit"
 	local def = EnemyDefs.Defs[typeName] or EnemyDefs.Defs.Bandit
 	local footY = groundAt(anchorPos.X, anchorPos.Z)
@@ -829,7 +878,28 @@ local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number
 	end
 	-- `anchor.Y` is now the MEASURED seated height (see the header above), and `tickGuard` uses it as the
 	-- one Y a guard ever occupies. The basin is carved flat, so one measurement covers the whole leash.
-	guardState[guard] = { biteTimer = def.biteCooldown, anchor = Vector3.new(anchorPos.X, footY + def.size.Y / 2, anchorPos.Z) }
+	local st: GuardState = {
+		biteTimer = def.biteCooldown,
+		anchor = Vector3.new(anchorPos.X, footY + def.size.Y / 2, anchorPos.Z),
+		camp = campPos,
+		lastHP = (guard:GetAttribute("HP") :: number?) or def.hp,
+	}
+	guardState[guard] = st
+
+	-- Job #090: ANY damage from ANY range pulls the whole camp. Hooked to the HP attribute rather than
+	-- to each weapon, because three separate call sites deal enemy damage (`GunServer`, `WeaponServer`,
+	-- `MeleeServer`) and a fourth would silently miss this. Watching the attribute catches them all,
+	-- including anything added later.
+	-- ⚠️ Decrease only — `lastHP` is what distinguishes a hit from the strength multiplier written just
+	-- above, and from any future heal.
+	guard:GetAttributeChangedSignal("HP"):Connect(function()
+		local now = (guard:GetAttribute("HP") :: number?) or 0
+		local was = st.lastHP or now
+		st.lastHP = now
+		if now < was then
+			alertCamp(st.camp)
+		end
+	end)
 end
 
 -- The `LootPrompt` wiring, identical for every kind of crate. Name, hold duration, activation distance
@@ -979,7 +1049,7 @@ local function buildCampAt(
 	local wolves = if kind == CampDefs.KIND.deep then math.max(1, math.floor(guards / 3)) else 0
 	for i = 1, guards do
 		-- wolves take the first slots, which is also what the respawn loop assumes when it re-mans a gap
-		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength, if i <= wolves then "Wolf" else "Bandit")
+		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength, if i <= wolves then "Wolf" else "Bandit", campPos)
 	end
 
 	-- Job #084: remember this camp's garrison so it can be re-manned by day (see the respawn loop).
@@ -1466,8 +1536,11 @@ local function tickGuard(guard: Model, dt: number)
 	st.biteTimer += dt
 	local pos = body.Position
 
+	-- Job #090: an alerted guard has been SHOT, so it does not need line of sight or a sight radius to
+	-- know someone is out there — it hunts the nearest player at any range until the alert lapses.
+	local alerted = st.alertUntil ~= nil and os.clock() < (st.alertUntil :: number)
 	local target: BasePart? = nil
-	local bestD = def.aggroRadius
+	local bestD = if alerted then math.huge else def.aggroRadius
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local char = plr.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -1498,11 +1571,19 @@ local function tickGuard(guard: Model, dt: number)
 		dir = dir.Unit
 		local stop = if target then def.biteRange * 0.5 else 1
 		local step = math.min(def.speed * dt, math.max(dist - stop, 0))
-		local np = Vector3.new(pos.X + dir.X * step, CLEAR_Y + def.size.Y / 2, pos.Z + dir.Z * step)
+		-- ⚠️ Job #090: `st.anchor.Y` (the MEASURED seated height), never `CLEAR_Y + size.Y/2`. This loop
+		-- rewrites Y every frame, so seating the guard only at spawn would be undone on its first step —
+		-- which is why the burial had to be fixed in both places or neither.
+		local footY = st.anchor.Y
+		local np = Vector3.new(pos.X + dir.X * step, footY, pos.Z + dir.Z * step)
 		local off = Vector3.new(np.X - st.anchor.X, 0, np.Z - st.anchor.Z)
-		if off.Magnitude > GUARD_LEASH then
-			local c = st.anchor + off.Unit * GUARD_LEASH
-			np = Vector3.new(c.X, CLEAR_Y + def.size.Y / 2, c.Z)
+		-- Job #090: the leash opens up while alerted so a guard can actually REACH a distant shooter.
+		-- When the alert lapses the leash snaps back to 55 and this same clamp walks it home, so a camp
+		-- never permanently abandons its post.
+		local leash = if alerted then GUARD_LEASH_ALERT else GUARD_LEASH
+		if off.Magnitude > leash then
+			local c = st.anchor + off.Unit * leash
+			np = Vector3.new(c.X, footY, c.Z)
 		end
 		guard:PivotTo(CFrame.lookAt(np, np + dir))
 	end
@@ -1608,7 +1689,7 @@ task.spawn(function()
 				-- Job #086: keep the camp's Wolf/Bandit mix on re-man. Wolves hold the first slots, so the
 				-- replacement filling slot `alive + 1` is a Wolf exactly while that slot is within the count.
 				local wolfSlots = (g.wolves :: number?) or 0
-				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit")
+				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit", g.campPos)
 			end
 		end
 	end
