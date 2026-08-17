@@ -1,7 +1,7 @@
 # TODO 0047: Turret + searchlight lag behind the boat while moving, snap back when stopped
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-17) — Job #087 Phase 1. Gun barrel + searchlight are now posed per-client from GunBase (welded, 0.0000 drift) instead of by server CFrame writes. Playtested 2026-08-17: 'mounts feels ok', 'lights also'. The separate hull-rendering fault continues as Job #087 Phase 2.
 **Created:** 2026-08-16 22:14:26
 
 Reported 2026-08-16 playtest: the mounted gun and the searchlight appear detached / trailing while riding; they return to position the moment the boat stops.

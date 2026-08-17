@@ -280,6 +280,13 @@ claimServerOwnership()
 seat:GetPropertyChangedSignal("Occupant"):Connect(claimServerOwnership)
 
 local DEV_BOAT_LOG = false -- ⟵ turn on for boat-tuning telemetry ([BoatDBG] spam); off for launch
+
+-- ⚠️⚠️ DEV BISECT TOGGLE (Job #087, todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
+-- `true` replaces the buoyancy SPRING with exact gravity cancellation + damping, so the boat holds its
+-- height and slides rather than floating to the water line. Isolates "is the remaining shake the
+-- buoyancy spring?" from everything else. See the branch in the Heartbeat loop for the reasoning.
+-- Studio-only as well as flag-gated, so a published game always floats normally.
+local DEV_BUOYANCY_SLIDE = true
 local logAccum = 0 -- throttle for the debug state log
 RunService.Heartbeat:Connect(function(dt: number)
 	-- KEEP SERVER OWNERSHIP even while driven. The VehicleSeat hands the boat to the driver's client on
@@ -312,6 +319,25 @@ RunService.Heartbeat:Connect(function(dt: number)
 	-- from the up-only spring — bob fix).
 	if launched then
 		buoy.Force = Vector3.zero
+	elseif DEV_BUOYANCY_SLIDE and RunService:IsStudio() then
+		-- ⚠️⚠️ DEV BISECT (Job #087, todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
+		--
+		-- "Slide" mode: hold the boat ON the water line with NO spring, so it glides instead of
+		-- floating. Isolates "is the remaining shake the buoyancy spring?" from everything else.
+		--
+		-- ⚠️ VELOCITY-LEVEL, NOT FORCE-LEVEL, AND THAT MATTERS. The first version of this cancelled
+		-- gravity and left only damping, on the reasoning that the boat would then hold its height. It
+		-- did — and that was the bug: with no restoring term, EVERY upward nudge is permanent. Damping
+		-- bleeds off the velocity but nothing brings the boat back down, so bumps accumulated and it
+		-- climbed into the air (reported in play as "why boat flys over water?").
+		--
+		-- Commanding the vertical VELOCITY directly fixes both failure modes at once: it cannot
+		-- oscillate the way a force spring can (there is no mass-and-stiffness system to ring), and it
+		-- cannot run away, because the command is always computed from the CURRENT height error.
+		-- Clamped so it descends gently rather than slamming down from altitude.
+		buoy.Force = Vector3.new(0, mass * g, 0) -- cancel gravity so the command isn't fought between frames
+		local err = WATER_Y - pos.Y
+		hull.AssemblyLinearVelocity = Vector3.new(vel.X, math.clamp(err * 4, -12, 12), vel.Z)
 	elseif pos.Y < WATER_Y + 12 then
 		local spring = math.max(mass * (g + (WATER_Y - pos.Y) * FLOAT_K), 0)
 		local damp = -vel.Y * FLOAT_D * mass

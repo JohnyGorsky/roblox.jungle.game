@@ -96,6 +96,7 @@ fireRemote.Parent = ReplicatedStorage
 
 local gunnerYaw, gunnerPitch = 0, 0
 local lastPublishedYaw = math.huge -- forces the first publish (Job 067 — see the Heartbeat loop)
+local lastPublishedPitch = math.huge -- Job #087: clients need pitch too, to pose the barrel themselves
 local lastFire = 0
 
 -- ── Job #079: the turret you can hear ────────────────────────────────────────────────────────────
@@ -145,6 +146,21 @@ aimRemote.OnServerEvent:Connect(function(player: Player, yaw: any, pitch: any)
 	gunnerPitch = math.clamp(pitch, PITCH_MIN, PITCH_MAX)
 end)
 
+-- 🔴 Job #087: THE SERVER NO LONGER POSES THE BARREL. `BoatTurretVisual.local.luau` does, on every
+-- client, from that client's own view of the boat.
+--
+-- WHY, measured: the barrel was `Anchored` with its CFrame written here every Heartbeat from the
+-- SERVER's view of the hull — while each client renders a different, interpolated hull pose. The two
+-- arrive by different routes, so the barrel landed about one frame of travel out. At 53 studs/s that
+-- measured **1.14 studs of drift on average and 6.08 at worst**, against welded parts (`GunBase`,
+-- `GunSeat`) holding a mathematically exact 0.0000. Reported in play as the gun and light "jiggling"
+-- while riding and snapping back when stopped (todo 0047).
+--
+-- ⚠️ THE WRITE MUST STAY GONE. A server CFrame write replicates, and would fight the client's local
+-- write every single frame — reintroducing the drift and adding a tug-of-war on top.
+--
+-- Aim stays fully server-authoritative: `aimCFrame()` and the firing raycast below are unchanged and
+-- never read `barrel.CFrame`, so accuracy does not depend on any client's visual.
 RunService.Heartbeat:Connect(function()
 	if not base.Parent or not barrel.Parent then
 		return
@@ -152,17 +168,23 @@ RunService.Heartbeat:Connect(function()
 	if seat.Occupant == nil then
 		gunnerYaw, gunnerPitch = 0, 0 -- recentre when nobody's manning it
 	end
-	barrel.CFrame = aimCFrame() * CFrame.new(0, 0, -barrel.Size.Z / 2)
 
 	-- Job 067: publish the yaw so the SEARCHLIGHT module can sweep with the gun (BoatModules reads it).
 	-- An attribute rather than a direct reference, so the turret and the light stay decoupled — same
 	-- pattern as ModulesRev and StationMedic.
+	--
+	-- Job #087: `GunPitch` joins it, because the CLIENTS now need the aim to pose the barrel — the
+	-- searchlight is still yaw-only (following elevation would point the beam at the sky).
 	--
 	-- Only written when it actually MOVES: attributes replicate, and setting one every Heartbeat would be
 	-- 60 replicated writes a second for a value that is usually unchanged.
 	if math.abs(gunnerYaw - lastPublishedYaw) > 0.005 then
 		lastPublishedYaw = gunnerYaw
 		boat:SetAttribute("GunYaw", gunnerYaw)
+	end
+	if math.abs(gunnerPitch - lastPublishedPitch) > 0.005 then
+		lastPublishedPitch = gunnerPitch
+		boat:SetAttribute("GunPitch", gunnerPitch)
 	end
 end)
 

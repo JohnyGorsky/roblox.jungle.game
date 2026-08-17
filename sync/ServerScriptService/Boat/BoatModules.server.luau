@@ -6,7 +6,8 @@
 -- tune" — deeper stat tuning is the skill tree (#024). Server-authoritative. Greybox parts (art later).
 
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+-- (Job #087 removed this file's only per-frame loop — the searchlight is posed client-side now — so
+-- RunService is no longer required here.)
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -129,17 +130,23 @@ local function trackSearchlight(head: BasePart)
 		skinLocal = head.CFrame:ToObjectSpace(skin.CFrame)
 	end
 
-	RunService.Heartbeat:Connect(function()
-		if not head.Parent or not theHull.Parent then
-			return
-		end
-		local yaw = (theBoat:GetAttribute("GunYaw") :: number?) or 0
-		local cf = theHull.CFrame * mount * CFrame.Angles(0, yaw, 0)
-		head.CFrame = cf
-		if skin and skinLocal and skin.Parent then
-			(skin :: BasePart).CFrame = cf * skinLocal
-		end
-	end)
+	-- 🔴 Job #087: THE SERVER NO LONGER POSES THE HEAD. `BoatTurretVisual.local.luau` does, on every
+	-- client, from that client's own hull pose — and it reads `SearchlightMount`/`SearchlightSkinOffset`
+	-- (published just below) so the geometry stays defined here, in one place, rather than hand-copied
+	-- into a client script that would silently drift from it.
+	--
+	-- WHY, measured: driving this from the SERVER's hull view while each client renders a different,
+	-- interpolated one put the head **1.15 studs out on average and 6.38 at worst** at 53 studs/s, versus
+	-- exactly 0.0000 for parts welded into the assembly. That is the "light jiggles while riding, snaps
+	-- back when stopped" report (todo 0047).
+	--
+	-- ⚠️ The head and its skin stay `Anchored` — a welded part cannot be rotated independently of the
+	-- assembly it rides, which is the original reason for the weld removal above. Anchored is still
+	-- correct; only WHO writes the CFrame has changed.
+	theBoat:SetAttribute("SearchlightMount", mount)
+	if skinLocal then
+		theBoat:SetAttribute("SearchlightSkinOffset", skinLocal)
+	end
 end
 
 -- ── FLANK ARMOUR BELT (Job 066 for the hullkit; Job 074 for the Armored pass) ──────────────────────

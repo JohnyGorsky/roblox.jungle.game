@@ -110,6 +110,16 @@ local function update()
 	cam.Focus = CFrame.new(aim.Position + aim.LookVector * 60)
 end
 
+-- Job #087: mirror the local gunner's aim onto their own Player attributes, so `BoatTurretVisual`
+-- can pose the barrel from THIS input rather than from the round-tripped `GunYaw`/`GunPitch` the
+-- server publishes. For the person actually aiming, the barrel then has no network delay in it at all.
+-- Player attributes rather than a shared module: the two scripts stay decoupled, exactly as the server
+-- already decouples the turret from the searchlight through boat attributes.
+local function publishLocalAim()
+	player:SetAttribute("GunAimYaw", yaw)
+	player:SetAttribute("GunAimPitch", pitch)
+end
+
 UserInputService.InputChanged:Connect(function(input: InputObject)
 	if not seated or input.UserInputType ~= Enum.UserInputType.MouseMovement then
 		return
@@ -117,6 +127,7 @@ UserInputService.InputChanged:Connect(function(input: InputObject)
 	yaw = math.clamp(yaw - input.Delta.X * SENS, -YAW_LIMIT, YAW_LIMIT)
 	pitch = math.clamp(pitch - input.Delta.Y * SENS, PITCH_MIN, PITCH_MAX)
 	aimRemote:FireServer(yaw, pitch)
+	publishLocalAim()
 end)
 
 -- visual tracer along the SAME line the server fires (origin/dir match) → confirms the crosshair
@@ -229,6 +240,7 @@ end
 local function startGunner()
 	seated = true
 	yaw, pitch = 0, 0
+	publishLocalAim() -- Job #087: seed the recentred aim so the barrel starts level, not at last session's angle
 	gui.Enabled = true
 	watchAmmo(true)
 	Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable

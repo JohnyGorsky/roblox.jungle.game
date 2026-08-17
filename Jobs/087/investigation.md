@@ -99,6 +99,111 @@ two.
 
 ---
 
+---
+
+## 9. Bisect log (2026-08-17) — disabling suspects one at a time
+
+The user's approach after Phase 1, and it is producing better answers than more measurement was.
+
+| # | Disabled | Result | Reading |
+| --- | --- | --- | --- |
+| 1 | Gun + searchlight server posing (**Phase 1**, shipped) | "mounts feels ok · lights also · **but boat same**" | Fault 2 fixed; **contributed 0%** to the shake. Confound removed. |
+| 2 | `BoatCamera` chase cam (`DEV_DISABLE_BOAT_CAM`) | **"a little bit better, like 50%, sometimes it still lags"** | The camera is roughly **half** the perceived shake — and about half remains without it. |
+| 3 | Buoyancy spring (`DEV_BUOYANCY_SLIDE`) | **"now it is perfect, feel smooth"** | **The buoyancy spring is the main cause.** |
+
+## ✅ CAUSE FOUND — the buoyancy spring, limit-cycling under way
+
+With the spring replaced by a velocity-level hold, the ride is smooth. The chain:
+
+| State | Feel |
+| --- | --- |
+| Everything on | shakes |
+| Camera off | ~50% better, still shakes |
+| Camera off **+ spring off** | **perfect** |
+
+### The evidence was already in the measurements, and was explained away
+
+Measurement 3 recorded, while driving:
+
+```
+VERTICAL: range = 1.696 studs, direction changes = 5  (~0.6 Hz bob)
+```
+
+and an earlier pass at 2.061 studs. **A 1.7–2.1 stud vertical heave at ~0.6 Hz on a boat 3 studs tall
+is the spring oscillating.** It was noted as "a slow heave, not a vibration" and set aside because the
+frequency was low — the wrong test. Amplitude, not frequency, is what the eye reads on a 32-stud hull.
+
+### Why the at-rest reading was so misleading
+
+Measurement 1 gave **Y peak-to-peak = 0.000 studs at rest** and that was treated as clearing buoyancy
+entirely. It does not: it clears buoyancy *at rest*. The `roblox-physics` skill warns specifically
+about **"two buoyancy traps that make a MOVING boat bounce forever"** — the failure mode is
+under-way-only by definition. Both documented traps were checked in the source and found already
+handled, which made the dismissal feel safe. There is evidently a third path to the same limit cycle
+that neither trap describes.
+
+⚠️ **Lesson for the next person: a spring that is stable at rest tells you nothing about a spring under
+load.** Always measure the vertical axis while driving, and judge it on amplitude.
+
+### Is the camera independently at fault? — ✅ ANSWERED: YES
+
+Bisect step 4 restored the camera while leaving the spring bypassed. Result: **"now it shakes
+again."**
+
+So the camera is **not** merely following a bobbing hull — it is a **second, independent cause**. With
+the spring gone the hull's vertical oscillation is gone too, and the camera *still* produces the shake
+on its own.
+
+**Mechanism.** `update()` builds `desired` from the **raw** `hull.Position` each frame and only then
+eases `currentPos` toward it. The hull's rendered position carries a replication residual of **0.47
+studs average / 7.13 max** (§3) — small enough to be unobtrusive on the boat itself, but the camera
+turns it into motion of the *entire view*, where the eye is far more sensitive to it. A smoothed follow
+of a jittery point is not a smooth camera.
+
+⚠️ The file header claims the earlier fix ensured "nothing the camera uses is a raw replicated value".
+**That is not true of the current code** — the aim point and forward vector were smoothed, but the
+position target was not. That is the gap.
+
+### FINAL: two independent causes, both confirmed by bisect
+
+| # | Cause | Evidence | Status |
+| --- | --- | --- | --- |
+| 1 | **Buoyancy spring** oscillating under way (1.7–2.1 studs @ ~0.6 Hz) | spring bypassed + camera off → "perfect" | needs a real fix |
+| 2 | **`BoatCamera`** amplifying the hull's replicated pose residual into the view | camera restored, spring still bypassed → "shakes again" | needs its own fix |
+| — | Gun + searchlight drift | fixed in Phase 1; shake unchanged → **contributed 0%** | ✅ shipped |
+| — | Network ownership / input latency | present in slide mode, which felt perfect → **not the shake** | out of scope |
+
+Each on its own is enough to make the ride feel bad, which is why no single measurement isolated
+either of them and why bisecting found both in minutes.
+
+### Re-ranking the earlier diagnosis
+
+The pose-snapping measured in §3 (0.47 studs average residual) is **real but was never the main
+cause** — it is present in slide mode too, and slide mode feels perfect. Network ownership, options A
+and B, and the whole Phase 2 redesign are therefore **not required to fix the shake**. They remain
+open questions about *input latency* only, which is a separate and much milder complaint.
+
+### ⚠️ The game is currently in a DIAGNOSTIC state, not a fixed one
+
+`DEV_BUOYANCY_SLIDE` is **not a fix and must not ship**. It replaces real buoyancy with server-authored
+kinematic control of the vertical axis, which discards ramp jumps, wave response and any future water
+dynamics. It only proved where the fault is. The real fix is to make the spring itself stable under
+way — see the follow-up job.
+
+**Finding 2 matters a great deal**, because `BoatCamera` had *already* been patched for this exact
+complaint. Its own header records the earlier report — *"when i drive i have feeling that screen like
+cant keep up and like shakes"* — and the response was to smooth the aim point and forward vector so
+"nothing the camera uses is a raw replicated value". That patch was **incomplete**: `desired` is still
+built from the raw `hull.Position` each frame and only then eased, so the camera is a smoothed follow
+of a jittery point rather than a smooth camera.
+
+⚠️ Also note that comment asserts the hull's replicated CFrame "steps at roughly 20 Hz". Measurement 4
+disproves that — the pose changes on **97% of frames (~56 Hz)**. The camera's tuning was chosen against
+a wrong model of the problem, which is a good reason to re-derive it rather than nudge the constants.
+
+**So the remaining ~50% is split between the camera's residual follow error and the hull's own rendered
+pose.** Bisect 3 tests whether the buoyancy spring contributes to the latter.
+
 ## Options
 
 ### A. Move the force loop to the owner, and give the driver ownership

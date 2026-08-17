@@ -12,6 +12,27 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
+-- ⚠️⚠️ DEV BISECT TOGGLE (Job #087, todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
+--
+-- `true` disables this chase camera entirely: sitting in the boat leaves you on Roblox's DEFAULT
+-- camera instead. It exists to answer one question the measurements could not — **is the shake the
+-- BOAT moving, or the CAMERA moving?**
+--
+-- Worth reading the note on SMOOTH_K/TARGET_K/FWD_K below before drawing conclusions: this camera has
+-- ALREADY been blamed once for this exact complaint ("when i drive i have feeling that screen like
+-- cant keep up and like shakes") and was patched by smoothing the aim point and forward vector. If the
+-- shake survives with this set to `true`, the camera is cleared and the hull's own rendered pose is the
+-- cause. If it disappears, the earlier fix was incomplete and the answer is here, not in `BoatServer`.
+--
+-- ⚠️ Studio-only as well as flag-gated, so a published game always gets the real camera.
+-- 2026-08-17 bisect step 4 RESULT: re-enabling this camera while the buoyancy spring was still
+-- bypassed brought the shake straight back ("now it shakes again"). So the camera is NOT merely
+-- following a bobbing hull — it is an INDEPENDENT, SECOND cause, and it needs its own fix. Left
+-- disabled until that fix lands. See `desired` in `update()`: it is built from the RAW
+-- `hull.Position` every frame and only then eased, so the camera amplifies the hull's replicated
+-- pose residual (measured at 0.47 studs average, 7.13 max) into the whole view.
+local DEV_DISABLE_BOAT_CAM = true
+
 local BIND = "BoatCam"
 local FOLLOW_DIST = 26
 -- Raised 9 -> 16 (playtest: "when driver drives in boat, camera is locked, we need to rise camera, because
@@ -118,6 +139,13 @@ local function update(dt: number)
 end
 
 local function startCam(h: BasePart)
+	-- DEV bisect (todo 0051): leave the player on Roblox's default camera so the boat can be judged
+	-- without this script in the loop. Deliberately bails BEFORE touching CameraType, so the camera is
+	-- never left Scriptable — that would lock the view with nothing driving it.
+	if DEV_DISABLE_BOAT_CAM and RunService:IsStudio() then
+		warn("[BoatCamera] ⚠️ DEV_DISABLE_BOAT_CAM is ON (todo 0051) — using the default camera. Revert before publish.")
+		return
+	end
 	hull = h
 	local camera = Workspace.CurrentCamera
 	if camera then
