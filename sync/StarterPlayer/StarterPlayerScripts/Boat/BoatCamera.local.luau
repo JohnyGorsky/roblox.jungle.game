@@ -12,26 +12,36 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
--- ⚠️⚠️ DEV BISECT TOGGLE (Job #087, todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
+-- 🔴 THIS CHASE CAMERA IS RETIRED. THE BOAT USES ROBLOX'S DEFAULT CAMERA. (Job #087, 2026-08-17)
 --
--- `true` disables this chase camera entirely: sitting in the boat leaves you on Roblox's DEFAULT
--- camera instead. It exists to answer one question the measurements could not — **is the shake the
--- BOAT moving, or the CAMERA moving?**
+-- ⚠️ NOT a dev toggle and NOT Studio-gated — this is the shipped behaviour, decided from playtest.
+-- An earlier version of this flag WAS Studio-gated, which would have quietly shipped the retired
+-- camera to real players while it looked fixed in Studio.
 --
--- Worth reading the note on SMOOTH_K/TARGET_K/FWD_K below before drawing conclusions: this camera has
--- ALREADY been blamed once for this exact complaint ("when i drive i have feeling that screen like
--- cant keep up and like shakes") and was patched by smoothing the aim point and forward vector. If the
--- shake survives with this set to `true`, the camera is cleared and the hull's own rendered pose is the
--- cause. If it disappears, the earlier fix was incomplete and the answer is here, not in `BoatServer`.
+-- WHY IT WAS RETIRED — it was one of two independent causes of the ride shake, proven by bisect:
+--   · disabling it removed roughly half the shake ("a little bit better, like 50%");
+--   · re-enabling it with the buoyancy fault already bypassed brought the shake straight back
+--     ("now it shakes again"), so it was NOT merely following a bobbing hull — it was its own fault.
 --
--- ⚠️ Studio-only as well as flag-gated, so a published game always gets the real camera.
--- 2026-08-17 bisect step 4 RESULT: re-enabling this camera while the buoyancy spring was still
--- bypassed brought the shake straight back ("now it shakes again"). So the camera is NOT merely
--- following a bobbing hull — it is an INDEPENDENT, SECOND cause, and it needs its own fix. Left
--- disabled until that fix lands. See `desired` in `update()`: it is built from the RAW
--- `hull.Position` every frame and only then eased, so the camera amplifies the hull's replicated
--- pose residual (measured at 0.47 studs average, 7.13 max) into the whole view.
-local DEV_DISABLE_BOAT_CAM = true
+-- THE MECHANISM, for whoever revives this: `update()` builds `desired` from the RAW `hull.Position`
+-- every frame and only then eases `currentPos` toward it. The hull is a server-owned physics body, so
+-- its rendered position carries a replication residual — measured at 0.47 studs average and 7.13 studs
+-- at worst while cruising. That is unobtrusive on the boat itself, but this camera converted it into
+-- motion of the WHOLE VIEW, where the eye is far more sensitive. A smoothed follow of a jittery point
+-- is not a smooth camera.
+--
+-- ⚠️ The header note on SMOOTH_K/TARGET_K/FWD_K below claims the earlier fix left "nothing the camera
+-- uses a raw replicated value". THAT IS NOT TRUE OF THIS CODE: the aim point and forward vector were
+-- smoothed, the POSITION TARGET never was. That is the gap, and it is what any revival must fix first.
+--
+-- What survived: the speed-based FOV swell, kept as `BoatSpeedFov.local.luau`. It is safe on its own
+-- because FOV is not a position and cannot amplify jitter.
+--
+-- What is lost by using the default camera: auto-follow of the boat's HEADING (the player swings the
+-- view around bends themselves) and the raised follow height/look-ahead. Judged acceptable in playtest
+-- — "i like camera now… it is prod ready". Set this back to `true` to revive it, but fix the position
+-- target first or the shake returns with it.
+local USE_CHASE_CAMERA = false
 
 local BIND = "BoatCam"
 local FOLLOW_DIST = 26
@@ -139,11 +149,10 @@ local function update(dt: number)
 end
 
 local function startCam(h: BasePart)
-	-- DEV bisect (todo 0051): leave the player on Roblox's default camera so the boat can be judged
-	-- without this script in the loop. Deliberately bails BEFORE touching CameraType, so the camera is
-	-- never left Scriptable — that would lock the view with nothing driving it.
-	if DEV_DISABLE_BOAT_CAM and RunService:IsStudio() then
-		warn("[BoatCamera] ⚠️ DEV_DISABLE_BOAT_CAM is ON (todo 0051) — using the default camera. Revert before publish.")
+	-- Retired (see the note at the top of the file): the boat uses Roblox's default camera.
+	-- ⚠️ Bails BEFORE touching CameraType, deliberately — setting it Scriptable and then not driving it
+	-- would lock the player's view with nothing moving it.
+	if not USE_CHASE_CAMERA then
 		return
 	end
 	hull = h

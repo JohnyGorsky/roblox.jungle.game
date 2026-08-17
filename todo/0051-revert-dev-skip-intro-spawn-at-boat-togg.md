@@ -12,6 +12,8 @@ WHAT WAS ADDED (two places, both marked with the same marker comment 'DEV ONLY (
 
 BOTH ARE GUARDED BY RunService:IsStudio() AS WELL AS THEIR FLAG, so a published server can never take either path even if someone leaves the flags on. Same belt-and-braces pattern as USE_MOCK_IN_STUDIO in Defender's UserDataStorage.
 
-  3. sync/StarterPlayer/StarterPlayerScripts/Boat/BoatCamera.local.luau - DEV_DISABLE_BOAT_CAM flag (added 2026-08-17). Bisect aid for Job #087 Phase 2: `true` leaves the player on Roblox's DEFAULT camera when they sit in the boat, to answer whether the shake is the BOAT moving or the CAMERA moving. Bails out of startCam BEFORE touching CameraType, so the camera is never left Scriptable with nothing driving it.
+  3. sync/ServerScriptService/Boat/BoatServer.server.luau - DEV_BUOYANCY_SLIDE flag (added 2026-08-17). Bisect aid for Job #087: replaces the buoyancy SPRING with a velocity-level hold at the water line, so the boat glides instead of floating. ⚠️ THIS IS A DIAGNOSTIC, NOT A FIX, AND MUST NOT SHIP - it is server-authored kinematic control of the vertical axis and discards real buoyancy (wave response, float dynamics). It exists only because it PROVED the spring is the remaining cause of the ride shake. It stays on until the real spring fix lands.
 
-TO REVERT: delete DevSpawnAtBoat.server.luau, and delete the DEV_SKIP_INTRO and DEV_DISABLE_BOAT_CAM blocks. Search the codebase for 'todo 0051' to find every touched line.
+NO LONGER IN THIS LIST: the boat camera. What began as a DEV_DISABLE_BOAT_CAM bisect toggle became a PERMANENT DESIGN DECISION on 2026-08-17 - the chase camera is retired and the boat uses Roblox's default camera, with the speed-based FOV kept as BoatSpeedFov.local.luau. The flag is now `USE_CHASE_CAMERA = false` in BoatCamera.local.luau, deliberately NOT Studio-gated because it is shipped behaviour. Nothing to revert there.
+
+TO REVERT WHAT REMAINS: delete DevSpawnAtBoat.server.luau, delete the DEV_SKIP_INTRO block from PlaneServer, and delete the DEV_BUOYANCY_SLIDE branch from BoatServer once the real buoyancy fix exists. Search the codebase for 'todo 0051' to find every touched line.
