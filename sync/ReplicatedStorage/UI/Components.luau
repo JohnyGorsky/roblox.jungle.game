@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
+local InputMode = require(script.Parent:WaitForChild("InputMode"))
 local UISound = require(UI:WaitForChild("UISound"))
 
 local Components = {}
@@ -669,9 +670,20 @@ function Components.panel(opts: PanelOptions): Panel
 			gui.Enabled = true
 			frame.Size = opts.size or UDim2.fromScale(0.62, 0.7)
 			UISound.panelOpened()
+			-- 🔴 Job #092: hand the mouse to the UI. In FIRST PERSON the pointer is pinned to the centre
+			-- of the screen by Roblox's own camera, so a panel opened there could not be closed at all
+			-- — reported as "if you are in first person and open shop then mouse not working to close
+			-- shop, thats common bug". `InputMode` forces the camera out of first person for as long as
+			-- any panel is up; see that module for why the mouse cannot simply be unlocked instead.
+			--
+			-- ⚠️ Hooked HERE, in the shared panel, rather than in the shop: every modal in the game is
+			-- built from `Components.panel`, so one seam covers the dock shop, the Robux shop, the admin
+			-- panel and the results screen — and anything added later gets it for free.
+			InputMode.pushUI()
 		else
 			gui.Enabled = false
 			UISound.panelClosed()
+			InputMode.popUI()
 		end
 	end
 

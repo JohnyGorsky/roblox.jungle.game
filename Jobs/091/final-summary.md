@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Completed**: 2026-08-17
-**Status**: ✅ Code complete, analyzer clean — ⏳ awaiting playtest
+**Status**: ✅ **COMPLETE (2026-08-17)** — analyzer clean; user playtested and reported *"looks better"*.
 
 Two items from the 2026-08-17 session. Both grew past their first fix once the user tested it, and in
 both cases the first fix was **necessary but not sufficient** — worth reading for that alone.
@@ -122,8 +122,7 @@ Game tree only — none of these exist in the lobby.
 - [x] `tools/luau-analyze.sh` — GAME clean
 - [x] Boar/Wolf assets scanned live in the GAME place (Edit): `PrimaryPart == HumanoidRootPart`, no
       unjointed parts — which is what ruled out the anchoring theories
-- [ ] ⏳ **Playtest:**
-      1. the intro flight — plane *and* camera steady, no judder in either;
-      2. boars appear on the banks again;
-      3. no boar ever stands on water, and none reaches the boat — **especially at the spawn base**,
-         which is the case the old clamp could not see.
+- [x] **Playtest — user, 2026-08-17: *"looks better"*.** The intro and the boars both read right in
+      play. ⚠️ That is a general sign-off, not a point-by-point one: nobody specifically verified
+      **no boar stands on water at the spawn base**, which is the exact case the old `RiverData` clamp
+      could not see. Worth one deliberate look on the next run to the first dock.

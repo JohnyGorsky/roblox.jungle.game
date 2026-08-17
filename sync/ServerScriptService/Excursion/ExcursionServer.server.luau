@@ -55,6 +55,8 @@ local GUARD_LEASH = 55
 -- to see you) and its leash opens up to `GUARD_LEASH_ALERT`. Both revert on their own.
 local GUARD_LEASH_ALERT = 250 -- reach while alerted; covers a handheld's 220 and most of a gun's 350
 local GUARD_ALERT_SECONDS = 15 -- refreshed on every hit; after this long untouched the camp stands down
+-- Job #092: how far a guard may walk before its ground height is measured again (studs).
+local REMEASURE_STEP = 6
 local PATH_HALF = 18 -- keep a tree-free walking lane this wide (half) from the shore to the camps (Job 053)
 local MAX_GUARDS = 6 -- escalation cap per camp (Job 053) — a PERF ceiling: each guard is a full R15 rig
 -- Per-village escalation (user, 2026-08-16). Compounds on the landing's ordinal: village N is
@@ -105,8 +107,19 @@ local carrying: { [Player]: Model } = {}
 --
 -- `alertUntil`/`lastHP` are the Job #090 pull; `lastHP` exists because an attribute-changed signal says
 -- *that* HP changed, not *which way*, and healing must never count as being attacked.
-type GuardState =
-	{ biteTimer: number, anchor: Vector3, roared: boolean?, camp: Vector3?, alertUntil: number?, lastHP: number? }
+type GuardState = {
+	biteTimer: number,
+	anchor: Vector3,
+	roared: boolean?,
+	camp: Vector3?,
+	alertUntil: number?,
+	lastHP: number?,
+	-- Job #092: the ground height last MEASURED under this guard, and where it was measured. See the
+	-- re-measure block in `tickGuard` for why a single spawn-time reading is not enough any more.
+	seatY: number?,
+	seatAt: number?,
+	seatAtZ: number?,
+}
 local guardState: { [Model]: GuardState } = {}
 
 -- Wake every guard of one camp, whoever got hit. Called when any of them takes damage — see
@@ -1571,10 +1584,31 @@ local function tickGuard(guard: Model, dt: number)
 		dir = dir.Unit
 		local stop = if target then def.biteRange * 0.5 else 1
 		local step = math.min(def.speed * dt, math.max(dist - stop, 0))
-		-- ⚠️ Job #090: `st.anchor.Y` (the MEASURED seated height), never `CLEAR_Y + size.Y/2`. This loop
-		-- rewrites Y every frame, so seating the guard only at spawn would be undone on its first step —
-		-- which is why the burial had to be fixed in both places or neither.
-		local footY = st.anchor.Y
+		-- ⚠️ Job #090: the MEASURED seated height, never `CLEAR_Y + size.Y/2`. This loop rewrites Y every
+		-- frame, so seating the guard only at spawn would be undone on its first step.
+		--
+		-- 🔴 Job #092: RE-MEASURE AS IT WALKS. #090 used `st.anchor.Y` — the height measured once at the
+		-- SPAWN POINT — and justified it with "the basin is carved flat, so one measurement covers the
+		-- whole leash". That was true of a 55-stud leash inside the basin. It stopped being true in the
+		-- same job, when the alert pull raised the leash to `GUARD_LEASH_ALERT` (250): a guard chasing a
+		-- shooter now leaves the flat basin entirely while still holding the basin's floor height, and
+		-- floats over any ground that sits lower. Reported as *"wolfs fly (they are too much in air, a
+		-- little bit)"*.
+		--
+		-- Throttled by DISTANCE, not time: `groundAt` can fire up to 25 probes on its fallback path, and
+		-- this runs per guard per frame. Re-measuring every `REMEASURE_STEP` studs of travel costs a
+		-- fraction of a raycast per frame per guard and is imperceptible at walking speed. On a failed
+		-- read the previous height is kept — never teleport a creature because a ray missed.
+		local seatY = st.seatY or st.anchor.Y
+		local moved = (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(st.seatAt or st.anchor.X, 0, st.seatAtZ or st.anchor.Z)).Magnitude
+		if st.seatY == nil or moved > REMEASURE_STEP then
+			local g = groundAt(pos.X, pos.Z)
+			if g then
+				seatY = g + def.size.Y / 2
+			end
+			st.seatY, st.seatAt, st.seatAtZ = seatY, pos.X, pos.Z
+		end
+		local footY = seatY
 		local np = Vector3.new(pos.X + dir.X * step, footY, pos.Z + dir.Z * step)
 		local off = Vector3.new(np.X - st.anchor.X, 0, np.Z - st.anchor.Z)
 		-- Job #090: the leash opens up while alerted so a guard can actually REACH a distant shooter.

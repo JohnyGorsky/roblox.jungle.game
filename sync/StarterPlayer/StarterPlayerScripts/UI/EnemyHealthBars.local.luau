@@ -24,7 +24,15 @@ local Components = require(UI:WaitForChild("Components"))
 
 local TICK = 0.1 -- 10 Hz is well past the point a health bar reads as smooth
 
-type Bar = { gui: BillboardGui, fill: Frame, model: Instance }
+-- 🔴 Job #092: `part` is stored, and that is the fix for "bandits sometimes have no health bar".
+-- The visibility rule below needs the enemy's DISTANCE, and it used to get there via
+-- `bar.model.PrimaryPart` — re-read on every tick. `PrimaryPart` is a Model property that replicates
+-- SEPARATELY from the parts themselves, so on the client it can still be nil for a freshly tagged
+-- enemy (and `makeBar`'s own retry may already have adorned a different BasePart in the meantime).
+-- When it was nil the distance test silently failed, `near` came out false, and a full-health enemy
+-- therefore drew nothing at all — no bar, no error, and only for *some* enemies. Keeping the part we
+-- actually adorned removes the second lookup entirely.
+type Bar = { gui: BillboardGui, fill: Frame, model: Instance, part: BasePart }
 local bars: { [Instance]: Bar } = {}
 
 local function makeBar(model: Instance)
@@ -82,7 +90,7 @@ local function makeBar(model: Instance)
 
 	track.Parent = gui
 	gui.Parent = part
-	bars[model] = { gui = gui, fill = fill, model = model }
+	bars[model] = { gui = gui, fill = fill, model = model, part = part }
 end
 
 for _, tag in ipairs({ "Enemy", "CampGuard" }) do
@@ -120,8 +128,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 		-- nothing, so the original point — a calm river is not a field of green rectangles — survives.
 		local NEAR = 140 -- studs; roughly the range at which an enemy is a threat you are aiming at
 		local camPos = Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.Position
-		local near = camPos ~= nil and (bar.model:IsA("Model") and bar.model.PrimaryPart)
-			and (bar.model.PrimaryPart.Position - camPos).Magnitude <= NEAR
+		-- ⚠️ `bar.part`, NOT `bar.model.PrimaryPart` — see the note on the `Bar` type. The adorned part is
+		-- known to exist (the bar is built from it), so this test can no longer silently fail.
+		local near = camPos ~= nil and bar.part.Parent ~= nil and (bar.part.Position - camPos).Magnitude <= NEAR
 		bar.gui.Enabled = fraction < 1 or near == true
 		if not bar.gui.Enabled then
 			continue
