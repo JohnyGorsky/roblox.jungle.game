@@ -1,7 +1,7 @@
 # TODO 0050: Boat ride is not smooth: vibrates/glitches, feels clumsy
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-17) — fixed in Job #087 - three faults: engine EnableFluidForces fighting the buoyancy spring (root cause), BoatCamera amplifying the hull's replicated pose residual (chase cam retired), gun+searchlight posed by server CFrame writes (now client-posed). Playtest-confirmed smooth 2026-08-17.
 **Created:** 2026-08-16 22:16:23
 
 User direction 2026-08-16: 'riding the boat glitches, riding is not smooth, it vibrates somehow. Lots of Roblox games feel smooth; this does not. Understand how to make it smooth so riding feels ok.' Explicitly asked that the physics skills be consulted properly rather than guessed at.

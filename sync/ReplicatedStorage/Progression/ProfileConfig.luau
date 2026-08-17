@@ -17,17 +17,26 @@ local ProfileConfig = {}
 -- `RunService:IsStudio()` is true in any Studio playtest (solo, Team Test, Play Here) and false on a
 -- live server, and answers the same on client and server — so the lobby and game places always agree.
 -- Keeping the pick here rather than at the call site means `Profiles.luau` needs no change.
-ProfileConfig.STORE_NAME_DEV = "PlayerProfiles_v1" -- Studio testing: keeps our existing test progress
-ProfileConfig.STORE_NAME_LIVE = "PlayerProfiles_live_v1" -- published game: fresh store for real players
+-- ⚠️ Job 089 renamed BOTH stores, because ProfileStore's on-disk shape is not the Job 021 format.
+-- A key written by the old hand-rolled service ({gold, riverScore, __lock, ...} at the top level) is
+-- not a ProfileStore profile, and pointing ProfileStore at one would trip its OnOverwrite guard.
+-- Fresh names guarantee no key is ever read in the wrong format. Both old stores are left intact.
+--   · DEV  — starts empty by decision (Job 089, Q2). Re-grant test progress with AdminServer; the
+--            upside is that the brand-new-player path gets exercised on every fresh test.
+--   · LIVE — the Job 085 live store was created empty and the experience is still Private, so there
+--            was nothing to migrate. Renaming it costs nothing and removes the last legacy-format risk.
+ProfileConfig.STORE_NAME_DEV = "PlayerProfiles_ps_v1" -- Studio testing (ProfileStore format)
+ProfileConfig.STORE_NAME_LIVE = "PlayerProfiles_live_ps_v1" -- published game (ProfileStore format)
 ProfileConfig.STORE_NAME = if RunService:IsStudio()
 	then ProfileConfig.STORE_NAME_DEV
 	else ProfileConfig.STORE_NAME_LIVE
 ProfileConfig.KEY_PREFIX = "Player_"
 ProfileConfig.DATA_VERSION = 1
 
-ProfileConfig.AUTOSAVE_INTERVAL = 60 -- seconds between heartbeat saves
-ProfileConfig.LOCK_STALE_SECONDS = 90 -- steal a session lock older than this
-ProfileConfig.LOAD_RETRIES = 5
+-- ⛔ AUTOSAVE_INTERVAL / LOCK_STALE_SECONDS / LOAD_RETRIES were DELETED in Job 089. They configured the
+-- hand-rolled session lock, and ProfileStore owns all three concerns now (300 s autosave, its own
+-- conflict resolution, its own retry/timeout). Leaving them here would be three constants that look
+-- like tuning knobs and control nothing. Tune ProfileStore via `ProfileStore.SetConstant` instead.
 
 ProfileConfig.GOLD_ATTRIBUTE = "Gold" -- server mirrors gold to this player attribute (auto-replicates)
 
@@ -46,7 +55,7 @@ function ProfileConfig.default(): any
 		weekId = 0, -- integer UTC week number the weekly objectives belong to
 		weekly = { finish = 0, travel = 0, zone = 0 }, -- weekly objective progress
 		weeklyClaimed = {}, -- { [objId] = true }
-		purchaseIds = {}, -- granted developer-product PurchaseIds (idempotency) (Job 027)
+		purchaseIds = {}, -- ARRAY of granted developer-product PurchaseIds, FIFO-capped (Job 027, reshaped 089)
 		stats = {
 			totalRuns = 0,
 			runsFinished = 0,
@@ -101,7 +110,17 @@ function ProfileConfig.migrate(data: any): any
 	if data.weeklyClaimed == nil then
 		data.weeklyClaimed = {}
 	end
-	if data.purchaseIds == nil then
+	-- ⚠️ Job 089 changed the SHAPE of this from a dict `{[purchaseId] = true}` to an ARRAY of ids, so
+	-- ProfileStore's official receipt pattern (FIFO-capped at 100, `table.find`) can use it. A dict
+	-- reaching `table.find` would silently never match and every receipt would grant twice — so a
+	-- leftover dict is RESET rather than tolerated. Free to do now: both stores were renamed in the
+	-- same job and start empty, so this branch should never fire in practice. It exists in case the
+	-- store name is ever pointed back at a Job 021 store.
+	local pid = data.purchaseIds
+	-- ⚠️ `next()` returns TWO values (key, value), so the extra parentheses are load-bearing:
+	-- `type(next(pid))` passes both to `type` and is an error.
+	local firstKey = if type(pid) == "table" then (next(pid)) else nil
+	if type(pid) ~= "table" or (firstKey ~= nil and type(firstKey) ~= "number") then
 		data.purchaseIds = {}
 	end
 	data.stats = data.stats or {}

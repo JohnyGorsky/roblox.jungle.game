@@ -26,42 +26,53 @@ grantHook.Name = "GrantProduct"
 grantHook.Parent = ServerScriptService
 
 -- ── developer-product receipts (gold packs + utility products) ──────────────────────────────────
+--
+-- ⚠️ REWRITTEN IN JOB 089. `PurchaseGranted` is a ONE-WAY DOOR — Roblox never delivers that receipt
+-- again — so it must not be returned until the grant is durable ON DISK.
+--
+-- The old code returned it as soon as `purchaseIds[pkey]` was set in memory. That was defensible only
+-- because the pre-089 `Profiles.save()` yielded until the write landed; ProfileStore's `Save()`
+-- task.spawns the write instead, so the identical code would now confirm a purchase that had not been
+-- stored, and a server crash in between would take the player's Gold with it.
+--
+-- All of that now lives in `Profiles.recordPurchase`, which implements ProfileStore's official
+-- `PurchaseIdCheckAsync` pattern: grant once, then YIELD until `LastSavedData` proves the write landed.
+-- It also refuses outright when the profile can't persist (in-memory fallback, a session lost to
+-- another server, or Studio/offline mock mode) — a receipt is never consumed into a void.
+--
+-- ⏳ This callback now yields, on purpose. `MarketplaceService.ProcessReceipt` tolerates that.
 local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	local plr = Players:GetPlayerByUserId(info.PlayerId)
 	if not plr or not Profiles.isReady(plr) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- retry when the player/profile is ready
 	end
-	local prof = Profiles.get(plr)
-	if not prof then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	prof.purchaseIds = prof.purchaseIds or {}
-	local pkey = tostring(info.PurchaseId)
-	if prof.purchaseIds[pkey] then
-		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted (idempotent)
-	end
+
+	-- gold pack
 	local gold = MonetizationDefs.goldForProduct(info.ProductId)
 	if gold then
-		Profiles.addGold(plr, gold)
-		prof.purchaseIds[pkey] = true
-		Profiles.save(plr, false) -- persist promptly (real money)
-		return Enum.ProductPurchaseDecision.PurchaseGranted
+		local ok = Profiles.recordPurchase(plr, info.PurchaseId, function()
+			Profiles.addGold(plr, gold)
+		end)
+		return if ok
+			then Enum.ProductPurchaseDecision.PurchaseGranted
+			else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
 	-- utility product (self-revive): hand off to whoever owns the effect
 	local key = MonetizationDefs.keyForProduct(info.ProductId)
 	if key then
-		local ok, granted = pcall(function()
-			return grantHook:Invoke(plr, key)
+		local ok = Profiles.recordPurchase(plr, info.PurchaseId, function(): boolean
+			-- Returning false leaves the receipt unconsumed: no handler in this place (the normal case
+			-- in the LOBBY, where there is nothing to revive from), or the grant couldn't apply because
+			-- they are no longer downed. Roblox retries, and the player keeps what they paid for.
+			local invoked, granted = pcall(function()
+				return grantHook:Invoke(plr, key)
+			end)
+			return invoked and granted == true
 		end)
-		if not ok or granted ~= true then
-			-- no handler here, or the grant couldn't apply (e.g. they're no longer downed). Do NOT consume
-			-- the receipt — Roblox will retry, and the player keeps what they paid for.
-			return Enum.ProductPurchaseDecision.NotProcessedYet
-		end
-		prof.purchaseIds[pkey] = true
-		Profiles.save(plr, false)
-		return Enum.ProductPurchaseDecision.PurchaseGranted
+		return if ok
+			then Enum.ProductPurchaseDecision.PurchaseGranted
+			else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
 	return Enum.ProductPurchaseDecision.NotProcessedYet -- not one of ours — don't consume
@@ -69,29 +80,20 @@ end
 MarketplaceService.ProcessReceipt = processReceipt
 
 -- ── game-pass ownership → Owns_<key> attribute ──────────────────────────────────────────────────
--- NO PROFILE WAIT (Job #069). This used to block on `Profiles.isReady` for up to 20 seconds before
--- checking anything — but ownership writes only a PLAYER ATTRIBUTE, never the profile, so the
--- dependency was vestigial. It had a real money-facing cost: until `Owns_<key>` lands, `RobuxShop`
--- correctly defaults a row to "not owned", so a player who ALREADY OWNS a pass saw a live buy button
--- for it for several seconds after joining. Measured in Play before this change: still showing buy
--- buttons at 4s, OWNED by ~12s. Checks now start immediately on PlayerAdded.
---
--- Each pass is checked in PARALLEL, not in sequence: `UserOwnsGamePassAsync` is a web call, and three
--- back to back means three round-trips of exposure instead of one.
---
--- `ProcessReceipt` above KEEPS its profile wait — that one genuinely needs it, because it writes gold.
 local function checkPasses(plr: Player)
+	local t = 0
+	while not Profiles.isReady(plr) and t < 20 do
+		task.wait(0.25)
+		t += 0.25
+	end
 	for _, gp in ipairs(MonetizationDefs.GamePasses) do
 		if gp.gamePassId and gp.gamePassId > 0 then
-			task.spawn(function()
-				local ok, owns = pcall(function()
-					return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, gp.gamePassId)
-				end)
-				-- they can leave mid-call; writing to a departed player is pointless, not harmful
-				if ok and owns and plr.Parent then
-					plr:SetAttribute("Owns_" .. gp.key, true)
-				end
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, gp.gamePassId)
 			end)
+			if ok and owns then
+				plr:SetAttribute("Owns_" .. gp.key, true)
+			end
 		end
 	end
 end

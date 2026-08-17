@@ -55,7 +55,11 @@ local DEBRIS_FRAC = 0.18
 -- and actual hull speed takes over authority as the boat gets going.
 local TOP_SPEED = 30 -- studs/s; BoatServer's THRUST/DRAG works out to ≈30, the "full" reference
 local THROTTLE_LEAD = 0.55 -- how much note pressing W buys before the boat has actually moved
-local IDLE_VOL, MAX_VOL = 0.16, 0.62
+-- Raised 2026-08-17 (user: "we need louder motor boat, it is too quiet, I cant hear it") from
+-- 0.16 / 0.62. The motor is the boat's main feedback channel — you judge throttle by ear before you
+-- judge it by the wake — so it should sit clearly on top of the jungle ambience, not under it.
+-- ⚠️ Half of "too quiet" was NOT the volume: see ROLL_MIN below.
+local IDLE_VOL, MAX_VOL = 0.34, 1.0
 local IDLE_PITCH, MAX_PITCH = 0.72, 1.32
 local RESPONSE = 6 -- how fast the note chases its target (higher = snappier, less smooth)
 
@@ -77,7 +81,13 @@ local HIT_MIN_GAP = 0.08 -- rapid hits may overlap (impacts should feel responsi
 local HIT_VOL_MIN, HIT_VOL_MAX = 0.45, 0.95
 local HIT_REF_FRAC = 0.12 -- damage of this fraction of MaxHP or more is a "full volume" hit
 
-local ROLL_MIN, ROLL_MAX = 12, 200 -- the engine carries a good way across open water
+-- ROLL_MIN is the radius inside which a positional sound plays at FULL volume; past it, InverseTapered
+-- attenuates. It was 12 — and the engine is parented to `Motor` at the STERN of a 32-stud hull, while
+-- the listener is the CAMERA, not the character. So the driver at the helm was already outside the
+-- full-volume radius before the camera's own follow distance was even counted, and every attenuation
+-- happened on top of a 0.62 ceiling. That is the real reason it read as "I can't hear it".
+-- 30 puts the whole deck inside the full-volume radius, so the crew hears the engine they are riding.
+local ROLL_MIN, ROLL_MAX = 30, 200 -- the engine carries a good way across open water
 
 local function makeSound(id: string, looped: boolean, volume: number): Sound
 	local s = Instance.new("Sound")

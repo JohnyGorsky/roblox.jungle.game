@@ -1,34 +1,53 @@
 --!strict
--- Profiles.luau — session-locked DataStore profile service (Job 021). SERVER ONLY.
--- A simplified ProfileStore: one DataStore value per player holding {gold, riverScore, stats, __lock}.
--- All access via UpdateAsync (atomic; the transform never yields). Session lock prevents dupes/rollbacks
--- across the lobby<->game teleport. IDENTICAL copy in sync/ and lobby/sync/ (same experience/DataStore).
+-- Profiles.luau — session-locked profile service. SERVER ONLY.
+-- Job 021 built this on a hand-rolled UpdateAsync session lock; Job 089 replaced those internals with
+-- the community ProfileStore module. IDENTICAL copy in sync/ and lobby/sync/ (same experience/DataStore).
+--
+-- ⚠️ THIS MODULE IS A FACADE, AND THAT IS THE POINT. 13 progression scripts across both places require
+-- it. The public API below has not changed since Job 021, so the entire ProfileStore migration touched
+-- this file and not one of them. Keep it that way: if a caller needs something new, add a method here
+-- rather than requiring ProfileStore anywhere else.
 --
 -- Public API (all take a Player):
---   Profiles.load(p)            -- call on PlayerAdded; loads or creates + acquires the lock
---   Profiles.save(p, release)   -- heartbeat (release=false) or final save+unlock (release=true)
+--   Profiles.load(p)            -- call on PlayerAdded; starts the session (yields)
+--   Profiles.save(p, release)   -- release=false: save now · release=true: final save + end session
 --   Profiles.unload(p)          -- drop the in-memory cache entry
 --   Profiles.isReady(p)         -- true once load finished (real or fallback)
 --   Profiles.get(p)             -- the raw in-memory data table (or nil)
 --   Profiles.getGold(p) / addGold(p, n) / trySpendGold(p, n)
+--   Profiles.getRiverScore(p) / addRiverScore(p, n)
+--   Profiles.getPaint(p) / setPaint(p, id)
+--   Profiles.isPersisting(p)              -- ⭐ Job 089: will a write to this profile actually survive?
+--   Profiles.recordPurchase(p, id, grant) -- ⭐ Job 089: grant a dev product once, durably (YIELDS)
+--
+-- ── What ProfileStore does that the hand-rolled version did not ─────────────────────────────────
+-- The old lock lived inside the profile data as `__lock = {session, heartbeat}` and let a newer
+-- session STEAL a lock whose heartbeat was older than 90 s. That is the exact race this game runs on
+-- every single launch — the lobby → reserved-server teleport hands one player between two servers —
+-- and a 90-second timer is a poor way to resolve it. ProfileStore resolves the conflict in a single
+-- call and can be driven by MessagingService so the losing server yields promptly.
+--
+-- It also owns two things this module used to: AUTO-SAVING (every 300 s internally) and SHUTDOWN
+-- (its own game:BindToClose saves and releases every active profile). `ProfileServer` therefore no
+-- longer runs an autosave loop or a BindToClose — see the note in that file before re-adding either.
 
-local DataStoreService = game:GetService("DataStoreService")
-local HttpService = game:GetService("HttpService")
-
+local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ProfileStore = require(ServerScriptService:WaitForChild("Vendor"):WaitForChild("ProfileStore")) :: any
 local ProfileConfig =
 	require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("ProfileConfig")) :: any
 
 local Profiles = {}
 
-local store: DataStore = DataStoreService:GetDataStore(ProfileConfig.STORE_NAME)
+local store = ProfileStore.New(ProfileConfig.STORE_NAME, ProfileConfig.default())
 
 type Entry = {
-	data: any,
-	session: string,
-	owned: boolean, -- we hold the session lock and may save
+	profile: any?, -- the ProfileStore Profile; nil in fallback, and cleared when the session ends
+	data: any, -- profile.Data, or an unsaved default table in fallback
 	ready: boolean, -- load finished (real or fallback)
-	fallback: boolean, -- load failed; in-memory only, never saved
+	fallback: boolean, -- nothing written from here will ever persist
 }
 
 local cache: { [Player]: Entry } = {}
@@ -37,55 +56,25 @@ local function keyOf(player: Player): string
 	return ProfileConfig.KEY_PREFIX .. tostring(player.UserId)
 end
 
--- One UpdateAsync transaction. mode = "load" | "beat" | "release".
--- Returns (ok, data, err). err ∈ {"locked","lost", nil}.
-local function transact(player: Player, mode: string): (boolean, any, string?)
-	local entry = cache[player]
-	local session = (entry and entry.session) or ""
-	local key = keyOf(player)
-	local outData: any = nil
-	local outErr: string? = nil
-
-	local ok = pcall(function()
-		store:UpdateAsync(key, function(old)
-			local data = ProfileConfig.migrate(old) -- old may be nil -> a fresh default
-			local lock = data.__lock
-
-			if mode == "load" then
-				if lock and lock.session ~= session then
-					local age = os.time() - (lock.heartbeat or 0)
-					if age < ProfileConfig.LOCK_STALE_SECONDS then
-						outErr = "locked" -- another live session owns it; cancel and retry
-						return nil
-					end
-					-- stale lock -> steal it
-				end
-				data.__lock = { session = session, heartbeat = os.time() }
-				outData = data
-				return data
-			elseif mode == "beat" or mode == "release" then
-				-- write our authoritative in-memory data; never clobber a live owner that stole the lock
-				if lock and lock.session ~= session then
-					local age = os.time() - (lock.heartbeat or 0)
-					if age < ProfileConfig.LOCK_STALE_SECONDS then
-						outErr = "lost"
-						return nil
-					end
-				end
-				local mem = (entry and entry.data) or data
-				if mode == "release" then
-					mem.__lock = nil
-				else
-					mem.__lock = { session = session, heartbeat = os.time() }
-				end
-				outData = mem
-				return mem
-			end
-			return nil
-		end)
-	end)
-
-	return ok, outData, outErr
+-- ⚠️ THE MOST IMPORTANT FUNCTION IN THIS FILE — read before touching anything money-related.
+--
+-- "Did we get a Profile?" and "will a write to it survive?" are DIFFERENT QUESTIONS, and conflating
+-- them is how a player pays Robux and receives nothing.
+--
+-- When `DataStoreState ~= "Access"` — Studio with API services switched off, or no internet —
+-- ProfileStore silently swaps in an in-memory MOCK store (ProfileStore.luau:596) and
+-- `StartSessionAsync` hands back a Profile that looks completely normal. `IsActive()` is true. Saves
+-- "succeed". Nothing is written anywhere. So a `profile ~= nil` test is not enough, and neither is
+-- `IsActive()`; the DataStoreState check is the one that catches it.
+function Profiles.isPersisting(player: Player): boolean
+	local e = cache[player]
+	if not e or e.fallback or not e.profile then
+		return false
+	end
+	if ProfileStore.DataStoreState ~= "Access" then
+		return false -- mock store: it will accept the write and throw it away
+	end
+	return e.profile:IsActive() == true
 end
 
 function Profiles._publish(player: Player)
@@ -112,72 +101,106 @@ function Profiles.load(player: Player): Entry?
 	if cache[player] then
 		return cache[player] -- already loading/loaded (guards double PlayerAdded/catch-up)
 	end
-	local session = HttpService:GenerateGUID(false)
-	cache[player] =
-		{ data = ProfileConfig.default(), session = session, owned = false, ready = false, fallback = false }
+	local entry: Entry = { profile = nil, data = ProfileConfig.default(), ready = false, fallback = false }
+	cache[player] = entry
 
-	local loaded, data: any, lastErr: string? = false, nil, nil
-	for attempt = 1, ProfileConfig.LOAD_RETRIES do
-		if not player.Parent then
-			cache[player] = nil
-			return nil -- left before load finished
-		end
-		local ok, d, err = transact(player, "load")
-		if err then
-			lastErr = err
-		elseif not ok then
-			lastErr = "datastore-error"
-		else
-			lastErr = nil
-		end
-		if ok and d then
-			loaded, data = true, d
-			break
-		elseif err == "locked" then
-			task.wait(0.5 * (2 ^ attempt)) -- wait for the other session to release
-		else
-			task.wait(1) -- transient DataStore failure
-		end
-	end
+	-- Yields. `Cancel` is how ProfileStore is told to give up.
+	--
+	-- ⚠️ TWO conditions, and the second one is not optional. Supplying `Cancel` DISABLES ProfileStore's
+	-- own START_SESSION_TIMEOUT (`ProfileStore.luau:1612` — the default timeout is only applied when
+	-- `params.Cancel == nil`). So a `Cancel` that only tests "did they leave?" means that during a
+	-- DataStore outage `StartSessionAsync` retries FOREVER for a player who is still sitting there:
+	-- `load` never returns, `isReady` never goes true, and the fallback profile this function exists to
+	-- provide is never reached. Our own deadline restores it.
+	--
+	-- LOAD_TIMEOUT is 60 s rather than something snappier on purpose: ProfileStore resolves a normal
+	-- session conflict by stealing at SESSION_STEAL = 40 s, and the lobby -> game teleport IS a session
+	-- conflict every single run. Giving up before 40 s would hand players an unsaved profile in the
+	-- ordinary case. 60 s clears that and still bounds the wait.
+	local LOAD_TIMEOUT = 60
+	local startedAt = os.clock()
+	local profile = store:StartSessionAsync(keyOf(player), {
+		Cancel = function()
+			return player.Parent ~= Players or (os.clock() - startedAt) >= LOAD_TIMEOUT
+		end,
+	})
 
-	local entry = cache[player]
-	if not entry then
+	if cache[player] ~= entry then
+		-- unloaded (or re-loaded) while we were yielding — this entry is stale, don't resurrect it
+		if profile then
+			profile:EndSession()
+		end
 		return nil
 	end
-	if loaded and data then
-		entry.data = data
-		entry.owned = true
-		entry.ready = true
+
+	if profile ~= nil then
+		if player.Parent ~= Players then
+			profile:EndSession() -- left between the Cancel check and here
+			cache[player] = nil
+			return nil
+		end
+
+		profile:AddUserId(player.UserId) -- GDPR: associates the data with its owner for right-to-erasure
+
+		-- Our own migrate(), NOT ProfileStore's Reconcile(). Reconcile only fills missing top-level keys;
+		-- migrate() also deep-fills `stats` and TYPE-checks `paint` — which matters because `paint` is
+		-- written from a client-driven RemoteFunction, so a bad value must never be able to persist.
+		ProfileConfig.migrate(profile.Data)
+		profile.Data.__lock = nil -- defensive: the Job 021 format kept its session lock inside the data
+
+		-- The session was taken by another server, or ended under us. Match the pre-089 behaviour —
+		-- warn, stop saving, let them keep playing on the in-memory table — rather than ProfileStore's
+		-- convention of kicking. Decided with the user 2026-08-17 (Job 089, Q4).
+		-- ⚠️ `fallback = true` is what stops MonetizationServer consuming a receipt from here on.
+		profile.OnSessionEnd:Connect(function()
+			local e = cache[player]
+			if e and e.profile == profile then
+				e.profile = nil
+				e.fallback = true
+				warn(("[Profiles] session ended for %s — playing on, saves halted"):format(player.Name))
+			end
+		end)
+
+		entry.profile = profile
+		entry.data = profile.Data
 	else
-		-- Studio without API access, or a stuck lock: run on an in-memory profile that is NEVER saved.
+		-- StartSessionAsync only returns nil when it was cancelled or timed out. Run on an in-memory
+		-- profile that is NEVER saved: the player gets a playable session instead of a kick, and cannot
+		-- corrupt their real save.
 		entry.fallback = true
-		entry.ready = true
-		warn(
-			("[Profiles] load failed for %s (%s) — in-memory fallback, will NOT save"):format(
-				player.Name,
-				tostring(lastErr)
-			)
-		)
+		warn(("[Profiles] no session for %s — in-memory fallback, will NOT save"):format(player.Name))
 	end
+
+	entry.ready = true
 	Profiles._publish(player)
 	return entry
 end
 
+-- release=false → save now (ProfileStore also auto-saves every 300 s on its own).
+-- release=true  → final save + end the session, so another server can take it immediately.
+-- ⚠️ NEITHER YIELDS. ProfileStore task.spawns the actual write in both cases, so this returning `true`
+-- means "the write was queued", NOT "the write landed". Anything that must not be lost — receipts —
+-- has to confirm durability separately; see `isPurchaseSaved`.
 function Profiles.save(player: Player, release: boolean): boolean
 	local entry = cache[player]
-	if not entry or not entry.owned or entry.fallback then
+	if not entry then
 		return false
 	end
-	local ok, _, err = transact(player, release and "release" or "beat")
-	if not ok then
-		warn(("[Profiles] save error for %s"):format(player.Name))
-	elseif err == "lost" then
-		warn(("[Profiles] lost session lock for %s — halting saves"):format(player.Name))
-		entry.owned = false
-	elseif release then
-		entry.owned = false
+	local profile = entry.profile
+	if not profile then
+		return false -- fallback profile, or the session already ended
 	end
-	return ok
+	if release then
+		profile:EndSession()
+		entry.profile = nil
+		entry.fallback = true -- nothing may be written after the session is handed over
+		return true
+	end
+	if profile:IsActive() ~= true then
+		return false
+	end
+	profile:Save()
+	return true
 end
 
 function Profiles.unload(player: Player)
@@ -192,6 +215,83 @@ end
 function Profiles.get(player: Player): any
 	local e = cache[player]
 	return e and e.data or nil
+end
+
+-- ⚠️ REAL MONEY PATH. Grant a developer product exactly once and DO NOT RETURN until the grant is
+-- confirmed on disk. Returns true only when it is safe to consume the receipt.
+--
+-- This is ProfileStore's official `PurchaseIdCheckAsync` pattern, kept in the facade so nothing else
+-- has to know about `LastSavedData`, `OnAfterSave` or `IsActive`.
+--
+-- WHY IT YIELDS. `PurchaseGranted` is a one-way door — Roblox never delivers that receipt again. The
+-- pre-089 code returned it as soon as the id was in the in-memory table, which was defensible only
+-- because the old `save()` yielded until the write landed. ProfileStore's `Save()` task.spawns the
+-- write instead, so the same code would confirm a purchase that had not been stored, and a crash in
+-- between would take the player's Gold with it. `MarketplaceService.ProcessReceipt` tolerates yielding
+-- inside the callback (documented by ProfileStore, from observed Roblox behaviour), so we wait for the
+-- save rather than guess.
+--
+-- `grant` runs at most once per PurchaseId. Return `false` from it to mean "couldn't apply this right
+-- now" (e.g. a self-revive when the player isn't downed) — the receipt is then left unconsumed and
+-- Roblox re-delivers it later. Returning nil counts as success.
+local PURCHASE_ID_CACHE_SIZE = 100 -- FIFO cap; profiles have a 4 MB ceiling and receipts are forever
+
+function Profiles.recordPurchase(player: Player, purchaseId: any, grant: () -> boolean?): boolean
+	if not Profiles.isPersisting(player) then
+		return false -- fallback profile or mock store: the grant would evaporate
+	end
+	local entry = cache[player]
+	local profile = (entry :: any).profile
+	local id = tostring(purchaseId)
+
+	local granted = entry.data.purchaseIds
+	if type(granted) ~= "table" then
+		granted = {}
+		entry.data.purchaseIds = granted
+	end
+
+	local function isSaved(): boolean
+		local saved = profile.LastSavedData
+		local list = if type(saved) == "table" then saved.purchaseIds else nil
+		return type(list) == "table" and table.find(list, id) ~= nil
+	end
+
+	if table.find(granted, id) == nil then
+		local ok, result = pcall(grant)
+		if not ok then
+			warn(("[Profiles] purchase %s failed to grant for %s: %s"):format(id, player.Name, tostring(result)))
+			return false
+		end
+		if result == false then
+			return false -- the grant declined; leave the receipt for a later, better moment
+		end
+		-- Oldest ids drop off the end. Roblox stops re-delivering long-settled receipts, so a bounded
+		-- cache is the accepted trade against a table that would otherwise grow for the profile's life.
+		while #granted >= PURCHASE_ID_CACHE_SIZE do
+			table.remove(granted, 1)
+		end
+		table.insert(granted, id)
+	end
+
+	if isSaved() then
+		return true
+	end
+
+	while profile:IsActive() == true do
+		local lastSaved = profile.LastSavedData
+		profile:Save()
+		if profile.LastSavedData == lastSaved then
+			profile.OnAfterSave:Wait() -- no save had landed since we looked; wait for the next one
+		end
+		if isSaved() then
+			return true
+		end
+		if profile:IsActive() == true then
+			task.wait(10) -- a save failed or raced; back off rather than hammer the DataStore
+		end
+	end
+
+	return false -- session ended before the grant was stored; the receipt stays unconsumed
 end
 
 function Profiles.getGold(player: Player): number

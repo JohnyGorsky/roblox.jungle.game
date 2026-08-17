@@ -1,15 +1,23 @@
 --!strict
--- ProfileServer.server.luau — profile lifecycle: the save trio (Job 021). SERVER.
--- PlayerAdded (leaderstats + load) -> autosave heartbeat -> PlayerRemoving (release) -> BindToClose.
+-- ProfileServer.server.luau — profile lifecycle (Job 021, rewired to ProfileStore in Job 089). SERVER.
+-- PlayerAdded (leaderstats + load) -> PlayerRemoving (final save + end session).
 -- IDENTICAL copy in sync/ and lobby/sync/ (runs in both places; DataStore is experience-wide).
+--
+-- ⛔ THE AUTOSAVE LOOP AND THE BindToClose BLOCK WERE DELETED IN JOB 089. Do not add them back.
+--
+--   · Autosave — ProfileStore auto-saves every active profile every 300 s on its own. The old 60 s
+--     loop calling Profiles.save() would just be five times the DataStore writes for no extra safety,
+--     which is the opposite of what ProfileStore's longer period is for (~10x fewer calls).
+--   · Shutdown — ProfileStore registers its OWN game:BindToClose (ProfileStore.luau:2208) which saves
+--     and releases every active profile and yields until the writes finish. Ours would be a second
+--     handler racing the first over the same profiles.
+--
+-- If either ever looks missing, it is because something else owns it now. Read Profiles.luau first.
 
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
-local ProfileConfig =
-	require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("ProfileConfig")) :: any
 
 -- Dev/testing hook (server command bar): _G.LR_Profiles.addGold(game.Players.NAME, 100)
 _G.LR_Profiles = Profiles
@@ -26,7 +34,7 @@ end
 
 local function onAdded(player: Player)
 	setupLeaderstats(player)
-	Profiles.load(player)
+	Profiles.load(player) -- yields until the session starts (or is cancelled because they left)
 end
 
 Players.PlayerAdded:Connect(onAdded)
@@ -35,41 +43,10 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerRemoving:Connect(function(player)
-	Profiles.save(player, true) -- final save + release lock
+	-- Ends the session as well as saving. This is what lets the DESTINATION server pick the profile up
+	-- immediately on the lobby -> game teleport instead of waiting out a conflict.
+	Profiles.save(player, true)
 	Profiles.unload(player)
 end)
 
--- Autosave heartbeat (also refreshes the session lock).
-task.spawn(function()
-	while true do
-		task.wait(ProfileConfig.AUTOSAVE_INTERVAL)
-		for _, p in ipairs(Players:GetPlayers()) do
-			if Profiles.isReady(p) then
-				Profiles.save(p, false)
-			end
-		end
-	end
-end)
-
--- Save everyone still in the server during the ~30s shutdown window (in parallel).
-game:BindToClose(function()
-	local players = Players:GetPlayers()
-	local pending = #players
-	if pending == 0 then
-		return
-	end
-	for _, p in ipairs(players) do
-		task.spawn(function()
-			Profiles.save(p, true)
-			Profiles.unload(p)
-			pending -= 1
-		end)
-	end
-	local waited = 0
-	while pending > 0 and waited < 25 do
-		task.wait(0.2)
-		waited += 0.2
-	end
-end)
-
-print("[Profiles] persistence online (session-locked; autosave " .. ProfileConfig.AUTOSAVE_INTERVAL .. "s)")
+print("[Profiles] persistence online (ProfileStore session locking; autosave owned by ProfileStore)")

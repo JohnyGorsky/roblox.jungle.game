@@ -2,7 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-16 22:18:47
-**Status**: Requirements Gathering (intake)
+**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-17)</span> — see [`final-summary.md`](final-summary.md).
+Scope grew beyond "diagnosis only": the bisect that produced the diagnosis also produced the fix, and
+the user approved shipping it in the same job. Three faults found, all three fixed, playtest-confirmed.
 
 ## Requirements / goal
 

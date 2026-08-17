@@ -1,7 +1,10 @@
 # Job #087 — Boat ride quality: diagnosis
 
 **Project**: `roblox.jungle`
-**Status**: ✅ Diagnosis complete — awaiting a decision on direction. **No code changed.**
+**Status**: ✅ **Closed — all three faults fixed and playtest-confirmed (2026-08-17).**
+See [final-summary.md](final-summary.md) for what shipped. The root cause was the engine's own
+`EnableFluidForces` fighting our buoyancy spring — the last open item on this document's own
+*"Still to check before implementing"* list. Read below for the working, not for the current state.
 **Measured**: live Studio game place, 2026-08-16, user driving
 
 ---
