@@ -234,7 +234,27 @@ end
 if flyer.PrimaryPart == nil then
 	flyer.PrimaryPart = flyer:FindFirstChildWhichIsA("BasePart", true)
 end
-flyer:PivotTo(flightCF(HOVER_POS, 0, 0))
+-- 🔴 Job #091: PUBLISH THE POSE, don't just set it.
+--
+-- `flyer` is an ANCHORED model. A server script writing an anchored part's CFrame replicates as
+-- discrete property writes, and the client does NOT interpolate them the way it interpolates a physics
+-- body — so the plane's rendered position arrives in visible steps. Smoothing the camera alone could
+-- never fix that (Job #091 first attempt): the camera got smooth and the PLANE went on stepping inside
+-- a smooth frame, which is what "plane still glitches" was.
+--
+-- So every pose is also written to `Workspace.IntroPlaneCF`, and `IntroPlaneSmooth.local.luau` renders
+-- the plane from THAT, interpolated. The attribute exists because the client poses the model locally:
+-- once it does, reading the model's own CFrame back would return the client's value, not the server's.
+-- The attribute is the one source a local write can never clobber.
+--
+-- ⚠️ Use this instead of a bare `flyer:PivotTo(...)` for any flight pose, or the client's smoother has
+-- nothing to follow and that segment of the flight will step again.
+local function poseFlyer(cf: CFrame)
+	flyer:PivotTo(cf)
+	Workspace:SetAttribute("IntroPlaneCF", cf)
+end
+
+poseFlyer(flightCF(HOVER_POS, 0, 0))
 flyer.Parent = Workspace
 
 -- Engine drone rides the plane's own position so it grows as the plane closes in.
@@ -382,7 +402,7 @@ task.spawn(function()
 		-- gentle BANK, not a yaw tacked on after flightCF: anything applied after the mesh-roll
 		-- correction rotates about an axis that is no longer world-up, so a "yaw" there pitches the nose.
 		local bank = math.rad(math.sin(t * 0.4) * 3)
-		flyer:PivotTo(flightCF(HOVER_POS + Vector3.new(0, bob, 0), 0, bank))
+		poseFlyer(flightCF(HOVER_POS + Vector3.new(0, bob, 0), 0, bank))
 	end
 end)
 
@@ -440,7 +460,7 @@ do
 		local pos = from:Lerp(CRUISE_END, eased)
 		local bob = math.sin(elapsed * 1.2) * 3
 		local roll = math.rad(math.sin(elapsed * 0.6) * 8)
-		flyer:PivotTo(flightCF(pos + Vector3.new(0, bob, 0), 0, roll))
+		poseFlyer(flightCF(pos + Vector3.new(0, bob, 0), 0, roll))
 	end
 end
 
@@ -466,7 +486,7 @@ do
 		local pos = from:Lerp(IMPACT_POS, eased)
 		local shake = math.sin(elapsed * 22) * math.rad(1.6) * a -- the airframe starts to judder
 		windSnd.Volume = 0.85 * a
-		flyer:PivotTo(flightCF(pos, -descentPitch * a + shake, math.rad(math.sin(elapsed * 3) * 10) * a))
+		poseFlyer(flightCF(pos, -descentPitch * a + shake, math.rad(math.sin(elapsed * 3) * 10) * a))
 	end
 end
 

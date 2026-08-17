@@ -254,9 +254,33 @@ end
 local groundParams = RaycastParams.new()
 groundParams.FilterType = Enum.RaycastFilterType.Include
 groundParams.FilterDescendantsInstances = { Workspace.Terrain }
+-- 🔴 Job #091: `IgnoreWater` defaults to FALSE, so this ray used to HIT THE RIVER SURFACE and report it
+-- as ground at exactly `WATER_Y`. A land creature stepping out over the channel was therefore "seated on
+-- the ground" — on the water. With it true the ray passes through and returns the river BED (below the
+-- water line) or nil, which is what `isLand` below needs to tell land from water at all.
+groundParams.IgnoreWater = true
 local function groundYAt(x: number, z: number): number?
 	local hit = Workspace:Raycast(Vector3.new(x, WATER_Y + 120, z), Vector3.new(0, -400, 0), groundParams)
 	return if hit then hit.Position.Y else nil
+end
+
+-- 🔴 Job #091: IS THERE DRY LAND HERE? Measured from terrain, independent of `RiverData`.
+--
+-- User report: *"pig jumped on my boat at the start and it started glitching."* `bankEdgeAt` below is
+-- computed **entirely from `RiverData.branchesAt(z)`** — the GENERATED river's geometry. At the
+-- hand-built spawn base, where every run begins, the channel is **sculpted terrain and not RiverData
+-- geometry at all** (`BoatServer`'s header records the same caveat for the boat's own heading). So the
+-- bank clamp there points at a shoreline that isn't the real one, the clamp permits open water, and a
+-- boar walks straight over the river onto the moored boat — where its anchored, colliding root is an
+-- infinite-mass body embedded in a dynamic hull, and the solver spins the boat.
+--
+-- Terrain does not lie anywhere on the map, so this is the check that holds at the spawn base *and* out
+-- on the generated river. `LAND_CLEARANCE` keeps a creature off a bed that merely pokes above the
+-- surface — a sandbar mid-channel is not somewhere a boar belongs.
+local LAND_CLEARANCE = 1.5
+local function isLand(x: number, z: number): boolean
+	local y = groundYAt(x, z)
+	return y ~= nil and y >= WATER_Y + LAND_CLEARANCE
 end
 
 -- move an enemy one step toward target (flat); optionally leashed to an anchor.
@@ -290,6 +314,16 @@ local function stepToward(enemy: Model, from: Vector3, target: Vector3, speed: n
 		else
 			x = math.min(x, edge - BANK_MARGIN)
 		end
+
+		-- 🔴 Job #091: THE HARD "NEVER ENTER WATER" RULE. The clamp above is necessary but NOT sufficient
+		-- — it trusts `RiverData`, which does not describe the hand-built spawn base where every run
+		-- starts (see `isLand`). This is the check that cannot be fooled: if the destination is not dry
+		-- land, the creature simply does not take the step. It holds its ground on the bank instead of
+		-- wading, and in particular it can no longer walk over the river onto the moored boat.
+		if not isLand(x, newPos.Z) then
+			return -- refuse the move entirely; better a boar that waits than a boar on the deck
+		end
+
 		local y = groundYAt(x, newPos.Z)
 		newPos = Vector3.new(x, if y then y + (standHeight or 0) else from.Y, newPos.Z)
 	end
@@ -465,7 +499,15 @@ local SEA_POOL = {
 -- from `landCap()`/`spawnInterval`, not from the pool — so removing Wolf changes only WHICH creature
 -- appears, and every bank ambusher is now a Boar. The one thing the bank lost was durability
 -- (Wolf 55 HP vs Boar 40), which is compensated in `EnemyDefs` by Boar 40 → 50 rather than here.
-local LAND_POOL = {
+-- Job #091: Boar was briefly removed here (*"they somehow attack boat and boat spins"*) and is BACK,
+-- because the cause was found: land creatures could walk on WATER. `groundYAt`'s raycast had
+-- `IgnoreWater` at its default of `false`, so the river surface answered as "ground" at exactly
+-- `WATER_Y`, and `isLand` now refuses any step that is not dry terrain. See both, above.
+--
+-- ⚠️ The spawner is gated on `#LAND_POOL > 0` (see the land spawner). Keep that gate if this pool is
+-- ever emptied again: `pickType` ends with `return EnemyDefs.Defs[pool[1].name]`, which indexes nil on
+-- an empty table and would error every spawn tick.
+local LAND_POOL: { { name: string, near: number, far: number } } = {
 	{ name = "Boar", near = 3, far = 5 },
 }
 
@@ -559,10 +601,17 @@ task.spawn(function()
 	end
 end)
 
--- LAND spawner: a mix of panthers / boars on the bank ahead (anchored to that bank point)
+-- LAND spawner: creatures on the bank ahead (anchored to that bank point).
+-- ⚠️ Job #091: `#LAND_POOL > 0` — the pool is EMPTY while Boar is disabled, and `pickType` indexes
+-- `pool[1]` unconditionally on its last line. Without this gate the spawner would error every tick.
 task.spawn(function()
 	while true do
-		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByCategory("land") < landCap() then
+		if
+			#LAND_POOL > 0
+			and Workspace:GetAttribute("RunStarted")
+			and boatAlive()
+			and countByCategory("land") < landCap()
+		then
 			local def = pickType(LAND_POOL)
 			local z = hull.Position.Z + rng:NextNumber(LAND_AHEAD_MIN, LAND_AHEAD_MAX)
 			local side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1
