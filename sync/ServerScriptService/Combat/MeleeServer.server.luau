@@ -13,6 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("WeaponAssets"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
+local KillReward = require(game:GetService("ServerScriptService"):WaitForChild("Economy"):WaitForChild("KillReward")) :: any
 
 -- animation tracks are cached per character: `LoadAnimation` on every swing leaks tracks fast at a
 -- 0.6 s interval.
@@ -150,6 +151,7 @@ remote.OnServerEvent:Connect(function(player: Player)
 		local before = (best:GetAttribute("HP") :: number?) or 0
 		local after = math.max(0, before - (def.damage or 15))
 		best:SetAttribute("HP", after)
+		KillReward.onEnemyDamaged(player, best, before, after) -- Job #093: Salvage for a land kill
 		-- Job #084: impact burst + floating number at the target
 		local hitAt = best.PrimaryPart
 		if hitAt then

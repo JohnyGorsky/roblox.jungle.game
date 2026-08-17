@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-17 20:41:45
-**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-17)</span> — both trees analyzer-clean, ⏳ awaiting playtest. See [`final-summary.md`](final-summary.md).
+**Status**: <span style="color:#2e9c3f">✅ **COMPLETE** (2026-08-17)</span> — both trees analyzer-clean, playtest-confirmed. See [`final-summary.md`](final-summary.md).
 
 ## Requirements / goal
 
@@ -12,5 +12,5 @@ Four items from the 2026-08-17 playtest. (1) Wolves sit slightly in the air. (2)
 
 - [ ] Requirements reviewed (this intake)
 - [x] Scope agreed with the user (wizard: cursor fix AND visible weapon)
-- [x] Implementation completed (⏳ not yet playtested)
+- [x] Implementation completed
 - [x] Final summary + changelog written

@@ -73,7 +73,11 @@ EnemyDefs.Defs = {
 		speed = 26,
 		aggroRadius = 95,
 		biteRange = 14,
-		biteDamage = 12,
+		-- Job #093: 12 -> 10.8, an exact 10%% cut (user: "reduce enemies (on land) bandits and wolf hit
+		-- to me by 10%%, they are a little bit too strong"). Fractional is fine and not a slip: bite damage
+		-- is ALREADY fractional in play because `applyBite` multiplies it by `strengthFor`. Boar is left at
+		-- 10 - the user named only bandits and wolf, and boar was already the weaker of the three.
+		biteDamage = 10.8,
 		biteCooldown = 1.8,
 		color = Color3.fromRGB(72, 66, 60),
 		size = Vector3.new(5, 4, 11),
@@ -88,7 +92,11 @@ EnemyDefs.Defs = {
 		speed = 20, -- on two legs, so slower than the wolf but relentless
 		aggroRadius = 95,
 		biteRange = 12,
-		biteDamage = 12,
+		-- Job #093: 12 -> 10.8, an exact 10%% cut (user: "reduce enemies (on land) bandits and wolf hit
+		-- to me by 10%%, they are a little bit too strong"). Fractional is fine and not a slip: bite damage
+		-- is ALREADY fractional in play because `applyBite` multiplies it by `strengthFor`. Boar is left at
+		-- 10 - the user named only bandits and wolf, and boar was already the weaker of the three.
+		biteDamage = 10.8,
 		biteCooldown = 1.4,
 		color = Color3.fromRGB(96, 78, 58),
 		size = Vector3.new(5, 4, 11), -- ⚠️ unchanged from the Panther: Job #058 tuning depends on it

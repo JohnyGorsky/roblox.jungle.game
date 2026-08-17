@@ -14,6 +14,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
+local KillReward = require(game:GetService("ServerScriptService"):WaitForChild("Economy"):WaitForChild("KillReward")) :: any
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "FireWeapon"
@@ -85,6 +86,13 @@ local function fireRay(char: Model, origin: Vector3, dir: Vector3, range: number
 			local before = (enemy:GetAttribute("HP") :: number?) or 0
 			local after = math.max(0, before - damage)
 			enemy:SetAttribute("HP", after)
+			-- Job #093: Salvage for a land kill. `Players:GetPlayerFromCharacter` rather than threading a
+			-- player through `fireRay` — the shotgun calls it once per pellet, and a signature change
+			-- there would touch every caller for a value only needed on the frame something dies.
+			local shooter = Players:GetPlayerFromCharacter(char)
+			if shooter then
+				KillReward.onEnemyDamaged(shooter, enemy, before, after)
+			end
 			local entry = tally[enemy]
 			if entry then
 				entry.amount += before - after

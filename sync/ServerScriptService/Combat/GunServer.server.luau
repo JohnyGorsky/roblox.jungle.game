@@ -15,6 +15,7 @@ local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChil
 local BoatParts = require(ReplicatedStorage:WaitForChild("Boat"):WaitForChild("BoatParts"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
+local KillReward = require(game:GetService("ServerScriptService"):WaitForChild("Economy"):WaitForChild("KillReward")) :: any
 local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
@@ -246,6 +247,7 @@ fireRemote.OnServerEvent:Connect(function(player: Player)
 			local before = (enemy:GetAttribute("HP") :: number?) or 0
 			local after = math.max(0, before - dmg)
 			enemy:SetAttribute("HP", after)
+			KillReward.onEnemyDamaged(player, enemy, before, after) -- Job #093: Salvage for a land kill
 			CombatFx.hit(result.Position, before - after, "deal") -- Job #084: at the impact point
 			print(string.format("[Gun] HIT %s  HP %d -> %d%s", enemy.Name, before, after, if after <= 0 then "  (KILLED)" else ""))
 		else

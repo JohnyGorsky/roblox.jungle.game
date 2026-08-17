@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Completed**: 2026-08-17
-**Status**: ✅ Code complete, both trees analyzer-clean — ⏳ awaiting playtest
+**Status**: ✅ **COMPLETE (2026-08-17)** — both trees analyzer-clean; user playtested and confirmed all four items good.
 
 Four playtest items. Items 3 and 4 turned out to be one piece of state and share a module.
 
@@ -130,9 +130,8 @@ lobby has modal panels too, so this fixes the same unclosable-panel bug there.
 - [x] `tools/luau-analyze.sh` — GAME clean
 - [x] `tools/luau-analyze.sh --lobby` — no new diagnostics (four pre-existing remain, unrelated)
 - [x] Creature rigs measured in Studio — ruled the seating maths out before changing anything
-- [ ] ⏳ **Playtest:**
-      1. wolves stand on the ground, including a guard that has chased you well out of its camp;
-      2. every bandit shows a health bar within ~140 studs, from the moment it spawns;
-      3. in first person: no OS cursor, and your weapon is visible in hand;
-      4. open the shop in first person — the camera pops out, and you can click to close it;
-      5. same in the lobby.
+- [x] **Playtest — user, 2026-08-17: confirmed good.** All four items verified in the game place, on a
+      fresh Play session after sync (all 11 changed/new scripts were confirmed present by content
+      marker, not just by name, before testing).
+- [ ] **Lobby not separately tested.** `Components.luau` + `InputMode.luau` were mirrored there, so the
+      unclosable-panel-in-first-person fix should apply to the lobby's own modals too — unverified.
