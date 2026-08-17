@@ -44,23 +44,6 @@ local SFX = {
 	fire = "rbxassetid://99475771894138", -- fire_sound     positional @ wreck, loop
 }
 
--- ⚠️⚠️ DEV ONLY (todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
--- Skips the plane-crash cold-open so the boat can be reached in seconds while testing ride quality
--- (Job #087). Paired with `Dev/DevSpawnAtBoat.server.luau`, which puts you next to the moored boat.
---
--- Bails out down the SAME path the missing-helper case already uses — `IntroActive = false` and return —
--- so nothing else in the game has to know the intro was skipped.
---
--- ⚠️ Studio-only as well as flag-gated, deliberately: `RunService:IsStudio()` is false on a published
--- server, so a live game cannot take this path even if the flag is left on by mistake. Same
--- belt-and-braces as Defender's `USE_MOCK_IN_STUDIO`.
-local DEV_SKIP_INTRO = true -- ⟵ set false (or delete this block) to restore the intro
-if DEV_SKIP_INTRO and RunService:IsStudio() then
-	warn("[Intro] ⚠️ DEV_SKIP_INTRO is ON (todo 0051) — cold-open skipped. Studio only; revert before publish.")
-	Workspace:SetAttribute("IntroActive", false)
-	return
-end
-
 Workspace:SetAttribute("IntroActive", true)
 
 local fadeRemote = Instance.new("RemoteEvent")

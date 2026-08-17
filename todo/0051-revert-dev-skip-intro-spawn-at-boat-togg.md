@@ -1,7 +1,7 @@
 # TODO 0051: REVERT: dev skip-intro + spawn-at-boat toggle
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** resolved (2026-08-17) — Done 2026-08-17. DEV_SKIP_INTRO block deleted from PlaneServer; sync/ServerScriptService/Dev/ (DevSpawnAtBoat) deleted; DEV_BUOYANCY_SLIDE flag + slide branch deleted from BoatServer. Grep for 'todo 0051' now returns nothing in sync/ or lobby/. NOT a revert: the boat camera flag became the permanent USE_CHASE_CAMERA = false design decision and correctly stays.
 **Created:** 2026-08-16 23:21:23
 
 TEMPORARY TESTING AID, added 2026-08-16 at the user's request during Job #087 so the boat can be reached in seconds instead of sitting through the plane-crash cold-open every Play. THE USER ASKED FOR THIS TO BE REVERTED LATER - that is what this todo tracks.
