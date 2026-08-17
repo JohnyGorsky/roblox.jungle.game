@@ -89,6 +89,29 @@ local function buildBoat(): Model
 	hull.Color = Color3.fromRGB(120, 85, 55)
 	hull.Material = Enum.Material.WoodPlanks
 	hull.CustomPhysicalProperties = PhysicalProperties.new(DENSITY, 0.3, 0.4)
+	-- 🔴 Job #087: THE FIX FOR THE RIDE SHAKE. Do not remove without reading this.
+	--
+	-- `EnableFluidForces` defaults to TRUE, and it was never set here — so the ENGINE was applying its
+	-- own water buoyancy and drag to this hull at the same time as our `Buoy` spring below. Density is
+	-- 0.7 (lighter than water) in terrain water, so Roblox floats it natively whether we ask or not.
+	-- Two independent systems driving the SAME axis is the roblox-physics skill's first gotcha: "Two
+	-- constraints on the same DOF fight -> oscillation."
+	--
+	-- WHY IT ONLY SHOWED UP WHILE MOVING, and why that hid it for so long:
+	--   · at rest both systems settle to one shared equilibrium -> measured 0.000 studs peak-to-peak,
+	--     which is exactly what made buoyancy look innocent for three rounds of investigation;
+	--   · under way the engine's fluid force varies with velocity and submerged volume, so it becomes a
+	--     DRIVER, and it drives our spring at its own resonance.
+	--
+	-- The arithmetic proves the spring is not at fault by itself. With FLOAT_K = 8 and FLOAT_D = 8 the
+	-- vertical dynamics are y'' = -K(y - WATER_Y) - D*y', giving a natural frequency of sqrt(8) = 2.83
+	-- rad/s (0.45 Hz) and a damping ratio of D/(2*sqrt(K)) = 1.41. **A damping ratio above 1 is
+	-- overdamped: it CANNOT oscillate on its own.** The 1.7-2.1 stud heave measured at ~0.6 Hz sat right
+	-- next to that natural frequency, which is the signature of an overdamped system being driven by
+	-- something else -- not of a mistuned spring.
+	--
+	-- So the boat's flotation is ours alone now: one spring, one damper, one authority.
+	hull.EnableFluidForces = false
 	-- Moored at the dock's own angle when the helper says so, otherwise face downstream.
 	-- ⚠️ The downstream fallback is only right out on the generated river. At the hand-built spawn base
 	-- the channel is sculpted terrain, not RiverData geometry, so the tangent there is a flat +Z — which
@@ -281,12 +304,16 @@ seat:GetPropertyChangedSignal("Occupant"):Connect(claimServerOwnership)
 
 local DEV_BOAT_LOG = false -- ⟵ turn on for boat-tuning telemetry ([BoatDBG] spam); off for launch
 
--- ⚠️⚠️ DEV BISECT TOGGLE (Job #087, todo 0051) — REVERT BEFORE PUBLISH ⚠️⚠️
--- `true` replaces the buoyancy SPRING with exact gravity cancellation + damping, so the boat holds its
--- height and slides rather than floating to the water line. Isolates "is the remaining shake the
--- buoyancy spring?" from everything else. See the branch in the Heartbeat loop for the reasoning.
+-- ⚠️ DEV BISECT TOGGLE (Job #087, todo 0051) — kept as a diagnostic, MUST STAY `false` TO SHIP.
+-- `true` replaces the buoyancy SPRING with a velocity-level hold at the water line, so the boat glides
+-- instead of floating. It is how the spring was identified as a cause; it is NOT a fix, because it is
+-- server-authored kinematic control of the vertical axis and throws away real flotation.
+--
+-- Set back to `false` on 2026-08-17 once the actual cause was found and fixed: the engine's own
+-- `EnableFluidForces` buoyancy was fighting our spring (see `hull.EnableFluidForces = false` in
+-- `buildBoat`). Real buoyancy is in charge again. Flip this to `true` only to re-isolate the spring.
 -- Studio-only as well as flag-gated, so a published game always floats normally.
-local DEV_BUOYANCY_SLIDE = true
+local DEV_BUOYANCY_SLIDE = false
 local logAccum = 0 -- throttle for the debug state log
 RunService.Heartbeat:Connect(function(dt: number)
 	-- KEEP SERVER OWNERSHIP even while driven. The VehicleSeat hands the boat to the driver's client on
