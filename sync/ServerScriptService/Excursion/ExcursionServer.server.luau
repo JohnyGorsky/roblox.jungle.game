@@ -792,10 +792,29 @@ end)
 -- riverbank pool (user direction: "wolves should be in bases"), so a camp's roster is now mixed. The
 -- type is written to a `GuardType` attribute rather than held in a side table, because `tickGuard`
 -- runs off the `CampGuard` TAG and would otherwise have no way back to the def for a given model.
+-- 🔴 Job #090: SEAT THE GUARD ON THE MEASURED FLOOR, NOT ON `CLEAR_Y`.
+--
+-- Guards used to be built at `anchorPos.Y` (which is `campPos.Y`, i.e. bare `CLEAR_Y` = 15) and then
+-- held there by `tickGuard`. Measured live in Play on 2026-08-17: body bottom **15.00**, terrain
+-- underneath **18.00** — every camp guard stood **3 studs underground**, which on a 5.49-tall Wolf is
+-- buried past the shoulders. Reported as "Bandit is half ground… same with wolf".
+--
+-- This is the exact failure `groundAt()` was written for, and its own comments already spell out the
+-- 3-stud number: the basin is CARVED to `CLEAR_Y` but terrain voxels snap to the RES=4 grid, so the
+-- real walkable surface measures ~17–18. Every camp PROP has gone through `groundAt` since Job #077.
+-- Guards were the one thing that never did.
+--
+-- ⚠️ NOT a Job #088 regression. #088 aligned the VISUAL to the hitbox and that is verified still
+-- correct here (visual bottom == body bottom, exactly). #088 fixed visual-vs-hitbox; nothing had ever
+-- seated the hitbox itself to the ground.
+--
+-- The seated Y is stored in `guardState.anchor` and is the single source of truth from then on —
+-- `tickGuard` reads it rather than recomputing, so no raycast runs per guard per frame.
 local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number?, guardType: string?)
 	local typeName = guardType or "Bandit"
 	local def = EnemyDefs.Defs[typeName] or EnemyDefs.Defs.Bandit
-	local guard = EnemyRig.build(def, anchorPos + Vector3.new(0, def.size.Y / 2, 0), parent)
+	local footY = groundAt(anchorPos.X, anchorPos.Z)
+	local guard = EnemyRig.build(def, Vector3.new(anchorPos.X, footY + def.size.Y / 2, anchorPos.Z), parent)
 	guard.Name = "CampGuard"
 	guard:SetAttribute("GuardType", typeName)
 	CollectionService:AddTag(guard, "CampGuard")
@@ -808,7 +827,9 @@ local function spawnGuard(anchorPos: Vector3, parent: Instance, strength: number
 		-- read back by the bite in `tickGuard`, which falls back to `def.biteDamage` when unset
 		guard:SetAttribute("BiteDamage", math.floor(def.biteDamage * mul + 0.5))
 	end
-	guardState[guard] = { biteTimer = def.biteCooldown, anchor = Vector3.new(anchorPos.X, CLEAR_Y + def.size.Y / 2, anchorPos.Z) }
+	-- `anchor.Y` is now the MEASURED seated height (see the header above), and `tickGuard` uses it as the
+	-- one Y a guard ever occupies. The basin is carved flat, so one measurement covers the whole leash.
+	guardState[guard] = { biteTimer = def.biteCooldown, anchor = Vector3.new(anchorPos.X, footY + def.size.Y / 2, anchorPos.Z) }
 end
 
 -- The `LootPrompt` wiring, identical for every kind of crate. Name, hold duration, activation distance

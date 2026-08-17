@@ -1,0 +1,7 @@
+# TODO 0053: Camp guards seat at bare CLEAR_Y and are buried 3 studs
+
+**Project:** `roblox.jungle`
+**Status:** open
+**Created:** 2026-08-17 16:14:28
+
+MEASURED LIVE 2026-08-17 (Play, Server datamodel), one Wolf CampGuard: body bottomY=15.00, terrain under it=18.00 -> feet are 3.00 studs UNDERGROUND. Wolf visual is 5.49 tall, so it stands buried to just over half. User: 'Bandit is half ground', 'same with wolf'. ROOT CAUSE: ExcursionServer seats guards at bare CLEAR_Y (=WATER_Y+3=15) while the carved basin floor really measures ~18 after RES=4 voxel snapping. groundAt() exists precisely for this and its own comments document the 3-stud burial, but guards never call it - every camp PROP does. Three sites: spawnGuard :798 builds at anchorPos.Y (campPos.Y, CLEAR_Y-based); :811 sets guardState.anchor Y to CLEAR_Y + size.Y/2; tickGuard :1480 and :1484 re-write Y to CLEAR_Y + size.Y/2 EVERY FRAME, so fixing only the spawn would be undone on the guard's first step. NOT a Job #088 regression: #088 aligned the VISUAL to the hitbox and that is verified correct here (visual bottom 15.00 == body bottom 15.00). #088 fixed visual-vs-hitbox; nobody ever seated the hitbox to the terrain.
