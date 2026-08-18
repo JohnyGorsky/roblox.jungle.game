@@ -63,6 +63,12 @@ local steerLayout = Instance.new("UIListLayout")
 steerLayout.FillDirection = Enum.FillDirection.Horizontal
 steerLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 steerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+-- ⚠️ REQUIRED (Job #094). SortOrder DEFAULTS TO `Name`, and these buttons are named from their glyph
+-- — so left to the default the pair is ordered by Unicode codepoint. `Touch_▶` (U+25B6) sorts before
+-- `Touch_◀` (U+25C0), which put the RIGHT-turn button on the LEFT and made the boat turn the wrong way
+-- on every phone. Measured, not guessed: the left-arrow landed at x=227 and the right-arrow at x=39.
+-- Every other layout in this game already sets this; these two were the only ones that didn't.
+steerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 steerLayout.Padding = UDim.new(0, Theme.space.sm)
 steerLayout.Parent = steerHolder
 
@@ -80,6 +86,9 @@ local throttleLayout = Instance.new("UIListLayout")
 throttleLayout.FillDirection = Enum.FillDirection.Horizontal
 throttleLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 throttleLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+-- Same reason as the steer layout above. This pair was correct only by ACCIDENT — `▲` (U+25B2) happens
+-- to sort before `▼` (U+25BC) — so it would have broken silently the day anyone changed a glyph.
+throttleLayout.SortOrder = Enum.SortOrder.LayoutOrder
 throttleLayout.Padding = UDim.new(0, Theme.space.sm)
 throttleLayout.Parent = throttleHolder
 
@@ -93,6 +102,10 @@ local throttle = 0
 local function makePair(holder: Instance, first: { glyph: string, value: number }, second: { glyph: string, value: number }, set: (value: number) -> ())
 	local a: RunComponents.TouchButton, b: RunComponents.TouchButton
 
+	-- The trailing 1 and 2 are the LayoutOrder, and they are the whole fix for the inverted steering:
+	-- `first` must render left of `second`, and without an explicit order the glyphs' codepoints decide
+	-- it instead. Paired with SortOrder = LayoutOrder on the holder's layout above — neither half works
+	-- alone.
 	a = RunComponents.touchButton(first.glyph, function()
 		if b then
 			b.setActive(false) -- fires b's onUp → set(0); the set(first.value) below then wins
@@ -100,14 +113,14 @@ local function makePair(holder: Instance, first: { glyph: string, value: number 
 		set(first.value)
 	end, function()
 		set(0)
-	end, holder)
+	end, holder, 1)
 
 	b = RunComponents.touchButton(second.glyph, function()
 		a.setActive(false)
 		set(second.value)
 	end, function()
 		set(0)
-	end, holder)
+	end, holder, 2)
 end
 
 makePair(steerHolder, { glyph = "◀", value = -1 }, { glyph = "▶", value = 1 }, function(v)

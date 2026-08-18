@@ -19,7 +19,11 @@ local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
 local UISound = require(UI:WaitForChild("UISound"))
 
-local HOLD = 2.6
+-- Job #094 — a touch player reads this banner over a screen a third the size, with both thumbs already
+-- committed to the corners and the river still coming at them. Same words, less time in the way: it is
+-- a zone crossing, not something you act on, so the banner only has to register. Shortened rather than
+-- removed — mobile sees the same game, quieter.
+local HOLD = if game:GetService("UserInputService").TouchEnabled then 1.8 else 2.6
 local FADE_IN = 0.3
 local FADE_OUT = 0.6
 

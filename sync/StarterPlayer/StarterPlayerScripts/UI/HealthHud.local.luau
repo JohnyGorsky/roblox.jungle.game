@@ -16,6 +16,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -116,6 +117,30 @@ end
 --
 -- The Humanoid is kept only as a FALLBACK, for any context where `HP` hasn't been published yet (the
 -- attributes are set on spawn, so there is a brief window, and the lobby has no PlayerCombat at all).
+-- ── touch: stay clear of the steer buttons (Job #094) ────────────────────────────────────────────
+-- On a phone the boat's steer pair occupies the bottom-left corner (x 0.02–0.21, y 0.80–0.96), and this
+-- bar sits at y 0.803–0.845 — straight underneath them. Measured, not assumed: the overlap detector
+-- reported HealthHud ↔ BoatTouchControls at every landscape resolution swept, 78x17 px at the smallest.
+--
+-- It moves RIGHT rather than up because the left column above is already fully allocated — the
+-- HandsFull card owns 0.761–0.797 and its drop hint 0.733–0.756 (see InventoryHud) — so raising this
+-- bar would only trade one collision for another.
+--
+-- It reflows on SEAT CHANGE rather than sitting permanently offset, because that is the same instant
+-- the hotbar vacates the corner: the column already reshapes itself there, so the bar moving with it
+-- reads as one layout rather than as a jump. A keyboard player never enters this branch at all.
+local DRIVING_X = 0.225 -- clears the steer holder's right edge (0.02 + 0.19) with a margin
+local RESTING_X = 0.015
+
+local function reflowForSeat(humanoid: Humanoid?)
+	if not UserInputService.TouchEnabled then
+		return
+	end
+	local seat = humanoid and humanoid.SeatPart
+	local inControlSeat = seat ~= nil and seat:IsA("VehicleSeat")
+	holder.Position = UDim2.fromScale(if inControlSeat then DRIVING_X else RESTING_X, 0.845)
+end
+
 local conns: { RBXScriptConnection } = {}
 
 local function watch(char: Model)
@@ -158,7 +183,11 @@ local function watch(char: Model)
 	table.insert(conns, char:GetAttributeChangedSignal("MaxHP"):Connect(render))
 	if humanoid then
 		table.insert(conns, humanoid.HealthChanged:Connect(render))
+		table.insert(conns, humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
+			reflowForSeat(humanoid)
+		end))
 	end
+	reflowForSeat(humanoid)
 	render()
 end
 

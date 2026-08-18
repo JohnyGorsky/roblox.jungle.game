@@ -37,7 +37,12 @@ holder.BorderSizePixel = 0
 holder.Visible = false
 
 local clamp = Instance.new("UISizeConstraint")
-clamp.MinSize = Vector2.new(150, 44)
+-- ⚠️ Job #094 — height floor raised 44 → 58. 44 is the generic control minimum; 58 is the thumb floor
+-- this game already uses for the driver's touch buttons, and this is a thumb target too. It measured
+-- 48px tall on a 1136x640 phone (0.075 × 640), i.e. under even the generic minimum's intent once you
+-- account for it being the button that STARTS THE RUN — the one control every mobile player must hit
+-- before anything else happens.
+clamp.MinSize = Vector2.new(150, 58)
 clamp.MaxSize = Vector2.new(300, 68)
 clamp.Parent = holder
 

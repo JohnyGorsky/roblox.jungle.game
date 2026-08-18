@@ -39,10 +39,22 @@ gui.DisplayOrder = 6
 -- ── fuel + hull, bottom-centre ───────────────────────────────────────────────────────────────────
 -- Centre, not a corner: the hotbar owns bottom-left and the driver's throttle owns bottom-right, and
 -- these have to stay clear of both (§6.11 — a panel never covers the core HUD).
+--
+-- ⚠️ Job #094 — 0.55, not 0.5, and the 0.05 is load-bearing. "Clear of the hotbar" was true in scale
+-- terms and false in pixels: the hotbar's slots are SQUARE, so its width is derived from its HEIGHT,
+-- and on a short viewport that makes it much wider than its 0.36 box suggests. At 1136x640 six slots
+-- come out 64px each, so the bar actually reaches x≈0.388 — past this block's old left edge of 0.35.
+-- The overlap detector caught it on both phone presets (29x29 px, Slot6 over the hull gauge icon);
+-- it is invisible at desktop aspect, which is why reading the scale values alone missed it.
+--
+-- Nudging this right was chosen over shrinking the hotbar because the slots are already close to the
+-- thumb floor on a small phone — making the tap targets smaller to fix a layout overlap would trade a
+-- cosmetic problem for a playability one. The band now composes as [hotbar | vitals] rather than
+-- centred, and stays between the two thumb clusters (steer ends 0.21, throttle starts 0.79).
 local vitals = Instance.new("Frame")
 vitals.Name = "Vitals"
 vitals.AnchorPoint = Vector2.new(0.5, 1)
-vitals.Position = UDim2.fromScale(0.5, 0.965)
+vitals.Position = UDim2.fromScale(0.55, 0.965)
 vitals.Size = UDim2.fromScale(0.3, 0.1)
 vitals.BackgroundTransparency = 1
 vitals.BorderSizePixel = 0

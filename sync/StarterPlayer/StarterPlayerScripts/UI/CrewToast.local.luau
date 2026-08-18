@@ -27,7 +27,11 @@ local RunComponents = require(RunUI:WaitForChild("RunComponents"))
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("CrewToast") :: RemoteEvent
 
-local SLOTS = 3 -- concurrent toasts; past this the oldest is recycled
+-- Job #094 — two rows on touch, not three. This stack is anchored bottom-right at y = 0.80, which is
+-- exactly where the driver's throttle buttons begin (0.80–0.96): a third row grows the column upward
+-- from a base that is already flush against the thumb. Fewer concurrent rows also means each one is
+-- legible for longer on a small screen instead of three competing for the same glance.
+local SLOTS = if game:GetService("UserInputService").TouchEnabled then 2 else 3 -- past this the oldest is recycled
 local LIFE = 3.2 -- seconds a toast stays up
 local ROW_H = 0.045 -- scale height of one row, including its gap
 

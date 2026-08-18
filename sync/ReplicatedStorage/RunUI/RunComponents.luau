@@ -14,6 +14,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -552,6 +553,22 @@ end
 -- A hold-to-act thumb button for the driver. Deliberately translucent and unlabelled beyond a glyph:
 -- it sits over the river for the whole run, so it has to be findable without looking and invisible to
 -- attention when not in use.
+--
+-- ⚠️ `layoutOrder` IS NOT OPTIONAL IN PRACTICE — pass it whenever two of these share a UIListLayout,
+-- and set `SortOrder = Enum.SortOrder.LayoutOrder` on that layout (Job #094). The button's Name is
+-- derived from its GLYPH, and `UIListLayout.SortOrder` DEFAULTS TO `Name` — so a pair left to the
+-- default is ordered by the Unicode codepoints of its arrows, not by the order it was built in. That
+-- is not a hypothetical: it shipped. The steer pair rendered ▶ before ◀ (U+25B6 sorts before U+25C0),
+-- so the left-turn button sat on the right and the boat turned the wrong way on every phone. The
+-- throttle pair was correct only by luck (U+25B2 sorts before U+25BC). Never rely on the name.
+--
+-- ── Input: per-InputObject, NOT MouseButton1 (Job #094) ───────────────────────────────────────────
+-- These were `MouseButton1Down`/`Up`/`MouseLeave`. Roblox routes only the FIRST active touch through
+-- mouse emulation, so a driver holding throttle could not also press steer — the second thumb had no
+-- event to fire, which is precisely the input the game is built around. `InputBegan`/`InputEnded`
+-- deliver a distinct InputObject per finger, so two buttons can be held at once. We remember WHICH
+-- object claimed the button so a second finger landing on an already-held button can't steal it, and
+-- the release only counts when that same object ends.
 
 export type TouchButton = { instance: TextButton, setActive: (on: boolean) -> () }
 
@@ -559,10 +576,12 @@ function RunComponents.touchButton(
 	glyph: string,
 	onDown: () -> (),
 	onUp: () -> (),
-	parent: Instance?
+	parent: Instance?,
+	layoutOrder: number?
 ): TouchButton
 	local btn = Instance.new("TextButton")
 	btn.Name = "Touch_" .. glyph
+	btn.LayoutOrder = layoutOrder or 0
 	btn.Size = UDim2.fromScale(0.48, 1)
 	btn.BackgroundColor3 = Theme.color.panel
 	btn.BackgroundTransparency = 0.42
@@ -584,6 +603,11 @@ function RunComponents.touchButton(
 	floor.MinSize = Vector2.new(58, 58)
 	floor.Parent = btn
 
+	-- The InputObject currently holding this button down. Tracked (rather than a bare boolean) so that
+	-- a second finger landing on an already-held button cannot claim it, and so a release is only
+	-- honoured for the finger that actually pressed it.
+	local owner: InputObject? = nil
+
 	local held = false
 	local function press()
 		if held then
@@ -595,7 +619,12 @@ function RunComponents.touchButton(
 		border.Color = Theme.color.gold
 		onDown()
 	end
+	-- Clearing `owner` here is load-bearing, not tidiness: `makePair` releases the opposite button via
+	-- `setActive(false)` while its finger may still be physically down. If that left an owner behind,
+	-- the button would refuse every future press until that long-gone finger happened to lift — a
+	-- rudder that dies mid-bend and never comes back.
 	local function release()
+		owner = nil
 		if not held then
 			return
 		end
@@ -606,11 +635,34 @@ function RunComponents.touchButton(
 		onUp()
 	end
 
-	btn.MouseButton1Down:Connect(press)
-	btn.MouseButton1Up:Connect(release)
-	-- Releasing on MouseLeave matters more here than anywhere else in the UI: a thumb that slides off
-	-- the button would otherwise leave the throttle stuck on with nothing holding it.
-	btn.MouseLeave:Connect(release)
+	local function isPress(input: InputObject): boolean
+		return input.UserInputType == Enum.UserInputType.Touch
+			or input.UserInputType == Enum.UserInputType.MouseButton1
+	end
+
+	btn.InputBegan:Connect(function(input: InputObject)
+		if owner or not isPress(input) then
+			return
+		end
+		owner = input
+		press()
+	end)
+
+	btn.InputEnded:Connect(function(input: InputObject)
+		if owner == input then
+			release()
+		end
+	end)
+
+	-- A finger that slides OFF the button before lifting ends its input somewhere else entirely, so the
+	-- button's own InputEnded never fires and the throttle would stay latched with nothing holding it.
+	-- (This is the failure the old `MouseLeave` guard was reaching for; on touch, MouseLeave is not
+	-- reliable enough to be that guard.) Watching the service-level end closes it for good.
+	UserInputService.InputEnded:Connect(function(input: InputObject)
+		if owner == input then
+			release()
+		end
+	end)
 
 	btn.Parent = parent
 
