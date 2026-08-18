@@ -5,7 +5,9 @@
 (asked and granted 2026-08-18; the mobile problem spans both and splitting it would need two device
 sessions).
 **Created**: 2026-08-18
-**Status**: ⚠️ CODE COMPLETE — NOT CLOSED. Blocked on one device session (todo #0058).
+**Status**: COMPLETE for its scope. All layout/HUD work done and verified in the Device Emulator on a
+real touch canvas. The only thing still needing hardware is MULTI-TOUCH (single-pointer emulator) —
+tracked in todo #0058, not in this job.
 
 ## What this closes
 
@@ -95,5 +97,5 @@ Neither is a `Components.button`, so #097's shared floor never reached them.
 
 - [x] Requirements reviewed (this intake)
 - [x] Implementation plan created & agreed
-- [~] Implementation completed — Studio-verifiable work done; 5 device checks outstanding (final-summary §4)
+- [x] Implementation completed
 - [x] Final summary + changelog written

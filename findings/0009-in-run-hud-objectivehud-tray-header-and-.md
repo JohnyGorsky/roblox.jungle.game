@@ -1,7 +1,7 @@
 # FINDING 0009: In-run HUD: ObjectiveHud tray header and the carry DropButton are under the thumb floor
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-08-18)
 **Severity:** med
 **Created:** 2026-08-18 16:47:21
 

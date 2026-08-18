@@ -1,7 +1,11 @@
 # Changelog — Job #099
 
-📱 The lobby menu rail no longer takes over the screen on a phone — icons only, sized to fit your device.
+📱 The whole mobile HUD was rebuilt around your thumbs — nothing sits under the movement stick any more.
 
-📖 The launch-pad hint no longer gets cut off mid-sentence.
+🎒 Your item bar now shows only what you're actually carrying, instead of a wall of empty slots.
 
-👆 Two more controls got thumb-sized: the objective list header, and the button that puts cargo down.
+👀 Health, fuel and hull moved up out of the way, so the bottom of the screen is for playing.
+
+👆 Every button on a phone is now a proper thumb-sized target.
+
+🧹 Less clutter on mobile — the admin button, the crash-site banner and the launch-pad notice are gone from phones.

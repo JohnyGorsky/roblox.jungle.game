@@ -1,7 +1,7 @@
 # Job #099 — Implementation plan
 
 **Project**: `roblox.jungle` · **Places**: GAME **and** LOBBY (boundary crossing permitted)
-**Status**: IMPLEMENTED for everything Studio can settle — see final-summary.md
+**Status**: IMPLEMENTED & VERIFIED on a real touch canvas — see final-summary.md + addenda 1–4
 
 Intake: [intake.md](intake.md)
 
