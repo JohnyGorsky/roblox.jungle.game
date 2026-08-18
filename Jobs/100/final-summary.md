@@ -274,3 +274,134 @@ short. It now follows the actual launch velocity (2v/g), clamped to 0.6–2.2 s.
 injected velocity gets overridden and I could not drive the boat over a ramp from a script — the boat
 moved backwards against it. The launch and trigger maths are deterministic and were checked against the
 server's own formulas, but **how the jump FEELS still wants one real playtest.**
+
+---
+
+# Addendum — the geometry pass (and one bug that was never about camps)
+
+Triggered by *"also 2 buildings in one wtf"*, *"we still have house overlap, it must be addressed"* and
+*"decrease enemy hit by 20%, they still hit too hard"*.
+
+## 1. Building overlap — the clearance table was a lie
+
+Separation was a flat **34 studs** between building centres. `BahayKubo5` is 30×22×34, so its
+half-diagonal alone is ~23 — two of them at 34 apart **intersect**, which is the hut-inside-a-hut that was
+reported. A hardcoded clearance table replaced it, then that was wrong too the moment the tent was
+rescaled.
+
+Clearance is now **derived**: `RAW` ship size × the live `CampDefs.SCALE` → half-diagonal → `+4`. Each
+pair is tested against **the sum of both models' clearances**.
+
+⚠️ An intermediate version multiplied that sum by **0.72** *"so the camp doesn't need a stadium"*. That is
+exactly how a 72-stud tent ended up 54 studs from a hut that needed 69 (**slack −15**). Two solids either
+fit apart or they do not; there is no discount. Removed.
+
+**Measured, 30 camps: tightest pair +8 studs of slack. No intersections.**
+
+## 2. Overhang — the failure the overlap test could not see
+
+Buildings sat in a flat `radius × 0.45 .. 0.82` band, written when every building was ~30 studs across.
+Against the ×4 tent that put a 46-stud half-diagonal model at 60 studs out, so it reached **106 studs**
+from the fire — through its own sandbag ring and off the carved basin onto raw jungle. Nothing in the
+overlap test could see it, **because overhang is not intersection**.
+
+The band is now per-model: near edge `clear` (any closer and the model swallows the campfire), far edge
+the **carved basin's** half-extent (not the fence — buildings are allowed to back onto the wall, and the
+perimeter now skips segments that would stand inside a hut). A model whose two edges cross over does not
+fit and is **skipped rather than placed badly**.
+
+## 3. The camp grew, because the tent could not
+
+| | before | after |
+|---|---|---|
+| carved basin | 130 × 130 | **160 × 160** |
+| fence radius | 58–62 | **70–76** |
+| buildings / camp | 2.2 | **2.9** (3+ in 24 of 30) |
+
+Two bounds hold this: the near and deep camps sit **180 studs apart**, so 160-wide basins leave a 20-stud
+gap; and the near basin stays ~40 studs inland of the water line, so the carve cannot make shore. Check
+both before growing it again.
+
+Building count came back in two steps — `d` sampled **uniform by area** rather than by radius (a building
+far out consumes less of the arc, so more fit), then letting buildings **back onto the fence**.
+
+## 4. ⚠️ The ×4 tent was reverted to ×2 — it was placing ZERO tents
+
+`Tent = 1.68` renders **72×22×57**. Measured across 24 camps it placed **no tent at all**: its 46-stud
+half-diagonal required it to stand 50 studs clear of the fire *and* 50 studs inside a fence only 70–76
+out. Those bounds cross, so the model was skipped every time — asking for a bigger tent had made it
+**invisible**.
+
+Put to the user with the numbers; the call was **×2** (`0.84` → **36×11×29**) against the stilt houses'
+30×34. That is what "too small" meant — the tent read shrunken *beside the huts*, and at ×2 it matches
+them and places in every camp. Above ~×2.4 the bands cross again and it vanishes.
+
+## 5. Kind-crates could silently not spawn
+
+Placement is rejection sampling, which is allowed to fail — and `if kc[1] then makeKindCrate(…)` meant a
+crowded camp could ship **with no weapon in it**. Measured: **5 camps in 20**. The generator now widens
+its search (any angle, closer in) before giving up, and `ExcursionServer` carries a fixed fallback slot.
+**Measured after: 0 of 30 camps missing a crate.**
+
+For the record, and *not* a regression: the weapon and ammo crates are **deep-camp only** by Job #015's
+design, and the gold nugget is `NUGGET_CHANCE = 0.25` per camp with a per-run cap.
+
+## 6. 🔴 The real find: three AssetLibrary models had pivots up to 107 studs outside themselves
+
+Chasing "does a camp actually look right", the built campfire measured a bounding box of **72.6 × 2.7 ×
+65.0 studs** — its six ring stones, meant to sit 4.6 studs around the flame, were flung up to **43 studs**
+across the camp.
+
+`Campfire.build` was correct. The library was not:
+
+| model | pivot → its own centre | PrimaryPart |
+|---|---|---|
+| `RockA` | **74 studs** | `Sphere` |
+| `RockB` | **48 studs** | `Sphere.001` |
+| `RockC` | **107 studs** | `Sphere.002` |
+
+They are imported meshes whose `PrimaryPart` is a mesh part with its local origin far outside the rock.
+`PivotTo` moves the **pivot**, so the rock landed that far away — and `ScaleTo`, which scales about the
+pivot, scaled the error too. 107 × the 0.4 dressing scale = **42.8**, which is the number that was on the
+ground.
+
+This was never a camp bug. **Every `PivotTo` of a library model in the game was affected** — camp
+ambience, river foliage, obstacles.
+
+Fixed at the source, once, in `World/AssetPivots.luau`: a boot pass that rewrites `WorldPivot` to the
+bounding-box centre on library models whose pivot is >1 stud out. Required for its side effect from
+`CampDefs` and `FoliageDefs`, so the require cache makes it exactly-once and ordering-proof. Models whose
+pivot is already centred are left untouched.
+
+⚠️ **`WorldPivot` alone did nothing, and that is the trap.** When a Model has a `PrimaryPart` the engine
+defines the pivot AS that part's CFrame and **ignores `WorldPivot` entirely** — the first version was a
+silent no-op, verified by rebuilding a camp and finding the stones still 43 studs out. The PrimaryPart has
+to be cleared first, which is safe here: `ExcursionServer` already states that *"library models have no
+dependable PrimaryPart"*, nothing reads it on a dressing prop, and every placement goes through `PivotTo`.
+
+**Measured after:** library pivots 0.0 studs off-centre; campfire bounding box **10.3 × 2.7 × 9.8**, furthest
+piece **4.8 studs** against the designed 4.6. Confirmed by screenshot, not only by numbers.
+
+## 7. Enemy damage — a second −20%
+
+`DAMAGE_SCALE` **0.8 → 0.64**, on *"they still hit too hard"*.
+
+⚠️ The cuts **compound**: this is 0.8 × 0.8, **not** 0.6. A Wolf's 10.8 bite now lands for **6.9**. If a
+third cut is ever wanted, multiply again — never subtract from 1.
+
+## Final measured state — 30 generated camps
+
+```
+buildings/camp   2x6 3x22 4x2   avg 2.9        (2.2 -> 2.3 -> 2.9)
+fence segments   20/camp   ambient 16.9   objects/camp 49
+camps with 2+ entrances                      30/30
+building overlap slack                       +8 studs   NO INTERSECTION
+overhang (basin / fire / fence-inside-hut)   0
+loot or crate inside a building              0
+camps missing a kind-crate                   0
+```
+
+## Still unverified
+
+- **How the ramp jump feels** — the maths is checked, nobody has driven one.
+- **Camp perf on a phone preset** — the §6 gate was measured for the 130 basin, not the 160 one.

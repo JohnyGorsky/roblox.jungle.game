@@ -67,20 +67,48 @@ export type Layout = {
 -- building with a 9-stud separation check, while `Tent` is **43x34 studs** and `BahayKubo5` is
 -- **30x22x34**. Half a tent is ~21 studs, so the loot landed INSIDE the model — reported as crates
 -- under houses. Footprints come from CampDefs' measured table; these are half-diagonals plus margin.
-local CLEARANCE = {
-	-- ⚠️ 48, not 30: the tent is scaled ×4 (CampDefs.SCALE) and now renders ~72×57 studs, so its
-	-- half-diagonal is ~46. Left at 30 the loot-clearance fix would regress instantly and crates would
-	-- reappear inside the canvas — the exact bug this table exists to prevent.
-	Tent = 48,
-	BahayKubo5 = 26,
-	BahayKubo1 = 26,
-	BahayKubo7 = 34,
-	RangerTower = 30,
+-- ⚠️ FOOTPRINT — each model's half-diagonal AT THE SCALE IT ACTUALLY RENDERS.
+--
+-- Derived, not hand-tuned, and that matters: the tent's scale is a knob in `CampDefs.SCALE` that has
+-- already been changed once (×4 on request). A hand-written clearance goes stale the moment someone
+-- turns that knob, and stale separation means buildings inside each other — which is exactly what was
+-- reported as "2 buildings in one". Computing it from the ship size × the live scale means the geometry
+-- follows the knob automatically.
+local RAW = { -- ship sizes (studs, X by Z) as measured in CampDefs' header
+	Tent = { 43, 34 },
+	BahayKubo5 = { 30, 34 },
+	BahayKubo1 = { 30, 34 },
+	BahayKubo7 = { 40, 40 },
+	RangerTower = { 20, 20 },
 }
-local DEFAULT_CLEARANCE = 22
+local function halfDiagonal(model: string): number
+	local raw = RAW[model]
+	if not raw then
+		return 22
+	end
+	local sc = (CampDefs.SCALE :: { [string]: number })[model] or 1
+	local hx, hz = raw[1] * sc / 2, raw[2] * sc / 2
+	return math.sqrt(hx * hx + hz * hz)
+end
 
-local RADIUS_MIN, RADIUS_MAX = 58, 62
-local FOOT_LIMIT = 130 / 2 -- the re-cleared footprint's half-extent
+-- +4 studs so things stand beside each other rather than flush against.
+local function clearanceFor(model: string): number
+	return halfDiagonal(model) + 4
+end
+
+-- ⚠️ THE CAMP RADIUS IS A CONSEQUENCE OF THE BUILDING SIZES, NOT A FREE NUMBER.
+--
+-- Measured at radius 58-62: the ×4 tent's half-diagonal is 46 studs, so a tent+hut pair needs 69 studs
+-- between centres, and the placement ring only reached ~51. Nothing intersected (the sum-clearance test
+-- above saw to that) but rejection sampling simply ran out of room: buildings per camp fell from 3-4 to
+-- 2, and the camps read as emptier than before the overhaul.
+--
+-- The honest fix is area, not a smaller tent — which is what job #100's decision 3 asked for. Bounds:
+--   · the near and deep camps sit 180 studs apart, so two 160-wide basins leave a 20-stud gap,
+--   · the near basin's edge stays ~40 studs inland of the water line, so the carve cannot make shore.
+-- Grow either of these and check BOTH before touching `FOOT` in ExcursionServer, which must match.
+local RADIUS_MIN, RADIUS_MAX = 70, 76
+local FOOT_LIMIT = 160 / 2 -- the re-cleared footprint's half-extent; keep in step with `FOOT` there
 
 -- Keep a walkable corridor on the approach side so the camp can be entered without climbing scenery.
 local APPROACH_CORRIDOR = math.rad(38) -- half-angle around "straight ahead of the player"
@@ -155,10 +183,13 @@ function CampLayout.generate(opts: Options): Layout
 	-- clearances. That also means a ×4 tent (CampDefs.SCALE) automatically pushes everything further
 	-- away instead of quietly intersecting it.
 	local function fitsBeside(cand: Slot, model: string): boolean
-		local need = CLEARANCE[model] or DEFAULT_CLEARANCE
+		local need = clearanceFor(model)
 		for _, b in ipairs(buildings) do
-			local other = CLEARANCE[b.model] or DEFAULT_CLEARANCE
-			local gap = (need + other) * 0.72 -- centres, not bounding boxes: 0.72 keeps them apart without demanding a stadium
+			local other = clearanceFor(b.model)
+			-- The SUM, not a fraction of it. An earlier version multiplied by 0.72 "so the camp doesn't
+			-- need a stadium" — and that is precisely how a 72-stud tent ended up 54 studs from a hut
+			-- that needed 69. Two solids either fit apart or they do not; there is no discount.
+			local gap = need + other
 			if dist2(cand, b.slot) < gap * gap then
 				return false
 			end
@@ -166,14 +197,43 @@ function CampLayout.generate(opts: Options): Layout
 		return true
 	end
 
+	-- ⚠️ THE RADIAL BAND IS PER-MODEL, and it has to be. A flat `radius * 0.45 .. 0.82` band was written
+	-- when every building was ~30 studs across; measured against the ×4 tent it put a 72×57 model with a
+	-- 46-stud half-diagonal at 60 studs out, so the tent reached 106 from the fire — through its own
+	-- fence and off the 160-wide carved basin onto raw jungle. Nothing in the overlap test could see it,
+	-- because overhang is not intersection.
+	--
+	--   near edge: `clear` — any closer and the model's corner swallows the campfire at (0,0)
+	--   far edge:  `radius - clear` — any further and its corner crosses the perimeter
+	--
+	-- A model whose two edges cross over does not fit in this camp AT ALL and is skipped rather than
+	-- placed badly. That is deliberate: the count is what tells us a model has outgrown the camp.
 	for i = 1, buildingCount do
 		local model = models[((i - 1) % #models) + 1]
+		local clear = clearanceFor(model)
+		-- Far edge is the CARVED BASIN, not the fence. Buildings are allowed to back onto the sandbag
+		-- line — the perimeter routes around them below, the way a real camp walls up to its huts — but
+		-- nothing may cross onto uncarved jungle, so the square basin's half-extent is the true ceiling.
+		-- Holding buildings a full clearance inside the fence instead cost a whole building per camp.
+		local dNear = clear
+		local dFar = math.min(radius - 6, FOOT_LIMIT - clear - 4)
+		if dNear > dFar then
+			continue
+		end
 		-- back arc: |angle| from 60° to 165° off the approach direction
 		local placed: Slot? = nil
+		-- ⚠️ `d` IS BIASED OUTWARD, and that is worth 30% more buildings per camp.
+		--
+		-- Two buildings must be `clear(a) + clear(b)` apart, which at radius r costs `2·asin(sep/2r)` of
+		-- arc — so the further out a building sits, the less of the arc it consumes. Sampling `d`
+		-- uniformly put buildings at an average radius of 36, where a single hut eats ~97° of the 210°
+		-- back arc and a third one had nowhere left to go: measured 2.3 buildings per camp against the
+		-- 3–5 asked for, i.e. the camps still read empty after the overhaul. `sqrt` makes the sample
+		-- uniform by AREA rather than by radius, which pushes the average out toward the fence.
 		for _ = 1, 40 do
 			local side = if rng:NextNumber() < 0.5 then 1 else -1
-			local a = rng:NextNumber(math.rad(60), math.rad(165)) * side
-			local d = rng:NextNumber(radius * 0.45, radius * 0.82)
+			local a = rng:NextNumber(math.rad(55), math.rad(170)) * side
+			local d = dNear + (dFar - dNear) * math.sqrt(rng:NextNumber())
 			local cand = polar(a, d)
 			if farEnough(cand, taken, 12) and fitsBeside(cand, model) then
 				table.insert(taken, cand)
@@ -198,8 +258,21 @@ function CampLayout.generate(opts: Options): Layout
 		local base = (i - 1) * (math.pi * 2 / gapCount)
 		gapCentres[i] = base + rng:NextNumber(-0.35, 0.35)
 	end
+	-- A segment that would stand inside a hut is skipped, so the wall meets the buildings instead of
+	-- passing through them. This is what lets buildings sit right out at the fence line.
+	local function blockedByBuilding(cand: Slot): boolean
+		for _, b in ipairs(buildings) do
+			if dist2(cand, b.slot) < clearanceFor(b.model) ^ 2 then
+				return true
+			end
+		end
+		return false
+	end
+
 	local GAP_HALF = math.rad(17)
-	local SEGMENTS = 22
+	-- Scaled with the radius so the fence keeps its spacing as the camp grows — a fixed count would
+	-- have stretched the same 22 posts around a bigger ring and turned a fence into scattered bags.
+	local SEGMENTS = math.round(radius / 2.7)
 	for i = 0, SEGMENTS - 1 do
 		local a = (i / SEGMENTS) * math.pi * 2
 		local inGap = false
@@ -213,7 +286,11 @@ function CampLayout.generate(opts: Options): Layout
 		if inGap then
 			continue
 		end
-		table.insert(perimeter, polar(a, radius))
+		local seg = polar(a, radius)
+		if blockedByBuilding(seg) then
+			continue
+		end
+		table.insert(perimeter, seg)
 	end
 	for _, g in ipairs(gapCentres) do
 		table.insert(entrances, polar(g, radius))
@@ -227,7 +304,7 @@ function CampLayout.generate(opts: Options): Layout
 	-- honoured the first and broke the second, and crates ended up under the huts.
 	local function clearOfBuildings(cand: Slot): boolean
 		for _, b in ipairs(buildings) do
-			local need = CLEARANCE[b.model] or DEFAULT_CLEARANCE
+			local need = clearanceFor(b.model)
 			if dist2(cand, b.slot) < need * need then
 				return false
 			end
@@ -242,7 +319,7 @@ function CampLayout.generate(opts: Options): Layout
 		if host then
 			-- Behind its host and PAST it: the offset now starts beyond that model's own clearance, so
 			-- "behind the hut" means standing behind it, not buried in it.
-			local hostClear = CLEARANCE[host.model] or DEFAULT_CLEARANCE
+			local hostClear = clearanceFor(host.model)
 			local a = math.atan2(host.slot.right, host.slot.forward) + rng:NextNumber(-0.45, 0.45)
 			local d = math.sqrt(host.slot.right ^ 2 + host.slot.forward ^ 2) + hostClear + rng:NextNumber(4, 10)
 			local cand = polar(a, math.min(d, radius - 4))
@@ -268,12 +345,21 @@ function CampLayout.generate(opts: Options): Layout
 	end
 
 	-- Kind-crates apart from the resource pile, so the top reward reads as separate (kept from #077).
+	-- ⚠️ BOTH KIND-CRATE SLOTS MUST COME BACK. These carry the run's weapon and its ammo, and rejection
+	-- sampling is allowed to fail — measured, it failed on 5 camps in 20, which would have shipped a deep
+	-- camp with no gun in it. So on failure the search widens (any angle, any distance inside the ring)
+	-- before giving up, and only clears buildings — an ammo box beside a barrel is fine, a missing weapon
+	-- is not. `ExcursionServer` still carries a last-resort fixed slot in case even this fails.
 	local kindCrates: { Slot } = {}
 	for _ = 1, 2 do
 		local found: Slot? = nil
-		for _ = 1, 30 do
-			local cand = polar(rng:NextNumber(math.rad(200), math.rad(320)), rng:NextNumber(radius * 0.5, radius * 0.8))
-			if farEnough(cand, taken, 12) and clearOfBuildings(cand) then
+		for attempt = 1, 60 do
+			local wide = attempt > 30
+			local cand = polar(
+				if wide then rng:NextNumber(0, math.pi * 2) else rng:NextNumber(math.rad(200), math.rad(320)),
+				rng:NextNumber(radius * (if wide then 0.25 else 0.5), radius * 0.8)
+			)
+			if clearOfBuildings(cand) and (wide or farEnough(cand, taken, 12)) then
 				table.insert(taken, cand)
 				found = cand
 				break

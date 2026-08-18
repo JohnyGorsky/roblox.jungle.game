@@ -25,6 +25,11 @@
 -- `spacing` = studs of river per instance PER BANK. Bigger = sparser. Expected live count in the
 -- streaming window is `1020 / spacing` per bank, doubled for two banks.
 
+-- Required for its side effect, BEFORE anything clones from the library: repairs the AssetLibrary
+-- models whose pivot sits far outside their own geometry. Without it every rock placed from here
+-- lands tens of studs from where it was asked to go. See AssetPivots.luau.
+require(game:GetService("ServerScriptService"):WaitForChild("World"):WaitForChild("AssetPivots"))
+
 local FoliageDefs = {}
 
 -- Terrain materials foliage may be planted on. This list is not cosmetic: `RiverGenerator` (Job #076)

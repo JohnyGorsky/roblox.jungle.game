@@ -29,6 +29,11 @@
 -- ⚠️ Guard spawn positions are NOT in this file and must not move — they are world offsets in
 -- `ExcursionServer` and Job #058's crew-size difficulty scaling is tuned against them.
 
+-- Required for its side effect, BEFORE anything clones from the library: repairs the AssetLibrary
+-- models whose pivot sits far outside their own geometry. Without it every rock placed from here
+-- lands tens of studs from where it was asked to go. See AssetPivots.luau.
+require(game:GetService("ServerScriptService"):WaitForChild("World"):WaitForChild("AssetPivots"))
+
 local CampDefs = {}
 
 -- ── Models, by role ───────────────────────────────────────────────────────────────────────────────
@@ -74,12 +79,18 @@ CampDefs.MODEL = {
 -- nearly the whole camp footprint — so at 1.0 it reads as a giant beige tarp lying in a field, not as a
 -- supply tent. Seen and fixed in the first playtest. Anything absent here is 1.0.
 CampDefs.SCALE = {
-	-- ⚠️ 1.68 = the old 0.42 ×4, on request ("these tents are to small size them x4").
-	-- Tent ships at 43×13×34, so this renders it at roughly **72×22×57 studs** — a marquee, not a
-	-- two-person supply tent. See the clearance note in CampLayout: anything this size changes what can
-	-- be placed near it, and it is wider than the camp's own radius (~58–62), so it reads as a structure
-	-- the camp is built around rather than one prop among several.
-	Tent = 1.68,
+	-- ⚠️ 0.84 = the old 0.42 DOUBLED, and the ceiling — do not raise this without re-measuring.
+	--
+	-- The request was "these tents are to small size them x4", and ×4 was tried: 1.68, rendering
+	-- 72×22×57. Measured across 24 generated camps it placed **zero tents**. `CampLayout` sizes a
+	-- building's radial band from its own half-diagonal — 46 studs at ×4 — so the tent had to stand
+	-- 50 studs clear of the campfire AND 50 studs inside a fence only 70–76 out. Those bounds cross
+	-- over, so the model was skipped every time. Bigger, and it silently disappeared.
+	--
+	-- ×2 renders **36×11×29**, against the stilt houses' 30×34. That is what "too small" actually
+	-- meant: the tent read shrunken beside the huts. At ×2 it matches them and still places in every
+	-- camp. Above ~×2.4 the bands cross again and the tent vanishes.
+	Tent = 0.84,
 	RangerTower = 0.85, -- → ~43 studs tall; still reads from the water, without dwarfing the camp
 	GoldNugget = 1.0, -- already resized to 2 studs on import — do not scale again (ASSETS.md §3.5)
 	-- → ~2.4 studs tall. A hurricane lantern is a carried object: at 1.0 it ships at 3.8 studs, which is

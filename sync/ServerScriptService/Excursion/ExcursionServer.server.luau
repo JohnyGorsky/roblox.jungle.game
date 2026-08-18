@@ -1092,7 +1092,9 @@ local function buildCampAt(
 	-- per camp is far cheaper than trying to make the basin-wide carve perfect.
 	--
 	-- Safe from the river by construction: camps sit 120 and 300 studs inland, and this reaches 65.
-	local FOOT = 130
+	-- ⚠️ MUST MATCH `CampLayout.FOOT_LIMIT` (= FOOT/2). The layout places the perimeter out at its
+	-- radius; carve a smaller basin than the layout plans for and the fence climbs the uncarved jungle.
+	local FOOT = 160
 	Terrain:FillBlock(CFrame.new(campPos.X, CLEAR_Y - 20, campPos.Z), Vector3.new(FOOT, 40, FOOT), CampDefs.GROUND.base)
 	Terrain:FillBlock(CFrame.new(campPos.X, CLEAR_Y + 32, campPos.Z), Vector3.new(FOOT, 64, FOOT), Enum.Material.Air)
 
@@ -1720,13 +1722,15 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- Weapon crates are the top reward — alternate pistol/shotgun by landing; spawn rate is tunable.
 	local weaponId = if index % 2 == 0 then "Shotgun" else "Pistol"
 	local deepFrom = deepPos - deepApproach * 80
+	-- ⚠️ These must ALWAYS exist. The weapon crate is the run's top reward, and the generator places by
+	-- rejection sampling — which can fail. Guarding with `if kc[1] then` (as the first version did) meant
+	-- a crowded camp could silently ship with no weapon in it at all. A fixed fallback slot is far better
+	-- than a missing reward.
 	local kc = deepLayout.kindCrates
-	if kc[1] then
-		makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[1]), "Weapon", weaponId, "Take " .. weaponId, model, deepFrom)
-	end
-	if kc[2] then
-		makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[2]), "Ammo", weaponId, weaponId .. " Ammo", model, deepFrom)
-	end
+	local fallback1: CampDefs.Slot = { right = 30, forward = -2 }
+	local fallback2: CampDefs.Slot = { right = 30, forward = 8 }
+	makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[1] or fallback1), "Weapon", weaponId, "Take " .. weaponId, model, deepFrom)
+	makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[2] or fallback2), "Ammo", weaponId, weaponId .. " Ammo", model, deepFrom)
 	model.Parent = campsRoot
 	siteModels[index] = model -- track for culling (Job 060)
 end

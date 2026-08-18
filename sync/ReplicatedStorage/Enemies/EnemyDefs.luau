@@ -29,7 +29,11 @@ local EnemyDefs = {}
 --
 -- Consumed by `EnemyServer` (river threats) and `ExcursionServer` (camp guards). Anything new that deals
 -- bite damage must multiply by this too.
-EnemyDefs.DAMAGE_SCALE = 0.8
+--
+-- ⚠️ 20% was not enough. Cut a SECOND 20% on report that enemies "still hit too hard", so this is
+-- 0.8 × 0.8 and NOT 0.6 — the cuts COMPOUND, they do not add. A Wolf's 13.5 bite now lands for 8.6,
+-- a Croc's 20 for 12.8. If a third cut is ever wanted, multiply again; never subtract from 1.
+EnemyDefs.DAMAGE_SCALE = 0.64
 
 EnemyDefs.Defs = {
 	-- sea: swims the open channel, chases the boat; deadliest at night
