@@ -19,6 +19,18 @@ local playerGui = player:WaitForChild("PlayerGui")
 local gui = Components.screen("LobbyHint", playerGui)
 gui.DisplayOrder = 1
 
+-- ⚠️ Job #099 — HIDDEN ON TOUCH, by request after seeing it on a device.
+-- On a 666x374 phone canvas this card sits dead centre-top, shoulder to shoulder with the identity
+-- panel and the currency chip, over the one part of the screen the player is actually looking through.
+-- It is chrome explaining a thing the world already shows (the launch pads are lit and visible), so on
+-- a phone it costs more than it teaches.
+--
+-- ⚠️ It does carry the only on-screen statement of HOW A RUN STARTS ("first on a pad leads — hold Start").
+-- Removing it means a mobile player is told that nowhere. Logged as a follow-up rather than silently
+-- accepted — the launch pad itself is the natural place for that line.
+local TOUCH = game:GetService("UserInputService").TouchEnabled
+gui.Enabled = not TOUCH
+
 local panel = Instance.new("Frame")
 panel.Name = "Hint"
 panel.AnchorPoint = Vector2.new(0.5, 0)

@@ -40,6 +40,13 @@ local bar = Instance.new("Frame")
 bar.Name = "Hotbar"
 bar.AnchorPoint = Vector2.new(0, 1)
 bar.Position = UDim2.fromScale(0.015, 0.975)
+-- ⚠️ Job #099 — on touch the hotbar slides RIGHT, out of the movement thumbstick. Measured on a real
+-- touch canvas (666x316): the stick owns x 29..103, y 223..297, and the hotbar sat at x 10..250,
+-- y 262..308 — slots 1 and 2 were literally underneath the player's left thumb. 0.225 puts its left edge
+-- at x=150, clear of the stick, and it still ends well short of the fire button at x=526.
+if UserInputService.TouchEnabled then
+	bar.Position = UDim2.fromScale(0.225, 0.975)
+end
 bar.Size = UDim2.fromScale(0.36, 0.1)
 bar.BackgroundTransparency = 1
 bar.BorderSizePixel = 0
@@ -72,7 +79,7 @@ local carry = RunComponents.card({
 	-- hotbar 0.865–0.975 · health 0.803–0.845 · THIS 0.761–0.797 · DropHint 0.733–0.756 · RoleChip 0.42.
 	-- ⚠️ Job #086 added the DropHint row. It is a CHILD of this card positioned above it, so moving this
 	-- card moves the hint with it — but anything new in 0.733–0.797 now collides with one of the two.
-	position = UDim2.fromScale(0.015, 0.797),
+	position = if UserInputService.TouchEnabled then UDim2.fromScale(0.225, 0.797) else UDim2.fromScale(0.015, 0.797),
 	size = UDim2.fromScale(0.2, 0.036),
 	accent = Theme.color.yellow,
 	parent = gui,

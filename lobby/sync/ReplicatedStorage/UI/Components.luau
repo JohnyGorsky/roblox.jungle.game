@@ -164,11 +164,20 @@ local VARIANT: { [string]: Color3 } = {
 	secondary = Theme.color.blue,
 	gold = Theme.color.gold,
 	danger = Theme.color.red,
+	-- Job #099: a DARK button, not a coloured slab. The four variants above are solid accent fills, and
+	-- the palette says an accent MEANS something — gold = progression, green = boat/mechanical. Stacked
+	-- in the top-right corner, a gold `+` and a green menu button next to a dark currency chip read as
+	-- three unrelated design languages, and neither colour matched what the button actually did.
+	-- `chip` is the currency chip's own skin: panel fill, accent stroke, cream label. It lets a control
+	-- sit in a cluster without shouting, and carries its meaning in the border instead of the fill.
+	chip = Theme.color.panel,
 }
 
 export type ButtonOptions = {
 	text: string,
-	variant: string?, -- primary | secondary | gold | danger
+	variant: string?, -- primary | secondary | gold | danger | chip
+	strokeColor: Color3?, -- override the border tone (chip buttons carry their meaning here)
+	round: boolean?, -- pill corner instead of the control radius, for circular icon buttons
 	icon: string?,
 	size: UDim2?,
 	layoutOrder: number?,
@@ -203,8 +212,8 @@ function Components.button(opts: ButtonOptions): Button
 	Components.applyText(btn, Theme.text.button, Theme.font.button)
 	btn.BackgroundTransparency = 0
 
-	corner(Theme.radius.control, btn)
-	stroke(Theme.color.woodDark, Theme.strokeWidth.control, btn)
+	corner(if opts.round then Theme.radius.pill else Theme.radius.control, btn)
+	stroke(opts.strokeColor or Theme.color.woodDark, Theme.strokeWidth.control, btn)
 
 	-- Keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px).
 	--
@@ -224,16 +233,33 @@ function Components.button(opts: ButtonOptions): Button
 	scale.Parent = btn
 
 	if opts.icon then
-		btn.TextXAlignment = Enum.TextXAlignment.Right
-		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, Theme.space.xxl)
-		pad.PaddingRight = UDim.new(0, Theme.space.md)
-		pad.Parent = btn
+		-- ⚠️ Job #099 — TWO layouts, because there are two kinds of button and one layout was serving both
+		-- badly. The branch below is the original: a LABELLED button, where the icon is a small mark to
+		-- the left of the words. Applied to an icon-ONLY square button it produced exactly what was
+		-- reported — a tiny graphic shoved into the corner of a big empty box, because it kept the 32 px
+		-- left padding and the 0.62 height meant for a text row.
+		if opts.text == "" then
+			-- Icon-only: the icon IS the button. Centred, square, and large enough to read at a glance —
+			-- 0.62 of the face leaves the ring and the bevel visible without the art crowding the rim.
+			local ico = Components.icon({ name = opts.icon, size = UDim2.fromScale(0.62, 0.62), chip = false })
+			ico.AnchorPoint = Vector2.new(0.5, 0.5)
+			ico.Position = UDim2.fromScale(0.5, 0.5)
+			local ratio = Instance.new("UIAspectRatioConstraint")
+			ratio.AspectRatio = 1
+			ratio.Parent = ico
+			ico.Parent = btn
+		else
+			btn.TextXAlignment = Enum.TextXAlignment.Right
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft = UDim.new(0, Theme.space.xxl)
+			pad.PaddingRight = UDim.new(0, Theme.space.md)
+			pad.Parent = btn
 
-		local ico = Components.icon({ name = opts.icon, size = UDim2.fromScale(0.9, 0.62), chip = false })
-		ico.AnchorPoint = Vector2.new(0, 0.5)
-		ico.Position = UDim2.new(0, Theme.space.sm, 0.5, 0)
-		ico.Parent = btn
+			local ico = Components.icon({ name = opts.icon, size = UDim2.fromScale(0.9, 0.62), chip = false })
+			ico.AnchorPoint = Vector2.new(0, 0.5)
+			ico.Position = UDim2.new(0, Theme.space.sm, 0.5, 0)
+			ico.Parent = btn
+		end
 	end
 
 	local function paint(color: Color3, tween: TweenInfo)
@@ -1238,9 +1264,15 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 
 		-- Top-right, under the currency chip: the one corner a phone leaves free. The bottom-left is the
 		-- thumbstick, the bottom-right the jump button, the top-left the identity panel.
+		-- A dark circle with a gold ring: deliberately the SAME vocabulary as the five badges it opens, so
+		-- the button visibly belongs to the thing it reveals. `primary` green was wrong twice over — green
+		-- means boat/mechanical in this palette, and a solid fill made it a third competing slab in the
+		-- corner next to the currency chip.
 		local toggle = Components.button({
 			text = "",
-			variant = "primary",
+			variant = "chip",
+			strokeColor = Theme.color.gold,
+			round = true,
 			icon = "shop",
 			size = UDim2.fromOffset(58, 58),
 			parent = gui,
@@ -1250,7 +1282,7 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 		})
 		toggle.instance.Name = "MenuToggle"
 		toggle.instance.AnchorPoint = Vector2.new(1, 0)
-		toggle.instance.Position = UDim2.new(1, -10, 0, 66)
+		toggle.instance.Position = UDim2.new(1, -10, 0, 82)
 		toggle.instance.ZIndex = 2
 
 		scrim.Activated:Connect(function()

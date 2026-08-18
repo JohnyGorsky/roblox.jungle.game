@@ -41,6 +41,12 @@ local holder = Instance.new("Frame")
 holder.Name = "Holder"
 holder.AnchorPoint = Vector2.new(0, 0.5)
 holder.Position = UDim2.fromScale(0.015, 0.42)
+-- Job #099: row 4 of the touch column (see HudClient). Nudged down so cargo can take row 3 without the
+-- two meeting, and still comfortably above the movement thumbstick, which starts at y 223 of 316.
+if game:GetService("UserInputService").TouchEnabled then
+	holder.AnchorPoint = Vector2.new(0, 0)
+	holder.Position = UDim2.fromScale(0.015, 0.44)
+end
 holder.Size = UDim2.fromScale(0.18, 0.09)
 holder.BackgroundTransparency = 1
 holder.BorderSizePixel = 0

@@ -55,6 +55,12 @@ holder.Name = "Health"
 holder.AnchorPoint = Vector2.new(0, 1)
 -- Sits above the hotbar. The hotbar is anchored at y=0.975 and is ~0.11 tall, so this clears it.
 holder.Position = UDim2.fromScale(0.015, 0.845)
+-- Job #099: on touch this whole bar moves to the EMPTY top-left instead, joining the boat vitals as one
+-- glanceable column. See the note above reflowForSeat.
+if UserInputService.TouchEnabled then
+	holder.AnchorPoint = Vector2.new(0, 0)
+	holder.Position = UDim2.fromScale(0.015, 0.02) -- row 1 of the touch column
+end
 -- Wider than the bar alone needs: the bandage chip beside it carries a word now, not just a number.
 holder.Size = UDim2.fromScale(0.27, 0.042)
 holder.BackgroundTransparency = 1
@@ -129,17 +135,16 @@ end
 -- It reflows on SEAT CHANGE rather than sitting permanently offset, because that is the same instant
 -- the hotbar vacates the corner: the column already reshapes itself there, so the bar moving with it
 -- reads as one layout rather than as a jump. A keyboard player never enters this branch at all.
-local DRIVING_X = 0.225 -- clears the steer holder's right edge (0.02 + 0.19) with a margin
-local RESTING_X = 0.015
+local _DRIVING_X = 0.225 -- kept only so the Job #094 note above still reads against real values
+local _RESTING_X = 0.015
 
-local function reflowForSeat(humanoid: Humanoid?)
-	if not UserInputService.TouchEnabled then
-		return
-	end
-	local seat = humanoid and humanoid.SeatPart
-	local inControlSeat = seat ~= nil and seat:IsA("VehicleSeat")
-	holder.Position = UDim2.fromScale(if inControlSeat then DRIVING_X else RESTING_X, 0.845)
-end
+-- ⚠️ SUPERSEDED by Job #099 and deliberately left as a no-op rather than deleted, so the reasoning
+-- survives. Job #094 slid this bar sideways while driving to dodge the steer buttons. Job #099 moved it
+-- to the top-left on touch outright — which dodges the steer buttons AND the movement thumbstick AND
+-- the hotbar, in every state, without anything moving on screen mid-run. A HUD element that relocates
+-- when you sit down was always the weaker answer; it only looked reasonable while the bottom-left was
+-- assumed to be ours.
+local function reflowForSeat(_humanoid: Humanoid?) end
 
 local conns: { RBXScriptConnection } = {}
 

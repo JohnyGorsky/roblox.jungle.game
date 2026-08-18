@@ -150,9 +150,15 @@ goldChip.instance.AnchorPoint = Vector2.new(1, 0.5)
 
 -- `+` → the Robux shop. A convenience affordance, not a power sale (GAME.md: paid = convenience), so it
 -- sits beside the balance as a small square — deliberately quieter than the balance itself.
+-- Job #099: `chip`, not `gold`. As a solid gold slab this read as a third design language beside the
+-- dark currency pill and the menu button — and gold in this palette means PROGRESSION, which is not what
+-- a "buy Robux" affordance is. It now wears the chip's own skin (panel fill, gold border, cream glyph)
+-- so the balance and the buy button read as ONE cluster, with gold carried in the border rather than
+-- shouted in the fill. GAME.md: paid is convenience, never the loudest thing on screen.
 local plus = Components.button({
 	text = "+",
-	variant = "gold",
+	variant = "chip",
+	strokeColor = Theme.color.gold,
 	size = UDim2.fromOffset(36, 36),
 	sound = "open",
 	parent = right,
@@ -160,6 +166,18 @@ local plus = Components.button({
 		UIBus.open("robux")
 	end,
 })
+-- Job #099: the glyph fills the face. `Theme.text.button` is sized for a word on a wide button, so a
+-- lone "+" on a 58px square read as an almost-empty box.
+local plusLabel = plus.instance
+plusLabel.TextScaled = true
+plusLabel.TextColor3 = Theme.color.gold
+local plusPad = Instance.new("UIPadding")
+plusPad.PaddingTop = UDim.new(0, 8)
+plusPad.PaddingBottom = UDim.new(0, 8)
+plusPad.PaddingLeft = UDim.new(0, 8)
+plusPad.PaddingRight = UDim.new(0, 8)
+plusPad.Parent = plusLabel
+
 plus.instance.AnchorPoint = Vector2.new(1, 0.5)
 
 -- Reading order is balance-then-action: the `+` sits at the right edge and the chip parks to its left,

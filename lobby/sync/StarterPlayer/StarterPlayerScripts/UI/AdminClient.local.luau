@@ -30,6 +30,13 @@ local rf = ReplicatedStorage:WaitForChild("Admin") :: RemoteFunction
 local launcher = Components.screen("AdminLauncher", player:WaitForChild("PlayerGui"))
 launcher.DisplayOrder = 60
 
+-- Job #099: not on a phone. Admin is a desk tool — it is allowlist-gated dev UI, and on a 666x374
+-- canvas its button sits in the bottom-right corner competing with the jump button for a control no
+-- player will ever press. Desktop keeps it exactly as it was.
+if game:GetService("UserInputService").TouchEnabled then
+	launcher.Enabled = false
+end
+
 local openHolder = Instance.new("Frame")
 openHolder.Name = "Holder"
 openHolder.AnchorPoint = Vector2.new(1, 1)

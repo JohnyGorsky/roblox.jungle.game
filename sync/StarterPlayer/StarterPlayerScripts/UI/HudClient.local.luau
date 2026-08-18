@@ -17,6 +17,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
@@ -55,6 +56,13 @@ local vitals = Instance.new("Frame")
 vitals.Name = "Vitals"
 vitals.AnchorPoint = Vector2.new(0.5, 1)
 vitals.Position = UDim2.fromScale(0.55, 0.965)
+-- Job #099: on touch the vitals join the health bar in the top-left column. Bottom-centre was clear of
+-- the thumbstick, but it boxed the hotbar in between the stick and the fire button with nowhere to go —
+-- moving the readouts (which are glanced at) frees the bottom band for controls (which are pressed).
+if UserInputService.TouchEnabled then
+	vitals.AnchorPoint = Vector2.new(0, 0)
+	vitals.Position = UDim2.fromScale(0.015, 0.115) -- row 2, under the health bar
+end
 vitals.Size = UDim2.fromScale(0.3, 0.1)
 vitals.BackgroundTransparency = 1
 vitals.BorderSizePixel = 0
@@ -100,6 +108,12 @@ local cargo = Instance.new("Frame")
 cargo.Name = "Cargo"
 cargo.AnchorPoint = Vector2.new(0, 0)
 cargo.Position = UDim2.fromScale(0.015, 0.02)
+-- Job #099: on touch the top-left is a COLUMN, not a single slot — health, vitals, cargo, role, in that
+-- reading order. Cargo owned this spot on desktop; on a phone it moves down to row 3 so the two vitals
+-- the player checks most often sit highest.
+if UserInputService.TouchEnabled then
+	cargo.Position = UDim2.fromScale(0.015, 0.30)
+end
 cargo.Size = UDim2.fromScale(0.27, 0.05)
 cargo.BackgroundTransparency = 1
 cargo.BorderSizePixel = 0

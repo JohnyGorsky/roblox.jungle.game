@@ -24,6 +24,18 @@ local player = Players.LocalPlayer
 local gui = Components.screen("StagingHint", player:WaitForChild("PlayerGui"))
 gui.DisplayOrder = 7
 
+-- ⚠️ Job #099 — HIDDEN ON TOUCH, same call as the lobby's centre hint.
+-- Two reasons, and the second is the one that forced it. It was already reported as clipped on a phone
+-- ("BOARD THE BOAT &", cut mid-title). And once the touch HUD moved health/vitals/cargo into a top-left
+-- column to clear the movement thumbstick, this card overlapped that column by 25x26 and 10x48 — the
+-- top-centre simply is not free any more on a 666x316 canvas.
+--
+-- ⚠️ It carries the only on-screen instruction to BOARD AND UNTIE. Folded into finding #0010 rather than
+-- silently dropped: the boat itself should say it (a prompt or a Job #098 one-shot hint), not a banner.
+if game:GetService("UserInputService").TouchEnabled then
+	gui.Enabled = false
+end
+
 local card = RunComponents.card({
 	name = "Staging",
 	anchor = Vector2.new(0.5, 0),
