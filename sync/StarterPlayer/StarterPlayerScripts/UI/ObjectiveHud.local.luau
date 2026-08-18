@@ -32,6 +32,8 @@ local player = Players.LocalPlayer
 local gui = Components.screen("ObjectiveHud", player:WaitForChild("PlayerGui"))
 gui.DisplayOrder = 7 -- above the plain readouts: it expands over them and must not be occluded
 
+local TOUCH = game:GetService("UserInputService").TouchEnabled
+
 local ROW_H = 0.16 -- of the expanded tray
 local count = #ObjectiveDefs.List
 
@@ -39,19 +41,32 @@ local tray = RunComponents.tray({
 	name = "Objectives",
 	icon = "clipboard",
 	-- Sits under the currency chips (which end around y = 0.078 at their max height).
-	position = UDim2.fromScale(0.985, 0.095),
+	-- ⚠️ Job #099 — LOWER on touch. Measured: the collapsed card sat at y 30..62 while the currency chips
+	-- occupy y 6..40, a 150x10 overlap. Ironically caused by this job's own #0009 fix, which raised the
+	-- collapsed height to clear the thumb floor and so pushed the card up into the row above it.
+	-- 0.17 drops it to y ~54, clear of the chips with margin.
+	position = if TOUCH then UDim2.fromScale(0.985, 0.17) else UDim2.fromScale(0.985, 0.095),
 	anchor = Vector2.new(1, 0),
 	-- ⚠️ Job #099 / finding #0009 — 0.045 of screen height is ~29 px on a phone, and this whole card IS
 	-- the tap target that expands the objective list (RunComponents.tray sizes its Header to fill it).
 	-- Raised to 0.075 so it clears the 58 px thumb floor on a phone while staying a quiet strip on a
 	-- monitor, where 0.075 is still only ~80 px.
-	collapsedSize = UDim2.fromScale(0.17, 0.075),
+	-- Narrower on touch: the collapsed bar carries a count, not a sentence (see setSummary below).
+	collapsedSize = if TOUCH then UDim2.fromScale(0.10, 0.075) else UDim2.fromScale(0.17, 0.075),
 	expandedSize = UDim2.fromScale(0.24, 0.075 + ROW_H * math.max(count, 1) * 0.42),
 	parent = gui,
 })
 
 local clamp = Instance.new("UISizeConstraint")
-clamp.MinSize = Vector2.new(150, 32)
+-- ⚠️ Job #099 — this floor is why narrowing `collapsedSize` did nothing at first: the card's Size WAS
+-- 0.10 x 0.075, and this constraint clamped it straight back to 150x32. A pixel floor overriding a
+-- scale value, exactly the trap this job started with.
+--
+-- On touch: narrower, because the label is now just "0/4" and not a sentence — and TALLER, because 32 px
+-- is under the 58 px thumb floor and this whole card IS the button that expands the objective list.
+-- (It escaped the tap-target audit because `Header` is transparent, and the audit only looked at
+-- elements that PAINT. A transparent button is still a tap target.)
+clamp.MinSize = if TOUCH then Vector2.new(76, 58) else Vector2.new(150, 32)
 clamp.MaxSize = Vector2.new(320, 260)
 clamp.Parent = tray.instance
 
@@ -141,7 +156,11 @@ local function render()
 		end
 	end
 
-	tray.setSummary(("OBJECTIVES  %d/%d"):format(done, count))
+	-- ⚠️ On touch the word goes and the COUNT stays. "just icon not text" was the ask, and the word
+	-- "OBJECTIVES" is indeed what makes this wide — but a bare clipboard with no number is a mystery
+	-- button, and a count is the entire point of a collapsed summary. Icon + "0/4" is three characters
+	-- and stays glanceable; the full sentences are one tap away in the expanded tray.
+	tray.setSummary(if TOUCH then ("%d/%d"):format(done, count) else ("OBJECTIVES  %d/%d"):format(done, count))
 end
 
 -- Objectives only exist during a run; the tray has nothing to say at the crash site.

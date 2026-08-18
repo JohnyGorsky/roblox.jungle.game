@@ -191,3 +191,74 @@ against every Roblox control — and every tap target ≥ 58 px.
 **The meta-point:** three separate "verified clean" claims in this job were wrong because of *how* I
 measured, not *what* I built. That is why the new `mobile` skill leads with measurement protocol rather
 than layout advice, and why its probe checks against every `TouchGui` child instead of the obvious one.
+
+---
+
+# ADDENDUM 3 — how the validation itself was wrong, and what fixed it
+
+Challenged on *how* the "zero collisions" claim was validated. It did not survive the question.
+
+**The checker had a blind spot.** It compared only pairs from **different** ScreenGuis
+(`if a.owner ~= b.owner`), so two elements colliding *inside* one HUD — vitals against cargo in
+`BoatHud`, say — could never be reported. It printed a clean result while measuring a fraction of the
+screen.
+
+**Corrected, it found 31 raw overlaps.** All 31 turned out to be *intentional layering*: a gauge's
+`Value` text sits on its `Fill`; a hotbar slot's `Key` number sits on its `Art`; Roblox's own
+`ThumbstickStart` sits on `ThumbstickEnd`. So a naive "any overlap is a bug" check is equally useless —
+it cries wolf on every well-composed component.
+
+**The working rule** (now in the probe): compare **every** pair, then flag only those whose nearest
+common ancestor is a **top-level HUD block or higher**. Things inside one small component are
+composition; two components on top of each other are a bug. Validated: **31 raw → 0 real**, which also
+proves the filter is doing work rather than trivially returning zero.
+
+**And the rule that matters most:** numbers are necessary, never sufficient. Every wrong "verified
+clean" in this job was wrong *numerically first* — the script passed and the screenshot disagreed.
+Clipped text, placeholder icons and "reads as an empty box" are invisible to a rectangle checker and
+obvious in one picture. `mobile` SKILL.md §4b now says so explicitly.
+
+## Hotbar footprint
+
+Asked how the two hotbar rows could cover less screen. Fixed by removing what should not have been
+drawn rather than by shrinking what should: on touch the bar now renders **only populated slots**, not
+every unlocked one.
+
+| | before | after |
+|---|---|---|
+| slots drawn | 6 (4 empty) | **2 — what is carried** |
+| block | 190 × 124 | **124 × 58** |
+| share of screen | 9.5% | **2.9%** |
+| slot size | 58 px | 58 px (unchanged) |
+
+Verified on the touch canvas: clear of `DynamicThumbstickFrame`, both slots >= 58 px, and confirmed by
+screenshot as well as by measurement.
+
+---
+
+# ADDENDUM 4 — objectives tray, and three more verification failures
+
+**Reported:** the objectives tray overlapped the currency chips. **Measured:** 150 x 10 px overlap — the
+tray at y 30..62 against chips at y 6..40. Caused by this job's own #0009 fix, which raised the collapsed
+height to clear the thumb floor and so pushed the card up into the row above.
+
+**Fixed on touch:** moved lower (y 0.095 -> 0.17), narrowed (0.17 -> 0.10 wide), and the summary
+shortened from "OBJECTIVES  0/4" to "0/4". The count is kept deliberately — the ask was "just icon not
+text", and the word is what made it wide, but a bare clipboard with no number is a mystery button and a
+count is the whole point of a collapsed summary. Now 76 x 58 at x 580..656, y 54..112: clear of the
+currency row and of every other visible element.
+
+**Three more ways verification failed, all now in the `mobile` skill:**
+
+1. **A transparent button escaped the tap-target audit.** The tray's `Header` is a clear 150x32
+   `TextButton` covering its whole card — under the 58 px floor, and invisible to a paint-filtered scan.
+   Tap-size checks must cover every `GuiButton`, painted or not. The probe now does.
+2. **A pixel `MinSize` silently overrode a scale change.** Narrowing `collapsedSize` to 0.10 did
+   nothing: `clamp.MinSize = (150, 32)` clamped it back. The edit was right; something else won. Always
+   read back `AbsoluteSize` after changing a size.
+3. **The tray was measured and screenshotted while `Visible = false`.** The numbers looked fine and the
+   picture showed nothing — neither meant anything. Re-verified with it actually on screen: measured
+   clear *and* visually confirmed.
+
+The min size is now touch-aware at (76, 58) — narrower for the shorter label, and taller so the card,
+which IS the button that expands the objective list, finally clears the thumb floor.

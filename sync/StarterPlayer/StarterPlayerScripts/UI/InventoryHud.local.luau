@@ -29,6 +29,8 @@ local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("InventoryCmd") :: RemoteEvent
 local MAX_SLOTS = ItemDefs.MAX_SLOTS
 
+local TOUCH = UserInputService.TouchEnabled
+
 local function visibleSlots(): number
 	return ItemDefs.slotsFor(player)
 end
@@ -77,8 +79,9 @@ if UserInputService.TouchEnabled then
 	g.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	g.SortOrder = Enum.SortOrder.LayoutOrder
 	g.Parent = bar
-	-- the grid drives cell size, so the bar must be sized to the block rather than to a scale strip
-	bar.Size = UDim2.fromOffset(3 * 58 + 2 * Theme.space.sm, 2 * 58 + Theme.space.sm)
+	-- Sized in `refresh()` from how many slots are actually populated, so an empty inventory takes no
+	-- room and a full one wraps to two rows.
+	bar.Size = UDim2.fromOffset(58, 58)
 else
 	local l = Instance.new("UIListLayout")
 	l.FillDirection = Enum.FillDirection.Horizontal
@@ -212,16 +215,36 @@ local function refresh()
 
 	bar.Visible = not inControlSeat()
 
+	-- ⚠️ Job #099 — ON TOUCH, SHOW ONLY SLOTS THAT HOLD SOMETHING.
+	--
+	-- On desktop every UNLOCKED slot is drawn, empty ones included: they advertise the inventory you own
+	-- and cost nothing on a big screen. On a phone they cost a great deal — six boxes forced the bar to
+	-- wrap to two rows and take a block out of the middle of the play area, and four of those boxes were
+	-- empty rectangles with a number in them.
+	--
+	-- A player typically carries two or three things, so this usually collapses to a single short row.
+	-- The grid still wraps if someone really is carrying six. STYLEGUIDE §6.11: show only what matters
+	-- while playing.
+	local populated = 0
+	if TOUCH then
+		for i = 1, MAX_SLOTS do
+			if ((player:GetAttribute("Slot" .. i) :: string?) or "") ~= "" then
+				populated += 1
+			end
+		end
+	end
+
 	for i = 1, MAX_SLOTS do
 		local slot = slots[i]
-		-- UIListLayout skips invisible children, so hiding the surplus closes the gap rather than
-		-- leaving a hole where slots 5-6 would be.
-		slot.setVisible(i <= shown)
-		if i > shown then
+		local id = (player:GetAttribute("Slot" .. i) :: string?) or ""
+		-- UIListLayout/UIGridLayout skip invisible children, so hiding the surplus closes the gap rather
+		-- than leaving a hole.
+		local visible = if TOUCH then id ~= "" else i <= shown
+		slot.setVisible(visible)
+		if not visible then
 			continue
 		end
 
-		local id = (player:GetAttribute("Slot" .. i) :: string?) or ""
 		local def = ItemDefs.get(id)
 		local iconKey = if id ~= "" then (Theme.itemIcon :: { [string]: string })[id] else nil
 		local label = if def then string.upper(def.name) else ""
@@ -230,6 +253,14 @@ local function refresh()
 			else ""
 
 		slot.set(iconKey, label, ammo, i == active and id ~= "")
+	end
+
+	-- Resize the touch block to exactly what is on screen: 1..3 items = one row, 4..6 = two.
+	if TOUCH then
+		local cols = math.min(math.max(populated, 1), 3)
+		local rows = math.max(math.ceil(populated / 3), 1)
+		local gap = Theme.space.sm
+		bar.Size = UDim2.fromOffset(cols * 58 + (cols - 1) * gap, rows * 58 + (rows - 1) * gap)
 	end
 
 	carry.Visible = player:GetAttribute("Busy") == true
