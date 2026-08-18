@@ -1,6 +1,6 @@
 # Job #098 — Implementation plan
 
-**Project**: `roblox.jungle` · **Place**: GAME only (`sync/`) · **Status**: AGREED — ready to implement
+**Project**: `roblox.jungle` · **Place**: GAME only (`sync/`) · **Status**: IMPLEMENTED — see final-summary.md
 
 Intake: [intake.md](intake.md) · Studio: `Last River COOP Game`, PlaceId 138141472932347
 Image: **`BoatInfo` `rbxassetid://113207367236651`** (registered in `roblox.workspace/Assets/registry/images.md`)

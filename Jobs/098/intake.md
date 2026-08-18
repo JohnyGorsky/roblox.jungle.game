@@ -3,7 +3,7 @@
 **Project**: `roblox.jungle`
 **Place**: **GAME only** (`sync/`)
 **Created**: 2026-08-18
-**Status**: Requirements Gathering (intake)
+**Status**: Complete
 
 ## The problem
 
@@ -138,7 +138,7 @@ Still needed from the user: **the final position.** Claude places it as a starti
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] Final summary + changelog written
