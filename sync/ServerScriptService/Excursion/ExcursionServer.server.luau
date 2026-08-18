@@ -446,8 +446,12 @@ local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
 	prompt.ObjectText = "Gold Nugget"
 	prompt.HoldDuration = 0.6
 	prompt.RequiresLineOfSight = false
-	prompt.MaxActivationDistance = 8
+	prompt.MaxActivationDistance = 10
 	prompt.Parent = promptAnchor(nug, 1.5)
+	-- Job #101: the nugget is the rarest thing in the game (25% per camp, run-capped) and it is a small
+	-- rock lying on the ground of a camp full of rocks. If anything in here has to be findable, it is
+	-- this. It does not go through `lootPrompt`, so the tag is applied by hand — see CampDefs.TAG.
+	CollectionService:AddTag(nug, CampDefs.TAG.lootable)
 	prompt.Triggered:Connect(function(player: Player)
 		if not nug.Parent then
 			return
@@ -1034,8 +1038,16 @@ local function lootPrompt(crate: PVInstance, actionText: string)
 	loot.ObjectText = "Crate"
 	loot.HoldDuration = 1.2
 	loot.RequiresLineOfSight = false
-	loot.MaxActivationDistance = 10
+	-- ⚠️ Job #101: 10 was too tight ONCE THE CAMPS GREW. A camp is now ~150 studs across and dressed with
+	-- barrels identical to the loot, so a 10-stud prompt meant walking up to every barrel to find out
+	-- which one was real — and a missed gasoline strands the run, because the near camp is the only fuel
+	-- source. 14 is deliberately modest: the outline from `LootGlow` is what does the finding, the prompt
+	-- just should not require you to stand on top of it.
+	loot.MaxActivationDistance = 14
 	loot.Parent = promptAnchor(crate, 3)
+	-- The client outlines this tag, and only this tag. Both halves of "which barrel is real" are fixed
+	-- here: the prompt says WHAT it is, the tag makes it visible that there is anything to read.
+	CollectionService:AddTag(crate, CampDefs.TAG.lootable)
 	loot.Triggered:Connect(function(player: Player)
 		pickupLoot(player, crate)
 	end)

@@ -329,6 +329,10 @@ CampDefs.TAG = {
 	-- tag, the way Defender's `AIHealingPad` finds its pads — so a fire built anywhere (camp, spawn
 	-- base, a future hand-placed one) becomes a rest point with no extra wiring.
 	campfire = "Campfire",
+	-- Job #101: anything a player can actually pick up. The client's `LootGlow` outlines these and
+	-- NOTHING else — which is the entire point, since loot and camp dressing are the same models. Tag it
+	-- when you make something lootable, or it will look exactly like scenery.
+	lootable = "Lootable",
 }
 
 -- ── Job #084: resting at a fire ───────────────────────────────────────────────────────────────────
