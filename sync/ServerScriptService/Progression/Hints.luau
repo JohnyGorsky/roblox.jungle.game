@@ -12,9 +12,15 @@
 -- never taught to carry a crate again. Session-only flags were the cheaper option and the wrong one:
 -- re-teaching every run is exactly the HUD noise Job #094 spent its effort removing.
 --
--- ⚠️ FAILS TOWARD TEACHING. `Profiles.hasSeen` returns false when the profile is not ready (in-memory
--- fallback, a session lost to a DataStore outage), so an unlucky player sees the hint again rather than
--- never seeing it. A repeat is a small annoyance; silently never teaching the mechanic is the bug.
+-- ⚠️ FAILS TOWARD TEACHING, NOT TOWARD SPAMMING. `Profiles.hasSeen` returns false when the profile is
+-- not ready (in-memory fallback, a DataStore outage, or Studio with API access off), so an unlucky
+-- player sees the hint again rather than never seeing it — silently never teaching the mechanic is the
+-- bug this exists to fix.
+--
+-- But "the profile says no" is checked EVERY pickup, so on its own that fallback would fire the banner
+-- on every single crate. Caught in Studio, where no profile loads at all: the hint fired repeatedly.
+-- Hence the SESSION set below — a second, in-memory guard so the worst case is "once per session"
+-- rather than "once per crate".
 --
 -- ── Why its own remote and not `Announce` ─────────────────────────────────────────────────────────
 -- `Announce` (→ ZoneBanner) is owned by `ZoneServer` and only ever fired with `FireAllClients`; its own
@@ -27,14 +33,25 @@
 -- One entry in DEFS below, then `Hints.show(player, "yourId")` at the moment it should teach. There
 -- will be more: nobody knows about the turret or the medic station either.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 local Profiles = require(script.Parent:WaitForChild("Profiles"))
 
-local remote = Instance.new("RemoteEvent")
-remote.Name = "HintBanner"
-remote.Parent = ReplicatedStorage
+-- Find-or-create, not blind create. A ModuleScript that makes an Instance as a side effect will make a
+-- SECOND one if it is ever required from another Luau VM — which is not hypothetical: requiring this
+-- from the Studio command bar during Job #098's own verification produced two `HintBanner` remotes, the
+-- server fired through one and the client was listening to the other, and every banner silently
+-- vanished. Idempotent construction costs one line and removes the whole class of problem.
+local remote = ReplicatedStorage:FindFirstChild("HintBanner") :: RemoteEvent?
+if not remote then
+	local created = Instance.new("RemoteEvent")
+	created.Name = "HintBanner"
+	created.Parent = ReplicatedStorage
+	remote = created
+end
+local hintRemote = remote :: RemoteEvent
 
 export type HintDef = {
 	title: string,
@@ -66,20 +83,39 @@ local DEFS: { [string]: HintDef } = {
 
 local Hints = {}
 
+-- In-memory backstop, cleared when the player leaves. Covers the case where the profile cannot answer
+-- (see the header): without it, an unpersisted player would be re-taught on every crate.
+local shownThisSession: { [Player]: { [string]: true } } = {}
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	shownThisSession[player] = nil
+end)
+
 -- Show a hint to one player, once ever. No-op if they have already seen it.
--- Safe to call on a hot path (every pickup): the seen-check is a table lookup, not a DataStore read.
+-- Safe to call on a hot path (every pickup): both checks are table lookups, not DataStore reads.
 function Hints.show(player: Player, id: string)
 	local def = DEFS[id]
 	if not def then
 		warn(("[Hints] unknown hint id %q"):format(id))
 		return
 	end
+
+	local session = shownThisSession[player]
+	if session and session[id] then
+		return -- already shown in this session, whatever the profile thinks
+	end
 	if Profiles.hasSeen(player, id) then
 		return
 	end
-	-- Marked BEFORE firing, so two pickups in the same frame cannot both pass the check and fire twice.
-	Profiles.markSeen(player, id)
-	remote:FireClient(player, {
+
+	-- Both marked BEFORE firing, so two pickups in the same frame cannot both pass the check.
+	if not session then
+		session = {}
+		shownThisSession[player] = session
+	end
+	;(session :: { [string]: true })[id] = true
+	Profiles.markSeen(player, id) -- no-op when there is no profile to write to
+	hintRemote:FireClient(player, {
 		title = def.title,
 		subtitle = def.subtitle,
 		-- Gold, not a zone colour: a teaching beat should not read as a zone crossing.

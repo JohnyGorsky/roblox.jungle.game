@@ -21,6 +21,7 @@ local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChil
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
 local ServerScriptService = game:GetService("ServerScriptService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+local Hints = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Hints"))
 -- Job #076: camp clearings draw from the SAME shore-band table the riverbank uses, so the two can't drift
 local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
 -- Job #077: the camp's CONTENTS (which model plays which role, where it sits, how the ground is painted,
@@ -586,6 +587,11 @@ deposit.Triggered:Connect(function(player: Player)
 		return
 	end
 	boat:SetAttribute(resource, ((boat:GetAttribute(resource) :: number?) or 0) + 1)
+
+	-- Job #098: now they have delivered something, tell them what it is FOR. Placed after the
+	-- cargo-deck-full early-return above, so a REFUSED deposit never teaches a lesson that did not
+	-- happen. No delay here: the crew toast below is small and off to one side, so nothing competes.
+	Hints.show(player, "fuelAndRepair")
 	-- Job #084: tell the WHOLE crew, not just the depositor — the cargo hold is shared, so a deposit is
 	-- crew news. Deliberately its own feed and not the `Announce`/`ZoneBanner` channel: that is a large
 	-- centre-screen banner with a hold, tuned for rare beats (zone crossings, nightfall), and firing it
@@ -744,6 +750,19 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	player:SetAttribute("Busy", true) -- hands full → can't shoot
 	refreshDeposit()
 	crate:Destroy()
+
+	-- Job #098: teach the carry mechanic, ONCE EVER. Deliberately here and not at the top of this
+	-- function — the weapon and ammo branches above return early because those crates grant instantly
+	-- and are never carried, so firing there would tell the player to deliver something they are not
+	-- holding.
+	--
+	-- Delayed a beat: the HandsFull card and the pickup sound land on this frame, and a banner in the
+	-- same frame competes with them. 0.6 s puts it into a quiet screen.
+	task.delay(0.6, function()
+		if player.Parent then -- they may have left in the meantime
+			Hints.show(player, "carryToBoat")
+		end
+	end)
 end
 
 -- ── Job #084: put it down ─────────────────────────────────────────────────────────────────────────

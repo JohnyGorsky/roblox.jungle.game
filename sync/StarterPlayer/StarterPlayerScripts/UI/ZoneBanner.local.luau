@@ -2,7 +2,9 @@
 -- ZoneBanner.local.luau — centre-screen banner for zone crossings and the day/night set-pieces
 -- (Job 035, restyled in Job #075).
 --
--- Driven by the `Announce` RemoteEvent. ZoneServer now sends an `icon` and a `sound` key alongside the
+-- Driven by TWO RemoteEvents (Job #098): `Announce` for crew-wide beats, and `HintBanner` for
+-- per-player onboarding hints. Both render through the same `showBanner` — see the note at the bottom.
+-- ZoneServer sends an `icon` and a `sound` key alongside the
 -- title/subtitle/colour it always sent, so a crossing lands as a moment rather than as text appearing:
 -- ZONE 2/4 gets a pin and the combat stinger, NIGHTFALL a moon, DAWN a sun. Older senders that omit
 -- those two fields still work — the icon is simply skipped and nothing plays.
@@ -109,7 +111,7 @@ local function fade(target: number, time: number)
 	end
 end
 
-announce.OnClientEvent:Connect(function(data)
+local function showBanner(data)
 	if typeof(data) ~= "table" then
 		return
 	end
@@ -143,4 +145,21 @@ announce.OnClientEvent:Connect(function(data)
 		end
 		fade(1, FADE_OUT)
 	end)
-end)
+end
+
+-- ── two channels, one banner (Job #098) ──────────────────────────────────────────────────────────
+-- `Announce` is the CREW beat — zone crossings, nightfall, dawn — fired with FireAllClients by
+-- ZoneServer. `HintBanner` is a PERSONAL teaching moment, fired with FireClient by Progression/Hints at
+-- a player's first pickup and first deposit.
+--
+-- They share this renderer because they should look identical: a hint is not a different kind of
+-- object on screen, it is the same banner carrying different words. They stay separate REMOTES because
+-- one is crew-wide and one is per player — routing hints through `Announce` would put one newcomer's
+-- tutorial on all six crew members' screens.
+--
+-- `token` already makes a newer banner replace an older one, so a hint arriving during a zone crossing
+-- degrades to "the second one wins" rather than to two banners fighting.
+announce.OnClientEvent:Connect(showBanner)
+
+local hintBanner = ReplicatedStorage:WaitForChild("HintBanner") :: RemoteEvent
+hintBanner.OnClientEvent:Connect(showBanner)
