@@ -136,6 +136,14 @@ right.Size = UDim2.fromScale(0.3, 0.07)
 right.BackgroundTransparency = 1
 right.BorderSizePixel = 0
 
+-- Job #095: the row has to be tall enough to CONTAIN a thumb-sized `+`. At 0.07 scale it was 45 px on a
+-- 640-tall phone, so the button derived from it (0.72 of the height) came out ~32 px — well under the
+-- 58 px floor, on the control that opens a REAL-MONEY purchase flow.
+local rightClamp = Instance.new("UISizeConstraint")
+rightClamp.MinSize = Vector2.new(0, 62)
+rightClamp.MaxSize = Vector2.new(10000, 96)
+rightClamp.Parent = right
+
 local goldChip = Components.chip("coin", right)
 goldChip.instance.AnchorPoint = Vector2.new(1, 0.5)
 -- final X set in layoutCluster(), which parks it left of the `+`
@@ -161,7 +169,9 @@ local function layoutCluster()
 	if height <= 0 then
 		return
 	end
-	local side = math.floor(height * 0.72)
+	-- Floor of 58 px (Job #095): this button opens the Robux shop, so a mis-tap costs the player money
+	-- they did not mean to spend. The 0.72 proportion still governs on any screen big enough for it.
+	local side = math.max(58, math.floor(height * 0.72))
 	plus.instance.Size = UDim2.fromOffset(side, side)
 	plus.instance.Position = UDim2.fromScale(1, 0.5)
 	goldChip.instance.Position = UDim2.new(1, -side - Theme.space.sm, 0.5, 0)

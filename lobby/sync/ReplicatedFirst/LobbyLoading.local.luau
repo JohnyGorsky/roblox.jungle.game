@@ -11,6 +11,16 @@ local ContentProvider = game:GetService("ContentProvider")
 local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 
+-- ⚠️ WHY THERE ARE RAW `Enum.Font` VALUES BELOW (Job #095, finding #0005)
+-- A raw font or colour literal in a screen is normally a bug — this script is the exception, and not by
+-- oversight. It runs from **ReplicatedFirst**, whose whole purpose is to execute BEFORE the rest of the
+-- game replicates. `require(ReplicatedStorage.UI.Theme)` here would `WaitForChild` on a folder that has
+-- not arrived yet, blocking on exactly the replication this screen exists to hide.
+--
+-- So the values are copied from `Theme` by hand and MUST be kept in step with it — each one is tagged
+-- with the token it mirrors. Identical treatment to the GAME place's `ReplicatedFirst/GameLoading`.
+-- (Before this job these were `Enum.Font.Gotham*`, which is not in the palette at all.)
+
 local MIN_SHOWN = 1.5  -- keep the screen up at least this long so it never just flickers
 local SETTLE = 2.5     -- after preload, hold so texture streaming + lighting/shadows finish behind the screen
 local FADE_TIME = 0.6
@@ -81,7 +91,7 @@ title.AnchorPoint = Vector2.new(0.5, 1)
 title.Position = UDim2.fromScale(0.5, 0.44)
 title.Size = UDim2.fromScale(0.8, 0.12)
 title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBlack
+title.Font = Enum.Font.BuilderSansExtraBold -- Theme.font.display
 title.Text = "LAST RIVER"
 title.TextColor3 = Color3.fromRGB(230, 240, 232)
 title.TextScaled = true
@@ -93,7 +103,7 @@ status.AnchorPoint = Vector2.new(0.5, 0.5)
 status.Position = UDim2.fromScale(0.5, 0.55)
 status.Size = UDim2.fromScale(0.6, 0.05)
 status.BackgroundTransparency = 1
-status.Font = Enum.Font.Gotham
+status.Font = Enum.Font.BuilderSansMedium -- Theme.font.body
 status.Text = "Loading..."
 status.TextColor3 = Color3.fromRGB(150, 170, 158)
 status.TextScaled = true
@@ -129,7 +139,7 @@ tip.AnchorPoint = Vector2.new(0.5, 1)
 tip.Position = UDim2.fromScale(0.5, 0.9)
 tip.Size = UDim2.fromScale(0.72, 0.09)
 tip.BackgroundTransparency = 1
-tip.Font = Enum.Font.GothamMedium
+tip.Font = Enum.Font.BuilderSansMedium -- Theme.font.body
 tip.Text = ""
 tip.TextColor3 = Color3.fromRGB(200, 214, 205)
 tip.TextScaled = true

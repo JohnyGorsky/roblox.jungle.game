@@ -23,7 +23,15 @@ local panel = Instance.new("Frame")
 panel.Name = "Hint"
 panel.AnchorPoint = Vector2.new(0.5, 0)
 panel.Position = UDim2.fromScale(0.5, 0.02)
-panel.Size = UDim2.fromScale(0.44, 0.085)
+-- ⚠️ Job #095 — 0.32, not 0.44. At 0.44 this panel spanned x 0.28–0.72 and the TopBar identity block
+-- reaches x 0.312, so the two overlapped by up to 42x63 px on a phone. Both are opaque, so it was real
+-- paint over paint — and it is INVISIBLE at desktop aspect (both hit their MaxSize caps and the gap
+-- reopens), which is exactly why it shipped. 0.32 spans 0.34–0.66, clearing the identity block by ~0.028.
+--
+-- This panel yields rather than the top bar because it is a transient instruction with no tap targets,
+-- whereas the bar carries the avatar, name, tier and the `+` button. Same test Job #094 used: never
+-- shrink the side that holds the tap targets.
+panel.Size = UDim2.fromScale(0.32, 0.085)
 panel.BackgroundColor3 = Theme.color.panel
 panel.BackgroundTransparency = 0.12
 panel.BorderSizePixel = 0

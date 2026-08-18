@@ -225,8 +225,8 @@ local function refresh()
 		err.LayoutOrder = 1
 		err.Size = UDim2.fromScale(1, 0.09)
 		err.BackgroundTransparency = 1
-		err.Font = Enum.Font.Gotham
-		err.TextColor3 = Color3.fromRGB(200, 200, 210)
+		err.Font = Theme.font.body
+		err.TextColor3 = Theme.color.creamDim
 		err.TextScaled = true
 		err.Text = "No scores yet — finish a run!"
 		err.Parent = rows
@@ -238,8 +238,8 @@ local function refresh()
 		none.LayoutOrder = 1
 		none.Size = UDim2.fromScale(1, 0.09)
 		none.BackgroundTransparency = 1
-		none.Font = Enum.Font.Gotham
-		none.TextColor3 = Color3.fromRGB(200, 200, 210)
+		none.Font = Theme.font.body
+		none.TextColor3 = Theme.color.creamDim
 		none.TextScaled = true
 		none.Text = "No scores yet — finish a run!"
 		none.Parent = rows
@@ -263,7 +263,7 @@ local function refresh()
 			st.Thickness = 2
 			st.Parent = row
 		end
-		row.Font = Enum.Font.GothamMedium
+		row.Font = Theme.font.body
 		row.TextColor3 = tier.color
 		row.TextScaled = true
 		row.TextXAlignment = Enum.TextXAlignment.Left

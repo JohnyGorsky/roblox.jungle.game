@@ -205,9 +205,16 @@ function Components.button(opts: ButtonOptions): Button
 	corner(Theme.radius.control, btn)
 	stroke(Theme.color.woodDark, Theme.strokeWidth.control, btn)
 
-	-- keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px)
+	-- Keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px).
+	--
+	-- ⚠️ Job #095: 34 -> 58. 34 stopped buttons being ABSURD but left every shop row's action at 84x34,
+	-- including the Robux rows — a third under the 58 px thumb floor this game uses for the driver's
+	-- controls, on the controls that spend the player's money. Raised here, on the button's own
+	-- constraint, rather than layering a second UISizeConstraint at the call site: two constraints on one
+	-- object do NOT stack (only one applies), which is exactly why the first attempt at this fix silently
+	-- did nothing. Rows are Theme.rowHeight (66 px), so a 58 px button still sits inside one with margin.
 	local floor = Instance.new("UISizeConstraint")
-	floor.MinSize = Vector2.new(0, 34)
+	floor.MinSize = Vector2.new(0, 58)
 	floor.Parent = btn
 
 	-- slight scale-down on press (§6.2) without disturbing layout
@@ -418,7 +425,10 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	-- to exactly the holder's height rather than overflowing it.
 	local count = math.max(opts.count or 4, 1)
 	local gap = opts.gap or 0
-	tile.Size = UDim2.new(1, 0, 1 / count, -(gap * (count - 1)) / count)
+	-- The extra -1 is for ROUNDING, not arithmetic: AbsoluteSize resolves to whole pixels, so five tiles
+	-- of 77.6 px each render as 78 and the rail spilled 2 px past its holder. A pixel off each tile
+	-- absorbs that and still leaves the badge above the thumb floor.
+	tile.Size = UDim2.new(1, 0, 1 / count, -((gap * (count - 1)) / count) - 1)
 	tile.BackgroundTransparency = 1
 	tile.BorderSizePixel = 0
 	tile.LayoutOrder = opts.layoutOrder or 0
@@ -656,8 +666,12 @@ function Components.panel(opts: PanelOptions): Panel
 	-- Scale alone let this fall to ~24px on a phone-sized panel, which is not a thumb target. The floor
 	-- keeps it comfortably tappable while the scale keeps it visually quiet on a big screen.
 	-- (roblox-ui: no official minimum exists — this is our floor, to be confirmed on a real device.)
+	-- Job #095: 40 -> 58. The note above said "to be confirmed on a real device"; the mobile pass
+	-- measured it at exactly 40x40 on every panel, against the 58 px thumb floor this game already uses
+	-- for the driver's controls. This is the ONLY way out of a full-screen modal on a phone, so it is
+	-- the last control that should be hard to hit.
 	local closeFloor = Instance.new("UISizeConstraint")
-	closeFloor.MinSize = Vector2.new(40, 40)
+	closeFloor.MinSize = Vector2.new(58, 58)
 	closeFloor.Parent = closeBtn
 	closeBtn.Parent = bar
 
@@ -1065,16 +1079,35 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 	holder.BackgroundTransparency = 1
 	holder.BorderSizePixel = 0
 
+	-- ⚠️ Job #095 — height floor raised 240 -> 420, and that is a deliberate, expensive choice.
+	--
+	-- The badges measured 47x47 on a 1136x640 phone, under the 58 px thumb floor this game already
+	-- applies to the driver's controls. This rail is the ONLY way a mobile player reaches the shops and
+	-- progression screens without walking to a kiosk, so a mis-tap here is a player who cannot spend —
+	-- which outranks a cosmetic overlap.
+	--
+	-- The badge is square and sized from the TILE's height (0.78 of it), so the only lever that makes it
+	-- bigger is the rail being taller. Working backwards from 58 px with five entries and an 8 px gap:
+	-- tile >= 74.4 px -> holder >= 5 x (74.4 + 6.4) ~= 404 px. 420 leaves margin, and lands the badge at
+	-- ~60 px on the smallest phone we sweep.
+	--
+	-- The cost is real: 420 px is ~66% of a 640-tall phone's height. Accepted because the lobby is a menu
+	-- screen with no gameplay competing for that space (unlike the in-run HUD, where Job #094 refused the
+	-- equivalent trade). MaxSize rises with it so the proportion holds on a tablet instead of the rail
+	-- hitting its cap and shrinking the badges again.
 	local sizeClamp = Instance.new("UISizeConstraint")
-	sizeClamp.MinSize = Vector2.new(64, 240)
-	sizeClamp.MaxSize = Vector2.new(110, 420)
+	sizeClamp.MinSize = Vector2.new(64, 420)
+	sizeClamp.MaxSize = Vector2.new(110, 560)
 	sizeClamp.Parent = holder
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.Padding = UDim.new(0, Theme.space.md)
+	-- sm rather than md: every pixel of gap is a pixel the badges don't get, and with five entries the
+	-- 4 px saved per gap is worth more on the tap target than in the whitespace.
+	local GAP = Theme.space.sm
+	layout.Padding = UDim.new(0, GAP)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = holder
 
@@ -1085,6 +1118,10 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 			layoutOrder = index,
 			parent = holder,
 			onActivated = entry.onActivated,
+			-- the tile divides by the REAL count, so adding a sixth entry resizes the rail instead of
+			-- overflowing it (see IconButtonOptions.count)
+			count = #entries,
+			gap = GAP,
 		})
 	end
 

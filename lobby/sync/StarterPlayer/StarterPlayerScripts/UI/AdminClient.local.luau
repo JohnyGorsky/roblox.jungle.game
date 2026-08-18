@@ -41,7 +41,7 @@ openHolder.BackgroundTransparency = 1
 openHolder.BorderSizePixel = 0
 
 local openClamp = Instance.new("UISizeConstraint")
-openClamp.MinSize = Vector2.new(90, 32)
+openClamp.MinSize = Vector2.new(90, 58) -- Job #095: 32 px was under the thumb floor (dev-only, but free)
 openClamp.MaxSize = Vector2.new(170, 48)
 openClamp.Parent = openHolder
 
