@@ -14,6 +14,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -416,6 +417,8 @@ export type IconButtonOptions = {
 	count: number?,
 	-- Vertical gap between tiles, in px, so the tile can subtract its share and the rail FITS.
 	gap: number?,
+	-- false = icon only, no caption (Job #099: touch drops labels to reclaim canvas height).
+	showLabel: boolean?,
 }
 
 function Components.iconButton(opts: IconButtonOptions): Frame
@@ -469,8 +472,21 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	local scale = Instance.new("UIScale")
 	scale.Parent = btn
 
+	-- Job #099: on touch the caption is dropped and the badge takes the whole tile. Job #095 argued to
+	-- KEEP labels (a playtester once failed to read an unlabelled icon) — that argument was made before
+	-- measuring what the rail costs: with labels and thumb-sized badges it takes 70-78% of a real
+	-- phone's usable canvas. A rail that covers three-quarters of the lobby is a worse comprehension
+	-- problem than an unlabelled icon.
+	local showLabel = opts.showLabel ~= false
+	if showLabel then
+		btn.Size = UDim2.fromScale(1, 0.78)
+	else
+		btn.Size = UDim2.fromScale(1, 1)
+	end
+
 	local caption = Instance.new("TextLabel")
 	caption.Name = "Caption"
+	caption.Visible = showLabel
 	caption.AnchorPoint = Vector2.new(0.5, 1)
 	caption.Position = UDim2.fromScale(0.5, 1)
 	caption.Size = UDim2.fromScale(1, 0.22)
@@ -1071,45 +1087,69 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 	-- A narrow rail of circular icon badges with a caption under each, rather than four identical
 	-- full-width slabs: the icon carries the meaning, the label confirms it, and it takes a fraction of
 	-- the screen — which matters most on a phone, where a wide stack eats the play area.
+	local touch = UserInputService.TouchEnabled
+
 	local holder = Instance.new("Frame")
 	holder.Name = "Bar"
-	holder.AnchorPoint = Vector2.new(0, 1)
-	holder.Position = UDim2.fromScale(0.014, 0.975)
+	-- ⚠️ Job #099 — on TOUCH this is not a bottom-left rail at all, it is a centred overlay behind one
+	-- button, and the reason is measured rather than aesthetic: Roblox's own movement thumbstick reserves
+	-- x -100..266, y 105..416 on a 666x374 phone canvas. The whole bottom-left quadrant belongs to
+	-- walking. A persistent rail there put a 74x74 joystick directly on top of two shop buttons.
+	--
+	-- Nor is there anywhere else to put five persistent badges: the top-left is the identity panel, the
+	-- top-right the currency chip, the bottom-right the jump button and the admin launcher. So on a phone
+	-- the five collapse behind ONE button and open over a scrim — which also parks the joystick behind an
+	-- input blocker while the menu is up, instead of competing with it.
+	if touch then
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = UDim2.fromScale(0.5, 0.5)
+	else
+		holder.AnchorPoint = Vector2.new(0, 1)
+		holder.Position = UDim2.fromScale(0.014, 0.975)
+	end
 	holder.Size = UDim2.fromScale(0.062, 0.46)
 	holder.BackgroundTransparency = 1
 	holder.BorderSizePixel = 0
+	holder.Visible = not touch -- on touch it starts closed, behind the menu button
 
-	-- ⚠️ Job #095 — height floor raised 240 -> 420, and that is a deliberate, expensive choice.
+	-- ⚠️ Job #099 — THE HARD PIXEL FLOOR IS GONE, and that is the whole point.
 	--
-	-- The badges measured 47x47 on a 1136x640 phone, under the 58 px thumb floor this game already
-	-- applies to the driver's controls. This rail is the ONLY way a mobile player reaches the shops and
-	-- progression screens without walking to a kiosk, so a mis-tap here is a player who cannot spend —
-	-- which outranks a cosmetic overlap.
+	-- Job #095 raised this to `MinSize = (64, 420)` so five thumb-sized badges would fit. That was tuned
+	-- against desktop-sized viewports and it is fragile in a way no aspect-ratio test reveals: a PIXEL
+	-- floor does not scale with device DPI. Roblox's GUI coordinate space on a high-DPI phone can be far
+	-- smaller than the screenshot resolution suggests, and on a device reporting ~1200x540 a 420 px floor
+	-- is ~87% of the canvas — the rail then runs up under the Roblox topbar, which is exactly what the
+	-- reported screenshot showed.
 	--
-	-- The badge is square and sized from the TILE's height (0.78 of it), so the only lever that makes it
-	-- bigger is the rail being taller. Working backwards from 58 px with five entries and an 8 px gap:
-	-- tile >= 74.4 px -> holder >= 5 x (74.4 + 6.4) ~= 404 px. 420 leaves margin, and lands the badge at
-	-- ~60 px on the smallest phone we sweep.
-	--
-	-- The cost is real: 420 px is ~66% of a 640-tall phone's height. Accepted because the lobby is a menu
-	-- screen with no gameplay competing for that space (unlike the in-run HUD, where Job #094 refused the
-	-- equivalent trade). MaxSize rises with it so the proportion holds on a tablet instead of the rail
-	-- hitting its cap and shrinking the badges again.
+	-- So the rail is now sized FROM THE CANVAS instead of toward a fixed number: it takes at most
+	-- MAX_FRACTION of the available height, and the badge inside is whatever that allows, preferring the
+	-- 58 px thumb target and never going below the 44 px platform minimum. It cannot swallow the screen
+	-- on a small device and it cannot shrink to nothing on a large one.
 	local sizeClamp = Instance.new("UISizeConstraint")
-	sizeClamp.MinSize = Vector2.new(64, 420)
-	sizeClamp.MaxSize = Vector2.new(110, 560)
+	sizeClamp.MinSize = Vector2.new(64, 0)
+	-- The 110px width cap keeps the DESKTOP rail a narrow strip. On touch this is no longer a rail but a
+	-- centred multi-column overlay, and that same cap silently strangled it — a 3-wide grid came back
+	-- 110px wide with the columns collapsed. Caught by measuring the open panel rather than trusting the
+	-- layout maths.
+	sizeClamp.MaxSize = if touch then Vector2.new(10000, 10000) else Vector2.new(110, 560)
 	sizeClamp.Parent = holder
 
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	-- sm rather than md: every pixel of gap is a pixel the badges don't get, and with five entries the
-	-- 4 px saved per gap is worth more on the tap target than in the whitespace.
+	-- ⚠️ GRID, not a vertical list (Job #099). A single column of five thumb-sized badges CANNOT fit a
+	-- phone: measured in the device emulator, the usable canvas is 666x316 and one column needs 252 px —
+	-- 80% of it — and even then the badge fell to 43 px, under the 44 px platform minimum. The rail needs
+	-- a different SHAPE on a short screen, not a smaller one, so it wraps into columns instead.
+	-- A phone in landscape has width to spare; height is the scarce axis. This spends the one we have.
 	local GAP = Theme.space.sm
-	layout.Padding = UDim.new(0, GAP)
+	local layout = Instance.new("UIGridLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical -- fill down a column, then start the next
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	layout.CellPadding = UDim2.fromOffset(GAP, GAP)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = holder
+
+	-- Touch drops the captions (Job #099) — see the note in iconButton for why that reverses #095.
+	local showLabel = not UserInputService.TouchEnabled
 
 	for index, entry in ipairs(entries) do
 		Components.iconButton({
@@ -1118,14 +1158,119 @@ function Components.iconBar(parent: Instance, entries: { BarEntry }): ScreenGui
 			layoutOrder = index,
 			parent = holder,
 			onActivated = entry.onActivated,
-			-- the tile divides by the REAL count, so adding a sixth entry resizes the rail instead of
-			-- overflowing it (see IconButtonOptions.count)
+			-- UIGridLayout sets each child's size from CellSize, so `count`/`gap` no longer drive the
+			-- tile — kept for the non-grid callers the component still supports.
 			count = #entries,
 			gap = GAP,
+			showLabel = showLabel,
 		})
 	end
 
 	holder.Parent = gui
+
+	-- ── size the rail FROM THE CANVAS, and WRAP IT into columns when height runs out (Job #099) ──────
+	-- Driven off the ScreenGui's own AbsoluteSize, so it is correct on any device without knowing
+	-- anything about DPI. Measured reality that forced this: the emulator reports a 666x316 usable
+	-- canvas, where one column of five 58 px badges is 80% of the screen.
+	local n = #entries
+	local BADGE_PREFERRED, BADGE_MIN = 58, 44
+	local MAX_FRACTION = 0.62
+	local LABEL_SHARE = if showLabel then 0.22 else 0
+
+	local function resize()
+		local canvas = gui.AbsoluteSize
+		if canvas.Y <= 0 then
+			return
+		end
+		local maxH = canvas.Y * MAX_FRACTION
+
+		-- Fewest columns that still lets the badge reach its preferred size. One column stays the answer
+		-- on any screen with the height for it, so desktop and tablet are unchanged. On touch the panel is
+		-- centred over a scrim with the whole screen to use, so it starts wider and stays compact.
+		local cols, cell = 1, 0
+		local minCols = if touch then 3 else 1
+		for c = minCols, 3 do
+			local rows = math.ceil(n / c)
+			local h = (maxH - (rows - 1) * GAP) / rows
+			cols, cell = c, h
+			if h * (1 - LABEL_SHARE) >= BADGE_PREFERRED then
+				break
+			end
+		end
+
+		-- Never below the platform minimum: past that point a taller rail beats an untappable one.
+		local minCell = BADGE_MIN / (1 - LABEL_SHARE)
+		if cell < minCell then
+			cell = minCell
+		end
+
+		local rows = math.ceil(n / cols)
+		layout.CellSize = UDim2.fromOffset(cell, cell)
+		layout.FillDirectionMaxCells = rows
+		holder.Size = UDim2.fromOffset(cols * cell + (cols - 1) * GAP, rows * cell + (rows - 1) * GAP)
+	end
+
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	resize()
+
+	-- ── touch: one button, a scrim, and the five behind it (Job #099) ────────────────────────────────
+	if touch then
+		-- Scrim first so it sits UNDER the badges. It is what makes the overlay safe: while the menu is
+		-- open it eats the taps that would otherwise reach the movement thumbstick underneath.
+		local scrim = Instance.new("TextButton")
+		scrim.Name = "Scrim"
+		scrim.Size = UDim2.fromScale(1, 1)
+		scrim.BackgroundColor3 = Theme.color.scrim
+		scrim.BackgroundTransparency = 0.35
+		scrim.BorderSizePixel = 0
+		scrim.AutoButtonColor = false
+		scrim.Text = ""
+		scrim.ZIndex = 0
+		scrim.Visible = false
+		scrim.Parent = gui
+		holder.ZIndex = 1
+
+		local function setOpen(open: boolean)
+			scrim.Visible = open
+			holder.Visible = open
+			UISound.play(if open then "open" else "close")
+		end
+
+		-- Top-right, under the currency chip: the one corner a phone leaves free. The bottom-left is the
+		-- thumbstick, the bottom-right the jump button, the top-left the identity panel.
+		local toggle = Components.button({
+			text = "",
+			variant = "primary",
+			icon = "shop",
+			size = UDim2.fromOffset(58, 58),
+			parent = gui,
+			onActivated = function()
+				setOpen(not holder.Visible)
+			end,
+		})
+		toggle.instance.Name = "MenuToggle"
+		toggle.instance.AnchorPoint = Vector2.new(1, 0)
+		toggle.instance.Position = UDim2.new(1, -10, 0, 66)
+		toggle.instance.ZIndex = 2
+
+		scrim.Activated:Connect(function()
+			setOpen(false)
+		end)
+
+		-- Picking a destination closes the menu on the way through, so the player is never left with the
+		-- overlay sitting on top of the panel they just opened.
+		for _, tile in ipairs(holder:GetChildren()) do
+			if tile:IsA("Frame") then
+				local btn = tile:FindFirstChild("Button")
+				if btn and btn:IsA("GuiButton") then
+					btn.Activated:Connect(function()
+						setOpen(false)
+					end)
+				end
+			end
+		end
+	end
+
 	return gui
 end
 

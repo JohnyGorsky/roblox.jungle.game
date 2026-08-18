@@ -31,7 +31,16 @@ panel.Position = UDim2.fromScale(0.5, 0.02)
 -- This panel yields rather than the top bar because it is a transient instruction with no tap targets,
 -- whereas the bar carries the avatar, name, tier and the `+` button. Same test Job #094 used: never
 -- shrink the side that holds the tap targets.
-panel.Size = UDim2.fromScale(0.32, 0.085)
+--
+-- ⚠️ Job #099 — HEIGHT raised 0.085 -> 0.115, because #095's narrowing above had a consequence it did
+-- not check. `applyText` sets TextScaled with a 12 px MinTextSize FLOOR, so text cannot shrink its way
+-- out of a box that is too small — it wraps, and anything past the box is simply cut. Narrowing the
+-- panel from 0.44 to 0.32 made the title wrap to two lines, and 0.085 only had room for one. Reported
+-- from a real phone as "STEP ON A LAUNCH PAD TO" / "First on a pad leads — hold Start to launch the",
+-- both severed mid-sentence.
+--
+-- #095 checked that the narrowed panel no longer COLLIDED. It never checked that the text still FIT.
+panel.Size = UDim2.fromScale(0.32, 0.115)
 panel.BackgroundColor3 = Theme.color.panel
 panel.BackgroundTransparency = 0.12
 panel.BorderSizePixel = 0
@@ -40,8 +49,11 @@ Components.corner(Theme.radius.panel, panel)
 Components.stroke(Theme.color.wood, Theme.strokeWidth.control, panel)
 
 local sizeClamp = Instance.new("UISizeConstraint")
-sizeClamp.MinSize = Vector2.new(260, 54)
-sizeClamp.MaxSize = Vector2.new(760, 130)
+-- Job #099: the height floor rises with it. 54 px could not hold two wrapped lines at the 12 px text
+-- floor; 96 px can. This is the clamp that actually bites on a phone, where the scale value resolves
+-- smaller than the floor.
+sizeClamp.MinSize = Vector2.new(260, 96)
+sizeClamp.MaxSize = Vector2.new(760, 150)
 sizeClamp.Parent = panel
 
 local icon = Components.icon({ name = "party", size = UDim2.fromScale(0.09, 0.62), parent = panel })

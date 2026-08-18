@@ -114,6 +114,13 @@ local dropRemote = ReplicatedStorage:WaitForChild("DropCarried") :: RemoteEvent
 local dropBtn = Instance.new("TextButton")
 dropBtn.Name = "DropButton"
 dropBtn.Size = UDim2.fromScale(1, 1)
+-- ⚠️ Job #099 / finding #0009 — this fills the HandsFull card, which is 0.036 of screen height: about
+-- 23 px on a phone, well under the 58 px thumb floor. It is the ONLY way to put cargo down, and a
+-- carrying player cannot shoot or swing an axe, so failing to hit it is close to being stuck. The card
+-- itself stays visually small; the BUTTON grows past it, which is invisible and entirely the point.
+local dropFloor = Instance.new("UISizeConstraint")
+dropFloor.MinSize = Vector2.new(0, 58)
+dropFloor.Parent = dropBtn
 dropBtn.BackgroundTransparency = 1
 dropBtn.Text = ""
 dropBtn.AutoButtonColor = false

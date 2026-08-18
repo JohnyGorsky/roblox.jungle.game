@@ -41,8 +41,12 @@ local tray = RunComponents.tray({
 	-- Sits under the currency chips (which end around y = 0.078 at their max height).
 	position = UDim2.fromScale(0.985, 0.095),
 	anchor = Vector2.new(1, 0),
-	collapsedSize = UDim2.fromScale(0.17, 0.045),
-	expandedSize = UDim2.fromScale(0.24, 0.045 + ROW_H * math.max(count, 1) * 0.42),
+	-- ⚠️ Job #099 / finding #0009 — 0.045 of screen height is ~29 px on a phone, and this whole card IS
+	-- the tap target that expands the objective list (RunComponents.tray sizes its Header to fill it).
+	-- Raised to 0.075 so it clears the 58 px thumb floor on a phone while staying a quiet strip on a
+	-- monitor, where 0.075 is still only ~80 px.
+	collapsedSize = UDim2.fromScale(0.17, 0.075),
+	expandedSize = UDim2.fromScale(0.24, 0.075 + ROW_H * math.max(count, 1) * 0.42),
 	parent = gui,
 })
 
