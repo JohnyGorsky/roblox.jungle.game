@@ -27,6 +27,7 @@ local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChi
 -- Job #077: the camp's CONTENTS (which model plays which role, where it sits, how the ground is painted,
 -- what the VFX/light budget is) live in CampDefs. Nothing in this file decides dressing.
 local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampDefs"))
+local CampLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampLayout"))
 local Campfire = require(ServerScriptService:WaitForChild("World"):WaitForChild("Campfire"))
 local CampAmbience = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampAmbience"))
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
@@ -148,7 +149,22 @@ end
 -- make and gives the night set-piece its own distinct shape.
 -- `wolves` (Job #086) = how many of this camp's `target` guards are Wolves rather than Bandits. They
 -- occupy the first slots, so the day-respawn loop can rebuild the same mix from the count alone.
-type Garrison = { campPos: Vector3, parent: Instance, target: number, wolves: number?, strength: number?, timer: number }
+-- Job #100 adds the fields the re-garrison needs: where reinforcements come IN from (`spawns`), where
+-- they walk TO (`posts`), the camp's own re-occupation interval in GAME hours, and the ClockTime reading
+-- at which it first fell short — which is what "cleared" means for the hold-off.
+type Garrison = {
+	campPos: Vector3,
+	parent: Instance,
+	target: number,
+	wolves: number?,
+	strength: number?,
+	timer: number,
+	approach: Vector3?,
+	spawns: { CampDefs.Slot }?,
+	posts: { CampDefs.Slot }?,
+	regarrisonHours: number?,
+	clearedAtClock: number?,
+}
 local garrisons: { Garrison } = {}
 
 local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
@@ -517,12 +533,15 @@ end
 
 -- Pass 3: worn earth where people actually walk. This is environmental storytelling, not texture
 -- variety — bare ground under the tents and around the fire is the evidence that someone lives here.
-local function paintTrampled(campPos: Vector3, approach: Vector3)
+-- ⚠️ Job #100: paints under the buildings this camp ACTUALLY has, not under the two fixed slots the old
+-- layout always used. Worn earth is evidence someone lives here; painting it where no hut stands (and
+-- leaving bare grass under the ones that do) is worse than not painting at all.
+local function paintTrampled(campPos: Vector3, approach: Vector3, layout: CampLayout.Layout)
 	local G = CampDefs.GROUND
-	local fire = CampDefs.slotToWorld(campPos, approach, CampDefs.LAYOUT.fire)
+	local fire = CampDefs.slotToWorld(campPos, approach, layout.fire)
 	paintDisc(fire.X, fire.Z, G.trampled.fireRadius, G.trampled.material)
-	for _, slot in ipairs({ CampDefs.LAYOUT.hut, CampDefs.LAYOUT.tent }) do
-		local p = CampDefs.slotToWorld(campPos, approach, slot)
+	for _, b in ipairs(layout.buildings) do
+		local p = CampDefs.slotToWorld(campPos, approach, b.slot)
 		paintDisc(p.X, p.Z, G.trampled.hutRadius, G.trampled.material)
 	end
 end
@@ -932,6 +951,9 @@ local function spawnGuard(
 			alertCamp(st.camp)
 		end
 	end)
+
+	-- Job #100: returned so a reinforcement can be told which post to walk to after spawning outside.
+	return guard
 end
 
 -- The `LootPrompt` wiring, identical for every kind of crate. Name, hold duration, activation distance
@@ -974,7 +996,21 @@ local function buildCampAt(
 	rng: Random,
 	strength: number? -- per-village HP/bite multiplier; nil = 1 (village 1)
 )
-	local L = CampDefs.LAYOUT
+	-- ⚠️ Job #100 — the layout is GENERATED now, not read from one fixed table.
+	--
+	-- `CampDefs.LAYOUT` was a single slot list shared by every camp in the game, which is exactly why
+	-- camps read the same twice in a row. `CampLayout.generate` produces a per-camp arrangement from the
+	-- run seed while keeping the three rules that make a camp legible: fire at centre, everything faces
+	-- the approach, loot behind cover. See that module's header.
+	--
+	-- Seeded from the camp's own position so it is deterministic and reproducible: the same run puts the
+	-- same camp in the same shape, and a reported layout bug can be regenerated exactly.
+	local L = CampLayout.forCamp(campPos, {
+		seed = math.floor(campPos.X * 31 + campPos.Z * 17),
+		kind = kind,
+		resourceCount = #resources,
+		deep = kind == CampDefs.KIND.deep,
+	})
 	local function at(slot: CampDefs.Slot): Vector3
 		return CampDefs.slotToWorld(campPos, approach, slot)
 	end
@@ -993,7 +1029,7 @@ local function buildCampAt(
 	Terrain:FillBlock(CFrame.new(campPos.X, CLEAR_Y + 32, campPos.Z), Vector3.new(FOOT, 64, FOOT), Enum.Material.Air)
 
 	-- ground next: props raycast the terrain to seat themselves, so paint before you place.
-	paintTrampled(campPos, approach)
+	paintTrampled(campPos, approach, L)
 	settleTerrain()
 
 	-- The fire is the centre. Placed first; everything else is positioned relative to it.
@@ -1006,18 +1042,29 @@ local function buildCampAt(
 		rng = rng,
 	})
 
-	-- Living quarters at the back, facing the fire.
-	local hutAt = at(L.hut)
-	prop(kind.hut, hutAt.X, hutAt.Z, parent, { collide = true, faceTo = firePos })
-	local tentAt = at(L.tent)
-	prop(CampDefs.MODEL.tent, tentAt.X, tentAt.Z, parent, { collide = true, faceTo = firePos })
+	-- Living quarters at the back, facing the fire — now 3–5 of them in generated positions rather than
+	-- exactly one hut and one tent at fixed offsets. `kind.hut` still wins for the first building so the
+	-- near/deep camps keep their distinct silhouettes.
+	local hutAt = campPos
+	for i, b in ipairs(L.buildings) do
+		local p = at(b.slot)
+		local model = if i == 1 then kind.hut else b.model
+		prop(model, p.X, p.Z, parent, { collide = true, faceTo = firePos })
+		if i == 1 then
+			hutAt = p -- CampAmbience dresses around the first building
+		end
+	end
 
 	-- The sandbag line, across the approach. This is the piece of dressing that does real gameplay work:
 	-- cover between the player and the crates is what makes the guards matter.
+	-- Job #100: a RING with 2–3 gaps, not a 3-piece line across the front. Which opening you come in
+	-- through is now a choice — front door into the posts, or the long way round to the loot. Each
+	-- segment is a 1-part SandbagWall, so the ring is cheap; the cost of a bigger camp is in buildings.
 	if kind.sandbags then
-		for _, slot in ipairs(L.sandbags) do
+		for _, slot in ipairs(L.perimeter) do
 			local p = at(slot)
-			prop(CampDefs.MODEL.sandbag, p.X, p.Z, parent, { collide = true, faceTo = approachFrom })
+			-- face each segment outward, away from the fire: a wall you shelter behind, not a fence
+			prop(CampDefs.MODEL.sandbag, p.X, p.Z, parent, { collide = true, faceTo = firePos })
 		end
 	end
 
@@ -1044,23 +1091,23 @@ local function buildCampAt(
 	-- A landmark you can see from the water, marking the stops that open a jungle basin.
 	-- ⚠️ 128 parts, and shadows explicitly OFF: 128 shadow casters at every landing would be the most
 	-- expensive single object in the scene, for an effect nobody looks at.
-	if kind.tower then
-		local t = at(L.tower)
+	-- `L.tower` is optional now (the generator only produces it when kind.tower is set), so the nil
+	-- check is on the slot itself rather than on the flag.
+	local towerSlot = L.tower
+	if kind.tower and towerSlot then
+		local t = at(towerSlot)
 		prop(CampDefs.MODEL.tower, t.X, t.Z, parent, { collide = true, shadow = false, faceTo = firePos })
 	end
 
 	-- Loose dressing so the camp isn't only functional objects. Non-colliding: a firefight in a camp
 	-- must not become a maze of invisible walls.
-	for i = 1, kind.extraDressing do
-		local slot = L.dressing[i]
-		if slot then
-			local p = at(slot)
-			prop(CampDefs.MODEL.barrel, p.X, p.Z, parent, {
-				collide = false,
-				yaw = rng:NextNumber(0, math.pi * 2),
-				scale = rng:NextNumber(0.85, 1.15),
-			})
-		end
+	for _, d in ipairs(L.dressing) do
+		local p = at(d.slot)
+		prop(d.model, p.X, p.Z, parent, {
+			collide = false,
+			yaw = d.yaw or rng:NextNumber(0, math.pi * 2),
+			scale = d.scale or rng:NextNumber(0.85, 1.15),
+		})
 	end
 
 	CampAmbience.dress({
@@ -1080,8 +1127,15 @@ local function buildCampAt(
 	-- this only decides what each of those guards is, so Job #058's crew-size tuning still holds.
 	local wolves = if kind == CampDefs.KIND.deep then math.max(1, math.floor(guards / 3)) else 0
 	for i = 1, guards do
-		-- wolves take the first slots, which is also what the respawn loop assumes when it re-mans a gap
-		spawnGuard(campPos + Vector3.new((i - 1) * 7, 0, 8), parent, strength, if i <= wolves then "Wolf" else "Bandit", campPos)
+		-- ⚠️ Job #100 — the GARRISON now stands at generated posts around the camp instead of in a row
+		-- 8 studs in front of the player. It still spawns at build time, so it is visible on approach and
+		-- never materialises in someone's face; only REINFORCEMENTS come from outside (see the loop).
+		--
+		-- Guard COUNT and the Wolf/Bandit mix are untouched — Job #058's crew-size tuning is measured
+		-- against those, and this job deliberately moves only WHERE they stand and WHEN they arrive.
+		local post = L.posts[((i - 1) % math.max(#L.posts, 1)) + 1]
+		local at3 = if post then at(post) else campPos + Vector3.new((i - 1) * 7, 0, 8)
+		spawnGuard(at3, parent, strength, if i <= wolves then "Wolf" else "Bandit", campPos)
 	end
 
 	-- Job #084: remember this camp's garrison so it can be re-manned by day (see the respawn loop).
@@ -1092,6 +1146,15 @@ local function buildCampAt(
 		wolves = wolves, -- Job #086: so a re-manned garrison keeps its mix instead of drifting all-Bandit
 		strength = strength,
 		timer = 0,
+		-- Job #100: where reinforcements walk IN from, and where they walk TO.
+		approach = approach,
+		spawns = L.spawns,
+		posts = L.posts,
+		-- The re-garrison hold-off (in-game hours). Per-camp, not one global constant, so it can become a
+		-- difficulty lever alongside crew-size scaling. Deep camps take longer to re-occupy than the
+		-- near outpost, which is closer to the raiders' own line.
+		regarrisonHours = if kind == CampDefs.KIND.deep then 9 else 7,
+		clearedAtClock = nil :: number?,
 	})
 end
 
@@ -1534,16 +1597,40 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local postPos = Vector3.new(bankForSlice(postZ - 30, postZ + 30, dock.side) + dock.side * 90, CLEAR_Y, postZ)
 	buildTradingPost(postPos, model, shorePoint) -- faces back toward the water, so you see its front on landing
 
+	-- ⚠️ Job #100 — these read the camp's GENERATED layout, not `CampDefs.LAYOUT`.
+	-- The nugget and the two kind-crates are placed out here rather than inside `buildCampAt`, and they
+	-- used to share the same fixed slot table it did. With a per-camp layout they must fetch the SAME one
+	-- (`CampLayout.forCamp` is memoised on camp position) or the nugget lands inside a hut that only
+	-- exists in this camp's arrangement.
+	local nearLayout = CampLayout.forCamp(nearPos, {
+		seed = math.floor(nearPos.X * 31 + nearPos.Z * 17),
+		kind = CampDefs.KIND.near, resourceCount = 2, deep = false,
+	})
+	local deepLayout = CampLayout.forCamp(deepPos, {
+		seed = math.floor(deepPos.X * 31 + deepPos.Z * 17),
+		kind = CampDefs.KIND.deep, resourceCount = 2, deep = true,
+	})
+
 	-- rare gold nuggets (run-capped): a chance at each camp
-	trySpawnNugget(CampDefs.slotToWorld(nearPos, nearApproach, CampDefs.LAYOUT.nugget), model, rng)
-	trySpawnNugget(CampDefs.slotToWorld(deepPos, deepApproach, CampDefs.LAYOUT.nugget), model, rng)
+	local nearNug, deepNug = nearLayout.nugget, deepLayout.nugget
+	if nearNug then
+		trySpawnNugget(CampDefs.slotToWorld(nearPos, nearApproach, nearNug), model, rng)
+	end
+	if deepNug then
+		trySpawnNugget(CampDefs.slotToWorld(deepPos, deepApproach, deepNug), model, rng)
+	end
 
 	-- loadout loot at the deep camp (Job 015): a scarce WEAPON crate + a handheld-ammo crate.
 	-- Weapon crates are the top reward — alternate pistol/shotgun by landing; spawn rate is tunable.
 	local weaponId = if index % 2 == 0 then "Shotgun" else "Pistol"
 	local deepFrom = deepPos - deepApproach * 80
-	makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, CampDefs.LAYOUT.kindCrates[1]), "Weapon", weaponId, "Take " .. weaponId, model, deepFrom)
-	makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, CampDefs.LAYOUT.kindCrates[2]), "Ammo", weaponId, weaponId .. " Ammo", model, deepFrom)
+	local kc = deepLayout.kindCrates
+	if kc[1] then
+		makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[1]), "Weapon", weaponId, "Take " .. weaponId, model, deepFrom)
+	end
+	if kc[2] then
+		makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[2]), "Ammo", weaponId, weaponId .. " Ammo", model, deepFrom)
+	end
 	model.Parent = campsRoot
 	siteModels[index] = model -- track for culling (Job 060)
 end
@@ -1709,9 +1796,16 @@ end
 task.spawn(function()
 	while true do
 		task.wait(GUARD_RESPAWN_TICK)
-		if (Workspace:GetAttribute("Phase") :: string?) == "night" then
-			continue -- night belongs to the river; a cleared camp stays cleared until dawn
-		end
+		-- ⚠️ Job #100 — THE NIGHT SKIP IS GONE, deliberately.
+		--
+		-- This used to `continue` at night: "night belongs to the river; a cleared camp stays cleared
+		-- until dawn". The user's call reverses it — *"after 8h enemies keep coming again, so if I stay
+		-- overnight I have to fight again"*. Holding ground in a camp you cleared is now a decision with
+		-- a cost, which is the entire point.
+		--
+		-- Night needs no extra rule to be harder: `DayNightServer` compresses 11 night hours into 180 real
+		-- seconds against 13 daylight hours over 480, so a camp re-garrisons more than twice as fast in
+		-- real time after dark, for free.
 		for i = #garrisons, 1, -1 do
 			local g = garrisons[i]
 			-- the camp's landing site was culled behind the boat: drop the record with it
@@ -1730,10 +1824,31 @@ task.spawn(function()
 					end
 				end
 			end
+			local clock = (Workspace:GetAttribute("ClockTime") :: number?) or 0
 			if alive >= g.target then
 				g.timer = 0 -- at full strength: no credit accrues
+				g.clearedAtClock = nil -- and it is not "cleared" any more either
 				continue
 			end
+
+			-- ⚠️ Job #100 — a CLEARED camp stays cleared for a while, then re-garrisons.
+			--
+			-- Before, a camp began refilling the moment it dropped below strength, so "cleared" only ever
+			-- meant "cleared for 45 seconds". Now the first shortfall stamps a clock reading, and nothing
+			-- comes back until `regarrisonHours` of GAME time have passed. Measured in ClockTime hours on
+			-- purpose: the interval is a fiction about the world, not about the player's wall clock, and
+			-- day and night run at different real rates.
+			if g.clearedAtClock == nil then
+				g.clearedAtClock = clock
+			end
+			local since = clock - (g.clearedAtClock :: number)
+			if since < 0 then
+				since += 24 -- the clock wrapped past midnight
+			end
+			if since < (g.regarrisonHours or 8) then
+				continue -- still theirs to hold
+			end
+
 			g.timer += GUARD_RESPAWN_TICK
 			if g.timer >= GUARD_RESPAWN_EVERY then
 				g.timer = 0
@@ -1742,7 +1857,31 @@ task.spawn(function()
 				-- Job #086: keep the camp's Wolf/Bandit mix on re-man. Wolves hold the first slots, so the
 				-- replacement filling slot `alive + 1` is a Wolf exactly while that slot is within the count.
 				local wolfSlots = (g.wolves :: number?) or 0
-				spawnGuard(g.campPos + Vector3.new(alive * 7, 0, 8), g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit", g.campPos)
+				-- ⚠️ Job #100 — reinforcements arrive from OUTSIDE the perimeter and walk in.
+				--
+				-- This is the reported bug: they used to appear at `campPos + (alive*7, 0, 8)`, i.e. a few
+				-- studs in front of a crew standing in the camp. They now spawn at one of the layout's
+				-- entry points beyond the sandbag ring and path to a post, so the player sees them coming.
+				--
+				-- Still ONE at a time, as it always was — which is also the user's "only 1 or 2 can come,
+				-- no more, then after some time others". A trickle keeps a defenceless hauler's situation
+				-- survivable (carrying blocks both gun and axe) and keeps the R15 rig count flat.
+				-- `approach` is optional on the record (older garrisons predate Job #100), so both it and
+				-- the spawn list are checked before use; without them this degrades to the old behaviour
+				-- rather than erroring.
+				local spawns = g.spawns
+				local ga = g.approach
+				local entry = if spawns and ga and #spawns > 0
+					then CampDefs.slotToWorld(g.campPos, ga, spawns[((alive % #spawns) + 1)])
+					else g.campPos + Vector3.new(alive * 7, 0, 8)
+				local guard = spawnGuard(entry, g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit", g.campPos)
+				-- give it a post to walk to; the AI's normal chase logic takes over the moment it sees anyone
+				local posts = g.posts
+				if guard and posts and ga and #posts > 0 then
+					local post = CampDefs.slotToWorld(g.campPos, ga, posts[((alive % #posts) + 1)])
+					guard:SetAttribute("PostX", post.X)
+					guard:SetAttribute("PostZ", post.Z)
+				end
 			end
 		end
 	end
