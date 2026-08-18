@@ -20,6 +20,17 @@ export type EnemyDef = {
 
 local EnemyDefs = {}
 
+-- ⚠️ GLOBAL DAMAGE SCALE — applied wherever a bite is dealt, not baked into the per-creature numbers.
+--
+-- Set to 0.8 (a flat 20% cut) on the user's call after camp fights proved unwinnable: *"i cant beat
+-- them"*. Kept as one multiplier rather than editing six `biteDamage` values so the per-creature BALANCE
+-- (a Croc bites for 20 where a Piranha bites for 4) is preserved exactly, and so this is one number to
+-- turn if 20% proves to be the wrong amount.
+--
+-- Consumed by `EnemyServer` (river threats) and `ExcursionServer` (camp guards). Anything new that deals
+-- bite damage must multiply by this too.
+EnemyDefs.DAMAGE_SCALE = 0.8
+
 EnemyDefs.Defs = {
 	-- sea: swims the open channel, chases the boat; deadliest at night
 	Crocodile = {

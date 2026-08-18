@@ -44,6 +44,9 @@ export type Layout = {
 	loot: { Slot }, -- index 1 is the hero crate; the rest are barrels
 	kindCrates: { Slot },
 	dressing: { Placed },
+	-- Job #100 follow-up: rocks, logs and undergrowth INSIDE the camp. Reported as "it feels empty,
+	-- just houses, some trees and that's it".
+	ambient: { Placed },
 	posts: { Slot }, -- where the garrison STANDS, inside the camp
 	spawns: { Slot }, -- where reinforcements ENTER, OUTSIDE the perimeter
 	tower: Slot?,
@@ -58,6 +61,24 @@ export type Layout = {
 --
 -- ⚠️ So RADIUS_MAX is bounded by that clear, not by taste. Growing the camp past it means growing FOOT
 -- too, which means a bigger terrain fill per camp — measure before reaching for it.
+-- ⚠️ CLEARANCE — how far anything must stay from a building's CENTRE so it is not inside it.
+--
+-- This is the bug that shipped in the first version: loot was placed 9–16 studs "behind" its host
+-- building with a 9-stud separation check, while `Tent` is **43x34 studs** and `BahayKubo5` is
+-- **30x22x34**. Half a tent is ~21 studs, so the loot landed INSIDE the model — reported as crates
+-- under houses. Footprints come from CampDefs' measured table; these are half-diagonals plus margin.
+local CLEARANCE = {
+	-- ⚠️ 48, not 30: the tent is scaled ×4 (CampDefs.SCALE) and now renders ~72×57 studs, so its
+	-- half-diagonal is ~46. Left at 30 the loot-clearance fix would regress instantly and crates would
+	-- reappear inside the canvas — the exact bug this table exists to prevent.
+	Tent = 48,
+	BahayKubo5 = 26,
+	BahayKubo1 = 26,
+	BahayKubo7 = 34,
+	RangerTower = 30,
+}
+local DEFAULT_CLEARANCE = 22
+
 local RADIUS_MIN, RADIUS_MAX = 58, 62
 local FOOT_LIMIT = 130 / 2 -- the re-cleared footprint's half-extent
 
@@ -123,16 +144,45 @@ function CampLayout.generate(opts: Options): Layout
 	local buildings: { Placed } = {}
 	local buildingCount = rng:NextInteger(3, 5) -- was always exactly 2 (one hut, one tent)
 	local models = { CampDefs.MODEL.hut, CampDefs.MODEL.tent, if opts.deep then CampDefs.MODEL.hutAlt else CampDefs.MODEL.hut }
+
+	-- ⚠️ BUILDINGS MUST NOT INTERSECT, and a single `minSep` cannot express that.
+	--
+	-- The first version used a flat 34 studs between building centres. `BahayKubo5` is 30×22×34 — its
+	-- half-diagonal alone is ~23 studs — so two of them 34 apart OVERLAP. Reported as "2 buildings in
+	-- one", and visible as one hut standing inside another.
+	--
+	-- Separation must come from BOTH models' own sizes, so each pair is checked against the sum of their
+	-- clearances. That also means a ×4 tent (CampDefs.SCALE) automatically pushes everything further
+	-- away instead of quietly intersecting it.
+	local function fitsBeside(cand: Slot, model: string): boolean
+		local need = CLEARANCE[model] or DEFAULT_CLEARANCE
+		for _, b in ipairs(buildings) do
+			local other = CLEARANCE[b.model] or DEFAULT_CLEARANCE
+			local gap = (need + other) * 0.72 -- centres, not bounding boxes: 0.72 keeps them apart without demanding a stadium
+			if dist2(cand, b.slot) < gap * gap then
+				return false
+			end
+		end
+		return true
+	end
+
 	for i = 1, buildingCount do
+		local model = models[((i - 1) % #models) + 1]
 		-- back arc: |angle| from 60° to 165° off the approach direction
-		local side = if rng:NextNumber() < 0.5 then 1 else -1
-		local s = place(rng, taken, 34, math.rad(60) * side, math.rad(165) * side, radius * 0.45, radius * 0.82)
-		if s then
-			table.insert(buildings, {
-				slot = s,
-				model = models[((i - 1) % #models) + 1],
-				faceFire = true,
-			})
+		local placed: Slot? = nil
+		for _ = 1, 40 do
+			local side = if rng:NextNumber() < 0.5 then 1 else -1
+			local a = rng:NextNumber(math.rad(60), math.rad(165)) * side
+			local d = rng:NextNumber(radius * 0.45, radius * 0.82)
+			local cand = polar(a, d)
+			if farEnough(cand, taken, 12) and fitsBeside(cand, model) then
+				table.insert(taken, cand)
+				placed = cand
+				break
+			end
+		end
+		if placed then
+			table.insert(buildings, { slot = placed, model = model, faceFire = true })
 		end
 	end
 
@@ -173,21 +223,45 @@ function CampLayout.generate(opts: Options): Layout
 	-- RULE 3: behind cover. Every loot slot is tucked BEHIND a building (further from the approach than
 	-- the building that shelters it) or deep inside the ring — never in the open front of the camp.
 	-- This is also what "items into houses" means here: you walk round the back of things to find them.
+	-- ⚠️ Loot must be BEHIND cover (rule 3) but never INSIDE it. Both halves matter: the first version
+	-- honoured the first and broke the second, and crates ended up under the huts.
+	local function clearOfBuildings(cand: Slot): boolean
+		for _, b in ipairs(buildings) do
+			local need = CLEARANCE[b.model] or DEFAULT_CLEARANCE
+			if dist2(cand, b.slot) < need * need then
+				return false
+			end
+		end
+		return true
+	end
+
 	local loot: { Slot } = {}
 	for i = 1, math.max(opts.resourceCount, 1) do
 		local host = buildings[((i - 1) % math.max(#buildings, 1)) + 1]
 		local s: Slot?
 		if host then
-			-- just behind its host, pushed a little further from the fire
-			local a = math.atan2(host.slot.right, host.slot.forward) + rng:NextNumber(-0.5, 0.5)
-			local d = math.sqrt(host.slot.right ^ 2 + host.slot.forward ^ 2) + rng:NextNumber(9, 16)
-			local cand = polar(a, math.min(d, radius - 5))
-			if farEnough(cand, taken, 9) then
+			-- Behind its host and PAST it: the offset now starts beyond that model's own clearance, so
+			-- "behind the hut" means standing behind it, not buried in it.
+			local hostClear = CLEARANCE[host.model] or DEFAULT_CLEARANCE
+			local a = math.atan2(host.slot.right, host.slot.forward) + rng:NextNumber(-0.45, 0.45)
+			local d = math.sqrt(host.slot.right ^ 2 + host.slot.forward ^ 2) + hostClear + rng:NextNumber(4, 10)
+			local cand = polar(a, math.min(d, radius - 4))
+			if farEnough(cand, taken, 10) and clearOfBuildings(cand) then
 				table.insert(taken, cand)
 				s = cand
 			end
 		end
-		s = s or place(rng, taken, 9, math.rad(50), math.rad(310), radius * 0.35, radius * 0.75)
+		if not s then
+			-- fall back to open ground inside the ring, still clear of every building
+			for _ = 1, 30 do
+				local cand = polar(rng:NextNumber(math.rad(50), math.rad(310)), rng:NextNumber(radius * 0.3, radius * 0.8))
+				if farEnough(cand, taken, 10) and clearOfBuildings(cand) then
+					table.insert(taken, cand)
+					s = cand
+					break
+				end
+			end
+		end
 		if s then
 			table.insert(loot, s)
 		end
@@ -196,9 +270,17 @@ function CampLayout.generate(opts: Options): Layout
 	-- Kind-crates apart from the resource pile, so the top reward reads as separate (kept from #077).
 	local kindCrates: { Slot } = {}
 	for _ = 1, 2 do
-		local s = place(rng, taken, 12, math.rad(200), math.rad(320), radius * 0.5, radius * 0.8)
-		if s then
-			table.insert(kindCrates, s)
+		local found: Slot? = nil
+		for _ = 1, 30 do
+			local cand = polar(rng:NextNumber(math.rad(200), math.rad(320)), rng:NextNumber(radius * 0.5, radius * 0.8))
+			if farEnough(cand, taken, 12) and clearOfBuildings(cand) then
+				table.insert(taken, cand)
+				found = cand
+				break
+			end
+		end
+		if found then
+			table.insert(kindCrates, found)
 		end
 	end
 
@@ -206,10 +288,20 @@ function CampLayout.generate(opts: Options): Layout
 	-- Posts face outward at the ring; the garrison is visible on approach and never pops in front of the
 	-- player. Spawns sit BEYOND the ring near the gaps — that is the whole point of Job #100's defence
 	-- half: reinforcements walk IN through a door, they do not appear at your feet.
+	-- ⚠️ Posts are biased AWAY from the approach — "others further".
+	--
+	-- Evenly spaced posts put roughly a third of the garrison right where the player walks in, so
+	-- arriving meant meeting several at once. Post 1 is the picket the approach side gets; the rest are
+	-- pushed into the back arc, so the camp is met progressively as it is pushed into rather than all at
+	-- the doorstep. Pairs with the ramping chase cap in ExcursionServer: one greets you, the rest are
+	-- both further away AND not permitted to commit yet.
 	local posts: { Slot } = {}
-	for i = 1, 6 do
-		local a = (i / 6) * math.pi * 2 + rng:NextNumber(-0.3, 0.3)
-		table.insert(posts, polar(a, radius * rng:NextNumber(0.55, 0.8)))
+	table.insert(posts, polar(rng:NextNumber(-0.5, 0.5), radius * rng:NextNumber(0.5, 0.65))) -- the picket
+	for i = 2, 6 do
+		-- spread across the back arc (|angle| 55°..170° off the approach), further out
+		local side = if i % 2 == 0 then 1 else -1
+		local a = rng:NextNumber(math.rad(55), math.rad(170)) * side
+		table.insert(posts, polar(a, radius * rng:NextNumber(0.6, 0.88)))
 	end
 	local spawns: { Slot } = {}
 	for _, g in ipairs(gapCentres) do
@@ -230,12 +322,76 @@ function CampLayout.generate(opts: Options): Layout
 		end
 	end
 
+	-- ── ambient clutter ─────────────────────────────────────────────────────────────────────────
+	-- ⚠️ Generated AFTER the loot, and checked against `taken`, so a rock can never come to rest on top
+	-- of a crate. Burying loot is the exact complaint this job already had to fix once.
+	--
+	-- Rocks and logs COLLIDE on purpose: they are cover, and a camp fight with things to duck behind is a
+	-- better fight. Undergrowth does not — a firefight must not become a maze of invisible walls, which is
+	-- the rule the existing dressing pass already follows.
+	local AMBIENT = {
+		{ model = CampDefs.MODEL.rockSmall, weight = 5, collide = true, scale = { 0.7, 1.2 } },
+		{ model = CampDefs.MODEL.rockMid, weight = 3, collide = true, scale = { 0.6, 1.0 } },
+		{ model = CampDefs.MODEL.rockLarge, weight = 1, collide = true, scale = { 0.5, 0.8 } },
+		{ model = CampDefs.MODEL.log, weight = 4, collide = true, scale = { 0.8, 1.2 } },
+		{ model = "BushPack", weight = 6, collide = false, scale = { 0.8, 1.3 } },
+		{ model = "FernTall", weight = 5, collide = false, scale = { 0.7, 1.2 } },
+		{ model = "PalmLowPoly", weight = 2, collide = false, scale = { 0.7, 1.0 } },
+	}
+	local totalWeight = 0
+	for _, e in ipairs(AMBIENT) do
+		totalWeight += e.weight
+	end
+	local function pickAmbient()
+		local r = rng:NextNumber(0, totalWeight)
+		for _, e in ipairs(AMBIENT) do
+			r -= e.weight
+			if r <= 0 then
+				return e
+			end
+		end
+		return AMBIENT[1]
+	end
+
+	local ambient: { Placed } = {}
+	local ambientCount = rng:NextInteger(14, 20)
+	for _ = 1, ambientCount do
+		local e = pickAmbient()
+		-- clear of buildings, and of everything already placed — loot included
+		local found: Slot? = nil
+		for _ = 1, 20 do
+			local cand = polar(rng:NextNumber(0, math.pi * 2), rng:NextNumber(radius * 0.22, radius * 0.95))
+			if farEnough(cand, taken, if e.collide then 11 else 7) and clearOfBuildings(cand) then
+				table.insert(taken, cand)
+				found = cand
+				break
+			end
+		end
+		if found then
+			table.insert(ambient, {
+				slot = found,
+				model = e.model,
+				yaw = rng:NextNumber(0, math.pi * 2),
+				scale = rng:NextNumber(e.scale[1], e.scale[2]),
+				faceFire = e.collide, -- reused as the collide flag by the caller
+			})
+		end
+	end
+
 	local tower: Slot? = nil
 	if opts.kind.tower then
 		-- off the flank and well back, so its 128 instances never fight the huts for space
 		tower = polar(math.rad(rng:NextNumber(215, 255)), radius * 0.95)
 	end
-	local nugget: Slot? = place(rng, taken, 7, 0, math.pi * 2, radius * 0.3, radius * 0.8)
+	local nugget: Slot? = nil
+	for _ = 1, 30 do
+		local cand = polar(rng:NextNumber(0, math.pi * 2), rng:NextNumber(radius * 0.3, radius * 0.8))
+		if farEnough(cand, taken, 8) and clearOfBuildings(cand) then
+			table.insert(taken, cand)
+			nugget = cand
+			break
+		end
+	end
 
 	return {
 		fire = fire,
@@ -245,6 +401,7 @@ function CampLayout.generate(opts: Options): Layout
 		loot = loot,
 		kindCrates = kindCrates,
 		dressing = dressing,
+		ambient = ambient,
 		posts = posts,
 		spawns = spawns,
 		tower = tower,

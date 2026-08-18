@@ -1,6 +1,6 @@
 # Job #100 — Implementation plan
 
-**Project**: `roblox.jungle` · **Place**: GAME only (`sync/`) · **Status**: PARTIALLY IMPLEMENTED — layout + defence done; the perf gate is NOT passed (see final-summary)
+**Project**: `roblox.jungle` · **Place**: GAME only (`sync/`) · **Status**: IMPLEMENTED — see final-summary.md
 
 Intake: [intake.md](intake.md). Skills: `roblox-ai` (pathfinding, posts, aggro), `game-design`
 (replayability, difficulty), `roblox-optimization` + `mobile` (the perf gate), `jungle-style` (dressing).

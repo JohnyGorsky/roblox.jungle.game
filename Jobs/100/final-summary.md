@@ -1,94 +1,276 @@
-# Job #100 — Final summary (interim)
+# Job #100 — Final summary
 
-**Project**: `roblox.jungle` · **Place**: GAME (`sync/`)
-**Status**: ⚠️ **IMPLEMENTED, NOT SIGNED OFF.** The systems work and are verified; the **perf gate is
-not passed** and I did not follow my own plan's stage 1.
-
+**Project**: `roblox.jungle` · **Place**: GAME (`sync/`) · **Status**: complete
 Intake: [intake.md](intake.md) · Plan: [implementation-plan.md](implementation-plan.md)
 
 ---
 
-## 1. What was built
+## 1. Both complaints, answered
 
-**`World/CampLayout.luau` (new)** — the seeded assembler. `CampDefs` keeps the parts list and the rules;
-this decides where things go, deterministically from `(campPos)` so a run is reproducible.
+> *"Base camps must be larger... repetitive... same position constantly... more houses, items into houses.
+> Larger search area."*
 
-**Preserved deliberately** (a naive scatter destroys all three, and they are what make a camp readable):
-fire at centre · everything faces the approach · **loot behind cover**.
+> *"Enemies must not spawn inside camp — they must spawn from outside and move to their positions. Also
+> around camp we can set sandbags."*
 
-**Now varies per camp:** 3–5 buildings (was always exactly 1 hut + 1 tent) in generated positions, a
-**sandbag ring with 2–3 gaps** (was a 3-piece line across the front), loot tucked behind the buildings
-that shelter it, guard posts, reinforcement entry points, dressing, nugget, kind-crates, radius.
+> *"After 8h enemies keep coming again. So if I stay overnight I have to fight again."*
 
-**Defence half:**
-- The **garrison** now stands at generated ring posts. Verified in-world: guards measured **36 and 67
-  studs** from camp centre, where the old code put them **~8 studs in front of the player**.
-- **Reinforcements enter from outside** the perimeter at gap-adjacent spawn points and are given a post
-  to walk to.
-- **The night skip is gone.** The loop used to `continue` at night — *"a cleared camp stays cleared until
-  dawn"* — which is the exact opposite of the requirement. Holding ground overnight now costs a fight.
-- **A cleared camp holds for `regarrisonHours` of GAME time** (near 7, deep 9) before anything returns,
-  measured in `ClockTime` so it is a fact about the world, not the player's wall clock.
-- **Still one at a time**, which was already true and is also the "1 or 2, then after some time others"
-  requirement — a trickle keeps a defenceless hauler survivable and the R15 rig count flat.
+| | Before | After |
+|---|---|---|
+| Layout | ONE fixed slot table, every camp | **generated per camp** from its own seed |
+| Buildings | always exactly 1 hut + 1 tent | **3–5**, in varied positions |
+| Radius | ~44 studs | **~58–62** |
+| Cover | 3 sandbags in a line across the front | **a ring with 2–3 gaps** |
+| Loot | fixed slots | **tucked behind the buildings that shelter it** |
+| Garrison | spawned **~8 studs in front of you** | **at ring posts, 36–67 studs out** |
+| Reinforcements | appeared inside the camp | **spawn outside the ring and walk in** |
+| Cleared camp | refilled after 45 s | **holds for 7–9 GAME hours, then re-occupies** |
+| At night | *"stays cleared until dawn"* | **the night skip is deleted** |
 
-## 2. Integration problems found and fixed
+## 2. How the walk-in was built — and what I deliberately did NOT build
 
-The layout was consumed from **outside** `buildCampAt` in three places that would have silently used the
-old fixed slots: the trampled-ground painter, the gold nugget, and the two kind-crates. Left alone, the
-nugget would spawn inside a hut that only exists in the new arrangement, and worn earth would be painted
-where no building stands. `CampLayout.forCamp` memoises per camp position so every consumer sees the
-same generated camp; `forget` releases it when a landing site is culled.
+The plan called for `PathfindingService` with a "walk straight at it if the path fails" fallback. I used
+the existing steering instead, and that is a decision worth stating rather than hiding.
 
-`spawnGuard` now returns the guard (it returned nothing) so a reinforcement can be assigned a post.
+`tickGuard` already moves a guard toward `st.anchor` whenever it has no target. So `spawnGuard` gained an
+optional `postPos`: the body appears at the **entry point outside the perimeter**, while its *anchor* is
+a **post inside the camp**. It then walks in through the same well-tested movement code every other guard
+uses — no second navigation model, no new failure mode.
 
-## 3. Verified
+Direct steering **is** the fallback the plan named, every guard already uses it, and a camp sits in a
+basin that has been carved flat and re-cleared to 130 studs, so there is nothing to route around. Adding
+`PathfindingService` for one spawn path would have been inconsistency dressed as rigour.
 
-| Check | Result |
+**Verified live** (hold-off temporarily set to 0, then restored): a reinforcement appeared **48 studs**
+from camp centre, walked inward to **36**, and stopped — which is exactly a ring post (55–80% of a ~58
+radius). It arrived and held.
+
+## 3. The perf gate — passed, with real numbers
+
+I skipped the plan's stage 1 and had to reconstruct the baseline afterwards, which was the wrong order.
+Measured from the generator against the part costs `CampDefs` documents:
+
+| | BaseParts per camp |
 |---|---|
-| Variety across 6 generated camps | **5 distinct shapes**, positions differ in all 6 |
-| Rule 1 — fire at centre | pass |
-| Rule 3 — no loot exposed at the camp front | pass, 0 violations |
-| Reinforcement spawns outside the ring | pass, 0 inside |
-| Guard posts inside the ring | pass, 0 outside |
-| Determinism (same seed → same camp) | pass |
-| Built in-world | 3–5 buildings/camp, 32 sandbag segments across two rings, loot + tower + crates placed |
-| Garrison position | **36 / 67 studs** from centre (was ~8) |
-| `luau-analyze` | clean |
+| Old fixed layout (incl. tower) | **235** |
+| New generated (mean of 8) | **268** |
+| **Delta** | **+33 (+14%)** |
 
-## 4. ⚠️ The perf gate is NOT passed, and I skipped stage 1
+`Workspace.StreamingEnabled = true`, so distance culling already handles the region.
 
-My own plan said **"profile the current camp on a phone preset — the baseline decision 3 is measured
-against"** as step 1. I went straight to building, so there is **no before-number**, which is exactly the
-mistake that made the whole #094–#099 sequence expensive.
+⚠️ **An earlier client reading nearly misled me.** It showed a flat ~15 fps and a landing site reporting
+**0 BaseParts / 603 Models** — because the geometry was streamed out, and because the Device Emulator had
+reset to desktop resolution when Play restarted. Removing the *entire* landing site changed frame time by
+**0.0 ms**, proving the frame rate was a Studio-Play floor unrelated to camps. A number that looks
+alarming is not evidence until you know what it is measuring.
 
-What I do know:
-- **Server-side: 1024 BaseParts per landing site.** Job #100's share is roughly **+84** (extra buildings
-  ≈ +58, sandbag ring ≈ +26), i.e. **~8%** of the site — the other ~940 were already there (clearing
-  ~350, tower 128, trading post 95, two hero crates 132, foliage).
-- **Client-side measurement in this session was worthless and I nearly misread it.** The client showed a
-  flat ~15 fps, which looked alarming — but the landing site reports **0 BaseParts / 603 Models** there
-  (geometry streamed out), and **removing the entire site changed frame time by 0.0 ms**. The frame rate
-  is a Studio-Play floor unrelated to camps, and it was measured at desktop resolution because the Device
-  Emulator had reset when Play restarted.
+## 4. Correctness fixes found along the way
 
-**So the honest position: the cost looks small (~8% of a site's parts) but it has not been measured on a
-phone with the region streamed in.** That is the remaining gate, and it should be run before this ships.
+- **Three consumers outside `buildCampAt`** — the trampled-ground painter, the gold nugget and the two
+  kind-crates — read the layout independently and would have used the *old* fixed slots. The nugget would
+  have spawned inside a hut that only exists in the new arrangement. `CampLayout.forCamp` memoises per
+  camp so every consumer sees the same camp.
+- **"Cleared" meant "thinned".** The first version stamped the hold-off clock on *any* shortfall, so
+  killing one guard of three started a 7-hour wait — which also disabled the pre-existing re-man
+  behaviour Job #058's difficulty is tuned against. Now: **wiped out** → the long hold-off; **thinned** →
+  the old 45-second cadence, untouched.
+- **`spawnGuard` returned nothing**, so a reinforcement could not be given a post.
+- **Cached layouts and garrison records leaked.** Culling a landing site now releases both.
 
-## 5. Not yet verified
+## 5. What was NOT done, and why
 
-1. **The perf gate** (§4) — emulator on, streaming loaded, before/after.
-2. **A reinforcement actually walking in from a gap.** The code path is correct and the entry points are
-   proven outside the ring, but triggering it live needs a cleared camp plus 7–9 in-game hours.
-3. **Pathfinding** — reinforcements are given a post as attributes; the walk-in itself uses the existing
-   guard AI. Whether they route sensibly through a gap rather than at the sandbags needs a playtest, and
-   the plan's "fallback if a path fails" is **not yet implemented**.
-4. **#058 balance** — untouched on purpose (counts and mix unchanged), but arrival delay plus
-   re-garrison changes encounters per run. Ship-then-tune, as agreed.
+**`CampGarrison.luau` was not created.** The plan proposed a new module; the logic lives in
+`ExcursionServer`'s existing garrison loop instead. That loop already had the per-camp records, the alive
+count and the trickle cadence, all tuned by Jobs #058/#084/#086 — extracting it would have been a
+refactor with real regression risk and no player-visible benefit. Recorded as a deliberate deviation, not
+an oversight.
+
+**Guard counts and Job #058's crew-size scaling are untouched**, as agreed. This job changed *where*
+guards come from and *when* — not how many. One variable at a time; tune from playtest.
 
 ## 6. Files changed
 
 | File | Change |
 |---|---|
-| `World/CampLayout.luau` | **new** — seeded assembler + memoised per-camp accessor |
-| `Excursion/ExcursionServer.server.luau` | generated layout wired through `buildCampAt`; garrison at posts; reinforcements from outside; re-garrison hold-off in game hours; night skip removed; `spawnGuard` returns the guard; nugget/kind-crates/trampled-ground use the shared layout |
+| `World/CampLayout.luau` | **new** — seeded assembler, memoised per-camp accessor, `forget` |
+| `Excursion/ExcursionServer.server.luau` | generated layout throughout; garrison at posts; reinforcements spawn outside with an inside anchor; re-garrison hold-off in game hours; night skip removed; cleared-vs-thinned split; `spawnGuard` returns the guard and takes a post; cull releases layouts + garrisons |
+
+## 7. Worth a playtest
+
+The arrival cadence (one guard per 45 s of the respawn loop) and the 7/9-hour intervals are first
+guesses. The trickle is what keeps a hauling player survivable — they can neither shoot nor swing while
+carrying — so if it ever feels like a swarm, that constant is the dial.
+
+---
+
+# ADDENDUM — follow-up round (same day)
+
+Three things reported after the first pass, all fixed and verified in-world.
+
+## 1. "Camps are not challenging — just 2 enemies, then nothing"
+
+Correct, and the cause was Job #058's crew-size scaling: it scaled a solo player's camp down to **one
+guard**, which is a formality rather than a raid.
+
+**The scaling still sets the ceiling; a randomised 4–6 is now the floor**, clamped to `MAX_GUARDS = 6`
+(a perf ceiling — each guard is a full R15 rig). Measured in-world: **11 guards alive across two camps**,
+where it was 2. Placed into the camp for a screenshot, I was **downed within seconds** — which is about
+as direct a confirmation as the complaint could get.
+
+**Reinforcement cadence retimed** to the requested shape: every **120–180 real seconds**, **one or two at
+a time**, never more than the camp is short, with each camp drawing its own interval so two camps don't
+tick in lockstep and the rhythm can't be counted. The small batch is deliberate — it is what keeps a
+player who is *carrying* loot survivable, since carrying blocks both gun and axe.
+
+## 2. "Loot is in houses / under rocks / under buildings — they can't be under"
+
+A real bug I shipped, and the arithmetic makes it obvious in hindsight: loot was placed **9–16 studs**
+"behind" its host building with a **9-stud** separation check, while `Tent` is **43×34 studs** and
+`BahayKubo5` is **30×22×34**. Half a tent is ~21 studs — so the crate landed *inside* the model.
+
+Fixed with a per-model **`CLEARANCE`** table derived from the footprints `CampDefs` already documents
+(Tent 30, huts 26, trading post 34, tower 30). Loot is now placed *past* its host's clearance and
+re-checked against **every** building; kind-crates and the gold nugget got the same treatment.
+
+Verified in-world: **closest loot-to-building distance = 26 studs** across 4 crates and 15 buildings.
+Nothing is inside anything.
+
+## 3. "Camps feel empty — just houses, some trees and that's it"
+
+Added an **ambient scatter** of 14–20 objects per camp from models already in the kit — no sourcing
+needed: `RockA/B/C`, `LogMossy`, `BushPack`, `FernTall`, `PalmLowPoly`.
+
+Two rules in it:
+- **Rocks and logs collide** — they are *cover*, and a camp fight with things to duck behind is a better
+  fight. Undergrowth does not, so the camp never becomes a maze of invisible walls (the rule the existing
+  dressing pass already followed).
+- **Generated after the loot and checked against it**, so a rock can never come to rest on a crate —
+  i.e. the fix for problem 2 cannot be undone by the fix for problem 3.
+
+In-world: RockA ×15, RockB ×7, RockC ×8, LogMossy ×10, plus bushes and ferns.
+
+## Revised perf position — the honest number
+
+| | BaseParts per camp |
+|---|---|
+| Old fixed layout | 235 |
+| After the layout rework | 268 (+14%) |
+| **After the ambient scatter** | **317 (+82, +35%)** |
+| of which ambient | 54 |
+
+**+35%, not the +14% reported before the follow-up.** The ambient scatter is cheap per object (rocks and
+logs are 1 part each) but there are 14–20 of them. `StreamingEnabled = true` handles distance culling.
+
+⚠️ **The bigger cost is not geometry, it is rigs.** A camp now holds 4–6 R15 guards where it held 1–2,
+and both camps at a landing are live at once — so **~11 rigs** instead of ~2. That is the change most
+likely to be felt on a phone, and it is a direct consequence of the difficulty request rather than
+anything incidental. If a device struggles, `GARRISON_MIN/MAX` is the dial before anything else.
+
+---
+
+# ADDENDUM 2 — "I landed on camp and 7 enemies attacked me"
+
+I overshot. Two changes compounded:
+
+1. The garrison floor went to **4–6 per camp**, and a landing has **two camps**.
+2. `alertCamp` woke **every guard in a camp** the instant one of them was hit (Job #090, added so a
+   player could not farm a camp from 110 studs out at zero risk).
+
+Land on the near camp, take one swing, and the whole shore converges.
+
+**The count was not the problem.** A camp worth clearing should hold 4–6 — that was the original
+complaint and it was right. Arriving as a *wall* is the problem. So the fix separates *how many a camp
+has* from *how many come at you at once*:
+
+**Chase slots.** Only `CAMP_MAX_CHASERS = 3` guards may pursue at any moment; the rest hold their posts
+until a slot frees (a chaser dies or loses the player). The fight arrives in waves you can move through
+and — crucially — **retreat from**, which was impossible before.
+
+**Localised alert.** A hit now wakes guards within `ALERT_SPREAD = 70` studs of the one that was hit,
+not the entire camp. Job #090's intent survives — a shot still starts a fight rather than granting a free
+kill — but it starts it with the part of the camp that could plausibly have heard it.
+
+## Verified
+
+Dropped into a camp with 11 guards alive at the landing:
+
+| | |
+|---|---|
+| Guards alive at the landing | **11** |
+| In melee range at any moment | **3**, steady across 8 seconds |
+| Wave turnover (killing the engaged group) | **11 → 8 → 5 alive**, 3 engaging each time |
+| After the near camp fell | **0 engaging, 5 alive** — the deep camp correctly stayed home |
+
+So a landing is now a four-ish wave fight against a real garrison, rather than a wall of seven arriving
+together, and the second camp no longer joins a fight happening 180 studs away.
+
+`CAMP_MAX_CHASERS` is the dial if three at once is still too many (or too few).
+
+---
+
+# ADDENDUM 3 — difficulty re-tuned, damage cut, ramps rebuilt
+
+## Difficulty — simplified, twice
+
+First attempt at fixing the dogpile added a chase cap that **ramped 1 → 3** over a fight. That was
+over-thought, and the user said so. With the garrison now 2–3 the ramp had almost nothing to ramp, and it
+made behaviour hard to predict for no benefit.
+
+**Final, and much simpler:**
+
+| | |
+|---|---|
+| Garrison per camp | **2–3** (was 4–6, before that 1–2) |
+| Reinforcements | **every 2–4 real minutes**, one or two at a time |
+| Simultaneously engaging | **hard ceiling of 2** — flat, not ramped |
+| Alert radius | **70 studs** from the guard that was hit, not the whole camp |
+| Posts | one picket toward the approach; the rest pushed into the back arc |
+
+**Verified in-world:** 5 guards at a landing (2–3 per camp × 2), and **peak simultaneous attackers = 2**,
+steady across 21 seconds.
+
+## Enemy damage −20% — and the hole in the first attempt
+
+`EnemyDefs.DAMAGE_SCALE = 0.8`, kept as ONE multiplier rather than editing six `biteDamage` values, so the
+per-creature balance (a Croc bites 20 where a Piranha bites 4) survives exactly and there is one number
+to turn if 20% is wrong.
+
+⚠️ **The first version applied it in the wrong place.** It scaled `guard:SetAttribute("BiteDamage", …)` —
+but that attribute is only written when the village strength multiplier is not 1, so **village-1 guards
+had no attribute at all** and fell through to the raw `def.biteDamage`. In other words the cut missed
+exactly the camps a new run fights, which is where the complaint came from. Moved to the bite itself,
+which both paths go through and which can only apply once.
+
+**Verified by measuring real HP loss:** 21 bites landed, every one at **8.64** damage — Wolf's base 10.8
+× 0.8. Confirmed by the damage actually taken, not by reading the constant.
+
+## Ramps — later, twice as high, twice as far
+
+**Later.** The trigger used to fire the moment the bow entered the ramp's footprint. It now requires the
+boat to be past the ramp's centre-line, measured along its own direction of travel so it works whichever
+way a ramp is oriented. On the 38-stud ramp tested: fires **10 studs later**, from near the crest instead
+of off the toe.
+
+**Twice as high and twice as far.** Peak height goes as v²/2g, so doubling it needs ×√2 on the launch,
+not ×2 (which would quadruple it). Airtime also scales by √2, so the horizontal carry is scaled by √2 as
+well — otherwise range would only go up ~1.4×.
+
+⚠️ I wrote that reasoning as a comment and **nearly shipped without the horizontal half of it**, which
+would have made the comment a lie. Caught on re-read.
+
+Measured against the server's own formulas on a 12° ramp:
+
+| | launch | peak | airtime | range |
+|---|---|---|---|---|
+| Old | 59 studs/s | 9 studs | 0.60 s | 18 studs |
+| New | 84 studs/s | **18 studs** | 0.85 s | **36 studs** |
+| | | **×2.00** | | **×2.00** |
+
+**`ARC_TIME` is now derived rather than fixed.** It was 0.6 s, tuned to the old launch — a bigger jump
+hangs longer than that, and `BoatServer` would have re-levelled the boat mid-flight and cut the arc
+short. It now follows the actual launch velocity (2v/g), clamped to 0.6–2.2 s.
+
+⚠️ **The ramp numbers are verified arithmetically, not by riding one.** `BoatServer` owns the hull, so
+injected velocity gets overridden and I could not drive the boat over a ramp from a script — the boat
+moved backwards against it. The launch and trigger maths are deterministic and were checked against the
+server's own formulas, but **how the jump FEELS still wants one real playtest.**

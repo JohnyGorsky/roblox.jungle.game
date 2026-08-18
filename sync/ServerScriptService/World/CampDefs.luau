@@ -74,7 +74,12 @@ CampDefs.MODEL = {
 -- nearly the whole camp footprint — so at 1.0 it reads as a giant beige tarp lying in a field, not as a
 -- supply tent. Seen and fixed in the first playtest. Anything absent here is 1.0.
 CampDefs.SCALE = {
-	Tent = 0.42, -- → ~18×5×14: a two-person supply tent, smaller than the hut it stands beside
+	-- ⚠️ 1.68 = the old 0.42 ×4, on request ("these tents are to small size them x4").
+	-- Tent ships at 43×13×34, so this renders it at roughly **72×22×57 studs** — a marquee, not a
+	-- two-person supply tent. See the clearance note in CampLayout: anything this size changes what can
+	-- be placed near it, and it is wider than the camp's own radius (~58–62), so it reads as a structure
+	-- the camp is built around rather than one prop among several.
+	Tent = 1.68,
 	RangerTower = 0.85, -- → ~43 studs tall; still reads from the water, without dwarfing the camp
 	GoldNugget = 1.0, -- already resized to 2 studs on import — do not scale again (ASSETS.md §3.5)
 	-- → ~2.4 studs tall. A hurricane lantern is a carried object: at 1.0 it ships at 3.8 studs, which is

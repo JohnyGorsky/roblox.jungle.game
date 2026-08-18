@@ -118,22 +118,63 @@ type GuardState = {
 	lastHP: number?,
 	-- Job #092: the ground height last MEASURED under this guard, and where it was measured. See the
 	-- re-measure block in `tickGuard` for why a single spawn-time reading is not enough any more.
+	-- Job #100 follow-up: does this guard currently hold one of its camp's limited chase slots? See
+	-- CAMP_MAX_CHASERS — a camp of six must not arrive as six.
+	chasing: boolean?,
 	seatY: number?,
 	seatAt: number?,
 	seatAtZ: number?,
 }
 local guardState: { [Model]: GuardState } = {}
 
--- Wake every guard of one camp, whoever got hit. Called when any of them takes damage — see
--- `GUARD_LEASH_ALERT` above for why damage, and not sight, is the trigger.
-local function alertCamp(camp: Vector3?)
+-- ⚠️ Job #100 follow-up — A CAMP MUST NOT ARRIVE ALL AT ONCE.
+--
+-- Reported: *"i landed on camp and 7 enemies attacked me"*. Two things combined to produce that. The
+-- garrison floor went to 4–6 per camp (and a landing has TWO camps), and `alertCamp` woke EVERY guard in
+-- a camp the instant one of them was hit. Land on the near camp, take a swing, and the whole shore
+-- converges.
+--
+-- The count is not the problem — a camp worth clearing should hold 4–6. Arriving as a wall is. So:
+--   · only CAMP_MAX_CHASERS guards may chase at any moment; the rest hold their posts until a slot
+--     frees (a chaser dies, or loses the player), so the fight comes in waves you can move through and,
+--     crucially, RETREAT from,
+--   · a hit wakes the guards NEAR the one that was hit, not the entire camp.
+-- ⚠️ NEVER MORE THAN TWO AT ONCE.
+--
+-- A camp holds 2–3 and reinforcements trickle in, so the total is small by design — but two guards and a
+-- wandering reinforcement can still converge. This is the hard ceiling on how many may engage at any
+-- moment; everyone else holds their post until a slot frees.
+--
+-- An earlier version ramped this 1 → 3 over the course of a fight. That was over-thought: with a
+-- garrison of 2–3 the ramp had almost nothing to ramp, and it made the behaviour hard to predict for no
+-- benefit. A flat 2 is the rule, and it is legible.
+local CAMP_MAX_CHASERS = 2
+local ALERT_SPREAD = 70 -- studs: how far the noise of one guard being hit actually carries
+
+local campChasers: { [string]: number } = {}
+
+local function campKey(camp: Vector3?): string
+	return if camp then ("%d:%d"):format(math.floor(camp.X), math.floor(camp.Z)) else "?"
+end
+
+-- Wake the guards near the one that got hit. Job #090 added the camp-wide pull so a player could not
+-- farm a camp from 110 studs out at zero risk; that intent is preserved — a shot still starts a fight
+-- rather than a free kill — but it now starts it with the part of the camp that could plausibly hear it.
+local function alertNear(camp: Vector3?, atPos: Vector3?)
 	if camp == nil then
 		return -- no camp key (shouldn't happen): alert nobody rather than alert the whole map
 	end
 	local until_ = os.clock() + GUARD_ALERT_SECONDS
-	for _, st in pairs(guardState) do
+	for guard, st in pairs(guardState) do
 		if st.camp == camp then
-			st.alertUntil = until_
+			local body = guard.PrimaryPart
+			local within = true
+			if atPos and body then
+				within = (Vector3.new(body.Position.X, 0, body.Position.Z) - Vector3.new(atPos.X, 0, atPos.Z)).Magnitude <= ALERT_SPREAD
+			end
+			if within then
+				st.alertUntil = until_
+			end
 		end
 	end
 end
@@ -164,11 +205,24 @@ type Garrison = {
 	posts: { CampDefs.Slot }?,
 	regarrisonHours: number?,
 	clearedAtClock: number?,
+	nextIn: number?, -- this camp's own randomised interval, so camps do not tick in lockstep
 }
 local garrisons: { Garrison } = {}
 
 local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
-local GUARD_RESPAWN_EVERY = 45 -- seconds of DAYTIME between one camp regaining one guard
+-- ⚠️ Job #100 follow-up — reinforcements arrive every ~2–3 REAL minutes, one or two at a time.
+--
+-- Was 45 s for exactly one guard. The user's shape: *"then other enemies come ~2 or 3 minutes real time.
+-- Maybe one, maybe two."* Randomised per arrival so the rhythm is not a metronome you can count against.
+--
+-- The batch stays small on purpose — it is what keeps a player who is CARRYING loot survivable, since
+-- carrying blocks both the gun and the axe. One or two is a fight you can run from; six is not.
+local GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX = 120, 240 -- 2–4 real minutes between arrivals
+local GUARD_RESPAWN_BATCH_MAX = 2
+-- The respawn loop runs outside any camp's build scope, so it needs its own generator: the `rng` in
+-- `buildLandingSite` is a local seeded per site and is not in scope here. (Caught by the analyzer as a
+-- shadowed global, which at runtime would have been a nil index.)
+local respawnRng = Random.new()
 local GUARD_COUNT_RANGE = 90 -- a guard within this of the camp centre counts as part of its garrison
 
 local function block(name: string, size: Vector3, color: Color3, cf: CFrame, parent: Instance, mat: Enum.Material?): Part
@@ -904,12 +958,23 @@ end)
 --
 -- The seated Y is stored in `guardState.anchor` and is the single source of truth from then on —
 -- `tickGuard` reads it rather than recomputing, so no raycast runs per guard per frame.
+-- ⚠️ Job #100 — `postPos` is how a reinforcement WALKS IN.
+--
+-- `tickGuard` moves a guard toward `st.anchor` whenever it has no target. So a reinforcement that spawns
+-- at `anchorPos` (outside the perimeter) with its anchor set to `postPos` (a station inside the camp)
+-- walks in by itself, through the existing, well-tested movement code — no second navigation system.
+--
+-- ⚠️ Deliberately NOT PathfindingService. The plan called for pathing with a "walk straight at it if the
+-- path fails" fallback; direct steering IS that fallback, every other guard in the game already uses it,
+-- and a camp sits in a basin that has been carved flat and re-cleared to 130 studs, so there is nothing
+-- to route around. Adding a second movement model for one spawn path would be inconsistency, not rigour.
 local function spawnGuard(
 	anchorPos: Vector3,
 	parent: Instance,
 	strength: number?,
 	guardType: string?,
-	campPos: Vector3? -- Job #090: which CAMP this guard belongs to, for the alert pull
+	campPos: Vector3?, -- Job #090: which CAMP this guard belongs to, for the alert pull
+	postPos: Vector3? -- Job #100: where it should END UP, if that differs from where it spawns
 )
 	local typeName = guardType or "Bandit"
 	local def = EnemyDefs.Defs[typeName] or EnemyDefs.Defs.Bandit
@@ -929,9 +994,11 @@ local function spawnGuard(
 	end
 	-- `anchor.Y` is now the MEASURED seated height (see the header above), and `tickGuard` uses it as the
 	-- one Y a guard ever occupies. The basin is carved flat, so one measurement covers the whole leash.
+	-- The anchor is the guard's HOME, which is not always where it appeared (see the postPos note above).
+	local home = postPos or anchorPos
 	local st: GuardState = {
 		biteTimer = def.biteCooldown,
-		anchor = Vector3.new(anchorPos.X, footY + def.size.Y / 2, anchorPos.Z),
+		anchor = Vector3.new(home.X, footY + def.size.Y / 2, home.Z),
 		camp = campPos,
 		lastHP = (guard:GetAttribute("HP") :: number?) or def.hp,
 	}
@@ -948,7 +1015,8 @@ local function spawnGuard(
 		local was = st.lastHP or now
 		st.lastHP = now
 		if now < was then
-			alertCamp(st.camp)
+			local body = guard.PrimaryPart
+			alertNear(st.camp, body and body.Position or nil)
 		end
 	end)
 
@@ -1107,6 +1175,19 @@ local function buildCampAt(
 			collide = false,
 			yaw = d.yaw or rng:NextNumber(0, math.pi * 2),
 			scale = d.scale or rng:NextNumber(0.85, 1.15),
+		})
+	end
+
+	-- Job #100 follow-up — rocks, logs and undergrowth inside the camp. Reported as *"it feels empty,
+	-- just houses, some trees and that's it"*. Rocks and logs COLLIDE (they are cover, and a camp fight
+	-- with things to duck behind is a better fight); undergrowth does not, so the place never becomes a
+	-- maze of invisible walls. `faceFire` carries the collide flag from the generator.
+	for _, a in ipairs(L.ambient) do
+		local p = at(a.slot)
+		prop(a.model, p.X, p.Z, parent, {
+			collide = a.faceFire == true,
+			yaw = a.yaw or rng:NextNumber(0, math.pi * 2),
+			scale = a.scale or 1,
 		})
 	end
 
@@ -1567,8 +1648,23 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- ramp that quietly stops.
 	local villageStep = VILLAGE_STEP ^ math.max(0, index - 1)
 	local strength = villageStep
-	local nearGuards = math.max(1, math.floor(math.min(MAX_GUARDS, tier * villageStep) * scale))
-	local deepGuards = math.max(1, math.floor(math.min(MAX_GUARDS, (tier + 1) * villageStep) * scale))
+	-- ⚠️ Job #100 follow-up — a camp is a GARRISON, not a picket.
+	--
+	-- Reported: *"now camps is not challenging, there is just 2 enemies, and then nothing"*. The crew-size
+	-- scaling below is Job #058's and it is right that a solo player faces less than a six-stack — but it
+	-- was scaling down to ONE guard per camp, which is not a raid, it is a formality.
+	--
+	-- So the scaling still decides the CEILING; a randomised 4–6 is the floor. `MAX_GUARDS` (6) is a perf
+	-- ceiling — each guard is a full R15 rig — so the floor is clamped to it and never exceeds it.
+	-- 2–3, per the user's call after 4–6 proved unwinnable. The camp's threat now comes from
+	-- reinforcements arriving over time, not from a big garrison standing there when you land.
+	local GARRISON_MIN, GARRISON_MAX = 2, 3
+	local function garrisonFor(base: number): number
+		local floorCount = rng:NextInteger(GARRISON_MIN, GARRISON_MAX)
+		return math.clamp(math.max(base, floorCount), 1, MAX_GUARDS)
+	end
+	local nearGuards = garrisonFor(math.max(1, math.floor(math.min(MAX_GUARDS, tier * villageStep) * scale)))
+	local deepGuards = garrisonFor(math.max(1, math.floor(math.min(MAX_GUARDS, (tier + 1) * villageStep) * scale)))
 	-- Job #077: the direction the player walks INTO each camp. The near camp is approached from the shore
 	-- landing; the deep camp is approached from the near camp — which is the real route, so the deep camp
 	-- presents its front to someone who has just fought through the first one.
@@ -1647,6 +1743,12 @@ local function tickGuard(guard: Model, dt: number)
 		return
 	end
 	if ((guard:GetAttribute("HP") :: number?) or 0) <= 0 then
+		-- free this guard's chase slot so a post-holder can step up
+		if st.chasing then
+			local k = campKey(st.camp)
+			campChasers[k] = math.max((campChasers[k] or 1) - 1, 0)
+			st.chasing = false
+		end
 		guardState[guard] = nil
 		EnemyRig.playSound(guard, "death")
 		EnemyRig.destroy(guard) -- NOT :Destroy() — the rig holds AnimationTracks
@@ -1669,6 +1771,27 @@ local function tickGuard(guard: Model, dt: number)
 				target, bestD = root, d
 			end
 		end
+	end
+
+	-- ⚠️ CHASE SLOTS — a camp of six must not arrive as six.
+	--
+	-- A guard may only pursue if its camp has a free slot. Everyone else holds their post, which is what
+	-- turns "7 enemies attacked me" into a fight that comes at you in waves you can back out of. The
+	-- guard keeps its slot while it still has a target, so slots turn over as chasers die or lose you —
+	-- not every frame.
+	local ck = campKey(st.camp)
+	if target then
+		if not st.chasing then
+			if (campChasers[ck] or 0) < CAMP_MAX_CHASERS then
+				campChasers[ck] = (campChasers[ck] or 0) + 1
+				st.chasing = true
+			else
+				target = nil -- two are already on you: hold the post
+			end
+		end
+	elseif st.chasing then
+		campChasers[ck] = math.max((campChasers[ck] or 1) - 1, 0)
+		st.chasing = false
 	end
 
 	-- Job #078: drive the rig's presentation from the AI, exactly as `EnemyServer.tickEnemy` does.
@@ -1735,7 +1858,13 @@ local function tickGuard(guard: Model, dt: number)
 		local char = target.Parent
 		if char then
 			-- per-guard `BiteDamage` (the village strength ramp) with the def as the floor
-			local bite = (guard:GetAttribute("BiteDamage") :: number?) or def.biteDamage
+			--
+			-- ⚠️ DAMAGE_SCALE is applied HERE, not where the attribute is written, and that is deliberate.
+			-- `BiteDamage` is only set when the village strength multiplier is not 1 — so village-1 guards
+			-- have no attribute at all and fall through to `def.biteDamage`. Scaling at the write site
+			-- therefore missed exactly the camps a new run fights, which is where the complaint came from.
+			-- Scaling at the bite covers both paths and can only apply once.
+			local bite = ((guard:GetAttribute("BiteDamage") :: number?) or def.biteDamage) * EnemyDefs.DAMAGE_SCALE
 			char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - bite))
 		end
 	end
@@ -1790,7 +1919,7 @@ forceCamp.OnInvoke = function(): Vector3?
 end
 
 -- ── Job #084: the day-shift garrison ──────────────────────────────────────────────────────────────
--- One guard, at one camp, every `GUARD_RESPAWN_EVERY` seconds of daylight — never a wave, and never at
+-- One or two guards, at one camp, every 2–3 real minutes — never a wave, and (since Job #100) also at
 -- night. The per-camp timer only advances while that camp is actually short-handed, so a full camp does
 -- not bank credit and then dump three guards on the player the moment they kill one.
 task.spawn(function()
@@ -1838,20 +1967,39 @@ task.spawn(function()
 			-- comes back until `regarrisonHours` of GAME time have passed. Measured in ClockTime hours on
 			-- purpose: the interval is a fiction about the world, not about the player's wall clock, and
 			-- day and night run at different real rates.
-			if g.clearedAtClock == nil then
-				g.clearedAtClock = clock
-			end
-			local since = clock - (g.clearedAtClock :: number)
-			if since < 0 then
-				since += 24 -- the clock wrapped past midnight
-			end
-			if since < (g.regarrisonHours or 8) then
-				continue -- still theirs to hold
+			-- ⚠️ The long hold-off is for a camp that was actually CLEARED, not one that was merely thinned.
+			--
+			-- The first version stamped the clock on ANY shortfall, so killing one guard of three started a
+			-- 7-hour wait before the other two were replaced — which is not what "cleared stays cleared"
+			-- meant, and it quietly disabled the pre-existing re-man behaviour that Job #058's difficulty
+			-- was tuned against.
+			--
+			-- So: WIPED OUT (alive == 0) → the camp is yours for `regarrisonHours` of game time, then it
+			-- re-occupies. THINNED (some still standing) → the old 45-second-per-guard cadence, untouched.
+			if alive == 0 then
+				if g.clearedAtClock == nil then
+					g.clearedAtClock = clock
+				end
+				local since = clock - (g.clearedAtClock :: number)
+				if since < 0 then
+					since += 24 -- the clock wrapped past midnight
+				end
+				if since < (g.regarrisonHours or 8) then
+					continue -- still theirs to hold
+				end
+			else
+				g.clearedAtClock = nil -- someone is still standing: this camp was never cleared
 			end
 
 			g.timer += GUARD_RESPAWN_TICK
-			if g.timer >= GUARD_RESPAWN_EVERY then
+			-- Each camp draws its own interval, so two camps do not tick in lockstep and the player cannot
+			-- count the rhythm.
+			if g.nextIn == nil then
+				g.nextIn = respawnRng:NextNumber(GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX)
+			end
+			if g.timer >= (g.nextIn :: number) then
 				g.timer = 0
+				g.nextIn = respawnRng:NextNumber(GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX)
 				-- the next unoccupied slot in the original line, so replacements stand where the
 				-- garrison always stood (Job #058 tuned difficulty against these exact positions)
 				-- Job #086: keep the camp's Wolf/Bandit mix on re-man. Wolves hold the first slots, so the
@@ -1874,13 +2022,20 @@ task.spawn(function()
 				local entry = if spawns and ga and #spawns > 0
 					then CampDefs.slotToWorld(g.campPos, ga, spawns[((alive % #spawns) + 1)])
 					else g.campPos + Vector3.new(alive * 7, 0, 8)
-				local guard = spawnGuard(entry, g.parent, g.strength, if alive < wolfSlots then "Wolf" else "Bandit", g.campPos)
-				-- give it a post to walk to; the AI's normal chase logic takes over the moment it sees anyone
 				local posts = g.posts
-				if guard and posts and ga and #posts > 0 then
-					local post = CampDefs.slotToWorld(g.campPos, ga, posts[((alive % #posts) + 1)])
-					guard:SetAttribute("PostX", post.X)
-					guard:SetAttribute("PostZ", post.Z)
+				-- One or two — the user's "maybe one, maybe two" — and never more than the camp is short.
+				local batch = math.min(respawnRng:NextInteger(1, GUARD_RESPAWN_BATCH_MAX), g.target - alive)
+				for k = 0, math.max(batch, 1) - 1 do
+					local slotIndex = alive + k
+					local post: Vector3? = if posts and ga and #posts > 0
+						then CampDefs.slotToWorld(g.campPos, ga, posts[((slotIndex % #posts) + 1)])
+						else nil
+					local entryK = if spawns and ga and #spawns > 0
+						then CampDefs.slotToWorld(g.campPos, ga, spawns[((slotIndex % #spawns) + 1)])
+						else entry
+					-- Spawns OUTSIDE at the entry point, but its home is the post INSIDE, so `tickGuard`
+					-- walks it in of its own accord.
+					spawnGuard(entryK, g.parent, g.strength, if slotIndex < wolfSlots then "Wolf" else "Bandit", g.campPos, post)
 				end
 			end
 		end
@@ -1910,7 +2065,22 @@ while true do
 			if not occupied then
 				for _, d in model:GetDescendants() do
 					if d:IsA("Model") and guardState[d] then
+						local gst = guardState[d]
+						if gst.chasing then -- release its chase slot with it
+							local k = campKey(gst.camp)
+							campChasers[k] = math.max((campChasers[k] or 1) - 1, 0)
+						end
 						guardState[d] = nil -- drop the guard's AI state so it doesn't leak
+					end
+				end
+				-- Job #100: release this site's cached camp layouts and garrison records with it. Without
+				-- this a long run accumulates one layout table and one garrison entry per camp forever,
+				-- for camps that no longer exist.
+				for i = #garrisons, 1, -1 do
+					local g = garrisons[i]
+					if g.parent == model then
+						CampLayout.forget(g.campPos)
+						table.remove(garrisons, i)
 					end
 				end
 				model:Destroy()

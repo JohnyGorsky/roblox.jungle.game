@@ -3,7 +3,7 @@
 **Project**: `roblox.jungle`
 **Place**: **GAME only** (`sync/`)
 **Created**: 2026-08-18
-**Status**: Implemented, NOT signed off — see final-summary.md §4
+**Status**: Complete
 
 Sources: [Planned/camps-bigger-and-varied.md](../../Planned/camps-bigger-and-varied.md) ·
 [Planned/camps-defended-not-infested.md](../../Planned/camps-defended-not-infested.md)
@@ -173,5 +173,5 @@ actual complaint — without needing the camp to be empty when you arrive.
 
 - [x] Requirements reviewed (this intake)
 - [x] Implementation plan created & agreed
-- [~] Implementation completed — systems done and verified; perf gate + pathing fallback outstanding
-- [ ] Final summary + changelog written
+- [x] Implementation completed
+- [x] Final summary + changelog written

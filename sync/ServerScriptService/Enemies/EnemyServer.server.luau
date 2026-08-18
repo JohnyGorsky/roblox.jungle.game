@@ -340,7 +340,7 @@ end
 -- the crew standing on deck stops being bitten too — which was the broken half of the tied-boat report
 -- (the hull was already spared; the people on it were not).
 local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: boolean)
-	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase())
+	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase()) * EnemyDefs.DAMAGE_SCALE
 	local victim = nearestPlayer(pos, def.biteRange)
 	if victim then
 		local before = (victim:GetAttribute("HP") :: number?) or 0
