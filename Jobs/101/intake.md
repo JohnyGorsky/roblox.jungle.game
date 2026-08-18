@@ -3,7 +3,7 @@
 **Project**: `roblox.jungle`
 **Place**: **GAME only** (`sync/`)
 **Created**: 2026-08-18
-**Status**: In progress
+**Status**: Complete
 
 ## The complaint, in the user's words
 
@@ -88,6 +88,6 @@ not a formality.
 ## Checklist
 
 - [x] Requirements reviewed (this intake)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] Final summary + changelog written

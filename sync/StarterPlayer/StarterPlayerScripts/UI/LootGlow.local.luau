@@ -22,8 +22,24 @@ local RunService = game:GetService("RunService")
 
 local TAG = "Lootable"
 
-local RANGE = 40 -- studs: full strength inside this
-local FADE = 12 -- ...fading out over the last this-many, so nothing pops in
+-- ⚠️ 60, NOT 40, AND THE NUMBER WAS MEASURED RATHER THAN CHOSEN.
+--
+-- 40 was the first guess and it failed. Walking the route a player actually takes — shore → near fire →
+-- deep fire — and asking how far each lootable sits off that line:
+--
+--     Metal      3 studs      Ammo      21      Gasoline  39      <- lit at 40
+--     Weapon    50 studs      Gasoline  52      Ammo      68      <- NEVER lit at 40
+--
+-- Three of six, including a gasoline. The near camp is the run's only fuel source, so that is not a
+-- smaller haul, it is a stranded run — which is exactly what was reported, twice, with both crates
+-- provably in the world. 60 lights five of the six; the sixth is a cargo Ammo, which costs a haul and
+-- not the run.
+--
+-- ⚠️ It is deliberately NOT set high enough to light the whole camp from the entrance. The fence radius
+-- is 70–76, so 60 measured from a moving player lights what you walk past, not what you can see. Job
+-- #100 made camps big so they would take searching; this makes the search fair, not unnecessary.
+local RANGE = 60 -- studs: full strength inside this
+local FADE = 18 -- ...fading out over the last this-many, so nothing pops in
 -- Inside this, the outline draws THROUGH walls. Beyond it, geometry occludes it.
 --
 -- This is the whole design in one number. Job #100 puts loot behind cover on purpose ("cover between the
