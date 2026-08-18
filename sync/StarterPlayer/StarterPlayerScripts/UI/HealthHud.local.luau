@@ -88,7 +88,16 @@ local gauge = RunComponents.gauge({
 -- that decides whether you can pick a teammate up is invisible. (Gun ammo deliberately is NOT duplicated
 -- here; the hotbar slot already carries it, and §6.11 does not permit saying the same thing twice.)
 -- Labelled, because "3" next to an icon we haven't sourced yet told the first playtester nothing.
-local bandages = RunComponents.statChip("bandage", Theme.color.cream, holder, "Bandages")
+-- Job #099: no word on touch. The label exists because an unlabelled icon confused a playtester — but
+-- that was about a MISSING icon, and in the compact touch column the word does not fit: it rendered as
+-- "BANDA", truncated mid-word, which teaches less than no label at all. Icon + number on a phone, the
+-- full word where there is room for it.
+local bandages = RunComponents.statChip(
+	"bandage",
+	Theme.color.cream,
+	holder,
+	if UserInputService.TouchEnabled then nil else "Bandages"
+)
 bandages.instance.AnchorPoint = Vector2.new(1, 0.5)
 bandages.instance.Position = UDim2.fromScale(1, 0.5)
 bandages.instance.Size = UDim2.fromScale(0.37, 1)

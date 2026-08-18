@@ -27,15 +27,19 @@ local rf = ReplicatedStorage:WaitForChild("Admin") :: RemoteFunction
 
 -- ── open button ──────────────────────────────────────────────────────────────────────────────────
 
+-- ⚠️ Job #099 — on touch this script builds NOTHING and stops here.
+--
+-- Admin is allowlist-gated dev UI, and on a phone its button sits bottom-right, which belongs to the
+-- jump button and the player's right thumb. Disabling the ScreenGui after creating it was NOT enough:
+-- `IntroHudGate` lists "AdminLauncher" among the HUDs it hides for the cold open and then calls
+-- `setHudEnabled(true)` when the intro ends — which turned it straight back on. Returning early leaves
+-- nothing for anything else to re-enable. Desktop is unchanged.
+if game:GetService("UserInputService").TouchEnabled then
+	return
+end
+
 local launcher = Components.screen("AdminLauncher", player:WaitForChild("PlayerGui"))
 launcher.DisplayOrder = 60
-
--- Job #099: not on a phone. Admin is allowlist-gated dev UI, and on a phone its button sits in the
--- bottom-right corner — which on touch belongs to the jump button and the player's right thumb. It was
--- taking a control slot from a button no player will ever press. Desktop is unchanged.
-if game:GetService("UserInputService").TouchEnabled then
-	launcher.Enabled = false
-end
 
 local openHolder = Instance.new("Frame")
 openHolder.Name = "Holder"

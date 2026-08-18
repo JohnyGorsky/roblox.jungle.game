@@ -45,7 +45,7 @@ holder.Position = UDim2.fromScale(0.015, 0.42)
 -- two meeting, and still comfortably above the movement thumbstick, which starts at y 223 of 316.
 if game:GetService("UserInputService").TouchEnabled then
 	holder.AnchorPoint = Vector2.new(0, 0)
-	holder.Position = UDim2.fromScale(0.015, 0.44)
+	holder.Position = UDim2.fromScale(0.015, 0.40) -- room for the taller 3x2 hotbar block below
 end
 holder.Size = UDim2.fromScale(0.18, 0.09)
 holder.BackgroundTransparency = 1

@@ -98,3 +98,96 @@ One session covers all five — written up as **todo #0058**.
 - **#0058** — the session that closes all of the above.
 - **#0059** — its rail/hint half is fixed here; its *aspect-matrix* half is now permanently addressed
   because the layouts no longer depend on absolute pixel sizes.
+
+---
+
+# ADDENDUM — the Device Emulator session (same day)
+
+The user pointed out the Device Emulator was available. **That changed everything**, and it is the most
+important lesson of this job: I had spent four jobs deferring mobile questions to "a real phone" while
+the emulator — documented in our own `roblox-studio` skill, which says *"use it to verify every
+HUD/menu on mobile"* — sat one click away. **The capability was written down and I did not use it.**
+
+## What the emulator revealed immediately
+
+**`Camera.ViewportSize` = 666 × 374** (usable **666 × 316** after insets), where the device screenshot
+was ~1536 × 710. This confirmed the DPI hypothesis and made it concrete: **a pixel `MinSize` is ~2.3×
+larger relative to the canvas than any desktop test suggests.**
+
+**Roblox's own controls are real colliders no harness of ours knew about:**
+`ThumbstickStart x 29..103, y 223..297` · `JumpButton x 571..641, y 226..296` ·
+`DynamicThumbstickFrame` reserving the entire bottom-left quadrant.
+
+## What was fixed as a result
+
+**LOBBY**
+- Rail: one column of five → **canvas-driven grid**, then → **collapsed behind one menu button** with a
+  scrim, once measurement proved five persistent badges cannot coexist with the thumbstick. Badge 59px,
+  panel 52% of viewport, top edge clear of the Roblox topbar.
+- The `MaxSize` width cap (110px, meant for a narrow rail) was silently strangling the new multi-column
+  overlay to 110px wide — found by measuring the *open* panel rather than trusting the layout maths.
+- Centre hint **hidden on touch** (user request), admin launcher **hidden on touch**.
+- Top-right cluster restyled: a new **`chip` button variant** (panel fill + accent stroke) so the
+  balance, the `+` and the menu read as one cluster instead of three competing colour languages —
+  gold means *progression* and green means *boat/mechanical*, so neither fitted a Robux buy or a shop menu.
+- **Icon-only buttons now render their icon full-size and centred.** The existing icon path assumed a
+  text+icon row (32px left padding, 0.62 height), which on a 58×58 square produced the reported "tiny
+  graphic in an empty box".
+
+**GAME**
+- Hotbar moved out of the thumbstick (x 10..250 → **x 150..390**).
+- Health, vitals, cargo and the role chip became a **top-left column** (rows at y 0.02 / 0.115 / 0.30 /
+  0.44), leaving the bottom band to controls. The Job #094 seat-reflow is superseded and now a no-op.
+- Staging hint **hidden on touch** (user request; it was also clipped and collided with the new column).
+- Admin launcher **hidden on touch**.
+
+## Verified on the touch canvas
+
+**LOBBY: no overlaps, Roblox's controls included.** **GAME: no overlaps, thumbstick included.**
+All tap targets ≥ 58px. Analyzer clean on both trees.
+
+## Still device-only
+
+**Multi-touch.** The emulator is single-pointer, so "throttle + steer together" (Job #096) remains the
+one honest reason to want hardware — findings #0004/#0006/#0007 and todo #0058.
+
+## Skill updated
+
+`roblox-studio` SKILL.md now leads its testing section with an emphatic emulator block — what it gives
+(TouchEnabled, real ViewportSize, GetGuiInset, TouchGui rects), the ViewportSize-vs-screenshot trap, the
+bottom-left reservation, and the three ways UI measurement lied during these jobs (clones don't run
+runtime code; forcing Visible changes layout; TextFits is unreliable off-screen).
+
+---
+
+# ADDENDUM 2 — the probe caught what I had already called "clean"
+
+Writing the `mobile` skill's diagnostic probe and running it immediately found two defects in work I had
+just verified and reported as passing:
+
+1. **I measured against the wrong rectangle.** I cleared the hotbar of `ThumbstickStart` (the resting
+   dot, x 29..103) and declared it clean. The real reservation is `DynamicThumbstickFrame` — **x −100..266**
+   — because the dynamic stick spawns wherever the thumb lands. Slots 1–3 were still inside it.
+2. **I never checked the hotbar's own tap size.** Slots were **46×46**, under the 58 px floor, on the
+   control used to switch weapons mid-fight.
+
+**Fix:** the hotbar moved to x=276 (genuinely clear of the frame) and wrapped into a **3×2 grid of 58 px
+slots**. Six slots in a single row need 388 px; the bottom band only has ~260 px between the stick
+(ends x266) and the fire button (starts x526), so a row cannot fit at full size — the same wrap answer
+the lobby rail needed.
+
+Also: the bandage chip's label rendered as **"BANDA"**, truncated mid-word, in the new compact column.
+Dropped to icon + number on touch — a cut word teaches less than no word.
+
+**Hiding on mobile took three attempts.** `AdminLauncher` and `StagingHint` each survived a first fix
+because something re-enabled them: the element's own `refresh()` driver, and `IntroHudGate`'s
+`setHudEnabled(true)` after the cold open. Only an early `return` placed **before** the ScreenGui is
+created holds. An earlier "verified hidden" reading was taken *during* the intro, before the re-enable
+fired — true, and meaningless.
+
+**Final verified state (GAME, real touch canvas):** zero collisions — ours against each other *and*
+against every Roblox control — and every tap target ≥ 58 px.
+
+**The meta-point:** three separate "verified clean" claims in this job were wrong because of *how* I
+measured, not *what* I built. That is why the new `mobile` skill leads with measurement protocol rather
+than layout advice, and why its probe checks against every `TouchGui` child instead of the obvious one.

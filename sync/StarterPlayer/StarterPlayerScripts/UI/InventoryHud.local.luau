@@ -45,7 +45,11 @@ bar.Position = UDim2.fromScale(0.015, 0.975)
 -- y 262..308 — slots 1 and 2 were literally underneath the player's left thumb. 0.225 puts its left edge
 -- at x=150, clear of the stick, and it still ends well short of the fire button at x=526.
 if UserInputService.TouchEnabled then
-	bar.Position = UDim2.fromScale(0.225, 0.975)
+	-- ⚠️ Corrected in the same job: 0.225 (x=150) was measured against `ThumbstickStart`, the stick's
+	-- RESTING dot at x 29..103. The real reservation is `DynamicThumbstickFrame`, x -100..266 — the
+	-- dynamic stick spawns wherever the thumb lands, so the whole band up to x=266 is movement.
+	-- 0.415 puts the bar's left edge at x=276, genuinely clear of it.
+	bar.Position = UDim2.fromScale(0.415, 0.975)
 end
 bar.Size = UDim2.fromScale(0.36, 0.1)
 bar.BackgroundTransparency = 1
@@ -58,13 +62,32 @@ clamp.MinSize = Vector2.new(0, 46)
 clamp.MaxSize = Vector2.new(10000, 76)
 clamp.Parent = bar
 
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, Theme.space.sm)
-layout.Parent = bar
+-- ⚠️ Job #099 — on touch this is a GRID, not a row, and the arithmetic forces it. On a 666x316 phone
+-- canvas the movement frame reserves everything left of x=266 and the fire button owns x=526 onward,
+-- leaving ~260 px of bottom band. Six slots at the 58 px thumb floor need 388 px in a single row — they
+-- do not fit, and shrinking them to 46 px (which is what shipped) puts every slot under the floor.
+-- Wrapping into 3x2 keeps all six at full size inside 190 px. Same answer as the lobby's entry rail.
+if UserInputService.TouchEnabled then
+	local g = Instance.new("UIGridLayout")
+	g.FillDirection = Enum.FillDirection.Horizontal
+	g.FillDirectionMaxCells = 3
+	g.CellSize = UDim2.fromOffset(58, 58)
+	g.CellPadding = UDim2.fromOffset(Theme.space.sm, Theme.space.sm)
+	g.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	g.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = bar
+	-- the grid drives cell size, so the bar must be sized to the block rather than to a scale strip
+	bar.Size = UDim2.fromOffset(3 * 58 + 2 * Theme.space.sm, 2 * 58 + Theme.space.sm)
+else
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Horizontal
+	l.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	l.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Padding = UDim.new(0, Theme.space.sm)
+	l.Parent = bar
+end
 
 bar.Parent = gui
 

@@ -21,6 +21,20 @@ local RunComponents = require(RunUI:WaitForChild("RunComponents"))
 
 local player = Players.LocalPlayer
 
+-- ⚠️ Job #099 — on touch this script builds NOTHING and stops here.
+--
+-- Two earlier attempts failed and both are worth recording. Setting `gui.Enabled = false` at
+-- construction was overwritten by this file's own `refresh()`, which unconditionally re-enables the
+-- card. Gating inside `refresh()` was ALSO not enough: `IntroHudGate` lists this among the HUDs it hides
+-- for the cold open and then calls `setHudEnabled(true)` when the intro ends, re-enabling it without
+-- `refresh()` running again.
+--
+-- Returning before anything is created is the only version that holds, because there is then no
+-- ScreenGui for any other system to switch back on. Desktop is unchanged.
+if game:GetService("UserInputService").TouchEnabled then
+	return
+end
+
 local gui = Components.screen("StagingHint", player:WaitForChild("PlayerGui"))
 gui.DisplayOrder = 7
 
@@ -32,9 +46,7 @@ gui.DisplayOrder = 7
 --
 -- ⚠️ It carries the only on-screen instruction to BOARD AND UNTIE. Folded into finding #0010 rather than
 -- silently dropped: the boat itself should say it (a prompt or a Job #098 one-shot hint), not a banner.
-if game:GetService("UserInputService").TouchEnabled then
-	gui.Enabled = false
-end
+
 
 local card = RunComponents.card({
 	name = "Staging",
