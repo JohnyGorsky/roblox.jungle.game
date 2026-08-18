@@ -1,7 +1,7 @@
 # FINDING 0008: GAME place has the same undersized modal controls the lobby just fixed
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-08-18)
 **Severity:** med
 **Created:** 2026-08-18 16:38:23
 

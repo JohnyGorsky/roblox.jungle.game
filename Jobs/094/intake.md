@@ -2,7 +2,9 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-18
-**Status**: Implemented — pending review + the phone sign-off in final-summary.md §6
+**Status**: COMPLETE — all Studio-verifiable work done and verified.
+Residual device checks are NOT part of this job any more: they are tracked as findings #0004/#0006/#0007
+and folded into Job #096's phone session (see final-summary.md §6).
 
 ## Requirements / goal
 

@@ -205,9 +205,15 @@ function Components.button(opts: ButtonOptions): Button
 	corner(Theme.radius.control, btn)
 	stroke(Theme.color.woodDark, Theme.strokeWidth.control, btn)
 
-	-- keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px)
+	-- Keep every button tappable once the panel shrinks to a phone (measured: row actions fell to 31px).
+	--
+	-- ⚠️ Job #097: 34 -> 58. 34 stopped buttons being absurd but left every shop row's action at 215x34
+	-- (DockShop, in-run spending) and 224x34 (RobuxShop, real money) — a third under the 58 px thumb
+	-- floor this game uses for the driver's controls. Raised here, on the button's OWN constraint: two
+	-- UISizeConstraints on one object do NOT stack (only one applies), which is exactly why the same fix
+	-- attempted at the call site in Job #095 silently did nothing.
 	local floor = Instance.new("UISizeConstraint")
-	floor.MinSize = Vector2.new(0, 34)
+	floor.MinSize = Vector2.new(0, 58)
 	floor.Parent = btn
 
 	-- slight scale-down on press (§6.2) without disturbing layout
@@ -642,8 +648,12 @@ function Components.panel(opts: PanelOptions): Panel
 	-- Scale alone let this fall to ~24px on a phone-sized panel, which is not a thumb target. The floor
 	-- keeps it comfortably tappable while the scale keeps it visually quiet on a big screen.
 	-- (roblox-ui: no official minimum exists — this is our floor, to be confirmed on a real device.)
+	-- Job #097: 40 -> 58. The note above said "to be confirmed on a real device"; the mobile pass
+	-- measured it at 40-55 px across the game's panels (RunResults 40x40, AdminPanel 44x44, DockShop
+	-- 53x53, RobuxShop 55x55) against the 58 px thumb floor. This is the only way out of a full-screen
+	-- modal on a phone, so it is the last control that should be hard to hit.
 	local closeFloor = Instance.new("UISizeConstraint")
-	closeFloor.MinSize = Vector2.new(40, 40)
+	closeFloor.MinSize = Vector2.new(58, 58)
 	closeFloor.Parent = closeBtn
 	closeBtn.Parent = bar
 

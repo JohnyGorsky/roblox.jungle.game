@@ -3,7 +3,9 @@
 **Project**: `roblox.jungle`
 **Place**: **GAME only** (`sync/`)
 **Created**: 2026-08-18
-**Status**: Code complete — blocked on a device session before it can close
+**Status**: ⚠️ CODE COMPLETE — NOT CLOSED. Blocked on a real-device session (final-summary.md §5).
+Everything Studio can verify is done and verified; the touch build path, aim sensitivity and finding
+#0004 have never run on a phone. Confirmed still untested as of 2026-08-18.
 
 ## Why this job exists
 

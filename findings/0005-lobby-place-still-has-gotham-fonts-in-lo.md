@@ -1,7 +1,7 @@
 # FINDING 0005: Lobby place still has Gotham fonts in LobbyLoading and RankServer
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-08-18)
 **Severity:** med
 **Created:** 2026-08-03 00:00:19
 

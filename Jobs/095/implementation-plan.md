@@ -1,6 +1,6 @@
 # Job #095 — Implementation plan
 
-**Project**: `roblox.jungle` · **Place**: LOBBY only (`lobby/sync/`) · **Status**: AGREED — ready to implement
+**Project**: `roblox.jungle` · **Place**: LOBBY only (`lobby/sync/`) · **Status**: IMPLEMENTED — see final-summary.md
 
 Intake: [intake.md](intake.md). Skills: `roblox-ui`, `jungle-style`, GROUND-RULES §3/§6.
 

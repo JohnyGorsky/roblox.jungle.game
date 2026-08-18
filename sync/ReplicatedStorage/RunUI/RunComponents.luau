@@ -4,7 +4,12 @@
 -- Sits ON TOP of `UI/Components.luau`, never beside it: anything a shop row and a fuel gauge both need
 -- (colour, corner, stroke, type rules, buttons, chips, toasts) still comes from there. This file only
 -- adds shapes the lobby has no use for — a vehicle gauge, a journey progress track, a hotbar slot, a
--- thumb control. Keeping them here is what lets `UI/` stay byte-identical across the two trees.
+-- thumb control. Keeping them here is what KEPT `UI/` aligned across the two trees.
+--
+-- ⚠️ That alignment is no longer literal (todo #0057, corrected in Job #097): the GAME and LOBBY copies
+-- of `UI/Components.luau` have diverged — Job #095 changed the lobby's `iconBar`/`iconButton` sizing,
+-- which the game tree does not use. Treat `UI/` as "the same vocabulary in both trees", NOT as a file
+-- you can copy wholesale from one to the other. Check with a diff before assuming parity.
 --
 -- Same construction rules as Components (they are the house style, not that file's private business):
 --   · every colour via Theme, never a literal      · BorderSizePixel = 0 everywhere

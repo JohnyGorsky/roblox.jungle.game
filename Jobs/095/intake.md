@@ -3,7 +3,7 @@
 **Project**: `roblox.jungle`
 **Place**: **LOBBY only** (`lobby/sync/`)
 **Created**: 2026-08-18
-**Status**: Requirements Gathering (intake)
+**Status**: Complete
 
 ## Why this job exists
 
@@ -110,5 +110,5 @@ two-thumb input — but the tap-target findings still want one phone check.
 
 - [x] Requirements reviewed (this intake)
 - [x] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] Final summary + changelog written
+- [x] Implementation completed
+- [x] Final summary + changelog written
