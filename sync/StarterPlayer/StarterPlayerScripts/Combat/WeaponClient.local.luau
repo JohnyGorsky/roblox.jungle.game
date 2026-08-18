@@ -23,6 +23,8 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
 local UISound = require(UI:WaitForChild("UISound"))
+local RunUI = ReplicatedStorage:WaitForChild("RunUI")
+local TouchFire = require(RunUI:WaitForChild("TouchFire"))
 
 local gui = Components.screen("WeaponGui", player:WaitForChild("PlayerGui"))
 gui.ScreenInsets = Enum.ScreenInsets.None -- the reticle marks the true viewport centre
@@ -155,6 +157,11 @@ end
 
 local function updateCrosshair()
 	dot.Visible = reticleShown()
+	-- The trigger follows the reticle exactly: if there is nothing to aim, there is nothing to fire, and
+	-- a fire button with no gun up would be a button that does nothing — the worst thing to put on a
+	-- phone screen. `reticleShown()` already excludes the helm and the turret seat, so this never fights
+	-- GunClient for the corner.
+	TouchFire.setVisible("WeaponClient", reticleShown())
 	-- yellow outranks the ammo colour: with your hands full the ammo count is not why you can't shoot,
 	-- and showing red there would send the player hunting for ammo they already have.
 	dot.BackgroundColor3 = if blockedByCarry()
@@ -209,14 +216,33 @@ local function fire(screenPos: Vector2)
 	tracer(aim)
 end
 
+-- ── the trigger ──────────────────────────────────────────────────────────────────────────────────
+-- Job #096 / finding #0006: on touch, EVERY tap used to fire. Dragging to look around is a touch, so
+-- looking at the river — the thing a player does constantly — spent ammo from the boat's shared,
+-- scavenged stock. The mouse keeps its click; touch gets the dedicated button instead (`RunUI/TouchFire`).
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return -- tap landed on a GUI button (e.g. the hotbar)
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		fire(Vector2.new(input.Position.X, input.Position.Y))
+	elseif input.UserInputType == Enum.UserInputType.Touch and not TouchFire.isActive() then
+		-- Fallback only. `isActive()` is true on every touch device, so in practice this arm is dead on
+		-- a phone and live nowhere else — it exists so that if the button ever fails to build, the gun
+		-- is still usable rather than silently inert.
 		fire(Vector2.new(input.Position.X, input.Position.Y))
 	end
+end)
+
+-- The button aims at the RETICLE, not at where the finger landed: the reticle is drawn at the true
+-- viewport centre (see this file's ScreenInsets note), which is the line the player is actually sighting
+-- along. Firing at the thumb's position would send the shot into the bottom-right corner of the screen.
+TouchFire.onFire(function()
+	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+	if not viewport then
+		return
+	end
+	fire(Vector2.new(viewport.X / 2, viewport.Y / 2))
 end)
 
 -- keep the crosshair in sync with equip/ammo/busy/seat changes

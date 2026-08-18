@@ -15,7 +15,14 @@ local fireRemote = ReplicatedStorage:WaitForChild("GunFire") :: RemoteEvent
 
 local YAW_LIMIT = math.rad(80)
 local PITCH_MIN, PITCH_MAX = math.rad(-12), math.rad(35)
-local SENS = 0.006
+local SENS = 0.006 -- radians per pixel of MOUSE movement
+-- Touch needs its own constant, not a reuse of SENS: a thumb drag covers a few hundred pixels where a
+-- mouse sweep covers a thousand, so the mouse value would make the barrel feel nailed down on a phone.
+-- ⚠️ FIRST VALUE, NOT A TUNED ONE (Job #096) — chosen so a ~280 px drag covers the full ±80° yaw arc,
+-- which is about one comfortable thumb sweep on a phone. It cannot be judged from Studio (a desktop
+-- session reports TouchEnabled = false), so it is EXPECTED to need one round of adjustment from a real
+-- device. If aiming feels sluggish raise it; twitchy, lower it.
+local TOUCH_SENS = 0.010
 local BIND = "GunCam"
 local CAM_UP, CAM_BACK = 2, 3 -- MUST match GunServer so the shot hits the crosshair
 
@@ -30,6 +37,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
 local UISound = require(UI:WaitForChild("UISound"))
+local TouchFire = require(ReplicatedStorage:WaitForChild("RunUI"):WaitForChild("TouchFire"))
 
 local gui = Components.screen("GunGui", player:WaitForChild("PlayerGui"))
 gui.ScreenInsets = Enum.ScreenInsets.None -- must sit at the true viewport centre, where the shot goes
@@ -120,12 +128,40 @@ local function publishLocalAim()
 	player:SetAttribute("GunAimPitch", pitch)
 end
 
-UserInputService.InputChanged:Connect(function(input: InputObject)
-	if not seated or input.UserInputType ~= Enum.UserInputType.MouseMovement then
+-- ⚠️ Job #096 / finding #0007 — THE GUNNER ROLE DID NOT WORK ON A PHONE AT ALL.
+--
+-- This handler used to read `input.UserInputType ~= Enum.UserInputType.MouseMovement then return`.
+-- Roblox does NOT emit `MouseMovement` for a touch drag — a drag arrives as `UserInputType.Touch` on
+-- `InputChanged` — so on mobile `yaw`/`pitch` never changed. A gunner sat down, got the over-the-gun
+-- camera, and could not move the barrel: they could only ever shoot straight ahead. Combined with the
+-- old tap-anywhere trigger, every attempt to look around also burned a round of the boat's shared,
+-- scavenged ammo. One of the game's interdependent roles was unplayable on the platform GAME.md calls
+-- a hard requirement.
+--
+-- `gameProcessed` is checked for TOUCH ONLY, and that asymmetry is deliberate. A drag that begins on
+-- the fire button must not also swing the barrel — but the mouse path is left byte-for-byte as it
+-- behaved before, because a PC player has no such conflict and this fix must not change their aim.
+UserInputService.InputChanged:Connect(function(input: InputObject, gameProcessed: boolean)
+	if not seated then
 		return
 	end
-	yaw = math.clamp(yaw - input.Delta.X * SENS, -YAW_LIMIT, YAW_LIMIT)
-	pitch = math.clamp(pitch - input.Delta.Y * SENS, PITCH_MIN, PITCH_MAX)
+
+	local sens: number
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		sens = SENS
+	elseif input.UserInputType == Enum.UserInputType.Touch then
+		if gameProcessed then
+			return -- this drag belongs to a GUI control (the fire button), not to aiming
+		end
+		sens = TOUCH_SENS
+	else
+		return
+	end
+
+	-- `Delta` is per-frame movement in pixels for both input types, so the only difference between them
+	-- is the constant.
+	yaw = math.clamp(yaw - input.Delta.X * sens, -YAW_LIMIT, YAW_LIMIT)
+	pitch = math.clamp(pitch - input.Delta.Y * sens, PITCH_MIN, PITCH_MAX)
 	aimRemote:FireServer(yaw, pitch)
 	publishLocalAim()
 end)
@@ -168,30 +204,46 @@ local function drawTracer()
 	end)
 end
 
+-- One trigger body, two ways in (Job #096): the mouse click below, and the on-screen fire button for
+-- touch. Extracted rather than duplicated so the empty-turret answer below can never drift between them.
+local function pullTrigger()
+	if not seated then
+		return
+	end
+	-- ⚠️ THE BUG THIS FIXES (found in playtest): `drawTracer()` used to run unconditionally. GunServer
+	-- correctly refuses a shot with no rounds and no crates (:167-169) — but the client drew the
+	-- tracer anyway, so an empty turret looked and felt exactly like a firing one. You could "shoot"
+	-- forever and wonder why nothing died.
+	--
+	-- The handheld path already got this right (WeaponClient checks `haveAmmo` before sending); only
+	-- the turret didn't. Now empty means: no remote call, no tracer, a dry click, and a red reticle
+	-- pulse — the same three-part answer the handheld gives.
+	if shotsLeft() <= 0 then
+		UISound.play("emptyClick")
+		local was = dot.BackgroundColor3
+		dot.BackgroundColor3 = Theme.color.red
+		TweenService:Create(dot, Theme.tween.slow, { BackgroundColor3 = was }):Play()
+		return
+	end
+	fireRemote:FireServer()
+	drawTracer()
+end
+
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if not seated or gameProcessed then
 		return
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		-- ⚠️ THE BUG THIS FIXES (found in playtest): `drawTracer()` used to run unconditionally. GunServer
-		-- correctly refuses a shot with no rounds and no crates (:167-169) — but the client drew the
-		-- tracer anyway, so an empty turret looked and felt exactly like a firing one. You could "shoot"
-		-- forever and wonder why nothing died.
-		--
-		-- The handheld path already got this right (WeaponClient checks `haveAmmo` before sending); only
-		-- the turret didn't. Now empty means: no remote call, no tracer, a dry click, and a red reticle
-		-- pulse — the same three-part answer the handheld gives.
-		if shotsLeft() <= 0 then
-			UISound.play("emptyClick")
-			local was = dot.BackgroundColor3
-			dot.BackgroundColor3 = Theme.color.red
-			TweenService:Create(dot, Theme.tween.slow, { BackgroundColor3 = was }):Play()
-			return
-		end
-		fireRemote:FireServer()
-		drawTracer()
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		pullTrigger()
+	elseif input.UserInputType == Enum.UserInputType.Touch and not TouchFire.isActive() then
+		-- Fallback only — see the matching note in WeaponClient. On a real touch device the button is
+		-- the trigger, so this arm is dead; it exists so a failure to build the button leaves the turret
+		-- usable rather than inert.
+		pullTrigger()
 	end
 end)
+
+TouchFire.onFire(pullTrigger)
 
 -- Turret ammo lives on the BOAT (`Rounds` = loose rounds already fed to the gun, `Ammo` = crates on the
 -- deck still to be fed), not on the player — the turret draws from the shared stock. Both are shown,
@@ -247,6 +299,8 @@ local function startGunner()
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	UserInputService.MouseIconEnabled = false
 	RunService:BindToRenderStep(BIND, Enum.RenderPriority.Camera.Value, update)
+	-- Job #096: on touch the barrel is aimed by DRAGGING, so the trigger needs a button of its own.
+	TouchFire.setVisible("GunClient", true)
 end
 
 local function stopGunner()
@@ -256,6 +310,7 @@ local function stopGunner()
 	seated = false
 	gui.Enabled = false
 	watchAmmo(false)
+	TouchFire.setVisible("GunClient", false)
 	pcall(function()
 		RunService:UnbindFromRenderStep(BIND)
 	end)

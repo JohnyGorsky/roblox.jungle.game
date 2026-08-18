@@ -402,12 +402,23 @@ export type IconButtonOptions = {
 	layoutOrder: number?,
 	parent: Instance?,
 	onActivated: (() -> ())?,
+	-- How many tiles share the rail. Job #095: the tile height used to be a hardcoded 0.22, which was
+	-- correct for the FOUR entries this bar shipped with and silently wrong once PAINT made it five —
+	-- 5 x 0.22 = 1.10, so the rail overflowed its own holder. Dividing by the real count makes a sixth
+	-- entry safe instead of quietly breaking the layout again.
+	count: number?,
+	-- Vertical gap between tiles, in px, so the tile can subtract its share and the rail FITS.
+	gap: number?,
 }
 
 function Components.iconButton(opts: IconButtonOptions): Frame
 	local tile = Instance.new("Frame")
 	tile.Name = "Tile_" .. opts.label
-	tile.Size = UDim2.fromScale(1, 0.22)
+	-- Scale share minus this tile's slice of the total inter-tile padding, so N tiles plus N-1 gaps come
+	-- to exactly the holder's height rather than overflowing it.
+	local count = math.max(opts.count or 4, 1)
+	local gap = opts.gap or 0
+	tile.Size = UDim2.new(1, 0, 1 / count, -(gap * (count - 1)) / count)
 	tile.BackgroundTransparency = 1
 	tile.BorderSizePixel = 0
 	tile.LayoutOrder = opts.layoutOrder or 0
@@ -416,7 +427,10 @@ function Components.iconButton(opts: IconButtonOptions): Frame
 	btn.Name = "Button"
 	btn.AnchorPoint = Vector2.new(0.5, 0)
 	btn.Position = UDim2.fromScale(0.5, 0)
-	btn.Size = UDim2.fromScale(1, 0.74)
+	-- 0.78, not 0.74: with the 0.22 caption below it that now sums to exactly 1, where 0.74 left 4% of
+	-- every tile as dead space. Job #095 needed those pixels — the badge is a TAP TARGET and was
+	-- measuring 47x47 on a small phone, under the 58 px thumb floor this game uses elsewhere.
+	btn.Size = UDim2.fromScale(1, 0.78)
 	btn.BackgroundColor3 = Theme.color.panel
 	btn.BackgroundTransparency = 0.1
 	btn.BorderSizePixel = 0
