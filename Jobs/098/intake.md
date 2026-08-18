@@ -87,21 +87,46 @@ on the **walking line from spawn to the dock**, facing the player as they set of
 script builds at runtime would be rebuilt at its scripted position every run and silently discard that
 move — the same rule the lobby already follows (objects are hand-placed; scripts find them by name).
 
-### E. What is needed from the user
+### E. The image — SUPPLIED
 
-- **The image.** Either hand Claude the file (it can `upload_image` and wire the returned id) or upload
-  it on Roblox and supply the asset id. Roblox moderates uploaded images, so it may not appear instantly.
-- **The final position** — Claude places it as a starting point only.
+**`BoatInfo` — `rbxassetid://113207367236651`** (uploaded by the user 2026-08-18). Registered in the
+shared catalog at `roblox.workspace/Assets/registry/images.md`.
+
+It is an infographic titled **"HOW TO USE THE BOAT"**:
+
+| | |
+|---|---|
+| 1 | LOAD ITEMS AND DEPOSIT THEM IN THE CENTER AREA |
+| 2 | USE THE FUEL STATION TO REFUEL THE BOAT |
+| 3 | USE THE REPAIR STATION TO REPAIR THE BOAT |
+
+with three annotated callouts over a screenshot — DEPOSIT ITEMS ("move items to the center of the
+boat"), FUEL STATION ("refuel the boat before traveling"), REPAIR STATION ("repair the boat to keep it
+in good condition").
+
+**Two things this changes:**
+
+1. **The hint wording gets more precise.** The image says the drop-off is the **centre area** of the
+   boat, not just "the boat". The banner copy should match the sign a player may already have read —
+   two different phrasings for one mechanic is worse than either alone.
+2. ⚠️ **The board's aspect ratio has to change.** The image is roughly **16:9**; the `Survive` board is
+   `8 × 3`, i.e. **2.67:1**. Dropping this image onto that board letterboxes it with dead wood above
+   and below, or crops the callouts off. A board near **1.7:1** — e.g. `10 × 5.9` — shows it whole.
+   That is a bigger sign than `Survive`, which is appropriate: this one is meant to be read, not
+   glanced at.
+
+Still needed from the user: **the final position.** Claude places it as a starting point only.
 
 ## Open questions for the plan phase
 
-1. **Wording.** Concrete copy for both hints, within the sign/banner voice. ("DELIVER IT TO THE BOAT" /
-   "FUEL & REPAIR AT THE REAR OF THE BOAT"?)
+1. **Wording.** Concrete copy for both hints, matching the supplied sign's language — it says "deposit
+   in the CENTER area", so the pickup hint should too.
 2. **Does the banner need an icon and sound?** `Announce` already supports both; a teaching beat
    probably wants to feel different from a zone crossing.
 3. **Timing on the pickup hint** — immediately on pickup, or a beat later so it does not collide with the
    pickup feedback already on screen (the `HandsFull` card appears at the same moment)?
-4. **Does the sign carry text as well as the image**, or image only?
+4. **Does the sign carry a text header as well as the image**, or image only? The image already
+   contains its own title, so a wooden header saying the same thing twice would be noise.
 5. **Should the second hint also fire for a player who has never deposited but joins a crew mid-run?**
    (It is per-player and profile-backed, so yes by default — worth confirming it is not surprising.)
 

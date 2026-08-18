@@ -313,6 +313,35 @@ function Profiles.addGold(player: Player, amount: number): number
 	return e.data.gold
 end
 
+-- ── one-shot onboarding hints (Job #098) ─────────────────────────────────────────────────────────
+-- Typed accessors rather than callers poking `Profiles.get(p).seen` directly, matching how gold, river
+-- score and paint are already reached.
+
+-- ⚠️ FAILS TOWARD TEACHING. When the profile is not ready — an in-memory fallback, a session lost to a
+-- DataStore outage — this returns false, so the hint SHOWS. Repeating a hint to an unlucky player is a
+-- small annoyance; silently never teaching them the carry mechanic is the bug this exists to fix.
+function Profiles.hasSeen(player: Player, id: string): boolean
+	local e = cache[player]
+	if not e or not e.ready then
+		return false
+	end
+	local seen = e.data.seen
+	return type(seen) == "table" and seen[id] == true
+end
+
+-- Mark a hint shown. A no-op when there is no profile to write to: the hint has already been delivered
+-- by the time this is called, and an unwritable profile must not stop it being delivered.
+function Profiles.markSeen(player: Player, id: string)
+	local e = cache[player]
+	if not e then
+		return
+	end
+	if type(e.data.seen) ~= "table" then
+		e.data.seen = {}
+	end
+	e.data.seen[id] = true
+end
+
 function Profiles.getRiverScore(player: Player): number
 	local e = cache[player]
 	return (e and e.data.riverScore) or 0

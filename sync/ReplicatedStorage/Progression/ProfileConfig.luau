@@ -56,6 +56,10 @@ function ProfileConfig.default(): any
 		weekly = { finish = 0, travel = 0, zone = 0 }, -- weekly objective progress
 		weeklyClaimed = {}, -- { [objId] = true }
 		purchaseIds = {}, -- ARRAY of granted developer-product PurchaseIds, FIFO-capped (Job 027, reshaped 089)
+		-- Job #098: one-shot onboarding hints already shown to this player — { [hintId] = true }.
+		-- Persistent on purpose: these teach a mechanic ONCE, so a veteran on their 50th run is never
+		-- taught to carry a crate again. Lives on the profile rather than in the session for that reason.
+		seen = {},
 		stats = {
 			totalRuns = 0,
 			runsFinished = 0,
@@ -109,6 +113,10 @@ function ProfileConfig.migrate(data: any): any
 	end
 	if data.weeklyClaimed == nil then
 		data.weeklyClaimed = {}
+	end
+	-- Job #098. Additive like every check above: an older profile simply arrives without it.
+	if type(data.seen) ~= "table" then
+		data.seen = {}
 	end
 	-- ⚠️ Job 089 changed the SHAPE of this from a dict `{[purchaseId] = true}` to an ARRAY of ids, so
 	-- ProfileStore's official receipt pattern (FIFO-capped at 100, `table.find`) can use it. A dict
