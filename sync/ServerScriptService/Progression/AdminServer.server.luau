@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
+local Workspace = game:GetService("Workspace")
 
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 local AdminDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("AdminDefs")) :: any
@@ -16,6 +17,74 @@ local SkillDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForC
 local rf = Instance.new("RemoteFunction")
 rf.Name = "Admin"
 rf.Parent = ReplicatedStorage
+
+-- ── cheat toggles (Job #112) ─────────────────────────────────────────────────────────────────────
+-- Three dev switches so a run can be driven end to end without dying or refuelling. All three are
+-- STATE, not one-shot grants, so they read back as well as write — the panel labels itself ON/OFF.
+--
+-- Where each one is enforced matters more than where it is stored:
+--   · godPlayer   → stamps `InvincibleUntil`, the attribute BOTH damage paths already check
+--                   (`EnemyServer` target selection, `ExcursionServer.tickGuard`). Inventing a second
+--                   flag would mean editing every damage path to honour it — PlayerCombat's own comment
+--                   warns about exactly that. The loop also tops HP/Health back up, which covers the
+--                   things `InvincibleUntil` does not: falling, drowning, and anything writing Health.
+--   · godBoat     → `Boat.AdminGodBoat`, enforced inside BoatServer's own HP-changed handler.
+--   · infiniteFuel→ `Boat.AdminInfiniteFuel`, enforced in BoatServer's drain.
+local function theBoat(): Instance?
+	return Workspace:FindFirstChild("Boat")
+end
+
+local godStamp: { [Model]: number } = {}
+local godRunning: { [Player]: boolean } = {}
+
+local function runGodLoop(target: Player)
+	if godRunning[target] then
+		return
+	end
+	godRunning[target] = true
+	task.spawn(function()
+		while target.Parent and target:GetAttribute("AdminGod") == true do
+			local char = target.Character
+			if char then
+				-- Re-stamped every tick rather than set once to a huge number, so turning the toggle OFF
+				-- takes effect within a couple of seconds even if the clear below is somehow missed.
+				local deadline = Workspace:GetServerTimeNow() + 8
+				char:SetAttribute("InvincibleUntil", deadline)
+				godStamp[char] = deadline
+				char:SetAttribute("AdminGod", true) -- DownedHud reads this to suppress its countdown chip
+				local maxHP = (char:GetAttribute("MaxHP") :: number?) or 100
+				if ((char:GetAttribute("HP") :: number?) or maxHP) < maxHP then
+					char:SetAttribute("HP", maxHP)
+				end
+				local hum = char:FindFirstChildOfClass("Humanoid")
+				if hum and hum:IsA("Humanoid") and hum.Health < hum.MaxHealth then
+					hum.Health = hum.MaxHealth
+				end
+			end
+			task.wait(0.25)
+		end
+		godRunning[target] = nil
+		local char = target.Character
+		if char then
+			char:SetAttribute("AdminGod", nil)
+			-- Only clear a deadline WE stamped — the same guard PlayerCombat and EscapeServer use, so
+			-- switching god mode off does not cancel a revive grace that is legitimately running.
+			if godStamp[char] and char:GetAttribute("InvincibleUntil") == godStamp[char] then
+				char:SetAttribute("InvincibleUntil", nil)
+			end
+			godStamp[char] = nil
+		end
+	end)
+end
+
+local function cheatState(target: Player?): { [string]: boolean }
+	local b = theBoat()
+	return {
+		godPlayer = target ~= nil and target:GetAttribute("AdminGod") == true,
+		godBoat = b ~= nil and b:GetAttribute("AdminGodBoat") == true,
+		infiniteFuel = b ~= nil and b:GetAttribute("AdminInfiniteFuel") == true,
+	}
+end
 
 rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 	if not AdminDefs.isAdmin(plr.UserId) then
@@ -154,6 +223,39 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 			plr.Name, math.floor((pos :: Vector3).X), math.floor((pos :: Vector3).Z),
 			tostring(startedRun), tostring(streamed)))
 		return { ok = true, startedRun = startedRun, streamed = streamed }
+	elseif action == "cheats" then
+		-- read-back so the panel can label its toggles the moment it opens
+		local target = typeof(arg) == "table" and Players:GetPlayerByUserId(arg.targetUserId) or plr
+		return { ok = true, state = cheatState(target or plr) }
+	elseif action == "cheat" then
+		if typeof(arg) ~= "table" then
+			return { error = "bad-arg" }
+		end
+		local kind = arg.kind
+		local on = arg.on == true
+		local target = Players:GetPlayerByUserId(arg.targetUserId) or plr
+		if kind == "godPlayer" then
+			target:SetAttribute("AdminGod", on or nil)
+			if on then
+				runGodLoop(target)
+			end
+		elseif kind == "godBoat" or kind == "infiniteFuel" then
+			local b = theBoat()
+			if not b then
+				return { error = "no-boat" }
+			end
+			b:SetAttribute(kind == "godBoat" and "AdminGodBoat" or "AdminInfiniteFuel", on or nil)
+			if on and kind == "infiniteFuel" then
+				b:SetAttribute("Fuel", (b:GetAttribute("MaxFuel") :: number?) or 100)
+			end
+			if on and kind == "godBoat" then
+				b:SetAttribute("HP", (b:GetAttribute("MaxHP") :: number?) or 100)
+			end
+		else
+			return { error = "bad-kind" }
+		end
+		print(("[Admin] %s → cheat %s = %s (target %s)"):format(plr.Name, tostring(kind), tostring(on), target.Name))
+		return { ok = true, state = cheatState(target) }
 	end
 	return { error = "bad-action" }
 end

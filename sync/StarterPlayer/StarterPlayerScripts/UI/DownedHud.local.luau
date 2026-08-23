@@ -212,6 +212,12 @@ local function watchGrace(char: Model)
 			graceGui.Enabled = false
 			return
 		end
+		-- Job #112: admin god mode re-stamps the deadline every 0.25 s, so the chip would sit on screen
+		-- for the whole session flickering an 8-second countdown that never runs out.
+		if char:GetAttribute("AdminGod") == true then
+			graceGui.Enabled = false
+			return
+		end
 		if left <= 0 then
 			graceGui.Enabled = false
 			return

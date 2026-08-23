@@ -269,6 +269,18 @@ boat:SetAttribute("MaxHP", MAX_HP)
 boat:SetAttribute("HP", MAX_HP)
 local destroyed = false
 boat:GetAttributeChangedSignal("HP"):Connect(function()
+	-- Admin god-boat (Job #112). The restore lives INSIDE this handler rather than in a polling loop on
+	-- AdminServer, because the destroy check below runs on the very same write: a single hit big enough
+	-- to take HP straight to 0 would beat any poll, and the run would end before the restore landed.
+	-- Guarding here catches every writer — enemies, obstacles, modules — without any of them knowing.
+	-- Re-entry is harmless: the restore re-fires this handler, which sees full HP and falls through.
+	if boat:GetAttribute("AdminGodBoat") == true then
+		local maxHp = (boat:GetAttribute("MaxHP") :: number?) or MAX_HP
+		if ((boat:GetAttribute("HP") :: number?) or maxHp) < maxHp then
+			boat:SetAttribute("HP", maxHp)
+		end
+		return
+	end
 	if not destroyed and ((boat:GetAttribute("HP") :: number?) or MAX_HP) <= 0 then
 		destroyed = true
 		Workspace:SetAttribute("BoatDestroyed", true)
@@ -380,6 +392,15 @@ RunService.Heartbeat:Connect(function(dt: number)
 
 	-- fuel: drain while the engine runs; empty = no engine (drift at the current's mercy = stranded)
 	local fuel = (boat:GetAttribute("Fuel") :: number?) or 0
+	-- Admin infinite fuel (Job #112): top the tank back up rather than skipping the drain, so the HUD
+	-- gauge reads a truthful 100% instead of freezing at whatever it happened to be when you toggled on.
+	if boat:GetAttribute("AdminInfiniteFuel") == true then
+		local maxFuel = (boat:GetAttribute("MaxFuel") :: number?) or MAX_FUEL
+		if fuel < maxFuel then
+			boat:SetAttribute("Fuel", maxFuel)
+			fuel = maxFuel
+		end
+	end
 	if fuel > 0 then
 		-- FuelBurnMul = Diesel Efficiency skill (Job 024); StationFuelMul = Engineer at the fuel station (Job 034)
 		local burnMul = ((boat:GetAttribute("FuelBurnMul") :: number?) or 1) * ((boat:GetAttribute("StationFuelMul") :: number?) or 1)

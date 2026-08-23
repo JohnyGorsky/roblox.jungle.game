@@ -119,7 +119,10 @@ targetButton.instance.Activated:Connect(showTarget)
 
 -- ── actions ──────────────────────────────────────────────────────────────────────────────────────
 
-type AdminAction = { label: string, icon: string, kind: string?, amount: number?, action: string? }
+-- Three shapes share this list: a targeted GRANT (`kind` + `amount`), a self ACTION (`action`), and a
+-- state TOGGLE (`toggle`, Job #112). A toggle differs from the other two in that it reads back — its
+-- button is labelled from server state when the panel opens, not from whatever it last did.
+type AdminAction = { label: string, icon: string, kind: string?, amount: number?, action: string?, toggle: string? }
 
 local actions: { AdminAction } = {
 	{ label = "+1000 Gold", icon = "coin", kind = "gold", amount = 1000 },
@@ -128,7 +131,28 @@ local actions: { AdminAction } = {
 	{ label = "Unlock ALL Modules", icon = "boat", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", icon = "star", kind = "maxSkills", amount = 0 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
+	-- Job #112 test switches. `godPlayer` follows the target selector above; the boat ones are global
+	-- because there is only ever one boat.
+	{ label = "God Mode — Character", icon = "heart", toggle = "godPlayer" },
+	{ label = "God Mode — Boat", icon = "boat", toggle = "godBoat" },
+	{ label = "Infinite Fuel", icon = "fuel", toggle = "infiniteFuel" },
 }
+
+-- Current server-side toggle state, refreshed whenever the panel opens. Labels are driven from THIS,
+-- never from a local guess about what the last click did — a click that the server refused (no boat
+-- spawned yet, for instance) must not leave the button claiming the cheat is on.
+local cheatState: { [string]: boolean } = {}
+local toggleButtons: { [string]: any } = {}
+
+local function paintToggle(key: string, label: string)
+	local btn = toggleButtons[key]
+	if not btn then
+		return
+	end
+	local on = cheatState[key] == true
+	btn.setText(string.upper(label) .. (on and "  ·  ON" or "  ·  OFF"))
+	btn.setMuted(not on)
+end
 
 local list = Instance.new("ScrollingFrame")
 list.Name = "Actions"
@@ -159,6 +183,31 @@ for i, a in ipairs(actions) do
 		onActivated = function()
 			button.setEnabled(false)
 			button.setText("…")
+
+			if a.toggle then
+				local tgt = targets[targetIdx]
+				local ok, res = pcall(function()
+					return rf:InvokeServer("cheat", {
+						kind = a.toggle,
+						on = not (cheatState[a.toggle] == true),
+						targetUserId = tgt and tgt.userId,
+					})
+				end)
+				button.setEnabled(true)
+				if ok and typeof(res) == "table" and res.ok == true and typeof(res.state) == "table" then
+					cheatState = res.state
+					paintToggle(a.toggle, a.label)
+				else
+					-- Refused (usually "no-boat" before the boat exists). Say so, then repaint from the
+					-- state we still believe — never flip the label on a request the server rejected.
+					local why = if ok and typeof(res) == "table" and res.error then tostring(res.error) else "failed"
+					button.setText(string.upper(why))
+					task.delay(2.5, function()
+						paintToggle(a.toggle :: string, a.label)
+					end)
+				end
+				return
+			end
 
 			-- Self-actions (e.g. teleport) take no target and close the panel so you see the result.
 			--
@@ -197,6 +246,27 @@ for i, a in ipairs(actions) do
 			button.setEnabled(true)
 		end,
 	})
+	if a.toggle then
+		toggleButtons[a.toggle] = button
+		paintToggle(a.toggle, a.label)
+	end
+end
+
+-- Pull the real state on open. Without this the toggles would read OFF after a panel reopen even though
+-- the cheat is still running on the server.
+local function refreshCheats()
+	local tgt = targets[targetIdx]
+	local ok, res = pcall(function()
+		return rf:InvokeServer("cheats", { targetUserId = tgt and tgt.userId })
+	end)
+	if ok and typeof(res) == "table" and typeof(res.state) == "table" then
+		cheatState = res.state
+		for _, a in ipairs(actions) do
+			if a.toggle then
+				paintToggle(a.toggle, a.label)
+			end
+		end
+	end
 end
 
 -- The panel owns its own way out (X + tap-outside), so opening is all that's left to wire.
@@ -207,6 +277,7 @@ Components.button({
 	parent = openHolder,
 	onActivated = function()
 		refreshTargets() -- the player list changes between openings
+		refreshCheats() -- and the cheats may have been left on from a previous opening
 		panel.setOpen(true)
 	end,
 })
