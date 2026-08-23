@@ -205,6 +205,13 @@ local function watchGrace(char: Model)
 		-- Same float server clock the deadline was stamped on, so the number on screen and the moment
 		-- damage actually resumes are the same instant. See PlayerCombat's note.
 		local left = if until_ then until_ - Workspace:GetServerTimeNow() else 0
+		-- Job #111: the extraction stamps a LONG deadline (it has to outlast the 30 s results screen), so
+		-- without this the chip would sit next to the VICTORY panel counting down from ~300. Once the run
+		-- is over the number is true but meaningless — there is nothing left to run from.
+		if Workspace:GetAttribute("RunEnded") == true then
+			graceGui.Enabled = false
+			return
+		end
 		if left <= 0 then
 			graceGui.Enabled = false
 			return

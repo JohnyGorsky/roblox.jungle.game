@@ -71,6 +71,11 @@ local results = Components.panel({
 	icon = "trophy",
 	size = UDim2.fromScale(0.44, 0.56),
 	parent = player.PlayerGui,
+	-- Job #111: NOT dismissable. This panel shipped with the standard X and tap-outside-to-close, so a
+	-- player could shut the results screen and go on walking around a finished run — no boat, no
+	-- objectives, invincible, nothing to do but wait out the auto-teleport. RETURN TO LOBBY is the only
+	-- way off this screen (the 30 s countdown presses it for you).
+	dismissable = false,
 })
 results.gui.DisplayOrder = 70 -- the run is over: nothing, not even the admin panel, goes above this
 

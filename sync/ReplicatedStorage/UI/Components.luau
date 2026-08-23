@@ -546,6 +546,12 @@ export type PanelOptions = {
 	icon: string?,
 	size: UDim2?,
 	parent: Instance,
+	-- Job #111: TERMINAL panels only. STYLEGUIDE §6.11 requires every panel to be closable, and that is
+	-- right for panels you came from somewhere to open. The run-results screen is not one of those:
+	-- the run is OVER, there is nothing behind it to go back to, and closing it left the player walking
+	-- around a finished world (invincible, boat gone) until the auto-teleport fired. Defaults to true —
+	-- do not set this false on anything a player might legitimately want to dismiss.
+	dismissable: boolean?,
 }
 
 -- Every panel built by `Components.panel`, so anything can close the lot. STYLEGUIDE §6.11: *"opening a
@@ -702,12 +708,21 @@ function Components.panel(opts: PanelOptions): Panel
 		setOpen(false)
 	end
 
-	closeBtn.Activated:Connect(function()
-		setOpen(false)
-	end)
-	scrim.Activated:Connect(function()
-		setOpen(false)
-	end)
+	if opts.dismissable == false then
+		-- No X, and the scrim stops being a tap-outside-to-close target. Both have to go: hiding only
+		-- the button leaves a panel that still vanishes when you tap the dimmed area around it.
+		closeBtn.Visible = false
+		closeBtn.Active = false
+		scrim.Active = false
+		scrim.Selectable = false
+	else
+		closeBtn.Activated:Connect(function()
+			setOpen(false)
+		end)
+		scrim.Activated:Connect(function()
+			setOpen(false)
+		end)
+	end
 
 	return {
 		gui = gui,

@@ -3,9 +3,10 @@
 --
 -- Closes the POC loop. Once the run has started (StagingServer sets Workspace.RunStarted), this owns the
 -- ENDING: during a run there is NO respawn — bleeding out (PlayerCombat) is permanent, and the dead player
--- spectates (RunClient). The run ends on WIN (boat reaches the river end) or LOSE (whole crew dead, or the
--- boat destroyed). On end it broadcasts results (win/lose, distance, reward) and returns the party to the
--- lobby. Server-authoritative. Runs on the reserved GAME server. Greybox results UI is client-side.
+-- spectates (RunClient). The run ends on WIN (the crew is EXTRACTED — EscapeServer stamps
+-- `Workspace.EscapeReached` when they board the pad in the end zone; Job #111) or LOSE (whole crew dead,
+-- or the boat destroyed). On end it broadcasts results (win/lose, distance, reward) and returns the party
+-- to the lobby. Server-authoritative. Runs on the reserved GAME server. Greybox results UI is client-side.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -33,7 +34,6 @@ end
 
 local LOBBY_PLACE_ID = 114309626266505 -- "Last River COOP lobby" (players return here after a run)
 local RETURN_TIMEOUT = 30 -- seconds on the results screen before auto-return to the lobby
-local DEV_WIN_DISTANCE = 0 -- >0 overrides the win distance for testing (0 = use the real river end)
 
 -- Gold reward (Job 022, design Job 020 §2) — RARE, finish-weighted. Zone-stepped by fraction of the
 -- river reached (checkpoints at 25/50/75/100%); a partial run still pays, a full finish pays a premium.
@@ -83,10 +83,11 @@ local function alivePlayers(): number
 	return n
 end
 
-local function winDistance(): number
-	if DEV_WIN_DISTANCE > 0 then
-		return DEV_WIN_DISTANCE
-	end
+-- The river's full length. Job #111: this is NO LONGER A WIN CONDITION — it is only the denominator the
+-- Gold/zone/score maths divides by. Winning is `Workspace.EscapeReached`, set by EscapeServer when the
+-- crew boards the extraction pad. (The old `DEV_WIN_DISTANCE` test override went with the distance win:
+-- shrinking this number now silently inflates the reward instead of ending the run, which is a trap.)
+local function riverLength(): number
 	return (Workspace:GetAttribute("RiverEndDistance") :: number?) or 18000
 end
 
@@ -174,8 +175,17 @@ local function endRun(won: boolean)
 	Workspace:SetAttribute("RunEnded", true)
 	Workspace:SetAttribute("RunResult", won and "win" or "lose")
 
-	local distance = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
-	local endDist = winDistance()
+	local boatDistance = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
+	local endDist = riverLength()
+
+	-- ⚠️ ON A WIN, CREDIT THE FULL RIVER — the boat's own position is no longer the finish.
+	-- Job #111 moved the win from "boat crossed END_DISTANCE" to "crew extracted", and those are not the
+	-- same place: the crew can beach the boat short of the mouth and walk into the end zone, and the hull
+	-- drifts once nobody is driving it. Measured in the first Play test — a successful extraction filed
+	-- `distance=17867 zone=3`, which cost 50 River Score and, worse, failed the weekly "Reach Zone 4 in a
+	-- run" objective that the very same run had just earned. If you extracted, you finished the river.
+	local distance = if won then math.max(boatDistance, endDist) else boatDistance
+
 	local goldEarned = goldForRun(distance, endDist, won)
 	local zone = zoneReached(distance, endDist)
 	local survivors = alivePlayers()
@@ -220,7 +230,8 @@ local function endRun(won: boolean)
 		end
 	end
 
-	print(("[Run] ENDED — %s | distance=%d zone=%d gold=+%d survivors=%d"):format(won and "WIN" or "LOSE", distance, zone, goldEarned, survivors))
+	print(("[Run] ENDED — %s | distance=%d (boat at %d) zone=%d gold=+%d survivors=%d")
+		:format(won and "WIN" or "LOSE", distance, boatDistance, zone, goldEarned, survivors))
 
 	runEndedRemote:FireAllClients({
 		won = won,
@@ -234,11 +245,14 @@ local function endRun(won: boolean)
 end
 
 -- ── end-condition monitor ──────────────────────────────────────────────────────────────────────
+-- Job #111: the WIN arm used to be `dist >= winDistance()` — crossing the river's end plane. That fired
+-- at the mouth, before the crew had arrived anywhere, and the boat then drove on into unwritten world.
+-- The win is now EXTRACTION: EscapeServer stamps `EscapeReached` once the crew boards the pad in the
+-- hand-built end zone. Distance is no longer an ending, only a score. The LOSE arms are unchanged.
 task.spawn(function()
 	while not ended do
 		if isRunStarted() then
-			local dist = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
-			if dist >= winDistance() then
+			if Workspace:GetAttribute("EscapeReached") == true then
 				endRun(true)
 			elseif Workspace:GetAttribute("BoatDestroyed") == true then
 				endRun(false)
@@ -250,4 +264,4 @@ task.spawn(function()
 	end
 end)
 
-print("[Run] lifecycle manager online (permadeath during run; win@" .. tostring(winDistance()) .. ")")
+print("[Run] lifecycle manager online (permadeath during run; win = extraction at the end zone)")

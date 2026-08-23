@@ -364,27 +364,14 @@ local function cullChunk(index: number)
 	end
 end
 
--- finish line: a bright marker spanning the channel at END_DISTANCE (greybox — real end set-piece at P9)
-local endPlaced = false
-local function placeEnd()
-	if endPlaced or RiverData.ENDLESS then
-		return
-	end
-	endPlaced = true
-	local z = RiverData.distanceToWorldZ(RiverData.END_DISTANCE)
-	local pos = RiverData.positionAt(z)
-	local bar = Instance.new("Part")
-	bar.Name = "FinishLine"
-	bar.Anchored = true
-	bar.CanCollide = false
-	bar.Size = Vector3.new(RiverData.widthAt(z) + 40, 24, 4)
-	bar.Position = pos + Vector3.new(0, 10, 0)
-	bar.Color = Color3.fromRGB(255, 215, 0)
-	bar.Material = Enum.Material.Neon
-	bar.Transparency = 0.3
-	bar.CFrame = CFrame.lookAt(bar.Position, bar.Position + RiverData.tangentAtZ(z))
-	bar.Parent = Workspace
-end
+-- ⚠️ NO FINISH LINE HERE ANY MORE — Job #111. A gold Neon `FinishLine` bar used to be planted across
+-- the channel at END_DISTANCE as a greybox stand-in for "the end". It was never the end: it did not
+-- collide, nothing was built behind it, and the win it marked fired on DISTANCE alone, so the crew
+-- sailed through a glowing wall into unwritten world and fell to their deaths behind a VICTORY screen.
+--
+-- The end zone is now real hand-built terrain (Job #110) and the run is won by EXTRACTION — see
+-- `EndZone/EscapeServer.server.luau`, which owns the pad, the win, and the crew's invincibility.
+-- Nothing in the river generator marks the end any more; the sculpted river mouth is the marker.
 
 -- ── boot: generate the opening stretch, signal ready ────────────────────────
 --
@@ -427,10 +414,6 @@ while true do
 			end
 		end
 
-		-- finish line once its chunk is in view
-		if cur >= MAX_CHUNK - AHEAD_CHUNKS then
-			placeEnd()
-		end
 	end
 	task.wait(TICK)
 end
