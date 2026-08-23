@@ -862,6 +862,21 @@ byte-identical by contract).
 
 **Needs no asset:** the steer/throttle glyphs `◀ ▶ ▲ ▼` render in Builder Sans.
 
+## 5.2b Trading-post ammo icons — ✅ DELIVERED 2026-08-23 (Job #104)
+
+The dock/village trading post sells handheld ammo now (Job #104), so the two gun-ammo rows needed their
+own glyphs. **User supplied both the same day, uploaded from `assets/Images/`.** Verified in Studio via
+`GetProductInfo` (name match + AssetTypeId 1 = Image). IDs → registry `images.md` → *Trading-post ammo
+icons*; `Theme.icon` keys are `pistolAmmo` / `shotgunAmmo`.
+
+| Icon | Uploaded as | Theme key | Used by |
+|---|---|---|---|
+| Revolver cylinder / clip | `clip` | `pistolAmmo` | "Pistol Ammo" shop row |
+| Two shotgun shells | `bullets` | `shotgunAmmo` | "Shotgun Ammo" shop row |
+
+⚠️ **Not** `ammoBox` — that crate is the boat turret's ammo (cargo chip, gunner readout, "Turret Ammo"
+row). The two pools are separate and must not share a glyph; conflating them is the reported bug.
+
 ## 5.3 In-run HUD sounds — **SOURCING LIST, Job #075** (added 2026-08-02)
 
 Source: **Pixabay**. Short and dry, **no music tails** — these fire during gameplay, often while the
