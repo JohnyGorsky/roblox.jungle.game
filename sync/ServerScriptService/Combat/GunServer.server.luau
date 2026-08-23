@@ -20,7 +20,14 @@ local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
 local PITCH_MIN, PITCH_MAX = math.rad(-12), math.rad(35)
-local GUN_DAMAGE = 60 -- much stronger than the handheld (20)
+-- ⚠️ Job #104: 60 -> 75, and the reason is a DEPENDENCY, not a buff for its own sake.
+-- `GAME.md:147` promises the mounted gun is *"Much stronger than a handheld gun (the boat's real
+-- firepower)"*, and it costs hauled cargo crates, a ±80° arc, and a seat that forbids the handheld
+-- (`WeaponServer.canShoot`). Doubling the shotgun to 24/pellet made a deck player out-damage the gunner:
+--     shotgun  6 x 24 / 0.70s = 205.7 dps      turret  60 / 0.30s = 200.0 dps
+-- which quietly makes "nobody mans the gun" the optimal play and deletes one of the five crew roles.
+-- 75 restores the gap (250 dps) rather than clawing back the shotgun the user asked for.
+local GUN_DAMAGE = 75 -- the boat's real firepower: stays ahead of the handheld shotgun's 205.7 dps
 local GUN_RANGE = 350
 local FIRE_INTERVAL = 0.3
 local ROUNDS_PER_AMMO = ItemDefs.TURRET_ROUNDS_PER_CRATE -- shared with the HUD (Job #075)

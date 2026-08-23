@@ -39,7 +39,12 @@ export type ShopItem = {
 
 local ShopDefs = {}
 
-ShopDefs.Order = { "bandage", "fuel", "ammo", "repair", "pistol", "pistolAmmo", "shotgun", "shotgunAmmo" }
+-- ⚠️ ORDER IS A MOBILE DECISION, NOT A TIDINESS ONE. The panel is 0.74 screen-heights and rows are 66 px,
+-- so a phone shows roughly THREE rows at a time. Pairing each ammo row under its gun (the first cut of
+-- this job) put them at positions 6 and 8 — the player who reported "we can buy pistol but not ammo"
+-- would have had to scroll past four rows to find the fix. Restocks come first, one-off gun purchases
+-- last: what you buy every stop is what you can reach without scrolling.
+ShopDefs.Order = { "bandage", "pistolAmmo", "shotgunAmmo", "fuel", "ammo", "repair", "pistol", "shotgun" }
 
 -- rounds one purchase grants, straight off the gun's own definition
 local function perBox(itemId: string): number

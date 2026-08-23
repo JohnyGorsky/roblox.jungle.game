@@ -1813,7 +1813,19 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 
 	-- loadout loot at the deep camp (Job 015): a scarce WEAPON crate + a handheld-ammo crate.
 	-- Weapon crates are the top reward — alternate pistol/shotgun by landing; spawn rate is tunable.
-	local weaponId = if index % 2 == 0 then "Shotgun" else "Pistol"
+	--
+	-- 🔴 Job #104: WAS `index % 2 == 0`, WHICH COULD NEVER BE TRUE.
+	-- `index` is the DOCK ordinal and only ODD docks are landings (`RiverData:319`,
+	-- `landing = (i % 2) == 1`) — the very thing this file's own comment at the top of `buildLandingSite`
+	-- spells out. So the Shotgun arm was dead code: EVERY weapon crate in the game was a Pistol, and
+	-- because the ammo crate below reuses `weaponId`, every handheld ammo crate was Pistol ammo too. The
+	-- shotgun and its shells existed only in the 750-salvage shop row. Found by an independent reviewer
+	-- while Job #104 was adding buyable ammo, and it is exactly why "add ammo to the shotgun" was thin
+	-- on its own — there was no shotgun to feed.
+	--
+	-- `tier` is the LANDING ordinal (1, 2, 3…) already computed above for exactly this kind of use, so
+	-- landing 1 gives a Pistol, landing 2 a Shotgun, landing 3 a Pistol… and both guns really appear.
+	local weaponId = if tier % 2 == 0 then "Shotgun" else "Pistol"
 	local deepFrom = deepPos - deepApproach * 80
 	-- ⚠️ These must ALWAYS exist. The weapon crate is the run's top reward, and the generator places by
 	-- rejection sampling — which can fail. Guarding with `if kc[1] then` (as the first version did) meant
