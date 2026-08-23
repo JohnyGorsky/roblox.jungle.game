@@ -236,7 +236,7 @@ local GUARD_RESPAWN_BATCH_MAX = 2
 -- at. Same shape as `DEV_BOAT_LOG` in `BoatServer`: off in normal play, one edit to turn on.
 --
 -- Leave this FALSE. Flip it when a camp is not re-garrisoning and read the Output.
-local DEV_GARRISON_LOG = true
+local DEV_GARRISON_LOG = false
 -- The respawn loop runs outside any camp's build scope, so it needs its own generator: the `rng` in
 -- `buildLandingSite` is a local seeded per site and is not in scope here. (Caught by the analyzer as a
 -- shadowed global, which at runtime would have been a nil index.)

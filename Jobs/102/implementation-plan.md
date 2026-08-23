@@ -180,23 +180,43 @@ studs inside both. Only the inland axis needs it — entries reach ±114 in Z ag
 - **`entry` is dead when `spawns` is non-empty**; **guards vanish instantly while river creatures topple**
   (`KillReward` reasons about a corpse that does not exist for guards). Cosmetic / separate.
 
-## Verification (GROUND-RULES §7)
+## Verification (GROUND-RULES §7) — ✅ done in PLAY
 
-- [x] `tools/luau-analyze.sh` clean on all four changed files — **and confirmed the check can fail**
-      (a deliberately mistyped scratch file reports `TypeError`, so "clean" means something)
-- [x] Diff reviewed hunk by hunk; CRLF line endings preserved to match the rest of the tree
-- [ ] 🔴 **Play verification blocked**: the Studio instance open is the **LOBBY** place
-      (`ReplicatedStorage.LobbyConfig`, `ServerScriptService.LobbyServer`). Every change in this job is
-      in the **GAME** tree (`sync/`). Needs the game place loaded.
-- [ ] Play: first landing has exactly 1 + 2 guards
-- [ ] Play: clear the near camp, time the first reinforcement on a stopwatch — expect 2–3 min.
-      **This test can fail**: if nothing arrives inside ~4 minutes, the timing diagnosis is wrong and
-      there is a hard blocker, because the hold-off no longer exists to explain it.
-- [ ] Play: the reinforcement enters from outside the perimeter and engages a nearby player
-- [ ] Play: `goAshore` banner fires on stepping off the boat, and *not* at the crash-site hub
-- [ ] Independent reviewer's report reconciled against the above
+Studio place: **Last River COOP Game** (`138141472932347`). The first Studio instance open was the
+LOBBY place and was NOT used — every change here is in the GAME tree. Play session driven end to end
+over MCP; Play stopped afterwards.
+
+| Check | Result |
+|---|---|
+| `tools/luau-analyze.sh` clean on all four changed files | ✅ — **and confirmed the check can fail** (a deliberately mistyped scratch file reports `TypeError`) |
+| First landing garrison | ✅ `NEAR camp: 1 guard, 0 wolf` · `DEEP camp: 2 guards, 1 wolf` — measured by clustering live `CampGuard` rigs against the reconstructed camp centres |
+| Garrison records survive the build | ✅ `[Garrison] registered near (321,1600) target=1 · deep (501,1640) target=2 · #garrisons=2` |
+| Reinforcement arrives in 2–3 min | ✅ fired at **timer=165 s (2.75 min)**, `nextIn` had rolled **161.7 s** |
+| …and keeps coming | ✅ next interval re-rolled to **139.2 s**, still inside 120–180 |
+| Enters from OUTSIDE the perimeter | ✅ `entry (429,1585)` = **109 studs** from the camp centre, vs a camp radius of ~73 |
+| …and WALKS to its post | ✅ post `(357,1598)` = 36 studs in; spawn→post **73 studs**, over the old 55-stud clamp. Scanned on arrival at **38 studs from centre — ~2 studs from its post**. Had the clamp still applied it would have stalled at 55 studs *from the post*, not reached it |
+| `goAshore` fires on stepping off the boat | ✅ `title="GATHER SUPPLIES" sub="Raid the camps inland for fuel, metal and ammo" icon=loot`, and rendered live in `PlayerGui.ZoneBanner.Banner.Title` |
+| …and NOT while aboard | ✅ with `RunStarted=true` and the player standing on the deck, `J102_hint = "none yet"` |
+| Diagnostic left off | ✅ `DEV_GARRISON_LOG = false` |
+
+### Two false trails, recorded because they cost time
+
+1. **`execute_luau` tears down its Luau context**, so `task.spawn`ed observer coroutines die shortly
+   after the call returns. Two in-place watchers stopped silently and I read their frozen output as
+   "no reinforcement arrived". Poll from *outside* with fresh short calls instead, and take elapsed
+   time from `os.time()` written to an Instance attribute — never from a coroutine's own clock.
+2. **Teleporting a SEATED player drags the whole boat with them.** Moving the driver's
+   `HumanoidRootPart` moved the boat 1,000 studs to the camp, so the on-boat raycast still returned
+   true and the ashore hint correctly did not fire. `Humanoid.Sit = false` first. This looked exactly
+   like a bug in the new watcher and was not one.
+
+Both are why the third attempt used **`DEV_GARRISON_LOG`**: with the loop's own numbers in the Output,
+the answer took one run instead of three.
 
 ## Notes
 
 - `sourcemap.json` shows as modified: `tools/luau-analyze.sh` regenerates it via `rojo sourcemap` on
   every run. Not a hand edit.
+- ⚠️ **The playtest consumed the once-ever `goAshore` flag on `johnygorsky10`'s profile** (`ProfileConfig.seen`,
+  written through to the live DataStore — ProfileStore reported "Roblox API services available"). The
+  banner will not show again for that account. There is no reset in `Profiles`; an alt account will see it.
