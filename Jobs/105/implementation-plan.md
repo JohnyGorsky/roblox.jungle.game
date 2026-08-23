@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-23 16:53:59
-**Status**: Planning (awaiting go-ahead)
+**Status**: Implemented & verified in Play (Job #105 complete; awaiting user feel-test + commit)
 
 ## The report
 

@@ -1,7 +1,7 @@
 # FINDING 0024: Turret elevation collapses to almost nothing at the edges of the traverse arc
 
 **Project:** `roblox.jungle`
-**Status:** open
+**Status:** fixed (2026-08-23) — Fixed in Job #105. Aim composition changed to CFrame.Angles(0,yaw,0) * CFrame.Angles(pitch,0,0) at all four sites (GunServer:143 aimCFrame, GunClient:116 camera, GunClient:175 tracer, BoatTurretVisual:75 barrel mesh). Verified in Play through the real remote, reading the actual barrel: -22.60 deg held at yaw 0/40/80/-80 and +45.50 deg at yaw 80, where the old form gave -3.83/+7.11 at the arc edges.
 **Severity:** med
 **Created:** 2026-08-23 17:16:39
 
