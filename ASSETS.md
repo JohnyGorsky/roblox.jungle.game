@@ -650,15 +650,25 @@ Creator Store, **all four by one author** (`Houseplant_Leaf`) so the set reads a
 | `BahayKubo1` | 6808910590 | 22 | 19.8×16.2×27.0 | deep-camp hut + Job #108 outlying village hut |
 | `BahayKubo7` | 10031256291 | ⚠️ **95** | 40.2×25.8×50.2 | ⚠️ **unused since Job #107** swapped the trading post to `RobuxShop` |
 
-**⚠️ ALL FOUR ARE STILT HOUSES AND THAT COSTS YOU A STEP (measured, Job #108).** The interior floor sits
-**3.5 studs** above the model's base on `BahayKubo1`/`BahayKubo2` and **4.6** on `BahayKubo5` — above the
-~2-stud ledge a Humanoid climbs for free. **Placing one does not make it enterable**; the player has to
-jump in unless something is built at the door. `CampDefs.VILLAGE.door` carries the measured floor rise
-AND the bearing of the single walk-through doorway per model (`BahayKubo1` 223°, `BahayKubo2` 213°,
-`BahayKubo5` 312°, where 0° = the model's +X). `BahayKubo5` is open-sided; the other two have exactly one
-door, so a random yaw can otherwise aim the only way in at the jungle wall.
+**⚠️ ALL FOUR ARE STILT HOUSES — AND THEY COME WITH THEIR OWN STAIRS.** The interior floor sits **3.5
+studs** above the model's base on `BahayKubo1`/`BahayKubo2` and **4.6** on `BahayKubo5`, which is above
+the ~2-stud ledge a Humanoid climbs for free — but each model ships a **built-in staircase** at its one
+entrance, and walking up it is a normal walk (measured biggest single step: Kubo1 **0.87**, Kubo2
+**1.00**, Kubo5 **1.00**). **Build nothing at the door.**
 
-Re-measure with the probe recorded in `Jobs/108/implementation-plan.md` if any of these is ever swapped.
+> 🔴 Job #108 assumed the opposite without checking, and bolted two wooden treads on beside the real
+> staircase. Reported as *"2 strange blocks [that] block the entrance"* and removed in Job #109. If you
+> are about to add an entrance aid to one of these, measure first — the model already has one.
+
+What DOES matter is the **yaw**: #1 and #2 have exactly one way in, so a random rotation can aim it at
+the jungle wall. `CampDefs.VILLAGE.entrance` carries the floor rise and the STAIR bearing per model —
+`BahayKubo1` **212°**, `BahayKubo2` **208°**, `BahayKubo5` **160°**, where 0° = the model's +X and the
+angle increases toward +Z.
+
+⚠️ Do not confuse the stair bearing with the *widest clear arc*, which is what #108 measured and called
+a door. They differ by 152° on `BahayKubo5` (160 vs 312). Re-measure with the probe recorded in
+`Jobs/109/implementation-plan.md` — cast LOW (roof eaves read as a 9–11-stud "step") and sample from at
+least 32 studs out (at 18, `BahayKubo5` is still standing on its own deck and every bearing reads flat).
 
 **SECURITY scan: 0 scripts, 0 remotes, 0 tools, 0 ClickDetectors** in all four.
 
