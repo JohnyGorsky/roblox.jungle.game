@@ -22,6 +22,8 @@
 --   · a `SalvageAwarded` marker on the model — belt and braces across the three separate call sites
 --     and across frames, e.g. two crew members firing into the same creature on the same tick.
 
+local RewardFeed = require(script.Parent:WaitForChild("RewardFeed"))
+
 local KillReward = {}
 
 -- Flat, and deliberately not scaled by toughness: the user's call. 6 is a little over a tenth of a
@@ -43,6 +45,9 @@ function KillReward.onEnemyDamaged(player: Player, enemy: Model, before: number,
 	end
 	enemy:SetAttribute("SalvageAwarded", true)
 	player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + LAND_SALVAGE)
+	-- Job #109: *"Same when killing enemies… now you just guess."* Six salvage moving a three-digit
+	-- counter in the far corner, mid-fight, is invisible. Say it.
+	RewardFeed.notify(player, "salvage", "Salvage", LAND_SALVAGE)
 end
 
 return KillReward

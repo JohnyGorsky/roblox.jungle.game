@@ -30,6 +30,9 @@ local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild(
 local CampLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampLayout"))
 -- Job #108: `CampLayout` owns the inside of a camp; this owns the basin AROUND the two camps.
 local VillageLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("VillageLayout"))
+-- Job #109: "received X" feedback. See its header for why this is an explicit call per reward and not
+-- a client-side watcher on the Salvage attribute.
+local RewardFeed = require(ServerScriptService:WaitForChild("Economy"):WaitForChild("RewardFeed"))
 local Campfire = require(ServerScriptService:WaitForChild("World"):WaitForChild("Campfire"))
 local CampAmbience = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampAmbience"))
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
@@ -130,6 +133,24 @@ type GuardState = {
 	-- spawned at to the post it is heading for. Cleared the moment it gets inside the normal leash, after
 	-- which it is an ordinary guard. See the leash clamp in `tickGuard`.
 	entryLeash: number?,
+	-- ── Job #109: the hut ambushers ──────────────────────────────────────────────────────────────
+	-- *"in 2 of houses spawn one bandit … He just sits in house and waits."*
+	--
+	-- ⚠️ A GUARD'S SEAT HEIGHT COMES FROM `groundAt`, WHICH ONLY SEES TERRAIN. A bandit standing on a
+	-- hut floor 3.5 studs up would therefore be re-seated onto the dirt on its very first tick — i.e.
+	-- standing UNDER the house, between the stilts, which is not sitting in it.
+	--
+	-- So a perched guard carries the one Y it should occupy while it is still home. The moment it
+	-- leaves `perchRadius` (it has taken the stairs and is coming for you) the perch is dropped for
+	-- good and it seats on terrain like every other guard, which is what makes the walk down look
+	-- right instead of the guard hovering at floor height across the basin.
+	perch: number?, -- absolute seated Y while inside its hut
+	perchAt: Vector3?, -- the hut it belongs to
+	perchModel: Model?, -- ⚠️ the authority on "am I still indoors" — see the release test in `tickGuard`
+	perchRadius: number?, -- backstop only, in case the floor raycast ever misses
+	-- Per-guard sight override. The Bandit def aggros at ~95 studs; an ambusher with that much sight
+	-- walks out to meet you long before you reach the village, which is the opposite of waiting.
+	aggroRadius: number?,
 }
 local guardState: { [Model]: GuardState } = {}
 
@@ -525,6 +546,11 @@ local function trySpawnNugget(pos: Vector3, parent: Instance, rng: Random)
 			Profiles.addGold(player, NUGGET_VALUE)
 		end
 		player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + 30) -- Job 023
+		-- Job #109: two rewards, so two lines — the gold is the rare part and must not be swallowed by
+		-- the salvage. (This one does NOT route through `awardSalvage`; it never applied the Scavenger
+		-- bonus, and changing that here would be a balance edit smuggled into a UI job.)
+		RewardFeed.notify(player, "gold", "Gold", NUGGET_VALUE)
+		RewardFeed.notify(player, "salvage", "Salvage", 30)
 	end)
 end
 
@@ -798,6 +824,10 @@ local function awardSalvage(player: Player, amount: number)
 	local scav = (player:GetAttribute("SkillScavenge") :: number?) or 0
 	local total = math.floor(amount * (1 + 0.03 * scav))
 	player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + total)
+	-- Job #109: every salvage payout in this file funnels through here — loot crates, hut stashes,
+	-- weapon and ammo crates — so ONE call covers all of them, and it reports the SCALED total rather
+	-- than the base amount, which is what the counter actually moved by.
+	RewardFeed.notify(player, "salvage", "Salvage", total)
 end
 
 -- Build the thing that rides over your head while you haul loot back to the boat.
@@ -865,6 +895,7 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	if kind == "Weapon" then
 		local id = (crate:GetAttribute("Id") :: string?) or "Pistol"
 		if InventoryService.grant(player, id) then
+			RewardFeed.notify(player, "weapon", id) -- no amount: "+1 Pistol" reads like a stack count
 			awardSalvage(player, 80)
 			crate:Destroy()
 		end -- inventory full → leave the crate so the player can free a slot
@@ -882,7 +913,9 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	elseif kind == "Ammo" then
 		local id = (crate:GetAttribute("Id") :: string?) or "Pistol"
 		local def = ItemDefs.get(id)
-		InventoryService.addAmmo(player, id, (def and def.ammoPerCrate) or 12)
+		local rounds = (def and def.ammoPerCrate) or 12
+		InventoryService.addAmmo(player, id, rounds)
+		RewardFeed.notify(player, "ammo", id .. " Ammo", rounds)
 		awardSalvage(player, 40)
 		crate:Destroy()
 		return
@@ -896,6 +929,9 @@ local function pickupLoot(player: Player, crate: PVInstance)
 	local carried = makeCarried(root, resource)
 	carried.Parent = char
 	carrying[player] = carried
+	-- Job #109: name the thing you picked up. The salvage line comes from `awardSalvage` below; this one
+	-- is the cargo, which is the half a bare "+40 Salvage" could never tell you.
+	RewardFeed.notify(player, "resource", resource, 1)
 	awardSalvage(player, 40)
 	char:SetAttribute("Carrying", resource)
 	player:SetAttribute("Busy", true) -- hands full → can't shoot
@@ -1371,20 +1407,26 @@ local function makeKindCrate(pos: Vector3, kind: string, id: string, actionText:
 	lootPrompt(crate, actionText)
 end
 
--- ── the outlying village (Job #108) ───────────────────────────────────────────────────────────────
--- One hut somewhere in the basin, outside both camps. `VillageLayout` decided WHERE and which way the
--- door points; this puts it on the ground, makes it possible to walk in, and puts something inside.
+-- ── the outlying village (Job #108, corrected in #109) ────────────────────────────────────────────
+-- One hut somewhere in the basin, outside both camps. `VillageLayout` decided WHERE, which way it is
+-- turned and what stands around it; this seats it, dresses it and puts something inside.
 --
--- ⚠️ "PLACE THE MODEL" IS NOT "MAKE IT ENTERABLE", and that is the whole content of this function.
--- Measured in Studio: every Bahay Kubo in the library is a stilt house whose interior floor sits
--- **3.5–4.6 studs above its own base**. A Humanoid steps up about 2 studs for free, so without help the
--- player has to JUMP through the doorway of a house — and the request was explicitly for *enterable*
--- buildings. Hence the treads below, built at that model's own measured doorway.
-local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Random): boolean
+-- ── 🔴 THE MISTAKE THIS FUNCTION USED TO MAKE, kept because it is the useful part ─────────────────
+-- Job #108 correctly worked out that a stilt house with its floor 3.5–4.6 studs up is not enterable by
+-- simply being placed — and then built two wooden treads at what it had measured as the doorway. It had
+-- never checked whether the model already solved this. **It does: every Bahay Kubo ships with its own
+-- staircase.** So the treads were redundant, and because #108 aimed them at the widest *clear arc*
+-- rather than at the stairs, they landed beside the real steps — photographed by the user as
+-- *"2 strange blocks [that] block the entrance"*.
+--
+-- The lesson is not "check for stairs". It is that "the model cannot do X" was an ASSUMPTION presented
+-- as a measurement, in a job whose whole selling point was that it measured things. The fix is one
+-- deletion plus a better bearing (`CampDefs.VILLAGE.entrance`), and the hut is enterable on its own.
+local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Random): Model?
 	local V = CampDefs.VILLAGE
 	local model = prop(hut.model, hut.x, hut.z, parent, { collide = true, yaw = hut.yaw })
-	if not model then
-		return false
+	if not model or not model:IsA("Model") then
+		return nil
 	end
 	model.Name = "VillageHut"
 
@@ -1392,39 +1434,24 @@ local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Ra
 	-- lowest corner and sinks it slightly, so the floor is `base + rise`, not `groundAt() + rise`.
 	local base = FoliageDefs.worldBottom(model) or groundAt(hut.x, hut.z)
 	local floorY = base + hut.rise
+	model:SetAttribute("FloorY", floorY) -- read by the hut-bandit pass, which must stand ON the floor
 
-	-- ── the way in ───────────────────────────────────────────────────────────────────────────────
-	-- Two treads, not a ramp: a ≤2-stud ledge is climbed without jumping, so two treads clear even the
-	-- 4.6-stud floor of `BahayKubo5` with margin, and stacked planks read as the bamboo steps a stilt
-	-- house actually has. `Tent` has a ground-level open front (`rise = 0`) and gets none.
-	if hut.rise > 2 then
-		local S = V.step
-		local treads = math.max(2, math.ceil(hut.rise / 2))
-		-- Doorway edge: out from the hut centre along the door direction, just past the wall.
-		local sill = Vector3.new(hut.x, 0, hut.z) + hut.doorDir * (hut.halfDiag * 0.72)
-		local face = CFrame.lookAt(Vector3.new(sill.X, floorY, sill.Z), Vector3.new(sill.X, floorY, sill.Z) + hut.doorDir)
-		for i = 1, treads do
-			-- tread `i` counted OUT from the doorway and DOWN: the outermost is the lowest
-			local topY = base + (hut.rise / treads) * (treads - i + 1)
-			local thickness = math.max(1, hut.rise / treads)
-			local out = (i - 0.5) * S.depth
-			local cf = face * CFrame.new(0, topY - floorY - thickness / 2, out)
-			local step = block("EntryStep", Vector3.new(S.width, thickness, S.depth), S.colour, cf, model, S.material)
-			step.CanCollide = true
-			-- ⚠️ The treads are the one place a coloured `block()` is legitimate in a camp (see that
-			-- helper's header). Kept a timber tone and WoodPlanks so it reads as part of the hut and not
-			-- as the greybox it technically is.
-		end
+	-- ── what stands around it (Job #109) ─────────────────────────────────────────────────────────
+	-- *"add some rocks and getables, maybe some trees so camp feels more alive"*. Positions came from
+	-- `VillageLayout`, which already kept them out of the stairs, the path and the neighbours; this just
+	-- places them. Rocks and logs collide (cover), plants do not (no invisible-wall mazes).
+	for _, q in ipairs(hut.props) do
+		prop(q.model, q.x, q.z, parent, { collide = q.collide, yaw = q.yaw, scale = q.scale })
 	end
 
 	-- ── something inside ─────────────────────────────────────────────────────────────────────────
 	-- Not in every hut: an empty one is what makes a stocked one worth the walk.
 	if rng:NextNumber() > V.stash.chance then
-		return true
+		return model
 	end
 	local source = campFloraLib[V.stash.model]
 	if not source then
-		return true -- library incomplete; the hut still stands, it is just bare
+		return model -- library incomplete; the hut still stands, it is just bare
 	end
 	local stash = source:Clone()
 	for _, d in ipairs(stash:GetDescendants()) do
@@ -1439,8 +1466,9 @@ local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Ra
 	if stash:IsA("Model") then
 		stash:ScaleTo(stash:GetScale() * V.stash.scale)
 	end
-	-- Offset off the exact centre so it sits against a wall rather than in the doorway's line.
-	local inset = hut.doorDir * -(hut.halfDiag * 0.3)
+	-- Tucked to the BACK of the interior — away from the stairs, so it is something you go in for rather
+	-- than something you can reach from the top step.
+	local inset = hut.stairDir * -(hut.halfDiag * 0.3)
 	stash:PivotTo(CFrame.new(hut.x + inset.X, floorY, hut.z + inset.Z) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
 	FoliageDefs.seatOnGround(stash, floorY, 0) -- the HUT FLOOR, not the ground it stands on
 	stash.Name = "LootCrate"
@@ -1448,7 +1476,108 @@ local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Ra
 	stash:SetAttribute("Kind", "Salvage")
 	stash:SetAttribute("Amount", rng:NextInteger(V.stash.salvage[1], V.stash.salvage[2]))
 	lootPrompt(stash, "Search")
-	return true
+	return model
+end
+
+-- ── the village yard loot (Job #109) ─────────────────────────────────────────────────────────────
+-- The "getables" half of *"add some rocks and getables"*. A few small salvage barrels standing OUTSIDE
+-- among the clutter, so walking the village is worth doing between doors. Deliberately worth less than
+-- an interior stash (12–22 against 25–40): what you can see from the path should pay less than what you
+-- had to go inside for.
+local function buildYardLoot(huts: { VillageLayout.Hut }, parent: Instance, rng: Random): number
+	local Y = CampDefs.VILLAGE.yardLoot
+	local source = campFloraLib[Y.model]
+	if not source or #huts == 0 then
+		return 0
+	end
+	local placed = 0
+	local want = rng:NextInteger(Y.perSite[1], Y.perSite[2])
+	for i = 1, want do
+		-- Hang each one off a hut's OWN clutter ring, so yard loot appears among the rocks rather than
+		-- alone in open grass — and reuse those slots' vetting (off the path, off the neighbours).
+		local hut = huts[((i - 1) % #huts) + 1]
+		if #hut.props == 0 then
+			continue
+		end
+		local q = hut.props[rng:NextInteger(1, #hut.props)]
+		-- a couple of studs off the prop it keeps company with, never inside it
+		local a = rng:NextNumber(0, math.pi * 2)
+		local x, z = q.x + math.cos(a) * 5, q.z + math.sin(a) * 5
+		local crate = prop(Y.model, x, z, parent, { collide = false, yaw = rng:NextNumber(0, math.pi * 2), scale = Y.scale })
+		if crate then
+			crate.Name = "LootCrate"
+			crate:SetAttribute("Kind", "Salvage")
+			crate:SetAttribute("Amount", rng:NextInteger(Y.salvage[1], Y.salvage[2]))
+			lootPrompt(crate, "Search")
+			placed += 1
+		end
+	end
+	return placed
+end
+
+-- ── hut ambushers (Job #109) ─────────────────────────────────────────────────────────────────────
+-- *"in 2 of houses spawn one bandit, so 2 additional bandits but only in one of houses randomly. He
+-- just sits in house and waits."*
+--
+-- TWO per landing site, in two randomly chosen huts. Not two per hut; not one in every hut.
+--
+-- ⚠️ EACH IS ITS OWN "CAMP". `st.camp` keys both the alert pull (`alertNear`) and the chase-slot
+-- budget (`campChasers`). Passing the near camp's position here would mean shooting a bandit in a hut
+-- 200 studs away wakes the whole garrison, and that the two of them eat the camp's chase slots. Keying
+-- them on their own hut makes each one a self-contained encounter, which is what an ambush is.
+--
+-- ⚠️ AND THEY ARE NOT REGISTERED IN `garrisons`. That list drives the reinforcement loop; a hut bandit
+-- is a one-off, so it must never respawn. Nothing to do — just do not add it — but it is the kind of
+-- omission a later reader "fixes".
+local function placeHutBandits(huts: { { model: Model, hut: VillageLayout.Hut } }, parent: Instance, rng: Random, strength: number?): number
+	local B = CampDefs.VILLAGE.bandits
+	if #huts == 0 then
+		return 0
+	end
+	-- Fisher-Yates over a copy, so two different huts are picked without ever retrying a collision.
+	local order = table.create(#huts)
+	for i = 1, #huts do
+		order[i] = i
+	end
+	for i = #order, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		order[i], order[j] = order[j], order[i]
+	end
+
+	local placed = 0
+	for k = 1, math.min(B.count, #order) do
+		local entry = huts[order[k]]
+		local hut = entry.hut
+		local floorY = (entry.model:GetAttribute("FloorY") :: number?)
+		if not floorY then
+			continue -- the hut did not report a floor; better no bandit than one buried in the dirt
+		end
+		-- Stand it at the BACK of the interior, away from the stairs, so it is not visible from the
+		-- bottom step — the point is that you find it by going in.
+		local back = hut.stairDir * -(hut.halfDiag * 0.28)
+		local at = Vector3.new(hut.x + back.X, floorY, hut.z + back.Z)
+		-- ⚠️ `camp` and `post` are BOTH the back-of-the-interior point, not the hut centre. `tickGuard`
+		-- walks an idle guard to its anchor, so anchoring on the centre (the first cut of this) quietly
+		-- slid both ambushers into the middle of the floor where they are visible from the bottom step.
+		local guard = spawnGuard(at, parent, strength, B.type, at, at)
+		local st = guardState[guard]
+		if not st then
+			continue
+		end
+		local def = EnemyDefs.Defs[B.type] or EnemyDefs.Defs.Bandit
+		-- `spawnGuard` seated it on the TERRAIN (see `groundAt`), i.e. under the house. Lift it onto the
+		-- floor and record that height as its perch; `tickGuard` holds it there until it leaves.
+		local seated = floorY + def.size.Y / 2
+		guard:PivotTo(CFrame.new(at.X, seated, at.Z))
+		st.anchor = Vector3.new(at.X, seated, at.Z)
+		st.perch, st.perchAt, st.perchRadius = seated, Vector3.new(hut.x, seated, hut.z), B.perchRadius
+		st.perchModel = entry.model -- the floor it is standing on, and the thing that decides when it is out
+		st.seatY, st.seatAt, st.seatAtZ = seated, at.X, at.Z
+		st.aggroRadius = B.aggro
+		guard:SetAttribute("HutBandit", true)
+		placed += 1
+	end
+	return placed
 end
 
 -- ── camp foliage (Job #076) ───────────────────────────────────────────────────────────────────────
@@ -2072,15 +2201,24 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- ground left between two camps, the walking lane and the tree ring, and that sampling is allowed to
 	-- fail. Without this line a basin that quietly fitted two huts instead of eight looks identical to
 	-- "the scatter is sparse today" — and the whole job is the count.
-	local hutsBuilt = 0
+	local standing: { { model: Model, hut: VillageLayout.Hut } } = {}
 	for _, hut in ipairs(villageHuts) do
-		if buildVillageHut(hut, model, rng) then
-			hutsBuilt += 1
+		local built = buildVillageHut(hut, model, rng)
+		if built then
+			table.insert(standing, { model = built, hut = hut })
 		end
 	end
+	local hutsBuilt = #standing
 	if hutsBuilt < CampDefs.VILLAGE.countMin then
 		warn(("[Excursion] landing %d: only %d/%d village huts placed — the basin is out of free ground "
 			.. "(check CampDefs.VILLAGE margins against the camp radii)"):format(index, hutsBuilt, #villageHuts))
+	end
+	-- Job #109: the yard loot and the two hut ambushers, both AFTER the huts exist — the first hangs off
+	-- their clutter rings, the second needs each hut's reported `FloorY`.
+	local yard = buildYardLoot(villageHuts, model, rng)
+	local ambushers = placeHutBandits(standing, model, rng, strength)
+	if DEV_GARRISON_LOG then
+		print(("[Village] landing %d: %d huts · %d yard crates · %d hut bandits"):format(index, hutsBuilt, yard, ambushers))
 	end
 
 	-- ⚠️ Job #100 — these read the camp's GENERATED layout, not `CampDefs.LAYOUT`.
@@ -2186,7 +2324,7 @@ local function tickGuard(guard: Model, dt: number)
 	-- know someone is out there — it hunts the nearest player at any range until the alert lapses.
 	local alerted = st.alertUntil ~= nil and os.clock() < (st.alertUntil :: number)
 	local target: BasePart? = nil
-	local bestD = if alerted then math.huge else def.aggroRadius
+	local bestD = if alerted then math.huge else (st.aggroRadius or def.aggroRadius)
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local char = plr.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -2254,8 +2392,50 @@ local function tickGuard(guard: Model, dt: number)
 		-- fraction of a raycast per frame per guard and is imperceptible at walking speed. On a failed
 		-- read the previous height is kept — never teleport a creature because a ray missed.
 		local seatY = st.seatY or st.anchor.Y
+		-- 🔴 Job #109 — A PERCHED GUARD IS NOT ON THE TERRAIN. See `GuardState.perch`. While a hut
+		-- ambusher is still inside its house it holds the floor height; the re-measure below would drop
+		-- it through the floorboards onto the dirt between the stilts. Once it steps out of the hut the
+		-- perch is cleared permanently and it becomes an ordinary guard from that frame on.
+		--
+		-- ⚠️ IT SETS `seatY` AND FALLS THROUGH — it must not `return`. An early return here skips the
+		-- rest of `tickGuard`, which is where the BITE lives: the ambusher would stand on its floor and
+		-- politely decline to attack the player standing next to it.
+		--
+		-- 🔴 AND THE RELEASE TEST IS "IS THERE FLOOR UNDER ME", NOT A RADIUS.
+		--
+		-- The first cut released the perch at a flat 14 studs from the hut. Measured in play: the
+		-- ambusher committed, walked 6.8 studs out of its doorway — and was still 5.2 studs above the
+		-- ground, floating out of the house at floor height, because 6.8 < 14. A radius cannot describe
+		-- a 24×14 rectangular floor no matter what number you pick: too small and the guard drops
+		-- through its own floorboards indoors, too large and it walks on air outside.
+		--
+		-- So ask the floor directly — one short downward ray against THIS HUT ONLY. Exact, self-
+		-- correcting for every model and scale, and it costs one raycast per perched guard per frame,
+		-- of which there are two per landing site. The radius survives only as a backstop for the case
+		-- where the hut has been destroyed out from under the guard (site culled mid-chase).
+		local perched = false
+		local perch, perchAt = st.perch, st.perchAt
+		if perch and perchAt then
+			local stillIn = false
+			local hutModel = st.perchModel
+			if hutModel and hutModel.Parent then
+				local rp = RaycastParams.new()
+				rp.FilterType = Enum.RaycastFilterType.Include
+				rp.FilterDescendantsInstances = { hutModel }
+				-- from just above the floor, down past it: a hit means there are still boards below.
+				stillIn = Workspace:Raycast(Vector3.new(pos.X, perch + 1.5, pos.Z), Vector3.new(0, -4, 0), rp) ~= nil
+			end
+			if stillIn then
+				perched = true
+				seatY = perch
+				st.seatY, st.seatAt, st.seatAtZ = perch, pos.X, pos.Z
+			else
+				st.perch, st.perchAt, st.perchModel = nil, nil, nil
+				st.seatY = nil -- force a fresh terrain reading now that it is outside
+			end
+		end
 		local moved = (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(st.seatAt or st.anchor.X, 0, st.seatAtZ or st.anchor.Z)).Magnitude
-		if st.seatY == nil or moved > REMEASURE_STEP then
+		if not perched and (st.seatY == nil or moved > REMEASURE_STEP) then
 			local g = groundAt(pos.X, pos.Z)
 			if g then
 				seatY = g + def.size.Y / 2

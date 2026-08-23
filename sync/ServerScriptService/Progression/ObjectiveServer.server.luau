@@ -11,6 +11,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ObjectiveDefs = require(ReplicatedStorage:WaitForChild("Objectives"):WaitForChild("ObjectiveDefs"))
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
+local RewardFeed = require(ServerScriptService:WaitForChild("Economy"):WaitForChild("RewardFeed")) -- Job #109
 
 local done: { [string]: boolean } = {}
 local sawNight = false
@@ -39,6 +40,7 @@ local function complete(id: string)
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if def.salvage > 0 then
 			plr:SetAttribute("Salvage", ((plr:GetAttribute("Salvage") :: number?) or 0) + def.salvage)
+			RewardFeed.notify(plr, "salvage", "Salvage", def.salvage) -- Job #109
 		end
 		if Profiles.isReady(plr) then
 			if def.score > 0 then

@@ -267,35 +267,39 @@ CampDefs.VILLAGE = {
 		{ model = "Tent", weight = 1 },
 	},
 
-	-- ⚠️ MEASURED, NOT GUESSED — and re-measure if a model here is ever swapped.
+	-- ── 🔴 THE ENTRANCE. MEASURED, AND MEASURED THE RIGHT WAY THE SECOND TIME (Job #109). ───────────
 	--
-	--   `bearing` — the compass direction of the one walk-through DOORWAY, in the model's own pivot
-	--   frame, degrees, where 0° = +X and 90° = +Z. `rise` — how far the interior floor sits above the
-	--   model's base, in studs.
+	--   `bearing` — the direction of the model's OWN BUILT-IN STAIRCASE, in its pivot frame, degrees,
+	--   0° = +X, increasing toward +Z. `rise` — interior floor height above the model's base, studs.
 	--
-	-- Method (Studio, Edit): clone the library model into Workspace, raycast down from inside for the
-	-- floor, then sweep 180 horizontal rays out from the interior centre at floor **+1.0, +2.5 and
-	-- +4.5** and keep only the bearings clear at ALL THREE heights. Three heights is what separates a
-	-- doorway from a window; a single-height sweep calls both of them a door and the step gets built
-	-- under a window.
+	-- ⚠️ THESE MODELS ALREADY HAVE STAIRS, AND JOB #108 DID NOT CHECK.
+	-- It measured the widest *clear arc*, called that the door, and built two wooden treads there — which
+	-- the user then photographed as "2 strange blocks [that] block the entrance", because they landed
+	-- BESIDE the real staircase. The treads are gone. All this table does now is turn the hut so the
+	-- stairs it already has face the player.
 	--
-	-- `BahayKubo5` is open-sided (27 of 36 bearings clear), so its bearing is simply the widest arc.
-	door = {
-		BahayKubo1 = { bearing = 223, rise = 3.5 },
-		BahayKubo2 = { bearing = 213, rise = 3.5 },
-		BahayKubo5 = { bearing = 312, rise = 4.6 },
-		Tent = { bearing = 0, rise = 0 }, -- ground-level, open front: no step needed
+	-- ⚠️ AND THE TWO BEARINGS ARE NOT THE SAME THING. On `BahayKubo1`/`BahayKubo2` the widest arc happens
+	-- to sit near the stairs (223 vs 212, 213 vs 208) so the error was small and invisible. On
+	-- `BahayKubo5` the widest arc reads **312** and the staircase is at **160** — 152° out, i.e. that hut
+	-- was being turned with its steps facing away from the approach entirely.
+	--
+	-- Method (Studio, Edit): clone into Workspace; raycast down from inside for the floor height; then
+	-- for each of 180 bearings walk a probe inward from 32 studs out, casting a LOW ray (from floor + 2,
+	-- down floor + 2.5) and recording the height profile. The entrance is the bearing whose profile
+	-- starts on open ground, ends on the floor, and whose biggest single-stud rise is smallest.
+	-- Measured: Kubo1 **0.87**, Kubo2 **1.00**, Kubo5 **1.00** — all inside the ~2-stud ledge a Humanoid
+	-- climbs without jumping, which is why no step of ours is needed.
+	--
+	-- ⚠️ CAST LOW. A ray dropped from well above the floor hits the ROOF EAVES first and reports a
+	-- 9–11-stud "step", which is exactly what made the first attempt at this measurement unreadable.
+	-- ⚠️ SAMPLE FAR ENOUGH OUT. At 18 studs `BahayKubo5` (29.6×34.0) is still standing on its own deck,
+	-- so every bearing reads as flat and the search picks nonsense. 32 studs clears it.
+	entrance = {
+		BahayKubo1 = { bearing = 212, rise = 3.5 },
+		BahayKubo2 = { bearing = 208, rise = 3.5 },
+		BahayKubo5 = { bearing = 160, rise = 4.6 },
+		Tent = { bearing = 0, rise = 0 }, -- ground-level, open front: nothing to climb
 	} :: { [string]: { bearing: number, rise: number } },
-
-	-- The step at the doorway. Two treads rather than a ramp: a Humanoid climbs a ≤2-stud ledge without
-	-- jumping, so two treads clear a 4.6-stud floor with margin, and treads read as bamboo steps on a
-	-- stilt house where a smooth wedge does not.
-	step = {
-		width = 7, -- across the doorway; the measured doors are ~5 studs wide
-		depth = 3.5, -- per tread, out from the wall
-		colour = Color3.fromRGB(122, 92, 58),
-		material = Enum.Material.WoodPlanks,
-	},
 
 	-- What is inside. ⚠️ SALVAGE ONLY, BY DECISION — a stash grants currency instantly and is NOT
 	-- carried. Filling 6–10 huts with real `Gasoline`/`Metal` crates would have tripled the cargo a
@@ -330,6 +334,66 @@ CampDefs.VILLAGE = {
 	maxGroundSpread = 2.5,
 	-- Keep the interior tree scatter out of a hut: half-diagonal plus this.
 	treeClear = 12,
+
+	-- ── What stands AROUND each hut (Job #109) ────────────────────────────────────────────────────
+	-- Reported: *"add some rocks and getables, maybe some trees so camp feels more alive with those
+	-- houses not just houses"*. Job #108 dropped huts onto bare carved ground, so the village read as
+	-- buildings on a lawn — the same complaint Job #100 had to fix INSIDE the camps, where the answer
+	-- was `CampLayout`'s ambient pass. This is that pass, applied to the outskirts.
+	--
+	-- ⚠️ Rocks and logs COLLIDE (they are cover); undergrowth does NOT. Same rule as the camp ambient
+	-- list, and for the same reason: a firefight must not become a maze of invisible walls.
+	dressing = {
+		perHut = { 5, 9 },
+		-- Ring around the hut, as a multiple of the hut's own half-diagonal — so a 20-stud Kubo1 and a
+		-- 36-stud Tent both get their clutter at the right distance instead of a fixed radius that is
+		-- inside one and far from the other.
+		bandNear = 1.25,
+		bandFar = 2.6,
+		-- ⚠️ KEEP THE STAIRS CLEAR. Nothing may be placed within this half-angle of the entrance bearing.
+		-- The whole point of Job #109's first item is that the way in was obstructed; re-blocking it with
+		-- a boulder would be the same bug wearing a different hat.
+		entranceKeepOut = math.rad(34),
+		entries = {
+			{ model = "RockA", weight = 5, collide = true, scale = { 0.7, 1.3 } },
+			{ model = "RockB", weight = 3, collide = true, scale = { 0.6, 1.1 } },
+			{ model = "RockC", weight = 1, collide = true, scale = { 0.5, 0.8 } },
+			{ model = "LogMossy", weight = 3, collide = true, scale = { 0.8, 1.2 } },
+			{ model = "BushPack", weight = 6, collide = false, scale = { 0.8, 1.4 } },
+			{ model = "FernTall", weight = 6, collide = false, scale = { 0.7, 1.3 } },
+			{ model = "PalmLowPoly", weight = 3, collide = false, scale = { 0.8, 1.2 } },
+			{ model = "PalmCoconut", weight = 2, collide = false, scale = { 0.9, 1.2 } },
+		},
+	},
+
+	-- Pickable things OUTSIDE, among the clutter — the "getables" half of the request. Same salvage
+	-- drop as an interior stash but smaller, so searching the village yard is worth doing and is not
+	-- just walking between doors.
+	yardLoot = {
+		perSite = { 3, 5 },
+		model = "Barrel",
+		salvage = { 12, 22 }, -- lower than the interior stash (25–40): outdoors is the easy find
+		scale = 0.75,
+	},
+
+	-- ── Hut bandits (Job #109) ────────────────────────────────────────────────────────────────────
+	-- User: *"in 2 of houses spawn one bandit … He just sits in house and waits."* TWO per landing site
+	-- in total, in two randomly chosen huts — not two per hut, and not one in every hut.
+	--
+	-- ⚠️ `aggro` is DELIBERATELY tiny against the Bandit def's ~95. An ambusher with a 95-stud sight
+	-- radius leaves the house and meets you in the open long before you reach the village, which is the
+	-- opposite of sitting and waiting. 24 studs is roughly "you are at the foot of my stairs".
+	bandits = {
+		count = 2,
+		type = "Bandit",
+		aggro = 24,
+		-- ⚠️ BACKSTOP ONLY — it is NOT how the ambusher decides it has left the house. That test is a
+		-- raycast for floorboards underfoot (see `GuardState.perch`), because a radius cannot describe a
+		-- 24×14 floor: the first version used a flat 14 studs and the bandit walked 6.8 studs out of its
+		-- own doorway still floating at floor height. This number only covers the hut being destroyed
+		-- out from under it, e.g. the landing site culled mid-chase.
+		perchRadius = 14,
+	},
 }
 
 
