@@ -318,6 +318,18 @@ local DEV_BOAT_LOG = false -- ⟵ turn on for boat-tuning telemetry ([BoatDBG] s
 
 local logAccum = 0 -- throttle for the debug state log
 RunService.Heartbeat:Connect(function(dt: number)
+	-- Admin infinite fuel (Job #112). Deliberately ABOVE every early return in this handler — including
+	-- the `Tied` one. Three of them sit between here and the fuel burn, so gating the refill on "the boat
+	-- is under way" means a dev who flips the switch at the dock watches the gauge stay where it was and
+	-- concludes the cheat is broken. It topped up rather than skipping the drain for the same reason: the
+	-- HUD should read a truthful full tank, not freeze at whatever it happened to be.
+	if boat:GetAttribute("AdminInfiniteFuel") == true then
+		local maxFuel = (boat:GetAttribute("MaxFuel") :: number?) or MAX_FUEL
+		if ((boat:GetAttribute("Fuel") :: number?) or 0) < maxFuel then
+			boat:SetAttribute("Fuel", maxFuel)
+		end
+	end
+
 	-- KEEP SERVER OWNERSHIP even while driven. The VehicleSeat hands the boat to the driver's client on
 	-- sit, but the buoyancy force is computed HERE (server-side) — a client-owned boat + server-computed
 	-- force means the spring reacts to LAGGED replicated position → a delayed-feedback loop that makes the
@@ -392,15 +404,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 
 	-- fuel: drain while the engine runs; empty = no engine (drift at the current's mercy = stranded)
 	local fuel = (boat:GetAttribute("Fuel") :: number?) or 0
-	-- Admin infinite fuel (Job #112): top the tank back up rather than skipping the drain, so the HUD
-	-- gauge reads a truthful 100% instead of freezing at whatever it happened to be when you toggled on.
-	if boat:GetAttribute("AdminInfiniteFuel") == true then
-		local maxFuel = (boat:GetAttribute("MaxFuel") :: number?) or MAX_FUEL
-		if fuel < maxFuel then
-			boat:SetAttribute("Fuel", maxFuel)
-			fuel = maxFuel
-		end
-	end
 	if fuel > 0 then
 		-- FuelBurnMul = Diesel Efficiency skill (Job 024); StationFuelMul = Engineer at the fuel station (Job 034)
 		local burnMul = ((boat:GetAttribute("FuelBurnMul") :: number?) or 1) * ((boat:GetAttribute("StationFuelMul") :: number?) or 1)

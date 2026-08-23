@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-23 23:10:44
-**Status**: Requirements Gathering (intake)
+**Status**: COMPLETE (see final-summary.md)
 
 ## Requirements / goal
 
