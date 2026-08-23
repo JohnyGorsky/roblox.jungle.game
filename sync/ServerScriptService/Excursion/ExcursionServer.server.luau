@@ -1412,7 +1412,10 @@ end
 -- ⚠️ `ground` is PASSED IN, not re-probed. The sign stands on the same levelled pad as the post 16
 -- studs away, and an independent probe here read 22.0 on ground that measures 17.0 — leaving the sign
 -- hanging 4.7 studs up. One measurement, shared by everything on the pad.
-local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance, ground: number)
+--
+-- Job #106: RETURNS THE BOARD, because the sign now carries a shop prompt of its own. See the note on
+-- `shopPrompt` in `buildTradingPost` for why there are two triggers.
+local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance, ground: number): Part
 	local d = Vector3.new(faceTo.X - pos.X, 0, faceTo.Z - pos.Z)
 	local yaw = if d.Magnitude > 0.01 then math.atan2(d.X, d.Z) else 0
 	local base = CFrame.new(pos.X, ground, pos.Z) * CFrame.Angles(0, yaw, 0)
@@ -1443,6 +1446,8 @@ local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance, gr
 		lbl.Text = "TRADING POST"
 		lbl.Parent = sg
 	end
+
+	return board
 end
 
 -- ── the clearing ring (user direction, 2026-08-06) ────────────────────────────────────────────────
@@ -1542,12 +1547,43 @@ end
 -- Job #077: was EIGHT hand-assembled blocks — a platform, a counter, four posts and a red fabric awning.
 -- It is `BahayKubo7` now: a Filipino stilt house, which is what a river-village trading post actually
 -- looks like. ⚠️ 95 instances, by far the heaviest model in the job — ONE per village, never per camp.
+--
+-- ── Job #106: 🔴 THE SHOP PROMPT LIVES ON THE SIGN. DO NOT MOVE IT BACK TO THE COUNTER. ───────────
+-- Reported as "the shop trigger is somewhere inside the house and nobody knows". Measured in Play at
+-- the first landing BEFORE changing anything:
+--
+--     player at the sign     → dCounter 16.6, dSign  9.6 → NO prompt shown at all
+--     player at the counter  → dCounter  5.1, dSign  7.3 → ShopPrompt on Counter
+--
+-- The cause is geometry, not wiring. `BahayKubo7` measures **40.2 x 25.8 x 50.2** studs (read from the
+-- live AssetLibrary, not quoted from a comment), so its half-extent along the approach is ~20-25 — and
+-- the `Counter` anchor sits at `approach * 10`, i.e. UNDER THE STILT HOUSE'S DECK. At the old fixed
+-- `MaxActivationDistance = 14` the only place the shop existed was under the building.
+--
+-- ⚠️ WIDENING THE COUNTER'S REACH DOES NOT FIX IT, and that was tried and measured in this job before
+-- being reverted. With reach 35 the prompt is in range at the sign — and STILL INVISIBLE: the bubble
+-- renders at the counter's position, which the house occludes. Screenshotted from the player's camera
+-- with the counter prompt as the only live one: prompt shown, its position on-screen at (795,564),
+-- and no bubble anywhere in frame.
+--
+-- ⚠️ AND TWO PROMPTS IS NOT THE ANSWER EITHER. `Exclusivity` defaults to `OnePerButton` (verified in
+-- this place, not recalled) and both would use the default `KeyCode.E`, so only ONE ever renders — and
+-- which one is NOT the nearest. Walking in showed the sign's; teleporting to the same spot showed the
+-- counter's. A trigger that is visible half the time is the reported bug, shipped again.
+--
+-- So there is exactly one prompt and it hangs on the physical "TRADING POST" board — the thing players
+-- actually walk up to — with the reach sized to the whole building. Visible from outside, visible from
+-- under the deck (the board reads from under the overhang), and deterministic.
+-- The invisible `Counter` part is LEFT IN PLACE but is now inert — grepped both trees, nothing outside
+-- this function reads it. Kept rather than deleted because removing an instance from every generated
+-- village is a content change this job was not asked to make; logged as todo 0060 instead.
 local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	local padGround = groundAt(pos.X, pos.Z) -- ONE measurement for the whole pad
 	local postModel = prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo })
 
-	-- The counter survives as an INVISIBLE anchor, so the shop prompt keeps its name, its reach and its
-	-- position in front of the building rather than being buried inside 95 parts of geometry.
+	-- ⚠️ Job #106: this INVISIBLE part no longer hosts the shop prompt — see the header. Its comment used
+	-- to claim it sat "in front of the building"; measured, it sits UNDER the deck, which is what made
+	-- the shop unfindable. It is inert now (todo 0060).
 	local approach = (Vector3.new(faceTo.X - pos.X, 0, faceTo.Z - pos.Z))
 	approach = if approach.Magnitude > 0.01 then approach.Unit else Vector3.new(0, 0, -1)
 	local counterPos = pos + approach * 10
@@ -1557,7 +1593,7 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	counter.CanQuery = false
 
 	local lateral = Vector3.new(approach.Z, 0, -approach.X)
-	buildShopSign(pos + approach * 16 + lateral * 7, pos + approach * 40, parent, padGround)
+	local signBoard = buildShopSign(pos + approach * 16 + lateral * 7, pos + approach * 40, parent, padGround)
 
 	-- A chest of gold OUT FRONT of the vendor, so the trading post reads as the place gold is SPENT
 	-- (Job #079). ⚠️ Dressing only — no prompt, no attribute, no Gold granted.
@@ -1566,9 +1602,17 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	-- **40×50 studs** — so the counter (an invisible prompt anchor, which does not care) is INSIDE the
 	-- building footprint, and the first version of this put the chest under the stilt house's deck where
 	-- nobody can see it. Measure the building and step outside it instead of picking a number.
-	local standoff = 26
+	-- ONE measurement of the building, shared by the chest standoff and the prompt reach below. Both
+	-- were previously magic numbers picked against a model nobody had measured.
+	local postExt: Vector3? = nil
 	if postModel and postModel:IsA("Model") then
-		local _, pext = (postModel :: Model):GetBoundingBox()
+		local _, e = (postModel :: Model):GetBoundingBox()
+		postExt = e
+	end
+
+	local standoff = 26
+	if postExt then
+		local pext = postExt :: Vector3
 		-- the box's half-extent along `approach` (its support function), + room for the chest and a margin
 		standoff = (math.abs(approach.X) * pext.X + math.abs(approach.Z) * pext.Z) / 2 + 7
 	end
@@ -1576,14 +1620,23 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	local chestPos = pos + approach * standoff - lateral * 7
 	prop(CampDefs.MODEL.goldChest, chestPos.X, chestPos.Z, parent, { collide = true, faceTo = faceTo })
 
+	-- ── the shop trigger — ON THE SIGN, and only there ────────────────────────────────────────────
+	-- Reach is sized to the WHOLE building plus a walk-up margin, the same rule `StartShopServer` uses
+	-- for the crash-site Robux kiosk. Measured here: 35 studs, against the old hardcoded 14.
+	local reach = 20
+	if postExt then
+		local pext = postExt :: Vector3
+		reach = math.max(math.max(pext.X, pext.Z) / 2 + 10, 20)
+	end
+
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ShopPrompt"
 	prompt.ActionText = "Trade"
 	prompt.ObjectText = "Trading Post"
 	prompt.HoldDuration = 0.3
 	prompt.RequiresLineOfSight = false
-	prompt.MaxActivationDistance = 14
-	prompt.Parent = counter
+	prompt.MaxActivationDistance = reach
+	prompt.Parent = signBoard
 	prompt.Triggered:Connect(function(player: Player)
 		openShop:FireClient(player)
 	end)
