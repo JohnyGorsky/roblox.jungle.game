@@ -228,6 +228,15 @@ local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
 -- 🔴 AND THIS IS NOW THE WHOLE WAIT. It was not before — see the retired hold-off in the loop below.
 local GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX = 120, 180 -- 2–3 real minutes between arrivals
 local GUARD_RESPAWN_BATCH_MAX = 2
+-- ⚠️ Job #102 — THE RESPAWN LOOP HAD NO OBSERVABILITY AT ALL, AND IT COST A WHOLE DIAGNOSIS ROUND.
+--
+-- Not one `print` or `warn` existed between the loop's first line and its last, so "no reinforcements
+-- arrive" could not be told apart from "the garrison record is gone", "the camp reads as full", or "the
+-- timer never reaches its interval" — every number had to be re-derived from constants and then guessed
+-- at. Same shape as `DEV_BOAT_LOG` in `BoatServer`: off in normal play, one edit to turn on.
+--
+-- Leave this FALSE. Flip it when a camp is not re-garrisoning and read the Output.
+local DEV_GARRISON_LOG = true
 -- The respawn loop runs outside any camp's build scope, so it needs its own generator: the `rng` in
 -- `buildLandingSite` is a local seeded per site and is not in scope here. (Caught by the analyzer as a
 -- shadowed global, which at runtime would have been a nil index.)
@@ -1836,6 +1845,11 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	deepGarrison.waterEdge, deepGarrison.side = waterEdge, dock.side
 	table.insert(garrisons, nearGarrison)
 	table.insert(garrisons, deepGarrison)
+	if DEV_GARRISON_LOG then
+		print(("[Garrison] registered near (%d,%d) target=%d · deep (%d,%d) target=%d · #garrisons=%d"):format(
+			nearGarrison.campPos.X, nearGarrison.campPos.Z, nearGarrison.target,
+			deepGarrison.campPos.X, deepGarrison.campPos.Z, deepGarrison.target, #garrisons))
+	end
 end
 
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
@@ -2053,6 +2067,9 @@ task.spawn(function()
 			local g = garrisons[i]
 			-- the camp's landing site was culled behind the boat: drop the record with it
 			if not g.parent or not g.parent.Parent then
+				if DEV_GARRISON_LOG then
+					warn(("[Garrison] REAPED camp (%d,%d) — its site is unparented"):format(g.campPos.X, g.campPos.Z))
+				end
 				table.remove(garrisons, i)
 				continue
 			end
@@ -2066,6 +2083,10 @@ task.spawn(function()
 						end
 					end
 				end
+			end
+			if DEV_GARRISON_LOG then
+				print(("[Garrison] camp (%d,%d) alive=%d target=%d timer=%.0f nextIn=%s")
+					:format(g.campPos.X, g.campPos.Z, alive, g.target, g.timer, tostring(g.nextIn)))
 			end
 			if alive >= g.target then
 				g.timer = 0 -- at full strength: no credit accrues
@@ -2156,6 +2177,11 @@ task.spawn(function()
 						else entry
 					-- Spawns OUTSIDE at the entry point, but its home is the post INSIDE, so `tickGuard`
 					-- walks it in of its own accord.
+					if DEV_GARRISON_LOG then
+						print(("[Garrison] +1 %s at entry (%d,%d) -> post %s  [camp (%d,%d)]"):format(
+							if slotIndex < wolfSlots then "Wolf" else "Bandit", entryK.X, entryK.Z,
+							if post then ("(%d,%d)"):format(post.X, post.Z) else "nil", g.campPos.X, g.campPos.Z))
+					end
 					spawnGuard(entryK, g.parent, g.strength, if slotIndex < wolfSlots then "Wolf" else "Bandit", g.campPos, post)
 				end
 			end
