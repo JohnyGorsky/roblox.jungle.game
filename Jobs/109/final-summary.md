@@ -80,3 +80,83 @@ Evidence, not assertion. A claim here without data behind it means the job is no
 - [ ] All mandatory gates in the implementation plan are ticked
 - [ ] Independent reviewer agent run, and its finding recorded
 - [ ] _TODO: anything else confirmed working_
+
+---
+
+## Follow-up during playtest — the badge layout, and full reward coverage
+
+**Reported:** *"that message is weird and thin"*, with a screenshot.
+
+Two layout mistakes, both mine:
+
+1. **It stretched.** The row was `Size = fromScale(1, ROW_H * 0.86)` inside a 0.30-wide holder, so every
+   message — three words or thirty — rendered as a **576 × 39 px strip** with a speck of an icon at the
+   far left. A message box has to be as wide as its message. Rebuilt to size exactly the way
+   `Components.chip` does (the currency pills it sits under): fixed pixel height, `AutomaticSize.X`,
+   content-hugging. Measured after: 108 / 123 / 144 / 146 / 185 / 197 px wide × 46 tall, one width per
+   message.
+   ⚠️ `TextScaled` must stay **false** for this — `Components.applyText` turns it on, and a scaled label
+   has no meaningful `TextBounds`, so `AutomaticSize` collapses. That is why the first cut could not hug.
+
+2. **It landed on the objectives card.** Placed at y 0.088 to sit "just under the currency chips" — which
+   is the one slot in the top-right already taken. Measured live: chips own y 25–79, `ObjectiveHud` owns
+   119–213 (up to 335 expanded). Moved to bottom-right, stacking upward above `CrewToast`.
+   ⚠️ And the clearance is MEASURED, not derived. On paper `CrewToast` anchors at 0.80 with three 0.045
+   rows, so its top edge is 0.665 and 0.655 clears it. Measured at 1978×1313 it actually spans y
+   **835–1004** — a top edge of 0.636, moved by the ScreenGui safe-area inset — so 0.655 sat *inside* it.
+   Final: 0.60 desktop / 0.66 touch, verified at **82 px** of clearance.
+
+**Coverage gaps closed at the same time**, after enumerating every grant site rather than assuming the
+first pass was complete:
+
+- Objective **gold** (`ObjectiveServer`) — salvage was wired, gold was silent.
+- **Every shop purchase** (`SalvageServer.applyItem`) — bandage, gun, handheld ammo, fuel, turret ammo,
+  repair. The ammo row especially: it lands on a Player attribute the gun reads, with nothing on screen
+  to say it arrived.
+
+Verified in Play, in one client call so there is no round-trip race: four real purchases through the real
+`DockShop` handler returned `ok=true` and produced `+1 BANDAGE`, `+18 PISTOL AMMO`, `+1 GASOLINE`,
+`+1 METAL` on screen.
+
+**Still deliberately silent:** the distance drip (1 salvage / 60 studs, would toast forever), admin grants,
+the end-of-run gold payout (the results screen already reports it), and Robux purchases (Roblox shows its
+own receipt).
+
+**Not verified:** the touch layout. `BOTTOM = 0.66` and `SLOTS = 2` are computed, not measured on a phone
+viewport — worth a pass in the Studio Device Emulator before shipping.
+
+### Mobile verification (Studio Device Emulator, user-enabled)
+
+Measured, not reasoned about — and then looked at, per the `mobile` skill §1 and §4b.
+
+**Device:** `TouchEnabled = true`, `ViewportSize` **666 x 374**, usable canvas **666 x 316**
+(`CoreUISafeInsets`), GuiInset 58 px top. Confirms the skill's §2 warning applies here: a pixel value is
+~2.3x larger relative to this canvas than a desktop test suggests.
+
+**The feed as rendered:** x 492..656, y 111..209 — **25% of canvas width, 31% of height** at its
+transient 3-row peak (two rows steady state; the third is a row mid-fade). Rows 124–164 x 30 px,
+`TextSize = 14`, and `TextFits = true` on the longest label in the game (`+6 SHOTGUN AMMO`), so nothing
+wraps or clips.
+
+**Diffed against every `TouchGui` child, visible or not** (§3 — including `JumpButton`, which the first
+probe missed because it was not yet visible):
+
+| Roblox control | Rect | Verdict |
+|---|---|---|
+| `DynamicThumbstickFrame` | x -100..266, y 105..416 | clear (feed starts at x 492) |
+| `ThumbstickStart` / `End` | x 29..103 / 48..84 | clear |
+| `JumpButton` | x 571..641, y 226..296 | clear — feed bottom is 209, **17 px above it** |
+
+And against our own HUD: `CrewToast` sits at y 224..253, so the feed clears it by 15 px. The only
+"overlaps" the checker reported are full-screen layers — `TouchControlFrame`, `IntroFadeGui.Black`,
+`HealthVignette.Vignette` — which are containers, not competing UI.
+
+**Screenshot read:** badges sit mid-right, legible, clear of both thumb zones, covering nothing. The
+bottom-left movement quadrant and the bottom-right jump button are untouched, and the hotbar and vitals
+column are unaffected.
+
+Non-interactive by construction (`Active = false`, Frames not GuiButtons), so they absorb no taps and the
+58 px tap-target floor does not apply.
+
+⚠️ Not testable at a desk, per §7: multi-touch. Nothing in this feature responds to touch, so there is
+nothing multi-touch to defer.
