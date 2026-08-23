@@ -31,9 +31,19 @@ local EnemyDefs = {}
 -- bite damage must multiply by this too.
 --
 -- ⚠️ 20% was not enough. Cut a SECOND 20% on report that enemies "still hit too hard", so this is
--- 0.8 × 0.8 and NOT 0.6 — the cuts COMPOUND, they do not add. A Wolf's 13.5 bite now lands for 8.6,
--- a Croc's 20 for 12.8. If a third cut is ever wanted, multiply again; never subtract from 1.
-EnemyDefs.DAMAGE_SCALE = 0.64
+-- 0.8 × 0.8 and NOT 0.6 — the cuts COMPOUND, they do not add. If a further cut is ever wanted,
+-- multiply again; never subtract from 1.
+--
+-- ⚠️ Job #102 — a THIRD 20% ("decrease enemy hit by 20%"), so this is 0.8³ = 0.512 and NOT 0.4.
+-- Three compounding cuts have now taken every bite in the game to just over HALF its authored value:
+--     Bandit / Wolf  10.8 → 5.53      Boar  10 → 5.12
+--     Crocodile       8   → 4.10      Hippo 20 → 10.24     Piranha 4 → 2.05
+-- (before `strengthFor`, which is ×1.5 for LAND by day and for SEA by night — so a day Bandit lands
+-- 8.29 and a night Croc 6.14.) Against a 100 HP player that is ~12 daytime Bandit bites to kill.
+-- 🔴 THIS IS NEAR THE FLOOR OF MEANINGFUL. A fourth cut would put a daytime Bandit under 7 damage and
+-- camp guards stop being a threat at all — if the fight is still wrong after this, the lever is guard
+-- COUNT, the chase-slot cap or the reinforcement rate, not this number.
+EnemyDefs.DAMAGE_SCALE = 0.512
 
 EnemyDefs.Defs = {
 	-- sea: swims the open channel, chases the boat; deadliest at night

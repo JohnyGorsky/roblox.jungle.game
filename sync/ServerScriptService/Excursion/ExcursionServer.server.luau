@@ -203,8 +203,6 @@ type Garrison = {
 	approach: Vector3?,
 	spawns: { CampDefs.Slot }?,
 	posts: { CampDefs.Slot }?,
-	regarrisonHours: number?,
-	clearedAtClock: number?,
 	nextIn: number?, -- this camp's own randomised interval, so camps do not tick in lockstep
 }
 local garrisons: { Garrison } = {}
@@ -217,7 +215,10 @@ local GUARD_RESPAWN_TICK = 5 -- how often the loop looks at each camp
 --
 -- The batch stays small on purpose — it is what keeps a player who is CARRYING loot survivable, since
 -- carrying blocks both the gun and the axe. One or two is a fight you can run from; six is not.
-local GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX = 120, 240 -- 2–4 real minutes between arrivals
+-- ⚠️ Job #102 — 240 → 180, so the spread is 2–3 minutes and not 2–4. The user asked for a new enemy
+-- "after 2-3 minutes"; 240 put the slow half of the roll outside the number they gave.
+-- 🔴 AND THIS IS NOW THE WHOLE WAIT. It was not before — see the retired hold-off in the loop below.
+local GUARD_RESPAWN_MIN, GUARD_RESPAWN_MAX = 120, 180 -- 2–3 real minutes between arrivals
 local GUARD_RESPAWN_BATCH_MAX = 2
 -- The respawn loop runs outside any camp's build scope, so it needs its own generator: the `rng` in
 -- `buildLandingSite` is a local seeded per site and is not in scope here. (Caught by the analyzer as a
@@ -1245,11 +1246,6 @@ local function buildCampAt(
 		approach = approach,
 		spawns = L.spawns,
 		posts = L.posts,
-		-- The re-garrison hold-off (in-game hours). Per-camp, not one global constant, so it can become a
-		-- difficulty lever alongside crew-size scaling. Deep camps take longer to re-occupy than the
-		-- near outpost, which is closer to the raiders' own line.
-		regarrisonHours = if kind == CampDefs.KIND.deep then 9 else 7,
-		clearedAtClock = nil :: number?,
 	})
 end
 
@@ -1679,6 +1675,36 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	end
 	local nearGuards = garrisonFor(math.max(1, math.floor(math.min(MAX_GUARDS, tier * villageStep) * scale)))
 	local deepGuards = garrisonFor(math.max(1, math.floor(math.min(MAX_GUARDS, (tier + 1) * villageStep) * scale)))
+
+	-- ⚠️ Job #102 — THE FIRST LANDING IS THE TUTORIAL, AND IT IS EXEMPT FROM ALL OF THE ABOVE.
+	--
+	-- Reported: *"first camp has too many enemies when i land"*, and the reason given is the one that
+	-- matters — *"first time players just confused when 2 attack same time"*. The floor above rolls 2–3
+	-- per camp and a landing builds TWO camps, so the very first time a player ever goes ashore they meet
+	-- 4–6 guards while still learning that going ashore is a thing at all. That is not a difficulty
+	-- problem, it is an ONBOARDING problem: first contact has to be legible, which means ONE enemy in the
+	-- first camp and a pair in the second.
+	--
+	-- So landing 1 is hardcoded: near camp = 1, deep camp = 2. Written as a flat override rather than by
+	-- lowering GARRISON_MIN, because the 2–3 floor is Job #100's answer to *"camps are not challenging"*
+	-- and must keep applying everywhere else. This is an on-ramp, not a rebalance.
+	--
+	-- ⚠️ `index` is the DOCK ordinal, not the landing ordinal: `docksBetween` marks only ODD docks as
+	-- landings (`(i % 2) == 1`, RiverData:319), so landings are docks 1, 3, 5… and `index == 1` is exactly
+	-- the first one. Do NOT rewrite this as `tier == 1` — `tier = ceil(index / 2)` is 1 for BOTH dock 1
+	-- and dock 2, so it would read as covering two landings when only one exists.
+	--
+	-- The Wolf/Bandit mix falls out of `buildCampAt` unchanged and is already what was asked for: the near
+	-- camp is all-Bandit (`wolves = 0` for KIND.near), and the deep camp's `math.max(1, math.floor(2/3))`
+	-- = 1 gives one Wolf and one Bandit.
+	--
+	-- ⚠️ This also sets each camp's respawn `target` (the `garrisons` record at the end of `buildCampAt`),
+	-- which is intended: the first landing's camps refill to 1 and to 2, so reinforcements keep arriving
+	-- indefinitely but never stack the camp back up into a wall.
+	if index == 1 then
+		nearGuards = 1
+		deepGuards = 2
+	end
 	-- Job #077: the direction the player walks INTO each camp. The near camp is approached from the shore
 	-- landing; the deep camp is approached from the near camp — which is the real route, so the deep camp
 	-- presents its front to someone who has just fought through the first one.
@@ -1969,43 +1995,35 @@ task.spawn(function()
 					end
 				end
 			end
-			local clock = (Workspace:GetAttribute("ClockTime") :: number?) or 0
 			if alive >= g.target then
 				g.timer = 0 -- at full strength: no credit accrues
-				g.clearedAtClock = nil -- and it is not "cleared" any more either
 				continue
 			end
 
-			-- ⚠️ Job #100 — a CLEARED camp stays cleared for a while, then re-garrisons.
+			-- 🔴 Job #102 — JOB #100's GAME-CLOCK HOLD-OFF IS GONE. THIS IS THE FIX FOR THE REPORTED BUG.
 			--
-			-- Before, a camp began refilling the moment it dropped below strength, so "cleared" only ever
-			-- meant "cleared for 45 seconds". Now the first shortfall stamps a clock reading, and nothing
-			-- comes back until `regarrisonHours` of GAME time have passed. Measured in ClockTime hours on
-			-- purpose: the interval is a fiction about the world, not about the player's wall clock, and
-			-- day and night run at different real rates.
-			-- ⚠️ The long hold-off is for a camp that was actually CLEARED, not one that was merely thinned.
+			-- Reported: *"after i defeat both, i can wait whole day and no new enemies come"*, against a
+			-- requirement of *"we need new enemie after 2-3 minutes"*.
 			--
-			-- The first version stamped the clock on ANY shortfall, so killing one guard of three started a
-			-- 7-hour wait before the other two were replaced — which is not what "cleared stays cleared"
-			-- meant, and it quietly disabled the pre-existing re-man behaviour that Job #058's difficulty
-			-- was tuned against.
+			-- A WIPED-OUT camp (`alive == 0` — exactly the reported case) used to have to clear TWO gates in
+			-- series, and nobody ever added them up:
+			--   1. `regarrisonHours` of GAME time — 7 h near, 9 h deep;
+			--   2. and only THEN did `g.timer` start accruing toward GUARD_RESPAWN_MIN..MAX.
 			--
-			-- So: WIPED OUT (alive == 0) → the camp is yours for `regarrisonHours` of game time, then it
-			-- re-occupies. THINNED (some still standing) → the old 45-second-per-guard cadence, untouched.
-			if alive == 0 then
-				if g.clearedAtClock == nil then
-					g.clearedAtClock = clock
-				end
-				local since = clock - (g.clearedAtClock :: number)
-				if since < 0 then
-					since += 24 -- the clock wrapped past midnight
-				end
-				if since < (g.regarrisonHours or 8) then
-					continue -- still theirs to hold
-				end
-			else
-				g.clearedAtClock = nil -- someone is still standing: this camp was never cleared
-			end
+			-- `DayNightServer` runs 13 daylight hours over 480 real seconds, i.e. **36.9 real seconds per
+			-- game hour**. Measured from the constants rather than guessed:
+			--     near camp, cleared by day → 258 s hold-off + 120–240 s timer = **6.3–8.3 real minutes**
+			--     deep camp, cleared by day → 332 s hold-off + 120–240 s timer = **7.5–9.5 real minutes**
+			-- against a full game day of 11.0 minutes. The loop's own header claimed "every 2–3 REAL minutes"
+			-- the whole time; the hold-off standing in front of it was simply never counted in that claim.
+			--
+			-- ⚠️ The intent behind #100's hold-off ("a camp you cleared stays cleared for a while") is being
+			-- deliberately dropped, not accidentally lost — the user has now given an explicit number that
+			-- contradicts it, and their words are the specification. The whole wait is `nextIn` below.
+			--
+			-- ⚠️ IF ANYTHING LIKE THIS IS EVER REINSTATED: it stacks IN FRONT of the respawn timer, it does
+			-- not replace it, and it is denominated in GAME hours whose real duration changes with the phase
+			-- (night runs 2.25× faster). Convert to real seconds and add before quoting a player-facing number.
 
 			g.timer += GUARD_RESPAWN_TICK
 			-- Each camp draws its own interval, so two camps do not tick in lockstep and the player cannot
@@ -2052,6 +2070,75 @@ task.spawn(function()
 					-- Spawns OUTSIDE at the entry point, but its home is the post INSIDE, so `tickGuard`
 					-- walks it in of its own accord.
 					spawnGuard(entryK, g.parent, g.strength, if slotIndex < wolfSlots then "Wolf" else "Bandit", g.campPos, post)
+				end
+			end
+		end
+	end
+end)
+
+-- ── Job #102: teach the loop the first time someone sets foot off the boat ─────────────────────────
+--
+-- Reported: *"when you exit first time boat, we need message — gather resources etc, now users dont
+-- know what to do"*. `Hints.goAshore` is the copy; this is the moment it fires on.
+--
+-- ⚠️ THE TRIGGER IS A CONFIRMED TRANSITION, NOT THE STATE "not on the boat". Three things forced that:
+--
+--   1. **Jumping on the deck leaves the boat by this test.** The on-boat check is a raycast 8 studs
+--      down from the HumanoidRootPart (copied from `StagingServer.isOnBoat` deliberately — a
+--      bounding-box test counts anyone standing on the pier the boat is moored against). The HRP sits
+--      ~3 studs above the feet and a jump adds ~5, so a player bouncing on deck mid-river momentarily
+--      reads as ashore. Firing on the raw state would teach "gather supplies" to someone in the middle
+--      of the river. Hence `ASHORE_CONFIRM` — they must be off it CONTINUOUSLY.
+--   2. **The crash-site hub is not the boat.** Before launch the crew stands on land at the hub, which
+--      is off-boat by every test there is. `RunStarted` gates the loop, and `boarded` additionally
+--      requires that this player has actually stood on the boat at some point — so "exit the boat" is
+--      literally true and not merely "is not currently on the boat".
+--   3. **Dying is not disembarking.** `PlayerCombat` puts a mid-run respawn back ON the hull, so a
+--      death re-arms this rather than tripping it, which is what we want: the hint waits for a real
+--      landing.
+--
+-- `Hints.show` is once-ever by itself, so this does not need to be exact — but clearing `boarded` after
+-- firing stops the loop re-asking every 0.5 s for the rest of the run, and re-arms on the next boarding.
+local ASHORE_TICK = 0.5
+local ASHORE_CONFIRM = 2.0 -- seconds continuously off the boat before it counts as going ashore
+
+local boarded: { [Player]: true } = {}
+local offBoatSince: { [Player]: number } = {}
+
+local ashoreParams = RaycastParams.new()
+ashoreParams.FilterType = Enum.RaycastFilterType.Include
+ashoreParams.FilterDescendantsInstances = { boat }
+ashoreParams.IgnoreWater = true
+
+Players.PlayerRemoving:Connect(function(plr: Player)
+	boarded[plr] = nil
+	offBoatSince[plr] = nil
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(ASHORE_TICK)
+		if Workspace:GetAttribute("RunStarted") ~= true then
+			continue
+		end
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local char = plr.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not root then
+				offBoatSince[plr] = nil
+				continue
+			end
+			if Workspace:Raycast(root.Position, Vector3.new(0, -8, 0), ashoreParams) ~= nil then
+				boarded[plr] = true
+				offBoatSince[plr] = nil
+			elseif boarded[plr] then
+				local since = offBoatSince[plr]
+				if not since then
+					offBoatSince[plr] = os.clock()
+				elseif os.clock() - since >= ASHORE_CONFIRM then
+					Hints.show(plr, "goAshore")
+					boarded[plr] = nil -- handled; re-arms when they next stand on the boat
+					offBoatSince[plr] = nil
 				end
 			end
 		end

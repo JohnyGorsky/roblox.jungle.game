@@ -65,6 +65,28 @@ export type HintDef = {
 -- fuel station", "use the repair station"). A player who reads the sign and then sees the banner should
 -- recognise the same words — two phrasings for one mechanic is worse than either alone.
 local DEFS: { [string]: HintDef } = {
+	-- ⚠️ Job #102 — THE FIRST LINK IN THE CHAIN, AND IT WAS MISSING.
+	--
+	-- Reported: *"when you exit first time boat, we need message — gather resources etc, now users dont
+	-- know what to do"*. The two hints below teach what to do with loot once you are holding it; NOTHING
+	-- told a player to get off the boat and go looking for it in the first place. A player who never
+	-- walks inland never picks up a crate, so `carryToBoat` never fires either and the whole economy
+	-- stays invisible. Read the three in order — go inland → carry it back → spend it:
+	--     goAshore  → carryToBoat → fuelAndRepair
+	--
+	-- Copy names the ACTUAL resources the first landing holds (`buildLandingSite` stocks the near camp
+	-- with 2× Gasoline and the deep camp with Metal + Ammo), because "gather resources" on its own does
+	-- not tell anyone where to walk.
+	--
+	-- ⚠️ It does NOT mention the guards. This is the hint you get while standing on a beach looking at
+	-- an empty basin; warning about enemies here would read as the fight already being on, and the first
+	-- landing is deliberately down to three guards (Job #102) so that first contact is legible on its own.
+	goAshore = {
+		title = "GATHER SUPPLIES",
+		subtitle = "Raid the camps inland for fuel, metal and ammo",
+		icon = "loot",
+		sound = "prompt",
+	},
 	-- fires on the FIRST resource crate a player ever picks up
 	carryToBoat = {
 		title = "CARRY IT TO THE BOAT",
