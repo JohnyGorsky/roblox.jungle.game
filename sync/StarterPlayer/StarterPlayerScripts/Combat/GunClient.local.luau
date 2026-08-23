@@ -14,7 +14,10 @@ local aimRemote = ReplicatedStorage:WaitForChild("GunAim") :: UnreliableRemoteEv
 local fireRemote = ReplicatedStorage:WaitForChild("GunFire") :: RemoteEvent
 
 local YAW_LIMIT = math.rad(80)
-local PITCH_MIN, PITCH_MAX = math.rad(-12), math.rad(35)
+-- ⚠️ Job #105: −12/35 → −22.6/45.5. GunServer:22 carries the full reasoning (the hull's 7° bow-up trim eats
+-- the depression, because the arc is measured against the boat). THE SERVER IS THE AUTHORITY — it re-clamps
+-- every incoming aim, so if this pair ever drifts from its copy the player feels travel the shot doesn't have.
+local PITCH_MIN, PITCH_MAX = math.rad(-22.6), math.rad(45.5)
 local SENS = 0.006 -- radians per pixel of MOUSE movement
 -- Touch needs its own constant, not a reuse of SENS: a thumb drag covers a few hundred pixels where a
 -- mouse sweep covers a thousand, so the mouse value would make the barrel feel nailed down on a phone.
@@ -24,7 +27,9 @@ local SENS = 0.006 -- radians per pixel of MOUSE movement
 -- device. If aiming feels sluggish raise it; twitchy, lower it.
 local TOUCH_SENS = 0.010
 local BIND = "GunCam"
-local CAM_UP, CAM_BACK = 2, 3 -- MUST match GunServer so the shot hits the crosshair
+-- Job #105: 2 → 4 so the gunner looks OVER the bow lamp instead of into it — the lamp's silhouette covered the
+-- crosshair at the old down stop and got worse with more depression. GunServer:35 has the measurements.
+local CAM_UP, CAM_BACK = 4, 3 -- MUST match GunServer so the shot hits the crosshair
 
 local seated = false
 local yaw, pitch = 0, 0
@@ -113,7 +118,9 @@ local function update()
 	end
 	cam.CameraType = Enum.CameraType.Scriptable -- re-assert control so nothing steals the camera
 	setCharHidden(true) -- first-person: keep your own head out of the shot (re-applied each frame)
-	local aim = base.CFrame * CFrame.Angles(pitch, yaw, 0)
+	-- Job #105: traverse THEN elevate — see GunServer:143. `CFrame.Angles(pitch, yaw, 0)` decayed the real
+	-- elevation as cos(yaw) and rolled the horizon at high yaw; this form does neither. Must match the server.
+	local aim = base.CFrame * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
 	cam.CFrame = aim * CFrame.new(0, CAM_UP, CAM_BACK) -- crosshair (screen centre) == the ray direction
 	cam.Focus = CFrame.new(aim.Position + aim.LookVector * 60)
 end
@@ -172,7 +179,7 @@ local function drawTracer()
 	if not base then
 		return
 	end
-	local aim = base.CFrame * CFrame.Angles(pitch, yaw, 0)
+	local aim = base.CFrame * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0) -- Job #105, as above
 	local origin = (aim * CFrame.new(0, CAM_UP, CAM_BACK)).Position
 	local dir = aim.LookVector
 	local params = RaycastParams.new()

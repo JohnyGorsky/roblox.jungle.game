@@ -19,7 +19,15 @@ local KillReward = require(game:GetService("ServerScriptService"):WaitForChild("
 local CollectionService = game:GetService("CollectionService")
 
 local YAW_LIMIT = math.rad(80) -- ±arc from the boat's forward
-local PITCH_MIN, PITCH_MAX = math.rad(-12), math.rad(35)
+-- ⚠️ Job #105: −12/35 → −22.6/45.5. The DOWN figure is not a round number and must not be tidied into one.
+-- Reported as "you cant target enemies near boat"; the cause is that this arc is measured against the BOAT,
+-- not the world. `BoatServer.MAX_PITCH` trims the hull up to 7° bow-up under throttle (BoatServer:59,418), and
+-- GunBase is welded to the hull — so riding at full throttle spent −12° of depression down to −5° of real
+-- depression, and the water-level blind circle ahead of the bow grew from ~35 to ~96 studs against a
+-- GUN_RANGE of 350. −22.6° is the +30% the player asked for (−15.6°) PLUS the 7° the trim steals, so the
+-- arc holds up while riding, which is the only time it matters. Up is the plain +30%: bow-up trim helps
+-- elevation, so it needs no headroom.
+local PITCH_MIN, PITCH_MAX = math.rad(-22.6), math.rad(45.5)
 -- ⚠️ Job #104: 60 -> 75, and the reason is a DEPENDENCY, not a buff for its own sake.
 -- `GAME.md:147` promises the mounted gun is *"Much stronger than a handheld gun (the boat's real
 -- firepower)"*, and it costs hauled cargo crates, a ±80° arc, and a seat that forbids the handheld
@@ -32,7 +40,15 @@ local GUN_RANGE = 350
 local FIRE_INTERVAL = 0.3
 local ROUNDS_PER_AMMO = ItemDefs.TURRET_ROUNDS_PER_CRATE -- shared with the HUD (Job #075)
 -- gunner-camera offset (MUST match GunClient) so the shot goes exactly where the crosshair points
-local CAM_UP, CAM_BACK = 2, 3
+-- 🔴 Job #105: CAM_UP 2 → 4, and this is a SIGHT-LINE fix, not a camera preference. Measured in Play: the
+-- bow lamp's skin is 2.76 studs tall at hull-local (0, 4.9, −14.5) (BoatModules:84-86, BoatParts:189) — dead
+-- centre, ~5 studs in front of an eye that sat at 2. Its silhouette covered −25.1°…+3.0° of the gunner's view
+-- at the old −12° stop, i.e. THE CROSSHAIR WAS ALREADY ON THE LAMP, and depressing further only buried it
+-- deeper (+9.3° at −22.6°). Widening the arc without raising the eye makes the depressed view worse, not
+-- better. At 4 the sight line passes hull-local Y 7.68 at the lamp's Z plane, clearing its 6.28 top by 1.4.
+-- ⚠️ This is BOTH the camera offset and the ray origin (see the raycast below), so it MUST stay identical to
+-- GunClient's copy. If the two ever differ the crosshair silently stops matching the bullet.
+local CAM_UP, CAM_BACK = 4, 3
 
 if not Workspace:GetAttribute("RiverReady") then
 	Workspace:GetAttributeChangedSignal("RiverReady"):Wait()
@@ -139,8 +155,21 @@ local function humOf(player: Player): Humanoid?
 end
 
 -- the barrel/aim CFrame from the base + the clamped yaw/pitch (arc is relative to the boat)
+--
+-- 🔴 Job #105 / finding 0024 — TRAVERSE FIRST, THEN ELEVATE. Do not collapse this back to a single
+-- `CFrame.Angles(pitch, yaw, 0)`. That form is `Rx·Ry`, which applies pitch about the base's UN-yawed X axis,
+-- so the elevation axis does not follow the traverse and the real depression decays as cos(yaw):
+--
+--     LookVector.Y = cos(yaw) · sin(pitch)     →  a −12° stop became −2.07° at yaw 80°
+--
+-- i.e. at the edges of the ±80° arc the gun had almost no elevation authority at all, and widening the clamp
+-- would have bought 1.8° there. Yawing about Y and *then* pitching about the yawed X gives `sin(pitch)`
+-- exactly, at every yaw — and drops the horizon roll (~11.8° at full traverse) the old form put in the camera.
+--
+-- ⚠️ Four places build this expression — here, GunClient (camera + tracer) and BoatTurretVisual (the barrel
+-- mesh). They must use the SAME composition or the barrel and the crosshair stop agreeing with the shot.
 local function aimCFrame(): CFrame
-	return base.CFrame * CFrame.Angles(gunnerPitch, gunnerYaw, 0)
+	return base.CFrame * CFrame.Angles(0, gunnerYaw, 0) * CFrame.Angles(gunnerPitch, 0, 0)
 end
 
 aimRemote.OnServerEvent:Connect(function(player: Player, yaw: any, pitch: any)

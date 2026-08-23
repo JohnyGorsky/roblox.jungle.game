@@ -72,7 +72,13 @@ end
 local function poseBarrel(yaw: number, pitch: number)
 	-- Same expression the server used, but built from the CLIENT's `GunBase` — a welded part, so it is
 	-- in perfect lockstep with the hull as rendered here.
-	barrel.CFrame = base.CFrame * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0, 0, -barrel.Size.Z / 2)
+	-- Job #105: traverse THEN elevate (GunServer:143 carries the measurement). The old single
+	-- `CFrame.Angles(pitch, yaw, 0)` tilted the barrel's elevation axis with the traverse, so the MESH visibly
+	-- disagreed with where the server was actually shooting at high yaw. Must match the server's `aimCFrame`.
+	barrel.CFrame = base.CFrame
+		* CFrame.Angles(0, yaw, 0)
+		* CFrame.Angles(pitch, 0, 0)
+		* CFrame.new(0, 0, -barrel.Size.Z / 2)
 end
 
 -- ── searchlight ───────────────────────────────────────────────────────────────────────────────────
