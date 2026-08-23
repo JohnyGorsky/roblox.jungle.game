@@ -1611,13 +1611,31 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	-- THE CLONE — `AssetLibrary` and `Workspace.SpawnBase.Stands.RobuxShop` must not be touched, or the
 	-- crash-site kiosk loses its own signage.
 	if postModel then
-		local sign = postModel:FindFirstChild("EntrySign")
-		if sign then
-			-- Reads "ROBUX SHOP" on two SurfaceGuis and an AlwaysOnTop BillboardGui. Wrong shop, and
-			-- AlwaysOnTop world signage renders through terrain — the exact thing Job #077 removed.
-			-- The camp's own physical "TRADING POST" board (below) is the signage here, and since
-			-- Job #106 it is also what carries the prompt.
-			sign:Destroy()
+		-- ⚠️ STRIP BY TYPE, NOT BY NAME. The kiosk's "ROBUX SHOP" branding is in THREE places and they do
+		-- NOT share a parent — measured:
+		--     EntrySign > Board > SurfaceGui > TextLabel     "ROBUX SHOP"
+		--     EntrySign > Board > SurfaceGui > TextLabel     "ROBUX SHOP"
+		--     Anchor    > BillboardGui > TextLabel           "ROBUX SHOP"   ← NOT under EntrySign
+		-- Destroying `EntrySign` alone leaves the third one floating over the camp, which is exactly what
+		-- shipped and was caught in playtest. Removing every Surface/Billboard Gui in the clone is the
+		-- version that cannot be defeated by the next re-import moving things around.
+		--
+		-- The camp's own physical "TRADING POST" board is the signage here, and since Job #106 it is also
+		-- what carries the shop prompt. An AlwaysOnTop BillboardGui is separately banned for world
+		-- signage by STYLEGUIDE §5 / Job #077 — it renders through terrain.
+		local stripped = 0
+		for _, d in ipairs(postModel:GetDescendants()) do
+			if d:IsA("SurfaceGui") or d:IsA("BillboardGui") then
+				d:Destroy()
+				stripped += 1
+			end
+		end
+		local entrySign = postModel:FindFirstChild("EntrySign")
+		if entrySign then
+			entrySign:Destroy() -- the now-blank board + its posts; the camp has its own sign
+		end
+		if stripped == 0 then
+			warn("[Excursion] trading post: no branding GUIs found to strip — did the RobuxShop model change?")
 		end
 		-- `prop()` applies ONE `collide` flag to every BasePart it clones, so the kiosk's invisible
 		-- 1×1×1 `Anchor` marker would become a solid block standing in the shop doorway.
