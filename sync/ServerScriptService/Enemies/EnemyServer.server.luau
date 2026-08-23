@@ -134,7 +134,15 @@ local function nearestPlayer(pos: Vector3, range: number): Model?
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local char = plr.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if root and char and not char:GetAttribute("Downed") then
+		-- 🔴 Job #103 — INVINCIBLE PLAYERS ARE FILTERED HERE, IN THE SELECTOR, ON PURPOSE.
+		--
+		-- The first version of this job skipped the damage down in `applyBite` instead, and that quietly
+		-- made a revived player a SHIELD for the whole crew: this function returns the NEAREST valid target,
+		-- so if that was the protected player the bite was spent on them and a vulnerable teammate three
+		-- studs behind — and the hull — took nothing for ten seconds. Excluding them from selection instead
+		-- means the bite falls through to whoever is legitimately next.
+		local inv = (char and (char:GetAttribute("InvincibleUntil") :: number?)) or 0
+		if root and char and not char:GetAttribute("Downed") and Workspace:GetServerTimeNow() >= inv then
 			local d = (root.Position - pos).Magnitude
 			if d <= bestD then
 				best, bestD = char, d
@@ -343,19 +351,9 @@ local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: bool
 	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase()) * EnemyDefs.DAMAGE_SCALE
 	local victim = nearestPlayer(pos, def.biteRange)
 	if victim then
-		-- 🔴 Job #103 — POST-REVIVE GRACE. Do no damage while the window is open.
-		--
-		-- Set by `PlayerCombat.revive()` as `os.time() + REVIVE_GRACE`. A revive puts the player back on the
-		-- spot they went down with everything that killed them still adjacent and off cooldown, so without this
-		-- they are re-downed on the frame they stand up. There is NO single chokepoint for player damage — this
-		-- check has to exist at every site that writes a player's `HP`.
-		--
-		-- ⚠️ Returns rather than falling through to `canHitBoat`. This creature chose a PERSON as its
-		-- target; a bite that a player shrugged off must not be redirected into the hull instead.
-		-- The hull flash and the red damage number are skipped with it — nothing was taken.
-		if os.time() < (((victim:GetAttribute("InvincibleUntil") :: number?)) or 0) then
-			return
-		end
+		-- Job #103: no grace check here — `nearestPlayer` above has already excluded protected players,
+		-- so anyone this returns is a legitimate target. See the note in that function for why the filter
+		-- belongs there and not here.
 		local before = (victim:GetAttribute("HP") :: number?) or 0
 		local after = math.max(0, before - dmg)
 		victim:SetAttribute("HP", after)

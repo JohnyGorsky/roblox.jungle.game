@@ -121,6 +121,15 @@ local function setupCharacter(player: Player, char: Model)
 		if not char:GetAttribute("Downed") then
 			return
 		end
+		-- ⚠️ THE DEADLINE IS STAMPED BEFORE `Downed` IS CLEARED, AND THE ORDER IS LOAD-BEARING.
+		-- Clearing `Downed` is what puts this character back into every enemy's target list. Nothing
+		-- between here and there yields today, so the two are atomic — but if anyone ever inserts a
+		-- `WaitForChild`, a `task.wait` or any yielding call between them, a revived player would be
+		-- targetable for a frame with no protection stamped yet. That is a one-frame intermittent nobody
+		-- would ever reproduce. Stamping first costs nothing and closes it by construction.
+		local graceUntil = Workspace:GetServerTimeNow() + REVIVE_GRACE
+		char:SetAttribute("InvincibleUntil", graceUntil)
+
 		char:SetAttribute("Downed", false)
 		char:SetAttribute("HP", MAX_HP)
 
@@ -132,9 +141,12 @@ local function setupCharacter(player: Player, char: Model)
 		-- was on the floor. The first bite can therefore land on the frame they stand up. Full health alone
 		-- does not fix that — it buys a couple more bites. What was missing is a window to MOVE in.
 		--
-		-- ⚠️ `os.time()` (wall clock), NOT `os.clock()`, and deliberately: the CLIENT renders a countdown
-		-- from this attribute, and `os.clock()` is per-process time that means nothing on another machine.
-		-- Same reasoning, same units as `BleedOutAt` below — keep the two consistent.
+		-- ⚠️ `Workspace:GetServerTimeNow()`, NOT `os.time()`. os.time() returns whole seconds, so a revive at
+		-- true epoch x.7 stamped a deadline only 9.3 s away while the glow (a float `Debris` lifetime) and the
+		-- attribute clear (a float `task.delay`) both ran the full 10.0 — the indicator went on showing
+		-- protection for up to a second AFTER damage resumed. A lying indicator is worse than none. This clock
+		-- is a float, is replicated, and is readable on the client, so the deadline, the glow, the clear and the
+		-- HUD countdown all agree.
 		--
 		-- ⚠️ EVERY PATH THAT DAMAGES A PLAYER MUST CHECK THIS. There is no single chokepoint: player health
 		-- is the `HP` character attribute and two separate scripts write damage to it (`EnemyServer`'s
@@ -142,9 +154,6 @@ local function setupCharacter(player: Player, char: Model)
 		-- reverting the attribute after the fact was rejected — it would fight the Medic-station and
 		-- campfire heal loops writing to the same attribute. If you add a new way to hurt a player, guard it
 		-- here too, or the grace silently has a hole in it.
-		local graceUntil = os.time() + REVIVE_GRACE
-		char:SetAttribute("InvincibleUntil", graceUntil)
-
 		-- The glow is built on the SERVER so it replicates to everyone, not just to the protected player.
 		-- A teammate needs to see why their covering fire is not being answered and why the guards are
 		-- swinging at someone who is not going down — a client-only effect would leave the rest of the crew

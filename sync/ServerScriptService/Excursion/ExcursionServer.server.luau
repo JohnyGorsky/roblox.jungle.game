@@ -1995,7 +1995,7 @@ local function tickGuard(guard: Model, dt: number)
 			local bite = ((guard:GetAttribute("BiteDamage") :: number?) or def.biteDamage) * EnemyDefs.DAMAGE_SCALE
 			-- 🔴 Job #103 — POST-REVIVE GRACE. Do no damage while the window is open.
 			--
-			-- Set by `PlayerCombat.revive()` as `os.time() + REVIVE_GRACE`. A revive puts the player back on the
+			-- Set by `PlayerCombat.revive()` on the `Workspace:GetServerTimeNow()` clock. A revive puts the player back on the
 			-- spot they went down with everything that killed them still adjacent and off cooldown, so without this
 			-- they are re-downed on the frame they stand up. There is NO single chokepoint for player damage — this
 			-- check has to exist at every site that writes a player's `HP`.
@@ -2003,7 +2003,7 @@ local function tickGuard(guard: Model, dt: number)
 			-- ⚠️ Guarded around the DAMAGE only, not around the whole attack. The swing animation and the
 			-- attack sound above have already fired and are left alone on purpose: the player should see and
 			-- hear that they are being attacked and surviving it, not watch the guards freeze for ten seconds.
-			if os.time() >= (((char:GetAttribute("InvincibleUntil") :: number?)) or 0) then
+			if Workspace:GetServerTimeNow() >= (((char:GetAttribute("InvincibleUntil") :: number?)) or 0) then
 				char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - bite))
 			end
 		end

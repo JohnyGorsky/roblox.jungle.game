@@ -19,6 +19,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local MonetizationDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("MonetizationDefs")) :: any
 local UI = ReplicatedStorage:WaitForChild("UI")
@@ -201,13 +202,15 @@ local function watchGrace(char: Model)
 	graceGui.Enabled = false
 	graceConn = RunService.Heartbeat:Connect(function()
 		local until_ = char:GetAttribute("InvincibleUntil") :: number?
-		local left = if until_ then until_ - os.time() else 0
+		-- Same float server clock the deadline was stamped on, so the number on screen and the moment
+		-- damage actually resumes are the same instant. See PlayerCombat's note.
+		local left = if until_ then until_ - Workspace:GetServerTimeNow() else 0
 		if left <= 0 then
 			graceGui.Enabled = false
 			return
 		end
 		graceGui.Enabled = true
-		graceText.Text = ("INVULNERABLE  %d"):format(left)
+		graceText.Text = ("INVULNERABLE  %d"):format(math.ceil(left))
 		-- pulses through the whole window, not just the tail: the point is "move NOW", and a static chip
 		-- reads as a status rather than as a clock running out.
 		graceText.TextTransparency = 0.12 + 0.12 * math.sin(os.clock() * 7)
