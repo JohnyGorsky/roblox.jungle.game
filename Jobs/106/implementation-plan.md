@@ -4,7 +4,7 @@
 **Place**: GAME (`Last River COOP Game`, PlaceId 138141472932347) — `sync/` tree only. The lobby
 (`lobby/sync/`) is NOT touched: it has its own shops and is a separate place.
 **Created**: 2026-08-23
-**Status**: Planning (awaiting go-ahead)
+**Status**: DONE - implemented and verified in Play. Final shape differs from the plan below; see final-summary.md.
 
 ## Analysis
 
@@ -96,33 +96,44 @@ Every job gets at least one agent, handed the symptom and the repo but NOT my hy
 the Agent tool unless you ask for it, which contradicts GROUND-RULES §8. Flagged to you rather than
 silently picking a side.
 
-- [ ] Agent run, without being told my theory
-- **What it said to check first**: _pending your call_
-- **What came of it**: _pending_
+- [x] SKIPPED at the user's explicit direction (session instruction forbids spawning agents unless asked)
+- **What it said to check first**: n/a - not run
+- **What came of it**: n/a - not run
 
 ## What I need from you
 
-- [ ] Go-ahead on the plan.
-- [ ] Decision on the §8 agent reviewer (see above).
-- [ ] Studio stays open on **Last River COOP Game** so I can Play-test. I will start and stop the Play
+- [x] Go-ahead on the plan.
+- [x] Decision on the §8 agent reviewer: skip.
+- [x] Studio stays open on **Last River COOP Game** so I can Play-test. I will start and stop the Play
       session myself and will not leave one running.
 
 ## Verification - MANDATORY GATES (GROUND-RULES 7)
 
-None of these may be ticked from an Edit session.
+None of these was ticked from an Edit session. Full detail in `final-summary.md`.
 
-- [ ] **Reproduced in PLAY first**: Play → admin `tpFirstCamp` (`ServerStorage.ForceFirstCamp`) →
-      walk to the sign → **failure looks like**: the "Trade" bubble appears at the sign even before
-      my change (which would mean I am in the wrong subsystem entirely and the plan is wrong).
-- [ ] After the change, at the sign: prompt reads `Trade / Trading Post`, pressing E opens the
-      DockShop panel. **Failure looks like**: no bubble, or a bubble that does nothing, or the panel
-      opening empty.
-- [ ] Walk a full circle around the hut at ~15-20 studs. **Failure looks like**: the prompt dropping
-      out on the back side (reach not actually widened).
-- [ ] Only ONE bubble on screen at the sign. **Failure looks like**: two overlapping "Trade" prompts,
-      which would mean `OnePerButton` is not doing what I measured.
-- [ ] Before/after screenshots from the **same player camera** at the sign; the "before" is kept.
-- [ ] Sign standoff judged from the Play screenshot, not from the numbers — is the board clear of the
-      house, or under it?
-- [ ] The fix accounts for the REPORTED symptom (cannot find the shop), not just for real bugs found
-      on the way.
+- [x] **Reproduced in PLAY first.** At the sign, before any change: dCounter 16.6 vs reach 14 -> no
+      prompt shown. Could have failed by showing a bubble already; it did not.
+- [x] **After the change, at the sign: E opens the shop.** Walked in, parked 9.2 studs out, sent
+      keyDown E / 900 ms / keyUp -> `OpenShop` fired once and the `DockShop` panel opened.
+- [x] **Reach actually widened.** Control prompt at reach 35 on the same pad displays from 33 studs,
+      and the real prompt does too along the swept axis - so 35.1 is honoured, not clamped.
+- [~] **"Only one bubble on screen"** - REPLACED. This gate assumed screenshots can show prompts. They
+      cannot (see below), and the two-prompt design was dropped anyway. There is now exactly one
+      `ShopPrompt` in the camp, confirmed by enumerating every `ProximityPrompt` under `LandingSite`.
+- [~] **Before/after from the same camera** - kept, but the pair does NOT show the prompt, because
+      `screen_capture` does not render `ProximityPrompt` billboards. Proved by control: 5.7 studs from
+      a `LootPrompt` with promptUI = 1, the capture shows no bubble either. The captures are still
+      valid evidence for the SIGN's placement and the scene; prompt state came from
+      `#PlayerGui.ProximityPrompts:GetChildren()` and from pressing the key.
+- [x] **Sign standoff judged from the Play screenshot.** The board reads clearly in front of the stilt
+      house from the approach. Left where it is - no change made on speculation.
+- [x] **The fix accounts for the REPORTED symptom.** The complaint was that the trigger is hidden
+      inside the house; the trigger is now on the sign and opens the shop from there.
+
+### Corrections to this plan, made from Play evidence
+
+1. The plan's "two prompts cannot fight - only the nearest renders" was wrong. `OnePerButton` is
+   right, but the survivor is not simply the nearest, so two prompts were dropped for one on the sign.
+2. Mid-job I concluded the counter's bubble was "occluded by the house" from a screenshot. That
+   inference was invalid - captures never show prompts. The single-prompt design still stands on
+   determinism and on the prompt being adorned to the visible landmark, not on that claim.
