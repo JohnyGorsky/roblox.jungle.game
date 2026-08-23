@@ -343,6 +343,19 @@ local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: bool
 	local dmg = def.biteDamage * EnemyDefs.strengthFor(def.category, currentPhase()) * EnemyDefs.DAMAGE_SCALE
 	local victim = nearestPlayer(pos, def.biteRange)
 	if victim then
+		-- 🔴 Job #103 — POST-REVIVE GRACE. Do no damage while the window is open.
+		--
+		-- Set by `PlayerCombat.revive()` as `os.time() + REVIVE_GRACE`. A revive puts the player back on the
+		-- spot they went down with everything that killed them still adjacent and off cooldown, so without this
+		-- they are re-downed on the frame they stand up. There is NO single chokepoint for player damage — this
+		-- check has to exist at every site that writes a player's `HP`.
+		--
+		-- ⚠️ Returns rather than falling through to `canHitBoat`. This creature chose a PERSON as its
+		-- target; a bite that a player shrugged off must not be redirected into the hull instead.
+		-- The hull flash and the red damage number are skipped with it — nothing was taken.
+		if os.time() < (((victim:GetAttribute("InvincibleUntil") :: number?)) or 0) then
+			return
+		end
 		local before = (victim:GetAttribute("HP") :: number?) or 0
 		local after = math.max(0, before - dmg)
 		victim:SetAttribute("HP", after)

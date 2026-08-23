@@ -9,9 +9,24 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
+
+-- Job #103: the grace glow is palette-tinted like everything else — no hand-picked Color3s.
+local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme"))
 
 local MAX_HP = 100
-local REVIVE_HP = 50
+-- 🔴 Job #103 — REVIVE_HP IS GONE. A revive returns you to FULL health, both routes.
+--
+-- Reported: *"when i revive i must be full health not just half (with robux) ... Now you respawn by
+-- robux and instantly killed."* It was 50, and the Combat Medic skill added 2.5/level on top.
+--
+-- That HP bonus was the skill's entire effect on this path and it is now dead — there is nothing left to
+-- add to a full bar. Its OTHER effect, a shorter revive hold (see `PromptButtonHoldBegan` below), still
+-- works. Recorded here rather than left to be discovered: if Combat Medic is ever sold or described on
+-- the strength of "revived ally comes up with more HP", that copy is now wrong, and the natural
+-- replacement is to have it grant extra GRACE SECONDS instead of extra HP.
+local REVIVE_GRACE = 10 -- seconds of invincibility after standing back up
 local BLEEDOUT = 30 -- seconds downed before dying
 local REVIVE_HOLD = 3 -- seconds a teammate must hold to revive
 local START_BANDAGES = 3
@@ -107,9 +122,56 @@ local function setupCharacter(player: Player, char: Model)
 			return
 		end
 		char:SetAttribute("Downed", false)
-		-- Combat Medic (Job 029): revived ally comes up with more HP
-		local medic = (reviver and (reviver:GetAttribute("SkillMedic") :: number?)) or 0
-		char:SetAttribute("HP", math.min(MAX_HP, REVIVE_HP + 2.5 * medic))
+		char:SetAttribute("HP", MAX_HP)
+
+		-- 🔴 Job #103 — THE GRACE WINDOW, AND WHY IT IS NOT OPTIONAL POLISH.
+		--
+		-- *"Now you respawn by robux and instantly killed."* A revive puts the player back on the exact
+		-- spot they went down, and nothing else moves: the guards that downed them are still standing over
+		-- them, still aggroed, and their bite cooldowns have been counting down the entire time the player
+		-- was on the floor. The first bite can therefore land on the frame they stand up. Full health alone
+		-- does not fix that — it buys a couple more bites. What was missing is a window to MOVE in.
+		--
+		-- ⚠️ `os.time()` (wall clock), NOT `os.clock()`, and deliberately: the CLIENT renders a countdown
+		-- from this attribute, and `os.clock()` is per-process time that means nothing on another machine.
+		-- Same reasoning, same units as `BleedOutAt` below — keep the two consistent.
+		--
+		-- ⚠️ EVERY PATH THAT DAMAGES A PLAYER MUST CHECK THIS. There is no single chokepoint: player health
+		-- is the `HP` character attribute and two separate scripts write damage to it (`EnemyServer`'s
+		-- `applyBite` for river creatures, `ExcursionServer`'s `tickGuard` for camp guards). Enforcing it by
+		-- reverting the attribute after the fact was rejected — it would fight the Medic-station and
+		-- campfire heal loops writing to the same attribute. If you add a new way to hurt a player, guard it
+		-- here too, or the grace silently has a hole in it.
+		local graceUntil = os.time() + REVIVE_GRACE
+		char:SetAttribute("InvincibleUntil", graceUntil)
+
+		-- The glow is built on the SERVER so it replicates to everyone, not just to the protected player.
+		-- A teammate needs to see why their covering fire is not being answered and why the guards are
+		-- swinging at someone who is not going down — a client-only effect would leave the rest of the crew
+		-- reading the fight wrong. Gold because §4 reserves it for progression/positive; red would say
+		-- danger, which is the opposite of what this means.
+		local old = char:FindFirstChild("ReviveGrace")
+		if old then
+			old:Destroy() -- a second revive inside the window replaces the glow rather than stacking two
+		end
+		local glow = Instance.new("Highlight")
+		glow.Name = "ReviveGrace"
+		glow.FillColor = Theme.color.gold
+		glow.OutlineColor = Theme.color.gold
+		glow.FillTransparency = 0.72
+		glow.OutlineTransparency = 0.15
+		glow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		glow.Adornee = char
+		glow.Parent = char
+		Debris:AddItem(glow, REVIVE_GRACE)
+		-- Cleared on expiry so the HUD indicator and the highlight have something to switch off, and only
+		-- if a LATER revive has not already pushed the deadline out.
+		task.delay(REVIVE_GRACE, function()
+			if char:GetAttribute("InvincibleUntil") == graceUntil then
+				char:SetAttribute("InvincibleUntil", nil)
+			end
+		end)
+
 		hum.WalkSpeed, hum.JumpHeight = walk, jump
 		local prompt = root:FindFirstChild("RevivePrompt")
 		if prompt then

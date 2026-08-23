@@ -140,8 +140,83 @@ local function stopTicking()
 	end
 end
 
+-- ── Job #103: the post-revive grace chip ─────────────────────────────────────────────────────────
+--
+-- Getting up is only half the payoff; the other half is knowing you have ten seconds to get OUT. Without
+-- a readout the window passes unnoticed and the player stands still through the one thing that was bought
+-- for them — which is exactly the complaint this job came from (*"you respawn by robux and instantly
+-- killed"*).
+--
+-- ⚠️ ITS OWN ScreenGui, NOT part of the downed card. `gui.Enabled = downed` above, so anything parented
+-- to that gui is switched OFF at the precise moment this needs to switch ON.
+--
+-- Sits at y 0.36 to clear `ZoneBanner`, which occupies 0.17–0.34 and can fire on the same frame (a zone
+-- crossing does not wait for you to finish being revived).
+local graceGui = Components.screen("ReviveGraceHud", player:WaitForChild("PlayerGui"))
+graceGui.DisplayOrder = 29 -- under the downed card (30), over ordinary panels (20)
+graceGui.Enabled = false
+
+local graceChip = RunComponents.card({
+	name = "GraceChip",
+	anchor = Vector2.new(0.5, 0.5),
+	position = UDim2.fromScale(0.5, 0.36),
+	size = UDim2.fromScale(0.24, 0.07),
+	accent = Theme.color.gold,
+	transparency = 0.1,
+	parent = graceGui,
+})
+
+local graceClamp = Instance.new("UISizeConstraint")
+graceClamp.MinSize = Vector2.new(190, 46)
+graceClamp.MaxSize = Vector2.new(360, 88)
+graceClamp.Parent = graceChip
+
+local graceIcon = Components.icon({ name = "hull", size = UDim2.fromScale(0.16, 0.62), parent = graceChip })
+graceIcon.AnchorPoint = Vector2.new(0, 0.5)
+graceIcon.Position = UDim2.fromScale(0.06, 0.5)
+graceIcon.ZIndex = 3
+
+local graceText = Instance.new("TextLabel")
+graceText.Name = "GraceText"
+graceText.AnchorPoint = Vector2.new(0, 0.5)
+graceText.Position = UDim2.fromScale(0.27, 0.5)
+graceText.Size = UDim2.fromScale(0.68, 0.7)
+graceText.BackgroundTransparency = 1
+graceText.TextXAlignment = Enum.TextXAlignment.Left
+-- Same helper every other label in this file uses, so the size clamps and the dark stroke come from the
+-- design system rather than being hand-set here.
+Components.applyText(graceText, Theme.text.h2, Theme.font.display)
+graceText.TextColor3 = Theme.color.gold
+graceText.Text = "INVULNERABLE"
+graceText.ZIndex = 3
+graceText.Parent = graceChip
+
+local graceConn: RBXScriptConnection? = nil
+
+local function watchGrace(char: Model)
+	if graceConn then
+		graceConn:Disconnect()
+		graceConn = nil
+	end
+	graceGui.Enabled = false
+	graceConn = RunService.Heartbeat:Connect(function()
+		local until_ = char:GetAttribute("InvincibleUntil") :: number?
+		local left = if until_ then until_ - os.time() else 0
+		if left <= 0 then
+			graceGui.Enabled = false
+			return
+		end
+		graceGui.Enabled = true
+		graceText.Text = ("INVULNERABLE  %d"):format(left)
+		-- pulses through the whole window, not just the tail: the point is "move NOW", and a static chip
+		-- reads as a status rather than as a clock running out.
+		graceText.TextTransparency = 0.12 + 0.12 * math.sin(os.clock() * 7)
+	end)
+end
+
 local function watch(char: Model)
 	stopTicking()
+	watchGrace(char)
 	gui.Enabled = false
 
 	local wasDowned = false
