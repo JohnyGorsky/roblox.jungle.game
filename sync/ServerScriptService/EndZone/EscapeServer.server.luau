@@ -55,37 +55,59 @@ if not marker then
 end
 local anchorPart: BasePart = marker :: BasePart
 
--- Sit the pad on the ground under the marker rather than at the marker's own Y. The marker is a
--- hand-placed 4x1x2 nub floating ~3 studs up; building the pad at that height would leave a step the
--- crew has to jump. Terrain-only raycast — props on the apron must not be mistaken for ground.
+-- Sit the pad on whatever the crew actually WALKS ON under the marker, not at the marker's own Y — it is
+-- a hand-placed 4x1x2 nub floating ~3 studs up, and building there leaves a step nobody can climb.
+--
+-- ⚠️ "Ground" here is NOT terrain. The first version filtered the raycast to `Workspace.Terrain` on the
+-- reasoning that props must not be mistaken for the floor, and that was wrong in the one place it had to
+-- be right: the marker sits on the RUNWAY, whose slab top is 3 studs above the terrain beneath it. The
+-- pad was built to the terrain and ended up buried in the concrete with only its ring showing.
+-- So: cast against everything, excluding only the marker itself and the pad we are about to build.
 local groundParams = RaycastParams.new()
-groundParams.FilterType = Enum.RaycastFilterType.Include
-groundParams.FilterDescendantsInstances = { Workspace.Terrain }
+groundParams.FilterType = Enum.RaycastFilterType.Exclude
+groundParams.FilterDescendantsInstances = { anchorPart }
+groundParams.IgnoreWater = true
 local padCentre = anchorPart.Position
 do
-	local hit = Workspace:Raycast(padCentre + Vector3.new(0, 200, 0), Vector3.new(0, -600, 0), groundParams)
+	local hit = Workspace:Raycast(padCentre + Vector3.new(0, 60, 0), Vector3.new(0, -400, 0), groundParams)
 	if hit then
 		padCentre = Vector3.new(padCentre.X, hit.Position.Y, padCentre.Z)
+		print(("[Escape] pad seated on %s at y=%.1f"):format(hit.Instance:GetFullName(), hit.Position.Y))
 	else
-		warn("[Escape] no terrain under the Escape marker — building the pad at the marker's own height")
+		warn("[Escape] nothing solid under the Escape marker — building the pad at the marker's own height")
 	end
 end
 
 -- ── pad geometry (generated, not editor content) ────────────────────────────────────────────────
--- Same recipe as the lobby launch pads so the shape reads as "stand here" on sight, in GOLD because
--- STYLEGUIDE §4 reserves gold for progression and this is the run's payoff. The lobby's discs are
--- Cylinders laid on their side (a Roblox cylinder's axis runs along X), hence the Z-rotation.
+-- A PART-FOR-PART REPLICA of the lobby's launch pad (`LOBBY_GREYBOX.Stations.PartyPad_*`), measured off
+-- the real model rather than eyeballed, so the extraction pad reads as the same object the player
+-- already knows how to use. Every offset below is the lobby's, relative to its `Center` plate.
+--
+-- Two deliberate departures:
+--   · GOLD, not the lobby's per-pad identity colour — STYLEGUIDE §4 reserves gold for progression and
+--     this pad IS the run's payoff.
+--   · a far bigger LIGHT COLUMN. The lobby's is 5 studs across and 3.6 tall because you walk past it
+--     indoors; this one is the only wayfinding in the end zone and has to be picked out from the dock
+--     219 studs away, through jungle, at any hour of the day/night cycle.
+--
+-- The lobby's discs are Cylinders laid on their side (a Roblox cylinder's axis runs along X), hence the
+-- Z-rotation on every one.
 local pad = Instance.new("Model")
 pad.Name = "ExtractionPad"
 
-local function disc(name: string, thickness: number, diameter: number, yOffset: number, colour: Color3, material: Enum.Material, transparency: number): BasePart
+-- Height of the Center plate above the terrain. The lobby stack puts the Base's underside 2.0 below
+-- Center, so this seats the Base flush on the ground and leaves the walkable Deck top 1.9 up — the same
+-- step the lobby pad has, and comfortably inside what a Humanoid will walk onto without jumping.
+local CENTER_Y = 2.0
+
+local function disc(name: string, thickness: number, diameter: number, offset: number, colour: Color3, material: Enum.Material, transparency: number, collide: boolean): BasePart
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Shape = Enum.PartType.Cylinder
 	p.Size = Vector3.new(thickness, diameter, diameter)
-	p.CFrame = CFrame.new(padCentre + Vector3.new(0, yOffset, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	p.CFrame = CFrame.new(padCentre + Vector3.new(0, CENTER_Y + offset, 0)) * CFrame.Angles(0, 0, math.rad(90))
 	p.Anchored = true
-	p.CanCollide = true
+	p.CanCollide = collide
 	p.Color = colour
 	p.Material = material
 	p.Transparency = transparency
@@ -93,32 +115,25 @@ local function disc(name: string, thickness: number, diameter: number, yOffset: 
 	return p
 end
 
--- The stack is SUNK one stud into the ground. Base 1.4 + Deck 0.5 + Center 0.5 puts the walking surface
--- 2.4 studs up if the base sits ON the terrain, and that is right on the limit of what a Humanoid will
--- step onto — a pad the crew has to jump at to finish the run is not acceptable. Sinking it brings the
--- deck to ~1.4 and leaves the same silhouette above ground.
-local SINK = 1.0
-local base = disc("Base", 1.4, 22, 0.7 - SINK, Theme.color.metalDark, Enum.Material.DiamondPlate, 0)
-disc("Deck", 0.5, 19, 1.65 - SINK, Theme.color.wood, Enum.Material.WoodPlanks, 0)
-disc("AccentRing", 0.3, 12, 2.05 - SINK, Theme.color.gold, Enum.Material.Neon, 0)
-local centre = disc("Center", 0.5, 9, 2.15 - SINK, Theme.color.metal, Enum.Material.Metal, 0)
+--                     name           thick  dia   offset  colour                  material                      transp collide
+local base   = disc("Base",        1.40,  22,  -1.30,  Theme.color.metalDark, Enum.Material.DiamondPlate, 0,    true)
+disc("Deck",        0.50,  19,  -0.35,  Theme.color.woodDark,  Enum.Material.WoodPlanks,   0,    true)
+disc("AccentRing",  0.35,  12,  -0.15,  Theme.color.gold,      Enum.Material.Neon,         0,    false)
+local centre = disc("Center",      0.50,   9,   0.00,  Theme.color.metalDark, Enum.Material.Metal,        0,    false)
 
--- The beacon column is TALLER than the lobby's 3.3. The lobby pad is something you walk past; this one
--- has to be findable from the dock 219 studs away, through jungle, at whatever hour the day/night cycle
--- has reached. It is the only wayfinding the end zone has.
--- 5 studs across (the lobby's width) read as a thin thread over a 22-stud pad and vanished at range.
--- 14 fills the Center disc and is still a shaft rather than a wall.
-local column = disc("LightColumn", 30, 14, 17, Theme.color.gold, Enum.Material.Neon, 0.72)
-column.CanCollide = false
+local column = disc("LightColumn", 34.0,  14,  16.00,  Theme.color.gold,      Enum.Material.Neon,         0.72, false)
+column.CastShadow = false
 
+-- eight edge lights on a radius-9 ring, exactly the lobby's spacing
 for i = 1, 8 do
 	local a = (i / 8) * math.pi * 2
 	local e = Instance.new("Part")
 	e.Name = "EdgeLight"
 	e.Size = Vector3.new(0.7, 0.6, 0.7)
-	e.Position = padCentre + Vector3.new(math.cos(a) * 10, 2.2 - SINK, math.sin(a) * 10)
+	e.CFrame = CFrame.new(padCentre + Vector3.new(math.cos(a) * 9, CENTER_Y + 0.05, math.sin(a) * 9))
 	e.Anchored = true
 	e.CanCollide = false
+	e.CastShadow = false
 	e.Color = Theme.color.gold
 	e.Material = Enum.Material.Neon
 	e.Parent = pad
@@ -127,28 +142,31 @@ end
 local glow = Instance.new("PointLight")
 glow.Name = "PadGlow"
 glow.Color = Theme.color.gold
-glow.Brightness = 2.5
-glow.Range = 26
+glow.Brightness = 2.4
+glow.Range = 20
+glow.Shadows = false
 glow.Parent = centre
 
 local fx = Instance.new("Attachment")
 fx.Name = "PadFX"
-fx.Position = Vector3.new(0, 0, 0)
+fx.Position = Vector3.new(0.4, 0, 0) -- local +X is UP on a Z-rotated cylinder
 fx.Parent = centre
 local motes = Instance.new("ParticleEmitter")
 motes.Name = "PadMotes"
-motes.Rate = 14
-motes.Lifetime = NumberRange.new(1.2, 2.2)
-motes.Speed = NumberRange.new(1.5, 3.5)
+motes.Rate = 6
+motes.Lifetime = NumberRange.new(2, 3.5)
+motes.Speed = NumberRange.new(1, 2.5)
 motes.Color = ColorSequence.new(Theme.color.gold)
 motes.LightEmission = 1
 motes.LightInfluence = 0
 motes.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
 motes.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
-motes.SpreadAngle = Vector2.new(28, 28)
+motes.SpreadAngle = Vector2.new(22, 22)
 motes.Acceleration = Vector3.new(0, 3, 0)
 motes.Rotation = NumberRange.new(0, 360)
-motes.EmissionDirection = Enum.NormalId.Right -- the cylinder's +X is up after the Z-rotation
+-- ⚠️ Right, not Top. The lobby model says Top, but its Center is Z-rotated the same way this one is, so
+-- local +X is world-up and Top emits sideways there. Copying that would have copied the bug.
+motes.EmissionDirection = Enum.NormalId.Right
 motes.Parent = fx
 
 -- ── sign + force-launch prompt ──────────────────────────────────────────────────────────────────

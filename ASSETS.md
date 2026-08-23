@@ -707,6 +707,28 @@ wrong register for our stylized look. Rebuild the lobby's recipe instead: `RockA
 `LogMossy` + Fire/Smoke/embers/PointLight. Assets we already own and scanned, on-palette, no attribution,
 and identical to the lobby by construction.
 
+## 3.7 END ZONE — the extraction airfield (Jobs #110 / #111, 2026-08-23)
+
+The river's destination at **z 18000–18900**, `Workspace.EndBase`. Job #110 copied the hand-sculpted
+START basin there under a 180° rotation `(x,y,z) → (−x, y, 18000−z)`; the user then re-sculpted it and
+built an airfield extraction on it. **Every model here is a REUSE of something already sourced for the
+lobby** — no new sourcing was needed.
+
+| Asset | Count | Source | Status | Notes |
+|---|---|---|---|---|
+| Cargo plane | 1 | reuse — §1.2 `Cargo plane` | <span style="color:#2e9c3f">✅ placed</span> | `EndBase.Objects.Plane.Plane`, 88×34×95 at (446,34,18306), yaw −9° to match the strip |
+| Airstrip / runway | 3 tiles | reuse — §1.2 `Airstrip / runway`, mesh `114620021340964` | <span style="color:#2e9c3f">✅ placed</span> | `EndBase.Objects.RunWay` ×3 at x 403 / 488 / 573, slab top y ≈ 21 |
+| Watchtower | 3 | reuse — Store `RangerTower 81318418778699` | <span style="color:#2e9c3f">✅ placed</span> | `EndBase.Objects.RangerTower` ×3, all seated on grade |
+| Camp dressing (tents, sandbags ×48, crates, barrels, rocks, logs, foliage) | — | reuse — carried over in the §1.7 / 3.x sets | <span style="color:#2e9c3f">✅ placed</span> | Rotated copies of the crash-site camp; the copy stripped `SpawnLocation`, `Plane`, `Dock.BoatPlace`, `Dock.PlacePlace` |
+| **Extraction pad** | 1 | **BUILD — generated at runtime** | <span style="color:#2e9c3f">✅ built</span> | `Workspace.ExtractionPad`, built by `EndZone/EscapeServer`. A part-for-part replica of the lobby launch pad (§1.4) measured off `PartyPad_Yellow`, recoloured **gold** (STYLEGUIDE §4 = progression), with a 14×34 beacon column instead of the lobby's 5×3.6 — it is the only wayfinding in the end zone and must read from the dock 219 studs away |
+| `Escape` marker | 1 | editor-placed (user) | <span style="color:#2e9c3f">✅ placed</span> | `EndBase.Objects.Plane.Escape` — invisible 4×1×2 nub at (390,21.6,18299). **Found BY NAME** by `EscapeServer`; the pad is generated onto it. Moving it moves the extraction |
+
+⚠️ **Do not rename `Escape` or `EndBase`.** `EscapeServer` halts with a warning if either goes missing,
+and the run then has no win condition at all.
+
+⚠️ The end-zone camp is a rotated copy of the crash site, so it currently reads as *the same camp again*.
+Re-dressing it to feel like a destination rather than a repeat is open work.
+
 # 4) ENEMIES / CHARACTERS
 
 **Job #078 is the live job.** Prompts + Pixabay search terms for every row below are in
