@@ -28,6 +28,8 @@ local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChi
 -- what the VFX/light budget is) live in CampDefs. Nothing in this file decides dressing.
 local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampDefs"))
 local CampLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampLayout"))
+-- Job #108: `CampLayout` owns the inside of a camp; this owns the basin AROUND the two camps.
+local VillageLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("VillageLayout"))
 local Campfire = require(ServerScriptService:WaitForChild("World"):WaitForChild("Campfire"))
 local CampAmbience = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampAmbience"))
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
@@ -340,6 +342,25 @@ local function groundAt(x: number, z: number): number
 	-- carve fills to `CLEAR_Y` but voxels quantise to the RES=4 grid, so the real surface measures ~17–18
 	-- against a `CLEAR_Y` of 15 — returning bare `CLEAR_Y` here is what buried props by ~2.4 studs.
 	return CLEAR_Y + 2.5
+end
+
+-- ⚠️ THE RAW PROBE, AND WHY IT IS NOT `groundAt` (Job #108).
+--
+-- `groundAt` above is a SEATING function: when the ray lands on a stump or a wall face it deliberately
+-- looks around the obstacle and answers with the floor beside it, which is exactly right for putting a
+-- barrel down and exactly wrong for asking "is this ground flat?". Fed to a flatness test it reports
+-- every slot as flat, and the test silently does nothing — which is how you get a 30-stud hut with one
+-- corner on a stump.
+--
+-- So this one reports what is actually there: the first terrain surface at (x, z), stumps included, or
+-- nil if there is no terrain at all.
+local function rawGroundAt(x: number, z: number): number?
+	local rp = RaycastParams.new()
+	rp.FilterType = Enum.RaycastFilterType.Include
+	rp.FilterDescendantsInstances = { Terrain }
+	rp.IgnoreWater = true
+	local hit = Workspace:Raycast(Vector3.new(x, CLEAR_Y + 120, z), Vector3.new(0, -400, 0), rp)
+	return if hit then hit.Position.Y else nil
 end
 
 -- Place a library model with its BASE on the ground, facing `lookAt`, and return it.
@@ -848,6 +869,16 @@ local function pickupLoot(player: Player, crate: PVInstance)
 			crate:Destroy()
 		end -- inventory full → leave the crate so the player can free a slot
 		return
+	elseif kind == "Salvage" then
+		-- Job #108: the outlying village huts. Grants CURRENCY and nothing else — no carry, no `Busy`,
+		-- no cargo. That is the decision, not an omission: a landing site's cargo economy is tuned
+		-- against exactly four resource crates (two per camp), and filling 6–10 new huts with carryable
+		-- Gasoline/Metal would have tripled the haul and added that many one-at-a-time trips to the boat.
+		-- Making these a currency drop instead means the village can be as big as it needs to look
+		-- without re-tuning fuel, hull repair or the shop.
+		awardSalvage(player, (crate:GetAttribute("Amount") :: number?) or 30)
+		crate:Destroy()
+		return
 	elseif kind == "Ammo" then
 		local id = (crate:GetAttribute("Id") :: string?) or "Pistol"
 		local def = ItemDefs.get(id)
@@ -1340,6 +1371,86 @@ local function makeKindCrate(pos: Vector3, kind: string, id: string, actionText:
 	lootPrompt(crate, actionText)
 end
 
+-- ── the outlying village (Job #108) ───────────────────────────────────────────────────────────────
+-- One hut somewhere in the basin, outside both camps. `VillageLayout` decided WHERE and which way the
+-- door points; this puts it on the ground, makes it possible to walk in, and puts something inside.
+--
+-- ⚠️ "PLACE THE MODEL" IS NOT "MAKE IT ENTERABLE", and that is the whole content of this function.
+-- Measured in Studio: every Bahay Kubo in the library is a stilt house whose interior floor sits
+-- **3.5–4.6 studs above its own base**. A Humanoid steps up about 2 studs for free, so without help the
+-- player has to JUMP through the doorway of a house — and the request was explicitly for *enterable*
+-- buildings. Hence the treads below, built at that model's own measured doorway.
+local function buildVillageHut(hut: VillageLayout.Hut, parent: Instance, rng: Random): boolean
+	local V = CampDefs.VILLAGE
+	local model = prop(hut.model, hut.x, hut.z, parent, { collide = true, yaw = hut.yaw })
+	if not model then
+		return false
+	end
+	model.Name = "VillageHut"
+
+	-- The real base of the placed model, read back rather than assumed: `prop` seats by the model's own
+	-- lowest corner and sinks it slightly, so the floor is `base + rise`, not `groundAt() + rise`.
+	local base = FoliageDefs.worldBottom(model) or groundAt(hut.x, hut.z)
+	local floorY = base + hut.rise
+
+	-- ── the way in ───────────────────────────────────────────────────────────────────────────────
+	-- Two treads, not a ramp: a ≤2-stud ledge is climbed without jumping, so two treads clear even the
+	-- 4.6-stud floor of `BahayKubo5` with margin, and stacked planks read as the bamboo steps a stilt
+	-- house actually has. `Tent` has a ground-level open front (`rise = 0`) and gets none.
+	if hut.rise > 2 then
+		local S = V.step
+		local treads = math.max(2, math.ceil(hut.rise / 2))
+		-- Doorway edge: out from the hut centre along the door direction, just past the wall.
+		local sill = Vector3.new(hut.x, 0, hut.z) + hut.doorDir * (hut.halfDiag * 0.72)
+		local face = CFrame.lookAt(Vector3.new(sill.X, floorY, sill.Z), Vector3.new(sill.X, floorY, sill.Z) + hut.doorDir)
+		for i = 1, treads do
+			-- tread `i` counted OUT from the doorway and DOWN: the outermost is the lowest
+			local topY = base + (hut.rise / treads) * (treads - i + 1)
+			local thickness = math.max(1, hut.rise / treads)
+			local out = (i - 0.5) * S.depth
+			local cf = face * CFrame.new(0, topY - floorY - thickness / 2, out)
+			local step = block("EntryStep", Vector3.new(S.width, thickness, S.depth), S.colour, cf, model, S.material)
+			step.CanCollide = true
+			-- ⚠️ The treads are the one place a coloured `block()` is legitimate in a camp (see that
+			-- helper's header). Kept a timber tone and WoodPlanks so it reads as part of the hut and not
+			-- as the greybox it technically is.
+		end
+	end
+
+	-- ── something inside ─────────────────────────────────────────────────────────────────────────
+	-- Not in every hut: an empty one is what makes a stocked one worth the walk.
+	if rng:NextNumber() > V.stash.chance then
+		return true
+	end
+	local source = campFloraLib[V.stash.model]
+	if not source then
+		return true -- library incomplete; the hut still stands, it is just bare
+	end
+	local stash = source:Clone()
+	for _, d in ipairs(stash:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			-- ⚠️ CanCollide OFF, deliberately. These interiors measure ~14 studs across and the doorway is
+			-- one body wide; a solid barrel in there can wedge a player between it and a wall.
+			d.CanCollide = false
+			d.CastShadow = false
+		end
+	end
+	if stash:IsA("Model") then
+		stash:ScaleTo(stash:GetScale() * V.stash.scale)
+	end
+	-- Offset off the exact centre so it sits against a wall rather than in the doorway's line.
+	local inset = hut.doorDir * -(hut.halfDiag * 0.3)
+	stash:PivotTo(CFrame.new(hut.x + inset.X, floorY, hut.z + inset.Z) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+	FoliageDefs.seatOnGround(stash, floorY, 0) -- the HUT FLOOR, not the ground it stands on
+	stash.Name = "LootCrate"
+	stash.Parent = model
+	stash:SetAttribute("Kind", "Salvage")
+	stash:SetAttribute("Amount", rng:NextInteger(V.stash.salvage[1], V.stash.salvage[2]))
+	lootPrompt(stash, "Search")
+	return true
+end
+
 -- ── camp foliage (Job #076) ───────────────────────────────────────────────────────────────────────
 -- This used to be a 2-part box trunk + box canopy, 45 per camp. It is real models now, drawn from the
 -- SAME shore-band table `FoliageServer` uses (`FoliageDefs.BANDS[1]`), so a camp clearing is planted with
@@ -1798,6 +1909,49 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 
 	settleTerrain() -- the ring and the scatter both raycast this terrain; let the writes land first
 
+	-- ⚠️ Job #108 — THE TRADING POST'S POSITION IS COMPUTED HERE, NOT WHERE IT IS BUILT.
+	-- It is built further down (after the camps, unchanged), but the village scatter has to know where
+	-- it will stand so it does not put a hut on it. See `buildTradingPost`'s call site for why its X
+	-- comes from the bank at ITS OWN Z rather than the dock's.
+	local postZ = dock.z - 24
+	local postPos = Vector3.new(bankForSlice(postZ - 30, postZ + 30, dock.side) + dock.side * 90, CLEAR_Y, postZ)
+
+	-- ── the outlying village (Job #108) ──────────────────────────────────────────────────────────
+	-- Generated HERE, before anything is planted, for one reason: the interior tree scatter below runs
+	-- first and the huts are built last, so a tree planted now would end up standing inside a hut placed
+	-- later. Generating the slots up front lets the scatter route around them.
+	--
+	-- The camp radii come from `CampLayout.forCamp`, which is memoised on camp position — this is the
+	-- same layout object the camps themselves will use, so the exclusion is the fence that really gets
+	-- built rather than a conservative guess at it.
+	local nearLayoutEarly = CampLayout.forCamp(nearPos, {
+		seed = math.floor(nearPos.X * 31 + nearPos.Z * 17),
+		kind = CampDefs.KIND.near, resourceCount = 2, deep = false,
+	})
+	local deepLayoutEarly = CampLayout.forCamp(deepPos, {
+		seed = math.floor(deepPos.X * 31 + deepPos.Z * 17),
+		kind = CampDefs.KIND.deep, resourceCount = 2, deep = true,
+	})
+	local villageHuts = VillageLayout.generate({
+		seed = index * 977 + 41,
+		basinCenterX = basinCenterX,
+		basinZ = dock.z,
+		basinSize = BASIN_SIZE,
+		waterEdge = waterEdge,
+		side = dock.side,
+		camps = {
+			{ pos = nearPos, radius = nearLayoutEarly.radius },
+			{ pos = deepPos, radius = deepLayoutEarly.radius },
+		},
+		pathAx = pathAx,
+		pathAz = pathAz,
+		pathBx = pathBx,
+		pathBz = pathBz,
+		pathHalf = PATH_HALF,
+		postPos = postPos,
+		rawGround = rawGroundAt,
+	})
+
 	-- The canopy that frames the clearing goes in FIRST, around the three inland sides.
 	plantClearingRing(basinCenterX, dock.z, BASIN_SIZE, waterEdge, dock.side, model, rng)
 
@@ -1808,8 +1962,14 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	for _ = 1, CampDefs.CLEARING.interiorCount do
 		local rx = basinCenterX + rng:NextNumber(-1, 1) * interiorReach
 		local rz = dock.z + rng:NextNumber(-1, 1) * interiorReach
-		-- keep trees on land (out of the channel) AND out of the walking lane to the camps
-		if (rx - waterEdge) * dock.side > 10 and distToSeg(rx, rz, pathAx, pathAz, pathBx, pathBz) > PATH_HALF then
+		-- keep trees on land (out of the channel), out of the walking lane to the camps, and — Job #108 —
+		-- out of the village huts, which are placed after this loop and would otherwise get a palm
+		-- through the roof.
+		if
+			(rx - waterEdge) * dock.side > 10
+			and distToSeg(rx, rz, pathAx, pathAz, pathBx, pathBz) > PATH_HALF
+			and not VillageLayout.blocked(villageHuts, rx, rz)
+		then
 			tree(rx, rz, model, rng)
 		end
 	end
@@ -1902,23 +2062,37 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- meander swings in — measured at 32 studs of solid ground in the river, then 77. The basin carve
 	-- ALREADY flattens everything from the bank to 400 studs inland, so the fix is to stand the post on
 	-- that rather than to make new ground: move it inland until it is on the carve.
-	local postZ = dock.z - 24
-	local postPos = Vector3.new(bankForSlice(postZ - 30, postZ + 30, dock.side) + dock.side * 90, CLEAR_Y, postZ)
 	buildTradingPost(postPos, model, shorePoint) -- faces back toward the water, so you see its front on landing
+
+	-- ── the outlying village goes up LAST (Job #108) ─────────────────────────────────────────────
+	-- After the camps, because each of those re-clears a 160-stud terrain footprint and calls
+	-- `settleTerrain`; a hut seated before those writes land reads the pre-fill surface and floats.
+	--
+	-- ⚠️ THE COUNT IS LOGGED, NOT ASSUMED. These are placed by rejection sampling into the ring of free
+	-- ground left between two camps, the walking lane and the tree ring, and that sampling is allowed to
+	-- fail. Without this line a basin that quietly fitted two huts instead of eight looks identical to
+	-- "the scatter is sparse today" — and the whole job is the count.
+	local hutsBuilt = 0
+	for _, hut in ipairs(villageHuts) do
+		if buildVillageHut(hut, model, rng) then
+			hutsBuilt += 1
+		end
+	end
+	if hutsBuilt < CampDefs.VILLAGE.countMin then
+		warn(("[Excursion] landing %d: only %d/%d village huts placed — the basin is out of free ground "
+			.. "(check CampDefs.VILLAGE margins against the camp radii)"):format(index, hutsBuilt, #villageHuts))
+	end
 
 	-- ⚠️ Job #100 — these read the camp's GENERATED layout, not `CampDefs.LAYOUT`.
 	-- The nugget and the two kind-crates are placed out here rather than inside `buildCampAt`, and they
 	-- used to share the same fixed slot table it did. With a per-camp layout they must fetch the SAME one
 	-- (`CampLayout.forCamp` is memoised on camp position) or the nugget lands inside a hut that only
 	-- exists in this camp's arrangement.
-	local nearLayout = CampLayout.forCamp(nearPos, {
-		seed = math.floor(nearPos.X * 31 + nearPos.Z * 17),
-		kind = CampDefs.KIND.near, resourceCount = 2, deep = false,
-	})
-	local deepLayout = CampLayout.forCamp(deepPos, {
-		seed = math.floor(deepPos.X * 31 + deepPos.Z * 17),
-		kind = CampDefs.KIND.deep, resourceCount = 2, deep = true,
-	})
+	--
+	-- Job #108: fetched further up now (the village scatter needs the camp radii before anything is
+	-- planted) and reused here rather than fetched twice. Same memoised objects either way; one variable
+	-- makes it obvious there is only ever one layout per camp.
+	local nearLayout, deepLayout = nearLayoutEarly, deepLayoutEarly
 
 	-- rare gold nuggets (run-capped): a chance at each camp
 	local nearNug, deepNug = nearLayout.nugget, deepLayout.nugget

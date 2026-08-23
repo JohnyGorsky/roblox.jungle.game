@@ -74,21 +74,19 @@ export type Layout = {
 -- turns that knob, and stale separation means buildings inside each other — which is exactly what was
 -- reported as "2 buildings in one". Computing it from the ship size × the live scale means the geometry
 -- follows the knob automatically.
-local RAW = { -- ship sizes (studs, X by Z) as measured in CampDefs' header
-	Tent = { 43, 34 },
-	BahayKubo5 = { 30, 34 },
-	BahayKubo1 = { 30, 34 },
-	BahayKubo7 = { 40, 40 },
-	RangerTower = { 20, 20 },
-}
+--
+-- ⚠️ Job #108 — THE FOOTPRINT TABLE MOVED TO `CampDefs.FOOTPRINT` and its numbers were corrected.
+--
+-- It lived here as a local `RAW` while this was the only placer. It is not any more: `VillageLayout`
+-- scatters huts across the same basin and has to agree with this module about how big a hut is, or the
+-- two of them place buildings into each other at the camp fence. One table, one `halfDiagonal`.
+--
+-- The correction matters to THIS file specifically: `BahayKubo1` was listed at 30×34 and is really
+-- 19.8×27.0, so its clearance was ~5 studs too large. Since buildings are placed by rejection sampling
+-- against the SUM of two clearances, an inflated hut quietly cost this generator buildings — which is
+-- part of the "camps feel empty" report that Job #108 came from. Expect slightly fuller camps.
 local function halfDiagonal(model: string): number
-	local raw = RAW[model]
-	if not raw then
-		return 22
-	end
-	local sc = (CampDefs.SCALE :: { [string]: number })[model] or 1
-	local hx, hz = raw[1] * sc / 2, raw[2] * sc / 2
-	return math.sqrt(hx * hx + hz * hz)
+	return CampDefs.halfDiagonal(model)
 end
 
 -- +4 studs so things stand beside each other rather than flush against.

@@ -645,10 +645,20 @@ Creator Store, **all four by one author** (`Houseplant_Leaf`) so the set reads a
 
 | Model | rbxassetid | Instances | Size | Use |
 |---|---|---|---|---|
-| `BahayKubo5` | 10019841237 | **13** | 30×22×34 | **best value** — default village hut |
-| `BahayKubo2` | 6811407916 | 18 | 25×16×22 | variety |
-| `BahayKubo1` | 6808910590 | 22 | 20×16×27 | variety |
-| `BahayKubo7` | 10031256291 | ⚠️ **95** | 40×26×50 | **once per trading village only** — the post itself |
+| `BahayKubo5` | 10019841237 | **13** | 29.6×22.4×34.0 | **best value** — default camp hut; also in the Job #108 village mix |
+| `BahayKubo2` | 6811407916 | 18 | 24.7×16.1×21.8 | Job #108 outlying village hut (was unused before it) |
+| `BahayKubo1` | 6808910590 | 22 | 19.8×16.2×27.0 | deep-camp hut + Job #108 outlying village hut |
+| `BahayKubo7` | 10031256291 | ⚠️ **95** | 40.2×25.8×50.2 | ⚠️ **unused since Job #107** swapped the trading post to `RobuxShop` |
+
+**⚠️ ALL FOUR ARE STILT HOUSES AND THAT COSTS YOU A STEP (measured, Job #108).** The interior floor sits
+**3.5 studs** above the model's base on `BahayKubo1`/`BahayKubo2` and **4.6** on `BahayKubo5` — above the
+~2-stud ledge a Humanoid climbs for free. **Placing one does not make it enterable**; the player has to
+jump in unless something is built at the door. `CampDefs.VILLAGE.door` carries the measured floor rise
+AND the bearing of the single walk-through doorway per model (`BahayKubo1` 223°, `BahayKubo2` 213°,
+`BahayKubo5` 312°, where 0° = the model's +X). `BahayKubo5` is open-sided; the other two have exactly one
+door, so a random yaw can otherwise aim the only way in at the jungle wall.
+
+Re-measure with the probe recorded in `Jobs/108/implementation-plan.md` if any of these is ever swapped.
 
 **SECURITY scan: 0 scripts, 0 remotes, 0 tools, 0 ClickDetectors** in all four.
 

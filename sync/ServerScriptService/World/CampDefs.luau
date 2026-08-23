@@ -115,6 +115,43 @@ CampDefs.SCALE = {
 	GoldChest = 0.65,
 }
 
+-- ── Measured footprints — THE one source, shared by every placer ─────────────────────────────────
+-- Ship sizes in studs, `{ X, Z }`, as the model arrives from the library and BEFORE `CampDefs.SCALE`.
+-- Every separation rule in the game divides by these, so a wrong number here is a building inside
+-- another building or a crate under a hut — both of which have already shipped once.
+--
+-- ⚠️ Job #108 CORRECTED THREE OF THESE against a Studio measurement of the live library:
+--   · `BahayKubo1` was listed as 30×34; it is **19.8×27.0**. The overstated half-diagonal (~22 against
+--     the true ~16.7) cost camp buildings through `CampLayout`'s rejection sampling — i.e. it was one of
+--     the reasons a camp read as empty.
+--   · `BahayKubo2` was absent entirely (nothing used it).
+--   · `BahayKubo7` was listed as 40×40; it is **40.2×50.2**. Unused since Job #107 swapped the trading
+--     post to `RobuxShop`, but a stale number is a trap for whoever puts it back.
+-- Measure with `Model:GetBoundingBox()` on the library copy, not by eye.
+CampDefs.FOOTPRINT = {
+	Tent = { 43, 34 },
+	BahayKubo1 = { 19.8, 27.0 },
+	BahayKubo2 = { 24.7, 21.8 },
+	BahayKubo5 = { 29.6, 34.0 },
+	BahayKubo7 = { 40.2, 50.2 },
+	RangerTower = { 20, 20 },
+	RobuxShop = { 24.5, 19.4 },
+} :: { [string]: { number } }
+
+-- Half-diagonal of a model AT THE SCALE IT ACTUALLY RENDERS — the number every separation check wants.
+-- Derived from `FOOTPRINT` × `SCALE` rather than hand-written, because `SCALE` is a knob that has
+-- already been turned once (`Tent` ×2) and a hand-written clearance goes stale the moment it moves.
+-- `fallback` is what an unmeasured model gets; keep it pessimistic.
+function CampDefs.halfDiagonal(model: string, fallback: number?): number
+	local raw = CampDefs.FOOTPRINT[model]
+	if not raw then
+		return fallback or 22
+	end
+	local sc = (CampDefs.SCALE :: { [string]: number })[model] or 1
+	local hx, hz = raw[1] * sc / 2, raw[2] * sc / 2
+	return math.sqrt(hx * hx + hz * hz)
+end
+
 -- ── Layout slots — { right, forward } in the approach frame ───────────────────────────────────────
 export type Slot = { right: number, forward: number }
 
@@ -201,6 +238,98 @@ CampDefs.CLEARING = {
 	-- Interior undergrowth, down from the flat 45 the greybox scattered edge-to-edge: the middle of a
 	-- camp you fight in should be open, and the ring should be the thing enclosing it.
 	interiorCount = 22,
+}
+
+-- ── The outlying village (Job #108) ───────────────────────────────────────────────────────────────
+-- Reported: *"right now each camp still feels empty… position Kubo1 and Kubo2 randomly… that way we
+-- will have more crowded and enterable buildings."*
+--
+-- A landing basin is 400 studs across and held exactly two ~75-stud camps, so ~90% of the ground the
+-- player walks over was empty jungle floor. This scatters outlying huts across the REST of the basin,
+-- outside both camp fences, so a stop reads as a settlement with two defended camps inside it.
+--
+-- ⚠️ THESE HUTS ARE ENTERABLE, AND THAT IS NOT FREE. Measured in Studio: every Bahay Kubo in the
+-- library stands on stilts with its floor **3.5–4.6 studs above its own base**, which is above the
+-- Humanoid auto-step (~2 studs) — placing one is therefore NOT the same as making it enterable, you
+-- would have to jump in. Each hut gets a step built at its OWN doorway, which is why `door` below
+-- exists and why it is a measurement rather than a guess.
+CampDefs.VILLAGE = {
+	countMin = 6,
+	countMax = 10,
+
+	-- Weighted pick. `BahayKubo2` was in the library and used NOWHERE before this job, so it is the
+	-- cheapest new silhouette available; `Tent` is in the mix at low weight so the outskirts do not read
+	-- as a row of identical houses.
+	entries = {
+		{ model = "BahayKubo1", weight = 4 },
+		{ model = "BahayKubo2", weight = 4 },
+		{ model = "BahayKubo5", weight = 2 },
+		{ model = "Tent", weight = 1 },
+	},
+
+	-- ⚠️ MEASURED, NOT GUESSED — and re-measure if a model here is ever swapped.
+	--
+	--   `bearing` — the compass direction of the one walk-through DOORWAY, in the model's own pivot
+	--   frame, degrees, where 0° = +X and 90° = +Z. `rise` — how far the interior floor sits above the
+	--   model's base, in studs.
+	--
+	-- Method (Studio, Edit): clone the library model into Workspace, raycast down from inside for the
+	-- floor, then sweep 180 horizontal rays out from the interior centre at floor **+1.0, +2.5 and
+	-- +4.5** and keep only the bearings clear at ALL THREE heights. Three heights is what separates a
+	-- doorway from a window; a single-height sweep calls both of them a door and the step gets built
+	-- under a window.
+	--
+	-- `BahayKubo5` is open-sided (27 of 36 bearings clear), so its bearing is simply the widest arc.
+	door = {
+		BahayKubo1 = { bearing = 223, rise = 3.5 },
+		BahayKubo2 = { bearing = 213, rise = 3.5 },
+		BahayKubo5 = { bearing = 312, rise = 4.6 },
+		Tent = { bearing = 0, rise = 0 }, -- ground-level, open front: no step needed
+	} :: { [string]: { bearing: number, rise: number } },
+
+	-- The step at the doorway. Two treads rather than a ramp: a Humanoid climbs a ≤2-stud ledge without
+	-- jumping, so two treads clear a 4.6-stud floor with margin, and treads read as bamboo steps on a
+	-- stilt house where a smooth wedge does not.
+	step = {
+		width = 7, -- across the doorway; the measured doors are ~5 studs wide
+		depth = 3.5, -- per tread, out from the wall
+		colour = Color3.fromRGB(122, 92, 58),
+		material = Enum.Material.WoodPlanks,
+	},
+
+	-- What is inside. ⚠️ SALVAGE ONLY, BY DECISION — a stash grants currency instantly and is NOT
+	-- carried. Filling 6–10 huts with real `Gasoline`/`Metal` crates would have tripled the cargo a
+	-- landing yields and added that many one-at-a-time carry trips to the boat; the run economy is tuned
+	-- against 4 resource crates per site (2 per camp) and this job did not set out to retune it.
+	stash = {
+		chance = 0.75, -- most huts, not all: an empty hut is what makes a full one worth checking
+		model = "Barrel", -- 6 parts. `CrateWood` is 66 and there is exactly one of those per camp.
+		salvage = { 25, 40 }, -- against a 50-salvage bandage and a 400-salvage pistol
+		scale = 0.8, -- these interiors are ~14 studs across
+	},
+
+	-- ── Placement bounds. Every one of these is derived from something, not chosen. ────────────────
+	-- How far in from the basin EDGE a hut centre must stay. The clearing ring plants trees 24–46 studs
+	-- in from that edge (`CLEARING.ring.inset`/`rowGap`), so 75 keeps the widest hut's corner (~23 studs
+	-- of half-diagonal) clear of the innermost tree row instead of standing in it.
+	edgeInset = 75,
+	-- Clear of a camp: its fence radius plus the hut's OWN half-diagonal plus this. `CampLayout` caps the
+	-- fence at RADIUS_MAX 76, and a hut whose corner crosses the sandbag line reads as a broken camp.
+	campMargin = 6,
+	-- Clear of the walking lane (`PATH_HALF` 18) and of the trading post, likewise plus half-diagonal.
+	pathMargin = 8,
+	postClear = 55,
+	-- Off the water. The bank paint is 26 wide and the dock sits on it.
+	shoreClear = 55,
+	-- Between two huts: the SUM of both half-diagonals plus this. ⚠️ THE SUM, never a fraction of it —
+	-- `CampLayout`'s header records what a 0.72 discount did to the camp buildings (they intersected).
+	hutMargin = 10,
+	-- Ground must be this flat across the hut's own footprint before the slot is accepted. The basin
+	-- carve leaves ~2.5% of columns as stumps of the original hillside; one centre raycast cannot see a
+	-- stump under a 30-stud building's corner.
+	maxGroundSpread = 2.5,
+	-- Keep the interior tree scatter out of a hut: half-diagonal plus this.
+	treeClear = 12,
 }
 
 
