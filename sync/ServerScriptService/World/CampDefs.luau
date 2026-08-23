@@ -48,7 +48,20 @@ CampDefs.MODEL = {
 	tent = "Tent", -- supply tent — 1 part, 43×13×34. The cheapest swap in the job.
 	hut = "BahayKubo5", -- sleeping hut — 13 parts, 30×22×34, best value of the four
 	hutAlt = "BahayKubo1", -- deep-camp variety — 22 parts, so two camps aren't the same photo
-	post = "BahayKubo7", -- ⚠️ 95 parts — the trading post itself, once per village ONLY
+	-- The trading post itself, once per village ONLY. Job #107: was `BahayKubo7`, a 40.2×25.8×50.2
+	-- stilt house of **95 parts**. This is the SAME kiosk the crash-site Robux shop uses
+	-- (`SpawnBase.Stands.RobuxShop`) — 24.5×21.3×19.4 and **6 parts**.
+	--
+	-- Not just a look change: the old building's 40×50 footprint swallowed its own signage. Job #106's
+	-- sign sits at `approach * 16`, which was INSIDE the stilt house; at 24.5×19.4 the board stands clear
+	-- beside the shop, which is the whole point of the swap. Every number that depends on the building —
+	-- the gold-chest standoff and the shop prompt's reach — is derived from its bounding box in
+	-- `buildTradingPost`, so they follow this automatically.
+	--
+	-- ⚠️ `buildTradingPost` STRIPS this model's built-in `EntrySign` from its clone: it reads
+	-- "ROBUX SHOP", which is the wrong shop, on an AlwaysOnTop BillboardGui, which STYLEGUIDE §5 and
+	-- Job #077 both rule out for world signage.
+	post = "RobuxShop",
 	barrel = "Barrel", -- bulk loot + the carried crate — 6 parts
 	crate = "CrateWood", -- ⚠️ 66 parts — the hero crate, exactly ONE per camp
 	weaponCrate = "AmmoBox", -- weapon / ammo kind-crates — 22 parts, a military crate for a weapon cache

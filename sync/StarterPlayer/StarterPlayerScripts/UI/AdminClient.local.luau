@@ -160,13 +160,29 @@ for i, a in ipairs(actions) do
 			button.setEnabled(false)
 			button.setText("…")
 
-			-- self-actions (e.g. teleport) take no target and close the panel so you see the result
+			-- Self-actions (e.g. teleport) take no target and close the panel so you see the result.
+			--
+			-- ⚠️ Job #107: the result is READ now. This used to be a bare `pcall(InvokeServer)` that threw
+			-- the return value away and closed the panel regardless — so a jump that failed (no camp
+			-- built, no landing, terrain not generated) was indistinguishable from one that worked: the
+			-- panel shut and nothing happened. The panel only closes on success; a failure keeps it open
+			-- and says why on the button.
 			if a.action then
-				pcall(function()
-					rf:InvokeServer(a.action)
+				local ok, res = pcall(function()
+					return rf:InvokeServer(a.action)
 				end)
-				button.setText(string.upper(a.label))
 				button.setEnabled(true)
+				local failed = (not ok) or typeof(res) ~= "table" or res.ok ~= true
+				if failed then
+					local why = if ok and typeof(res) == "table" and res.error then tostring(res.error) else "failed"
+					button.setText(string.upper(why))
+					-- leave the panel OPEN so the message is readable, and restore the label after a beat
+					task.delay(2.5, function()
+						button.setText(string.upper(a.label))
+					end)
+					return
+				end
+				button.setText(string.upper(a.label))
 				panel.setOpen(false)
 				return
 			end

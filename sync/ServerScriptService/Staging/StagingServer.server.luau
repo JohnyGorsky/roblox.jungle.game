@@ -14,6 +14,7 @@
 -- HANDOFF_Z. Nothing here is hero art.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage") -- Job #107: hosts the ForceStartRun dev hook
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
@@ -222,6 +223,37 @@ local function startRun()
 end
 
 prompt.Triggered:Connect(startRun)
+
+-- ── Job #107: dev entry point, for the admin "TP to First Camp" jump ──────────────────────────────
+-- Same shape as `ServerStorage.ForceFirstCamp` (ExcursionServer), and for the same reason: the admin
+-- path needs a server-side lever that lives with the logic it drives, not a copy of it.
+--
+-- ⚠️ WHY THE ADMIN JUMP NEEDS THIS AT ALL. The jump moves the boat downstream so `RiverBootstrap`'s
+-- generation window (which follows the BOAT, not the player) covers the target camp. But before the
+-- run starts, the `Moor` LinearVelocity above plus its Heartbeat loop actively steer the boat back to
+-- its berth at up to HOLD_SPEED (16 studs/s) — so a boat moved 1900 studs downstream would simply sail
+-- home again, dragging the generation window with it. Releasing the moor is not optional.
+--
+-- Deliberately BYPASSES the "someone must be aboard" gate that `startRun` applies to the player-facing
+-- prompt: an admin jumping to a camp is not necessarily standing on the deck. Everything else —
+-- RunStarted, destroying the hold, the Tied attribute, the prompt, HubSpawn — runs exactly as it does
+-- for a normal untie, because it IS the normal untie.
+local forceStart = Instance.new("BindableFunction")
+forceStart.Name = "ForceStartRun"
+forceStart.Parent = ServerStorage
+forceStart.OnInvoke = function(): boolean
+	if started then
+		return false -- already running; nothing to release
+	end
+	started = true
+	Workspace:SetAttribute("RunStarted", true)
+	hold:Destroy()
+	boat:SetAttribute("Tied", false)
+	prompt:Destroy()
+	Workspace:SetAttribute("HubSpawn", nil)
+	print("[Staging] run FORCE-STARTED by admin jump (Job #107)")
+	return true
+end
 
 -- GUI untie button (Job 030): a seated driver starts without reaching the boat's prompt.
 -- Staging only acts before the run starts.

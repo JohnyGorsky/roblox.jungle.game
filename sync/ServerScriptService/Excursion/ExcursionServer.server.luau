@@ -354,6 +354,18 @@ type PropOpts = {
 	-- separable is `RangerTower`: 128 parts that must be solid (you can climb it) but must NOT each cast
 	-- a shadow, which would be the single most expensive object in the scene.
 	shadow: boolean?,
+	-- ⚠️ Job #107: strip the ROTATION from the model's pivot before placing it. Opt-in, per model.
+	--
+	-- `PivotTo` transforms every part by `target * pivot:Inverse()`, so a model whose PIVOT is rotated
+	-- lands rotated by that inverse — even when every part inside it is perfectly upright. `RobuxShop`
+	-- is exactly that: measured, all six parts read `UpVector:Dot(Y) = +1.000` while the model pivot
+	-- reads `rot(90, 0, -90.5)`, `upDot = -0.000`. Placed, the whole kiosk lay on its side.
+	--
+	-- `AssetPivots` does not catch this. It repairs pivot POSITION (bounding-box centre) for models more
+	-- than a stud out, and leaves rotation alone — which is correct for the rocks it was written for.
+	-- Fixing rotation globally there would re-orient every repaired model in the library, so this is
+	-- opt-in here instead: the caller that knows its model is affected asks for it.
+	upright: boolean?,
 }
 
 -- ⚠️ Returns a `PVInstance`, not a `Model`. Most of the library is Models, but `GoldNugget` is a bare
@@ -400,6 +412,16 @@ local function prop(name: string, x: number, z: number, parent: Instance, opts: 
 		elseif clone:IsA("BasePart") then
 			clone.Size *= scale
 		end
+	end
+
+	-- Job #107: see `PropOpts.upright`. Must happen BEFORE `PivotTo`, which is what bakes the pivot's
+	-- rotation into the placed geometry.
+	if o.upright and clone:IsA("Model") then
+		local model = clone :: Model
+		-- ⚠️ `WorldPivot` is IGNORED while a `PrimaryPart` exists — the engine defines the pivot as that
+		-- part's CFrame. Same trap `AssetPivots` documents; clearing it first is what makes the write land.
+		model.PrimaryPart = nil
+		model.WorldPivot = CFrame.new(model.WorldPivot.Position) -- keep the position, drop the rotation
 	end
 
 	local yaw = o.yaw or 0
@@ -1579,7 +1601,32 @@ end
 -- village is a content change this job was not asked to make; logged as todo 0060 instead.
 local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	local padGround = groundAt(pos.X, pos.Z) -- ONE measurement for the whole pad
-	local postModel = prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo })
+	-- `upright = true`: this model's pivot is rotated 90° while its parts are not, so without it the whole
+	-- kiosk is placed lying on its side. See `PropOpts.upright`.
+	local postModel = prop(CampDefs.MODEL.post, pos.X, pos.Z, parent, { collide = true, faceTo = faceTo, upright = true })
+
+	-- ── Job #107: fix up the kiosk clone ──────────────────────────────────────────────────────────
+	-- `CampDefs.MODEL.post` is now `RobuxShop`, the same kiosk the crash-site Robux shop uses. It ships
+	-- with two fittings that are right at the spawn base and wrong in a river camp. Both are fixed on
+	-- THE CLONE — `AssetLibrary` and `Workspace.SpawnBase.Stands.RobuxShop` must not be touched, or the
+	-- crash-site kiosk loses its own signage.
+	if postModel then
+		local sign = postModel:FindFirstChild("EntrySign")
+		if sign then
+			-- Reads "ROBUX SHOP" on two SurfaceGuis and an AlwaysOnTop BillboardGui. Wrong shop, and
+			-- AlwaysOnTop world signage renders through terrain — the exact thing Job #077 removed.
+			-- The camp's own physical "TRADING POST" board (below) is the signage here, and since
+			-- Job #106 it is also what carries the prompt.
+			sign:Destroy()
+		end
+		-- `prop()` applies ONE `collide` flag to every BasePart it clones, so the kiosk's invisible
+		-- 1×1×1 `Anchor` marker would become a solid block standing in the shop doorway.
+		local anchor = postModel:FindFirstChild("Anchor")
+		if anchor and anchor:IsA("BasePart") then
+			anchor.CanCollide = false
+			anchor.CanQuery = false
+		end
+	end
 
 	-- ⚠️ Job #106: this INVISIBLE part no longer hosts the shop prompt — see the header. Its comment used
 	-- to claim it sat "in front of the building"; measured, it sits UNDER the deck, which is what made
