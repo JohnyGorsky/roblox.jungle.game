@@ -29,6 +29,8 @@ shopRF.Parent = ReplicatedStorage
 
 local ShopDefs = require(ReplicatedStorage:WaitForChild("Economy"):WaitForChild("ShopDefs")) :: any
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService")) :: any
+-- Job #109: "you received X". This file owns the shop, and a purchase is a thing you receive.
+local RewardFeed = require(script.Parent:WaitForChild("RewardFeed"))
 
 local function getSalvage(plr: Player): number
 	return (plr:GetAttribute("Salvage") :: number?) or 0
@@ -97,10 +99,12 @@ local function applyItem(plr: Player, id: string, def: any): (boolean, string?)
 	local boat = Workspace:FindFirstChild("Boat")
 	if id == "bandage" then
 		plr:SetAttribute("Bandages", ((plr:GetAttribute("Bandages") :: number?) or 0) + 1)
+		RewardFeed.notify(plr, "resource", "Bandage", 1)
 		return true
 	elseif id == "pistol" or id == "shotgun" then
 		local grantId = id == "pistol" and "Pistol" or "Shotgun"
 		if InventoryService.grant(plr, grantId) then
+			RewardFeed.notify(plr, "weapon", grantId)
 			return true
 		end
 		return false, "invfull"
@@ -117,6 +121,10 @@ local function applyItem(plr: Player, id: string, def: any): (boolean, string?)
 			return false, "nogun"
 		end
 		InventoryService.addAmmo(plr, def.ammoFor, def.amount or 0)
+		-- ⚠️ The one shop row whose effect is otherwise INVISIBLE: ammo lands on a Player attribute the
+		-- gun reads, with nothing on screen to say it arrived. Reported as part of Job #109's "now you
+		-- just guess".
+		RewardFeed.notify(plr, "ammo", def.ammoFor .. " Ammo", def.amount or 0)
 		return true
 	elseif id == "fuel" or id == "ammo" or id == "repair" then
 		if not boat then
@@ -128,6 +136,7 @@ local function applyItem(plr: Player, id: string, def: any): (boolean, string?)
 		end
 		local resource = id == "fuel" and "Gasoline" or (id == "ammo" and "Ammo" or "Metal")
 		boat:SetAttribute(resource, ((boat:GetAttribute(resource) :: number?) or 0) + 1)
+		RewardFeed.notify(plr, "resource", resource, 1)
 		return true
 	end
 	return false, "unknown"

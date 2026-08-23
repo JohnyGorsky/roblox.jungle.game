@@ -48,6 +48,7 @@ local function complete(id: string)
 			end
 			if def.gold > 0 then
 				Profiles.addGold(plr, def.gold)
+				RewardFeed.notify(plr, "gold", "Gold", def.gold) -- Job #109: gold is the rarer half; say it
 			end
 		end
 	end
