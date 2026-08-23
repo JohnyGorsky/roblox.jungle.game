@@ -3,7 +3,7 @@
 **Project**: `roblox.jungle`
 **Place**: GAME (`Last River COOP Game`, 138141472932347) — `sync/` only. Lobby untouched.
 **Created**: 2026-08-23
-**Status**: Planning (awaiting go-ahead)
+**Status**: CLOSED. Part 1 done + user-confirmed. Part 2 implemented but NEVER RUN (todo 0061). See final-summary.md.
 
 Two independent parts, one job because you asked for them together.
 
@@ -123,20 +123,23 @@ Skipped again per your standing instruction this session. Recorded, not glossed.
 
 ## Verification — gates (GROUND-RULES §7)
 
-Play only. `screen_capture` cannot show ProximityPrompt bubbles ([[job #106]]), so prompt state comes
-from `#PlayerGui.ProximityPrompts:GetChildren()` and from pressing the key.
+Closed early at the user's request. Honest status:
 
-- [ ] **Part 1 — before/after from the same camera**: the trading post is the kiosk, the TRADING POST
-      board stands clear beside it, and **no "ROBUX SHOP" text exists anywhere in the camp**
-      (enumerate every TextLabel under the LandingSite — failure = a stray ROBUX SHOP label).
-- [ ] **Part 1 — the shop still works**: walk up, hold E, `OpenShop` fires and the panel opens.
-- [ ] **Part 1 — nothing else changed**: enumerate camp buildings before/after; `BahayKubo5`,
-      `BahayKubo1` and `Tent` counts must be identical. Failure = any other building swapped.
-- [ ] **Part 1 — the kiosk is seated on the ground**, not floating or sunk (measure base vs terrain).
-- [ ] **Part 2 — press the actual button in the actual panel** from a fresh Play at the spawn base,
-      before untying. Failure = landing in the void, falling, no camp, or a silent close.
-- [ ] **Part 2 — the camp is RENDERED on arrival**: the client can see the kiosk and the sign within a
-      second of landing (assert the instances exist client-side, not just server-side).
-- [ ] **Part 2 — `RequestStreamAroundAsync` is actually callable from the server** — verified live, not
-      assumed from memory.
-- [ ] Every check above states what failure looks like.
+- [x] **Part 1 a/b — kiosk stands where the stilt house did, sign clear of it** — confirmed by the USER
+      in gameplay ("trading post now is ok"), not by me.
+- [x] **Part 1 c — no "ROBUX SHOP" text in the camp** — FAILED first (user screenshot showed the
+      billboard), then fixed by stripping Surface/Billboard GUIs by type. User confirmed after the fix.
+- [~] **Part 1 d — the shop still opens** — NOT re-verified after the model swap. The prompt is attached
+      to the sign board, which this job did not touch, so it is very likely fine. Not proven.
+- [x] **Part 1 e — no other building changed** — `MODEL.post` has exactly one reference, so nothing else
+      can be affected. Verified by grep, which is a real check here.
+- [~] **Part 1 f — kiosk seated on the ground** — not measured. It was also placed ON ITS SIDE at first
+      (pivot rotation), which no measurement of mine caught; the user's screenshot did.
+- [ ] **Part 2 a-d — ALL UNVERIFIED.** Never executed. Static wiring check only. See todo 0061.
+
+### What went wrong in this job's process
+
+Both Part 1 bugs reached the user because I verified by reading numbers instead of looking at the thing.
+The bounding box measured 24.5 x 21.3 x 19.4 whether the building stood up or lay on its side, and
+enumerating `EntrySign` said nothing about a billboard parented to `Anchor`. A single screenshot of the
+placed kiosk would have caught both before shipping.
