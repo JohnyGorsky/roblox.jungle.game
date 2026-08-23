@@ -124,6 +124,10 @@ type GuardState = {
 	seatY: number?,
 	seatAt: number?,
 	seatAtZ: number?,
+	-- Job #102: a reinforcement's ONE-TIME leash, wide enough to cover the walk from the entry point it
+	-- spawned at to the post it is heading for. Cleared the moment it gets inside the normal leash, after
+	-- which it is an ordinary guard. See the leash clamp in `tickGuard`.
+	entryLeash: number?,
 }
 local guardState: { [Model]: GuardState } = {}
 
@@ -203,6 +207,10 @@ type Garrison = {
 	approach: Vector3?,
 	spawns: { CampDefs.Slot }?,
 	posts: { CampDefs.Slot }?,
+	-- Job #102: the basin this camp sits in, so reinforcement entry points can be kept out of the river
+	-- and out of the rock wall. Set by `buildLandingSite`, which is the only scope that knows them.
+	waterEdge: number?,
+	side: number?,
 	nextIn: number?, -- this camp's own randomised interval, so camps do not tick in lockstep
 }
 local garrisons: { Garrison } = {}
@@ -225,6 +233,9 @@ local GUARD_RESPAWN_BATCH_MAX = 2
 -- shadowed global, which at runtime would have been a nil index.)
 local respawnRng = Random.new()
 local GUARD_COUNT_RANGE = 90 -- a guard within this of the camp centre counts as part of its garrison
+-- Job #102: how far inside the basin's water edge and far rock wall a reinforcement entry point must
+-- stay. The far wall spans 400–430 studs inland, so 20 keeps a guard clear of both it and the river.
+local ENTRY_MARGIN = 20
 
 local function block(name: string, size: Vector3, color: Color3, cf: CFrame, parent: Instance, mat: Enum.Material?): Part
 	local p = Instance.new("Part")
@@ -1007,6 +1018,24 @@ local function spawnGuard(
 		camp = campPos,
 		lastHP = (guard:GetAttribute("HP") :: number?) or def.hp,
 	}
+	-- 🔴 Job #102 — WITHOUT THIS A REINFORCEMENT NEVER WALKS ANYWHERE; IT POPS IN AT THE FENCE LINE.
+	--
+	-- The requirement is *"they come from side to camp to their position"*, and Job #100 built the two
+	-- halves for it — spawn beyond the perimeter, `postPos` inside — but not the third. `tickGuard` clamps
+	-- every step to `GUARD_LEASH` = 55 studs from `st.anchor`, and for a reinforcement the anchor is its
+	-- POST, not where it spawned. Entries are 96–114 studs from the camp centre and posts are 35–65, so
+	-- spawn-to-post is routinely well over 55 — and the clamp is not a speed limit, it is a hard
+	-- reposition. On the guard's very FIRST Heartbeat it is moved onto the 55-stud sphere around its post,
+	-- 40–120 studs in one frame. The player never sees it approach; it appears at the barricade.
+	--
+	-- So a reinforcement carries its own wider leash until it has actually made the walk. It is cleared on
+	-- arrival (see `tickGuard`), so this buys exactly one trip and never a permanently roomier guard.
+	if postPos then
+		local trek = (Vector3.new(anchorPos.X, 0, anchorPos.Z) - Vector3.new(postPos.X, 0, postPos.Z)).Magnitude
+		if trek > GUARD_LEASH then
+			st.entryLeash = trek + 6 -- a little slack, so the clamp never nips at it en route
+		end
+	end
 	guardState[guard] = st
 
 	-- Job #090: ANY damage from ANY range pulls the whole camp. Hooked to the HP attribute rather than
@@ -1076,7 +1105,7 @@ local function buildCampAt(
 	approach: Vector3,
 	rng: Random,
 	strength: number? -- per-village HP/bite multiplier; nil = 1 (village 1)
-)
+): Garrison
 	-- ⚠️ Job #100 — the layout is GENERATED now, not read from one fixed table.
 	--
 	-- `CampDefs.LAYOUT` was a single slot list shared by every camp in the game, which is exactly why
@@ -1235,7 +1264,24 @@ local function buildCampAt(
 	end
 
 	-- Job #084: remember this camp's garrison so it can be re-manned by day (see the respawn loop).
-	table.insert(garrisons, {
+	--
+	-- 🔴 Job #102 — RETURNED, NOT INSERTED, AND THAT IS A BUG FIX, NOT A TIDY-UP.
+	--
+	-- This used to `table.insert(garrisons, …)` right here. `buildCampAt` runs while the site `model` is
+	-- still DETACHED — `model.Parent = campsRoot` is the last line of `buildLandingSite`, after both camps,
+	-- the trading post and the crates. The respawn loop's first gate drops any garrison whose
+	-- `g.parent.Parent` is nil, so a record inserted here is reapable for the whole rest of the build.
+	--
+	-- The build YIELDS in that window: `settleTerrain()` waits two frames inside the DEEP camp's own
+	-- `buildCampAt`. If the loop's 5-second tick resumes in there, the NEAR camp's record is removed and
+	-- that camp never re-garrisons again for the entire run — silently, with no error and no warning.
+	--
+	-- ⚠️ The asymmetry is the tell, and it matches the report ("at the FIRST camp"): the deep camp's record
+	-- is created after the last yield in the function, so only the near camp can ever lose one.
+	--
+	-- So the record is handed back and `buildLandingSite` inserts it once the site is parented and can no
+	-- longer be mistaken for a culled one. Do not move this back inline.
+	return {
 		campPos = campPos,
 		parent = parent,
 		target = guards,
@@ -1246,7 +1292,7 @@ local function buildCampAt(
 		approach = approach,
 		spawns = L.spawns,
 		posts = L.posts,
-	})
+	}
 end
 
 -- a loadout crate: Kind "Weapon" (grants a gun to a slot) or "Ammo" (tops up that gun's ammo). No carry.
@@ -1714,8 +1760,8 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local deepApproach = (deepPos - nearPos) * Vector3.new(1, 0, 1)
 	deepApproach = if deepApproach.Magnitude > 0.01 then deepApproach.Unit else nearApproach
 
-	buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng, strength) -- 2 gas → a haul can fund skipping a stop (Job 054)
-	buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng, strength)
+	local nearGarrison = buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng, strength) -- 2 gas → a haul can fund skipping a stop (Job 054)
+	local deepGarrison = buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng, strength)
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
 	--
@@ -1771,6 +1817,25 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	makeKindCrate(CampDefs.slotToWorld(deepPos, deepApproach, kc[2] or fallback2), "Ammo", weaponId, weaponId .. " Ammo", model, deepFrom)
 	model.Parent = campsRoot
 	siteModels[index] = model -- track for culling (Job 060)
+
+	-- 🔴 Job #102 — THE GARRISON RECORDS GO IN *AFTER* THE SITE IS PARENTED. See `buildCampAt`'s return.
+	--
+	-- Registered here and not inside `buildCampAt` because the respawn loop reaps any record whose site is
+	-- unparented, and the site is unparented for the whole of the build — which contains yields.
+	--
+	-- `waterEdge`/`side` ride along because the respawn loop has to keep reinforcement ENTRY POINTS inside
+	-- the basin, and this is the only scope that knows where the basin is. `CampLayout` places entries at
+	-- `radius + 26..40` ≈ 96–114 studs from a camp centre, with no idea what is out there:
+	--   · the NEAR camp sits 120 studs inland, so an entry toward the water lands ~6 studs from the river;
+	--   · the DEEP camp sits 300 inland, so an entry away from it lands ~414 — INSIDE the far rock wall,
+	--     which spans 400–430 (`wallBlock(basinCenterX + side * (half + 15), …, 30, …)`).
+	-- `groundAt` does not save us: it rejects the wall-top hit and falls back to `CLEAR_Y + 2.5`, i.e. it
+	-- cheerfully seats a guard inside solid rock. That was survivable only while the leash instantly
+	-- teleported reinforcements to their posts; now that they actually walk in, it is not.
+	nearGarrison.waterEdge, nearGarrison.side = waterEdge, dock.side
+	deepGarrison.waterEdge, deepGarrison.side = waterEdge, dock.side
+	table.insert(garrisons, nearGarrison)
+	table.insert(garrisons, deepGarrison)
 end
 
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
@@ -1885,7 +1950,14 @@ local function tickGuard(guard: Model, dt: number)
 		-- Job #090: the leash opens up while alerted so a guard can actually REACH a distant shooter.
 		-- When the alert lapses the leash snaps back to 55 and this same clamp walks it home, so a camp
 		-- never permanently abandons its post.
-		local leash = if alerted then GUARD_LEASH_ALERT else GUARD_LEASH
+		-- Job #102: a reinforcement still making its way in from the perimeter keeps the wider leash it was
+		-- given at spawn, and drops it the moment it is inside the normal one — from then on it is an
+		-- ordinary post-holder. Without the release a guard that had ever been a reinforcement would keep a
+		-- 100+ stud rope forever and could be pulled off its post from across the camp.
+		if st.entryLeash and off.Magnitude <= GUARD_LEASH then
+			st.entryLeash = nil
+		end
+		local leash = if alerted then GUARD_LEASH_ALERT else (st.entryLeash or GUARD_LEASH)
 		if off.Magnitude > leash then
 			local c = st.anchor + off.Unit * leash
 			np = Vector3.new(c.X, footY, c.Z)
@@ -2053,8 +2125,23 @@ task.spawn(function()
 				-- rather than erroring.
 				local spawns = g.spawns
 				local ga = g.approach
+				-- Job #102: pull an entry point back inside the basin — see the note where `waterEdge`/`side`
+				-- are recorded in `buildLandingSite`. Only the inland axis can go wrong: entries reach ±114 in
+				-- Z against side walls at ±215, so Z is safe by construction and is left alone.
+				local function inBasin(v: Vector3): Vector3
+					local we, side = g.waterEdge, g.side
+					if not we or not side then
+						return v -- a record from before this field existed: leave it exactly as it was
+					end
+					local inland = (v.X - we) * side
+					local clamped = math.clamp(inland, ENTRY_MARGIN, BASIN_SIZE - ENTRY_MARGIN)
+					if clamped == inland then
+						return v
+					end
+					return Vector3.new(we + side * clamped, v.Y, v.Z)
+				end
 				local entry = if spawns and ga and #spawns > 0
-					then CampDefs.slotToWorld(g.campPos, ga, spawns[((alive % #spawns) + 1)])
+					then inBasin(CampDefs.slotToWorld(g.campPos, ga, spawns[((alive % #spawns) + 1)]))
 					else g.campPos + Vector3.new(alive * 7, 0, 8)
 				local posts = g.posts
 				-- One or two — the user's "maybe one, maybe two" — and never more than the camp is short.
@@ -2065,7 +2152,7 @@ task.spawn(function()
 						then CampDefs.slotToWorld(g.campPos, ga, posts[((slotIndex % #posts) + 1)])
 						else nil
 					local entryK = if spawns and ga and #spawns > 0
-						then CampDefs.slotToWorld(g.campPos, ga, spawns[((slotIndex % #spawns) + 1)])
+						then inBasin(CampDefs.slotToWorld(g.campPos, ga, spawns[((slotIndex % #spawns) + 1)]))
 						else entry
 					-- Spawns OUTSIDE at the entry point, but its home is the post INSIDE, so `tickGuard`
 					-- walks it in of its own accord.

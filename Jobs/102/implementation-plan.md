@@ -110,6 +110,76 @@ the radius (near and deep camps are 184 studs apart, so >92 starts counting the 
 right fix is to count by `guardState[guard].camp` membership. That is the *opposite* symptom to the one
 reported and does not belong in this job.
 
+## Independent reviewer's report — reconciled
+
+The reviewer (given only the symptom, never my theory) **confirmed the hold-off arithmetic** as the
+dominant cause and added a sharper reading of it, plus **two real defects I had missed**. All three were
+verified against the code before acting on them.
+
+### Confirmed, with a better explanation of "a whole day"
+
+Dusk is 19:00 and dawn 06:00, so a full night is only **180 real seconds**. A player who clears the camp
+in the afternoon and watches the sun go down and come back up has waited roughly **3–5.5 real minutes** —
+*inside* the 7-hour hold-off, or barely past it. "I waited a whole in-game day" and "nothing ever came"
+are both literally true at once. That is the missing piece of the report.
+
+The reviewer also ruled out, by reading rather than assuming: `ClockTime` never being written (it is,
+`DayNightServer:80,86`); the hold-off window wrapping shut forever (`g.timer` carries across windows);
+the loop thread dying on a throw; dead guards keeping `alive > 0`; `target == 0`; deep-camp guards
+counted into the near camp; the site being culled underfoot.
+
+### NEW — a garrison record can be reaped at birth, and only ever at the near camp ✅ fixed
+
+`buildCampAt` inserted into `garrisons` while the site model was still **detached** —
+`model.Parent = campsRoot` is the last line of `buildLandingSite`. The respawn loop's first gate drops
+any record whose `g.parent.Parent` is nil, and the build **yields** in that window (`settleTerrain()`
+waits two frames inside the *deep* camp's build). If the 5-second tick resumes in there, the **near**
+camp's record is removed and that camp never re-garrisons again for the whole run — silently.
+
+The asymmetry is the tell and it matches the report exactly: the deep camp's record is created after the
+last yield, so **only the near camp can lose one**. Roughly 0.7% per site at 60 Hz, up to ~8% if
+world-gen frames stretch — which they plausibly do during a 400-stud basin carve.
+
+**Fix**: `buildCampAt` now *returns* its record; `buildLandingSite` inserts both **after** the site is
+parented. Gate 1 survives as the safety net it was meant to be, with no window to fire in.
+
+### NEW — reinforcements never actually walked in ✅ fixed
+
+Requirement 2 says *"they come from side to camp to their position"*. Job #100 built two of the three
+parts — spawn beyond the perimeter, `postPos` inside — but `tickGuard` clamps every step to
+`GUARD_LEASH = 55` studs from `st.anchor`, and for a reinforcement the anchor **is its post**. Entries
+are 96–114 studs from the camp centre, posts 35–65, so spawn-to-post is routinely well over 55 — and the
+clamp is not a speed limit, it is a hard reposition. On the guard's **first Heartbeat** it was moved
+40–120 studs onto the 55-stud sphere around its post. It appeared at the barricade; nobody ever saw it
+approach.
+
+**Fix**: `GuardState.entryLeash` — a reinforcement carries a one-time leash wide enough for the walk,
+released the moment it is inside the normal one. Buys exactly one trip, never a permanently roomier guard.
+
+### NEW — entry points can land in the river or inside the rock wall ✅ fixed
+
+`CampLayout` places entries at `radius + 26..40` with no idea what is out there. The near camp is 120
+studs inland, so a waterward entry lands ~6 studs from the river; the deep camp is 300 inland, so an
+inland entry lands ~414 — **inside the far wall**, which spans 400–430. `groundAt` does not save it: it
+rejects the wall-top hit and falls back to `CLEAR_Y + 2.5`, seating a guard in solid rock. This was
+survivable only *because* of the teleport above; once reinforcements genuinely walk, it is not.
+
+**Fix**: the garrison record carries `waterEdge`/`side`, and entries are clamped to `ENTRY_MARGIN = 20`
+studs inside both. Only the inland axis needs it — entries reach ±114 in Z against side walls at ±215.
+
+### Reviewer findings NOT acted on
+
+- **`GUARD_COUNT_RANGE` (90) < spawn radius (96–114)** — already logged as `findings/0011`. It now
+  matters *more*, since a guard genuinely walking in is uncounted for the length of the walk rather than
+  for one frame. Still not fixable by raising the number (camps are 184 studs apart); the fix is to count
+  by `guardState[guard].camp` membership. Left out of this job on purpose — it is the "too many"
+  direction, and this job was called for the opposite.
+- **Zero observability in the respawn loop** — no `print`/`warn` anywhere in it, which is why every
+  number here had to be derived from constants. Worth its own job.
+- **Hold-off unit was run-dependent** — moot, it is gone.
+- **`entry` is dead when `spawns` is non-empty**; **guards vanish instantly while river creatures topple**
+  (`KillReward` reasons about a corpse that does not exist for guards). Cosmetic / separate.
+
 ## Verification (GROUND-RULES §7)
 
 - [x] `tools/luau-analyze.sh` clean on all four changed files — **and confirmed the check can fail**
