@@ -93,12 +93,40 @@ muzzle.Rate = 0 -- burst-only
 muzzle.Enabled = false
 muzzle.Parent = muzzlePart
 
-local function muzzleFlash()
+-- 🔴 Job #104: THE MUZZLE END IS FOUND, NOT ASSUMED.
+-- This used to be `held.CFrame * CFrame.new(0, 0, -held.Size.Z / 2)`, with a comment claiming the held
+-- gun's long axis is -Z. That was true of the GREYBOX BOX only (`InventoryService:211`, still the
+-- fallback). Both real guns are authored barrel-along-**+X** (`WeaponAssets`: `BARREL_FORWARD`), so
+-- `Size.Z` was the gun's THICKNESS — 0.29 studs — and the flash fired from the middle of the weapon,
+-- i.e. out of the character's fist. Doubling the shotgun (Job #104) doubled the error to 2.4 studs and
+-- made it obvious.
+--
+-- Rather than hardcode the other axis and break the greybox, ask the geometry: of the six face centres,
+-- the muzzle is the one furthest along the direction you are shooting. That is correct for the +X meshes
+-- AND for the -Z box, and stays correct for any weapon added later, whatever axis it is modelled on.
+-- ⚠️ `WeaponAssets` cannot help here — it is ServerStorage, unreachable from the client.
+local function muzzleFlash(aimDir: Vector3)
 	local char = player.Character
 	local held = char and char:FindFirstChild("HeldItem")
 	if held and held:IsA("BasePart") then
-		-- the barrel end: the held gun's long axis is -Z (see `InventoryService:211`)
-		muzzlePart.CFrame = held.CFrame * CFrame.new(0, 0, -held.Size.Z / 2)
+		local cf = held.CFrame
+		local half = held.Size / 2
+		local bestOffset, bestReach = Vector3.zero, -math.huge
+		for _, pair in ipairs({
+			{ cf.RightVector, half.X },
+			{ cf.UpVector, half.Y },
+			{ cf.LookVector, half.Z },
+		}) do
+			local dir: Vector3, extent: number = pair[1] :: Vector3, pair[2] :: number
+			for _, sign in ipairs({ 1, -1 }) do
+				local offset = dir * (extent * sign)
+				local reach = offset:Dot(aimDir)
+				if reach > bestReach then
+					bestReach, bestOffset = reach, offset
+				end
+			end
+		end
+		muzzlePart.CFrame = cf + bestOffset
 		muzzle:Emit(6)
 	end
 end
@@ -212,7 +240,13 @@ local function fire(screenPos: Vector2)
 	end
 	local aim = aimPointFrom(screenPos)
 	remote:FireServer(aim)
-	muzzleFlash() -- on the shot, not on the hit: a miss must look like a shot too
+	-- aim direction from the shooter, so `muzzleFlash` can pick the barrel end rather than assume an axis
+	local shooter = player.Character
+	local origin = shooter and (shooter:FindFirstChild("HumanoidRootPart") :: BasePart?)
+	local aimDir = if origin and (aim - origin.Position).Magnitude > 0.1
+		then (aim - origin.Position).Unit
+		else Workspace.CurrentCamera.CFrame.LookVector
+	muzzleFlash(aimDir) -- on the shot, not on the hit: a miss must look like a shot too
 	tracer(aim)
 end
 

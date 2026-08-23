@@ -151,6 +151,17 @@ Theme.icon = {
 	rope = "rbxassetid://93692735532470", -- rope — untie affordance
 	pin = "rbxassetid://74040077993361", -- mapp_pin — dock marker on the river bar
 	clipboard = "rbxassetid://128096944326660", -- clipboardt — objectives tab
+
+	-- ── Job #104: the trading post's two ammo rows ───────────────────────────────────────────────
+	-- User's own uploads, delivered with the job and verified in Studio 2026-08-23 via
+	-- `GetProductInfo` → name match + AssetTypeId 1 (Image), creator `johnygorsky10`. Source PNGs are
+	-- `assets/Images/clip.png` / `bullets.png`.
+	--
+	-- ⚠️ These are DELIBERATELY NOT `ammoBox`. That glyph is a crate and is already the boat turret's
+	-- ammo (cargo chip + the "Turret Ammo" row); three rows sharing one crate icon is how a player ends
+	-- up buying turret belts for the gun in their hand — which is the bug this job exists to fix.
+	pistolAmmo = "rbxassetid://98656594796808", -- clip — Pistol Ammo row
+	shotgunAmmo = "rbxassetid://107222226747372", -- bullets — Shotgun Ammo row (two shells)
 }
 
 -- Which §075 keys are still awaiting art. Delete a row when its id lands above.

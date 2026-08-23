@@ -9,18 +9,26 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local ShopDefs = require(ReplicatedStorage:WaitForChild("Economy"):WaitForChild("ShopDefs")) :: any
-local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService")) :: any
-
 local DRIP_STUDS = 60 -- 1 Salvage per this many studs travelled (~300 over an 18k run)
 
--- remotes (created here; the village trading-post prompt + the client WaitForChild these)
+-- ── remotes FIRST, requires after ────────────────────────────────────────────────────────────────
+-- (created here; the village trading-post prompt + the client WaitForChild these)
+--
+-- 🔴 Job #104: THE ORDER MATTERS, AND IT DID NOT USED TO. `ExcursionServer` opens with a top-level
+-- `ReplicatedStorage:WaitForChild("OpenShop")` — so anything that can stall this script BEFORE these two
+-- lines takes the entire excursion system with it: no camps, no loot crates, no docks. `ShopDefs` used to
+-- have zero dependencies, but it now requires `ItemDefs` (to read `ammoPerCrate` rather than hand-copy
+-- it), which is a second `WaitForChild` that could hang on a broken tree. Publishing the remotes before
+-- requiring anything makes that failure mode local to the shop instead of fatal to the world.
 local openShop = Instance.new("RemoteEvent")
 openShop.Name = "OpenShop"
 openShop.Parent = ReplicatedStorage
 local shopRF = Instance.new("RemoteFunction")
 shopRF.Name = "DockShop"
 shopRF.Parent = ReplicatedStorage
+
+local ShopDefs = require(ReplicatedStorage:WaitForChild("Economy"):WaitForChild("ShopDefs")) :: any
+local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService")) :: any
 
 local function getSalvage(plr: Player): number
 	return (plr:GetAttribute("Salvage") :: number?) or 0
@@ -83,7 +91,9 @@ local function cargoTotal(boat: Instance): number
 end
 
 -- apply an item's effect; returns true on success, or false + reason
-local function applyItem(plr: Player, id: string): (boolean, string?)
+-- `def` is the `ShopDefs` entry the caller already resolved (Job #104: the ammo branch reads `ammoFor`
+-- and `amount` off it, rather than re-looking-up or re-deriving numbers the catalog already owns).
+local function applyItem(plr: Player, id: string, def: any): (boolean, string?)
 	local boat = Workspace:FindFirstChild("Boat")
 	if id == "bandage" then
 		plr:SetAttribute("Bandages", ((plr:GetAttribute("Bandages") :: number?) or 0) + 1)
@@ -94,6 +104,20 @@ local function applyItem(plr: Player, id: string): (boolean, string?)
 			return true
 		end
 		return false, "invfull"
+	elseif def and def.ammoFor then
+		-- ── Job #104: handheld gun ammo ────────────────────────────────────────────────────────────
+		-- ⚠️ CHECKED BEFORE THE RESOURCE BRANCH BELOW, and keyed off `ammoFor` rather than a hardcoded
+		-- id list, so adding a third gun's ammo to `ShopDefs` needs no change here.
+		--
+		-- You must OWN the gun. Not a UI nicety: `addAmmo` writes a Player attribute, so without this a
+		-- player could pay 90 salvage for shells that sit on a counter no gun of theirs will ever read.
+		-- The client mutes the row for the same reason, but a client gate is a suggestion — this one is
+		-- the rule. Returning false here means the caller never deducts the cost (see `shopRF` below).
+		if not InventoryService.owns(plr, def.ammoFor) then
+			return false, "nogun"
+		end
+		InventoryService.addAmmo(plr, def.ammoFor, def.amount or 0)
+		return true
 	elseif id == "fuel" or id == "ammo" or id == "repair" then
 		if not boat then
 			return false, "noboat"
@@ -123,7 +147,7 @@ shopRF.OnServerInvoke = function(plr: Player, action: string?, id: string?)
 		if getSalvage(plr) < def.cost then
 			return { error = "poor", salvage = getSalvage(plr) }
 		end
-		local ok, reason = applyItem(plr, id)
+		local ok, reason = applyItem(plr, id, def)
 		if not ok then
 			return { error = reason or "failed", salvage = getSalvage(plr) }
 		end

@@ -208,7 +208,10 @@ local function updateHeldVisual(player: Player)
 			p.Size = Vector3.new(0.6, 1.2, 0.6)
 			p.CFrame = hand.CFrame * rot * CFrame.new(0, 0.6, 0)
 		else
-			p.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 2.4 else 1.2)
+			-- Job #104: 2.4 -> 4.8, tracking `WeaponAssets.ART.Shotgun.scale` doubling. This branch only
+			-- runs where `ServerStorage.AssetLibrary` is absent (it is not Rojo-synced), and a fallback
+			-- that stayed at the old length would make the size change look like it did nothing there.
+			p.Size = Vector3.new(0.4, 0.6, if id == "Shotgun" then 4.8 else 1.2)
 			p.CFrame = hand.CFrame * rot * CFrame.new(0, 0, -0.6)
 		end
 		part = p
@@ -324,6 +327,22 @@ function InventoryService.drop(player: Player, slot: number)
 	end
 	player:SetAttribute(slotAttr(slot), "")
 	InventoryService.refreshActive(player)
+end
+
+-- Job #104: does this player have `itemId` in a slot? The trading post's ammo rows need it (you cannot
+-- buy shells for a shotgun you never picked up), and `grant` below already ran this exact loop inline
+-- twice. The CLIENT gates the button too, but that gate is cosmetic — this is the one that counts.
+function InventoryService.owns(player: Player, itemId: string): boolean
+	-- ⚠️ MAX_SLOTS, not `slotsFor(player)`. `slotsFor` reads `Owns_extraSlots`, which arrives
+	-- ASYNCHRONOUSLY on join — so a pass owner whose gun sits in slot 5 or 6 would be told "you don't own
+	-- a shotgun" until that attribute landed. `seed` writes all six slots regardless, so scanning the full
+	-- range is both correct and immune to the race. (Reading is safe; only GRANTING must respect the cap.)
+	for i = 1, ItemDefs.MAX_SLOTS do
+		if (player:GetAttribute(slotAttr(i)) :: string?) == itemId then
+			return true
+		end
+	end
+	return false
 end
 
 function InventoryService.addAmmo(player: Player, itemId: string, amount: number)

@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ShopDefs = require(ReplicatedStorage:WaitForChild("Economy"):WaitForChild("ShopDefs")) :: any
+local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs")) :: any
 local UI = ReplicatedStorage:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Components = require(UI:WaitForChild("Components"))
@@ -35,7 +36,30 @@ local ITEM_ICON: { [string]: string } = {
 	repair = "tools",
 	pistol = "pistol",
 	shotgun = "shotgun",
+	-- Job #104: their own glyphs, not `ammoBox` — see the note in `Theme.icon`
+	pistolAmmo = "pistolAmmo",
+	shotgunAmmo = "shotgunAmmo",
 }
+
+-- ── Job #104: do I own the gun this row feeds ammo to? ───────────────────────────────────────────
+-- The SERVER is the authority (`SalvageServer.applyItem` refuses with "nogun" and deducts nothing).
+-- This is purely so the row can SAY SO before you tap it, instead of letting you aim 90 salvage at
+-- shells you cannot use. Reads the same `Slot1..N` attributes the hotbar renders from.
+--
+-- ⚠️ Loops to MAX_SLOTS, not `slotsFor(player)`. `InvSeeded` writes every slot up to MAX as "" and the
+-- Extra Inventory Slots pass can land mid-run, so scanning the full range is both correct and immune to
+-- the async `Owns_extraSlots` attribute arriving after this panel was built.
+local function ownsItem(itemId: string?): boolean
+	if not itemId then
+		return true -- not an ammo row: nothing to own
+	end
+	for i = 1, ItemDefs.MAX_SLOTS do
+		if player:GetAttribute("Slot" .. i) == itemId then
+			return true
+		end
+	end
+	return false
+end
 
 local function salvage(): number
 	local s = player:GetAttribute("Salvage")
@@ -75,7 +99,21 @@ list.CanvasSize = UDim2.new()
 list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 -- rows carry a badge that breaks out of the row top and bottom (see Components.row), so the gap between
 -- them is the LARGE step, not the small one — otherwise consecutive badges touch
-list.ClipsDescendants = false
+--
+-- 🔴 Job #104: THIS LIST NOW CLIPS. It used to set `ClipsDescendants = false` for the badge overhang, and
+-- with six rows that was invisible because the content happened to fit. The two ammo rows pushed the
+-- content past the panel, and an unclipped ScrollingFrame does not hide the overflow — it DRAWS it, so the
+-- last row rendered outside the panel, over the world, with no panel behind it. Caught in Play, not
+-- reasoned about.
+--
+-- Clipping is what every other shop in the game does (the lobby's `SkillShop` carries ten rows and simply
+-- leaves the default on). The badge is 1.34x row height and centred, so it overhangs by
+-- 0.17 * 66 ~= 11 px; a matching top/bottom pad inside the canvas means the first and last badges are
+-- still whole, while anything past the panel edge scrolls instead of escaping.
+local listPad = Instance.new("UIPadding")
+listPad.PaddingTop = UDim.new(0, Theme.space.md)
+listPad.PaddingBottom = UDim.new(0, Theme.space.md)
+listPad.Parent = list
 list.Parent = panel.content
 
 local layout = Instance.new("UIListLayout")
@@ -85,11 +123,18 @@ layout.Parent = list
 
 -- ── rows ─────────────────────────────────────────────────────────────────────────────────────────
 
-type RowEntry = { row: Components.Row, cost: number }
+type RowEntry = { row: Components.Row, cost: number, ammoFor: string? }
 local rows: { RowEntry } = {}
 local refreshAll: (bal: number) -> ()
 
 local function buy(id: string, entry: RowEntry)
+	-- No gun beats no money: telling someone they need 90 salvage for shells they could not fire is the
+	-- wrong sentence, so this check comes first — same precedence as `refreshAll` below.
+	if not ownsItem(entry.ammoFor) then
+		entry.row.flashFail()
+		UISound.play("fail")
+		return
+	end
 	if salvage() < entry.cost then
 		-- Never a silent no-op: the tap did land, you just can't afford it.
 		entry.row.flashFail()
@@ -103,7 +148,13 @@ local function buy(id: string, entry: RowEntry)
 	end)
 	entry.row.action.setEnabled(true)
 
-	local succeeded = ok and type(res) == "table" and res.salvage ~= nil
+	-- 🔴 Job #104: `res.ok`, NOT `res.salvage ~= nil`.
+	-- The server returns the balance on FAILURE too — `{ error = "poor", salvage = n }`, and likewise for
+	-- `invfull`, `cargofull` and the new `nogun` (`SalvageServer.applyItem`). So the old test read every
+	-- refusal as a sale: green `Components.burst`, the purchase-success chime, and a balance refresh, for
+	-- nothing granted. Read as "the ammo I paid for vanished" — much worse than a plain refusal, and the
+	-- gun-ownership gate below is the path that would have hit it constantly.
+	local succeeded = ok and type(res) == "table" and (res :: any).ok == true
 	UISound.purchase(succeeded)
 	if succeeded then
 		Components.burst(entry.row.instance, Theme.color.green)
@@ -131,7 +182,7 @@ for order, id in ipairs(ShopDefs.Order) do
 			end,
 		})
 		row.instance.Size = UDim2.new(1, 0, 0, Theme.rowHeight)
-		entry = { row = row, cost = def.cost }
+		entry = { row = row, cost = def.cost, ammoFor = def.ammoFor }
 		table.insert(rows, entry)
 	end
 end
@@ -143,10 +194,15 @@ refreshAll = function(bal: number)
 		-- `setEnabled(false)` would set `Active = false` and stop `Activated` firing — and then a hopeful
 		-- tap would get no flashFail, no `fail` cue and no explanation, which reads as a broken button.
 		-- `setMuted` desaturates through the component's own `base`, so it survives hover (Job #075).
+		-- Job #104: two reasons a row can be unbuyable now, and the order matters — see `buy`.
+		local hasGun = ownsItem(entry.ammoFor)
 		local affordable = bal >= entry.cost
-		entry.row.action.setMuted(not affordable)
+		entry.row.action.setMuted(not (hasGun and affordable))
 		entry.row.action.setText(
-			if affordable then ("BUY  %d"):format(entry.cost) else ("NEED  %d"):format(entry.cost)
+			if not hasGun
+				then ("NEED %s"):format(string.upper(entry.ammoFor or ""))
+				elseif affordable then ("BUY  %d"):format(entry.cost)
+				else ("NEED  %d"):format(entry.cost)
 		)
 	end
 end
@@ -168,3 +224,14 @@ player:GetAttributeChangedSignal("Salvage"):Connect(function()
 		refreshAll(salvage())
 	end
 end)
+
+-- Job #104: and honest about the GUN too. A crewmate can hand you a slot's worth of gear, you can drop a
+-- gun with Q, or the Extra Inventory Slots pass can land — all while you are standing at the counter. The
+-- ammo rows' NEED PISTOL / NEED SHOTGUN state has to follow that, or it goes stale exactly when it matters.
+for i = 1, ItemDefs.MAX_SLOTS do
+	player:GetAttributeChangedSignal("Slot" .. i):Connect(function()
+		if panel.isOpen() then
+			refreshAll(salvage())
+		end
+	end)
+end

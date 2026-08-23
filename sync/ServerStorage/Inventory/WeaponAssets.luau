@@ -129,15 +129,25 @@ WeaponAssets.ART = {
 	-- ── Shotgun ─────────────────────────────────────────────────────────────────────────────────
 	Shotgun = {
 		model = "Shotgun",
-		-- measured 5.70 x 1.33 x 0.34; the greybox barrel was 2.40 long -> 2.40/5.70
-		scale = 0.421,
+		-- ⚠️ Job #104: DOUBLED, 0.421 -> 0.842 (user: "increase shotgun size (it is small as asset) like
+		-- twice"). The source MeshPart is 5.70 x 1.33 x 0.34 — re-measured live in Studio 2026-08-23
+		-- rather than taken from this comment, per "never assert a world fact from a constant". So the
+		-- held gun goes 2.40 -> 4.80 studs long. It was sized to match the greybox barrel it replaced
+		-- (2.40), and a greybox box is not a reference for how big a shotgun should LOOK in a fist: at
+		-- 2.40 it read as under half a character's height.
+		scale = 0.842,
 		yawOffset = BARREL_X_TO_MINUS_Z, -- kept for the record; `holdInChar` supersedes it
 		holdInChar = BARREL_FORWARD,
-		gripOffset = Vector3.new(-0.6, -0.15, 0),
+		-- 🔴 DOUBLED WITH `scale`, AND IT HAS TO BE. This offset is in ABSOLUTE STUDS and is applied
+		-- AFTER `clone.Size *= art.scale` (`InventoryService.updateHeldVisual`), so it does not ride the
+		-- scale for free. -0.6 put the hand a quarter of the way along a 2.40 gun; left alone on a 4.80
+		-- one it would be an eighth, and the stock would sit inside the character's chest.
+		gripOffset = Vector3.new(-1.2, -0.30, 0),
 		anim = {},
 		sound = {
-			-- its own report rather than the pistol's: 6 pellets for 72 damage should not sound like a
-			-- 20-damage sidearm. Creator Store, free, approved 2026-08-15.
+			-- its own report rather than the pistol's: 6 pellets for 144 damage (Job #104 doubled the
+			-- per-pellet figure) should not sound like a 20-damage sidearm. Creator Store, free,
+			-- approved 2026-08-15.
 			fire = { id = "rbxassetid://129597576449946", volume = 0.55, min = 12, max = 200 },
 			-- the rack between shots — this is what makes a pump-action read as one
 			pump = { id = "rbxassetid://113837896417526", volume = 0.4, min = 8, max = 60 },

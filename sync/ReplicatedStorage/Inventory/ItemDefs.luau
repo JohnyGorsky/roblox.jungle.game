@@ -104,7 +104,13 @@ ItemDefs.Items = {
 		kind = "Gun",
 		color = Color3.fromRGB(80, 55, 40),
 		ammoAttr = "AmmoShotgun",
-		damage = 12, -- per pellet (close range = big total)
+		-- Job #104: 12 -> 24 per pellet, a straight 2x (user: "shotgun must be 2x stronger").
+		-- A full 6-pellet hit is 144, so what actually changes is MARGIN, not what it can kill: at 12 a
+		-- point-blank hit (72) already killed every land threat (Bandit/Boar/Wolf are 50-55 HP), but it
+		-- needed 5 of 6 pellets to connect. Now 3 is enough. The one real threshold crossed is the
+		-- RiverHippo (120 HP) — two shells to one. Priced against that: `ammoPerCrate` shells cost 90
+		-- salvage at the trading post, i.e. 15/shell against the pistol's 3.3/round (ShopDefs).
+		damage = 24, -- per pellet (close range = big total)
 		range = 95,
 		pellets = 6,
 		spread = 0.14,
