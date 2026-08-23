@@ -85,18 +85,24 @@ only *because* of the teleport in (C). Once reinforcements genuinely walk, it is
 `DAMAGE_SCALE` is now **0.8³ = 0.512**, not 0.4. Both consumers (`EnemyServer` river threats,
 `ExcursionServer` camp guards) multiply by this one constant.
 
-| Enemy | Authored | Now | at its ×1.5 phase peak |
-|---|---|---|---|
-| Bandit / Wolf | 10.8 | 5.53 | 8.29 (day) |
-| Boar | 10 | 5.12 | 7.68 (day) |
-| Crocodile | 8 | 4.10 | 6.14 (night) |
-| Piranha | 4 | 2.05 | 3.07 (night) |
-| RiverHippo | 20 | 10.24 | 15.36 (night) |
+🔴 **The two bite paths do not scale the same way, and I had this wrong until I measured it.**
+`strengthFor` is applied by `EnemyServer:343` (river threats) and **not** by `ExcursionServer:1995`
+(camp guards). My first write-up claimed a daytime Bandit would land 8.29; the Play measurement says
+**5.5296**, flat, because there is no ×1.5 on that path at all.
 
-🔴 **This is near the floor of meaningful** — recorded in the file. Three cuts have taken every bite in
-the game to just over half its authored value; a daytime Bandit now needs ~12 hits to kill a full-health
-player. A fourth cut puts it under 7 damage and camp guards stop being a threat at all. If the fight is
-still wrong, the lever is guard **count**, the chase-slot cap or the reinforcement rate — not this number.
+| Enemy | Path | Authored | Now | at ×1.5 peak phase |
+|---|---|---|---|---|
+| Bandit / Wolf | camp guard — **flat** | 10.8 | **5.53** | — (no phase multiplier) |
+| Boar | river | 10 | 5.12 | 7.68 (day) |
+| Crocodile | river | 8 | 4.10 | 6.14 (night) |
+| Piranha | river | 4 | 2.05 | 3.07 (night) |
+| RiverHippo | river | 20 | 10.24 | 15.36 (night) |
+
+A camp guard therefore needs **18 bites** to kill a 100 HP player, not the ~12 I first wrote.
+
+🔴 **This is near the floor of meaningful** — recorded in the file. A fourth cut would put a camp guard
+under 4.5 damage, 23 bites to kill, and guards stop being a threat at all. If the fight is still wrong,
+the lever is guard **count**, the chase-slot cap or the reinforcement rate — not this number.
 
 ### Requirement 4 — the first link in a chain that was missing one
 
@@ -131,6 +137,8 @@ on the hull, so dying re-arms the hint rather than tripping it.
 - `goAshore`: `title="GATHER SUPPLIES" sub="Raid the camps inland for fuel, metal and ammo" icon=loot`,
   live in `PlayerGui.ZoneBanner.Banner.Title`. With the run started and the player **on the deck** it
   correctly stayed `"none yet"`.
+- Damage: a village-1 Bandit landed **5.5296 exactly, nine bites in a row** — `10.8 × 0.512`, against
+  `10.8 × 0.64 = 6.912` before. An exact 20% cut, and the measurement is what corrected the table above.
 
 ## 4. Left undone, on purpose
 

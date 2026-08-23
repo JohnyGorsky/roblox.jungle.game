@@ -35,14 +35,29 @@ local EnemyDefs = {}
 -- multiply again; never subtract from 1.
 --
 -- ⚠️ Job #102 — a THIRD 20% ("decrease enemy hit by 20%"), so this is 0.8³ = 0.512 and NOT 0.4.
--- Three compounding cuts have now taken every bite in the game to just over HALF its authored value:
---     Bandit / Wolf  10.8 → 5.53      Boar  10 → 5.12
---     Crocodile       8   → 4.10      Hippo 20 → 10.24     Piranha 4 → 2.05
--- (before `strengthFor`, which is ×1.5 for LAND by day and for SEA by night — so a day Bandit lands
--- 8.29 and a night Croc 6.14.) Against a 100 HP player that is ~12 daytime Bandit bites to kill.
--- 🔴 THIS IS NEAR THE FLOOR OF MEANINGFUL. A fourth cut would put a daytime Bandit under 7 damage and
--- camp guards stop being a threat at all — if the fight is still wrong after this, the lever is guard
--- COUNT, the chase-slot cap or the reinforcement rate, not this number.
+-- Three compounding cuts have now taken every bite in the game to just over HALF its authored value.
+--
+-- 🔴 THE TWO BITE PATHS DO NOT SCALE THE SAME WAY, AND THIS COMMENT ONCE SAID THEY DID.
+--
+-- `strengthFor` is applied by `EnemyServer:343` (river threats) and NOT by `ExcursionServer:1995`
+-- (camp guards). So a camp guard's bite is flat all day and all night, while a river creature's swings
+-- ×1.5 at its peak phase. Measured in Play, 2026-08-23: a village-1 Bandit landed **5.5296** per bite,
+-- nine bites in a row, in broad daylight — exactly `10.8 × 0.512 × 1.0`, with no ×1.5 anywhere.
+--
+--   CAMP GUARDS (ExcursionServer — flat, no phase multiplier):
+--     Bandit / Wolf  10.8 → 5.53        ← 18 bites to kill a 100 HP player, one bite per 1.4-1.8 s
+--
+--   RIVER THREATS (EnemyServer — × strengthFor, ×1.5 at peak phase):
+--     Boar   10 → 5.12  (7.68 by day)     Crocodile 8  → 4.10  (6.14 at night)
+--     Piranha 4 → 2.05  (3.07 at night)   Hippo    20  → 10.24 (15.36 at night)
+--
+-- ⚠️ Village 1 guards carry NO `BiteDamage` attribute — `spawnGuard` only writes it when the village
+-- strength multiplier is not 1 — so they fall back to `def.biteDamage` here. Verified: the attribute was
+-- `nil` on all three guards of the first landing.
+--
+-- 🔴 THIS IS NEAR THE FLOOR OF MEANINGFUL. A fourth cut would put a camp guard under 4.5 damage — 23
+-- bites to kill — and guards stop being a threat at all. If the fight is still wrong after this, the
+-- lever is guard COUNT, the chase-slot cap or the reinforcement rate, not this number.
 EnemyDefs.DAMAGE_SCALE = 0.512
 
 EnemyDefs.Defs = {
