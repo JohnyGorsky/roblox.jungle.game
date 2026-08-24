@@ -105,8 +105,21 @@ local RiverGenerator = require(ServerScriptService:WaitForChild("River"):WaitFor
 local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
 
 -- ── config ─────────────────────────────────────────────────────────────────
-local AHEAD_CHUNKS = 7   -- chunks kept generated ahead of the boat (~1800 studs)
-local BEHIND_CHUNKS = 2  -- chunks kept behind before culling
+-- ── Job #113: HOW FAR THE WORLD EXISTS. These two are the draw distance, and nothing else is. ────
+-- Reported as *"terrain renders very close... everything spawns in front of me and if I look back all
+-- gone, like a small circle"*. That is not fog and not a quality setting: MEASURED in Play on
+-- 2026-08-24 at a steady 60 fps, terrain existed from -600 to +1800 studs around the boat, i.e. exactly
+-- the old 7/2 window. The generator is server-side, so a live player hits the same wall.
+--
+-- 7 -> 10 chunks ahead (1792 -> 2560 studs) and 2 -> 4 behind (512 -> 1024), so looking astern shows
+-- river instead of a cut edge. Cost is voxel memory + `generateChunk` calls: the boot loop below builds
+-- `AHEAD_CHUNKS + 1` chunks BEFORE `RiverReady`, so start-up does 11 rather than 8, and the steady-state
+-- window holds 15 chunks rather than 10.
+-- ⚠️ The streaming loop still generates ONE chunk per `TICK`, which is what keeps the cost spread. Do
+-- not "optimise" that into a batch to make a bigger window fill faster — at 36 studs/s top speed the
+-- boat needs ~7 s to cross a 256-stud chunk, so one per 0.15 s stays far ahead of it.
+local AHEAD_CHUNKS = 10  -- chunks kept generated ahead of the boat (~2560 studs)
+local BEHIND_CHUNKS = 4  -- chunks kept behind before culling (~1024 studs)
 local TICK = 0.15        -- streaming update period (s)
 -- ───────────────────────────────────────────────────────────────────────────
 

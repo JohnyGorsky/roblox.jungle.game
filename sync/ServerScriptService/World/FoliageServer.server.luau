@@ -36,8 +36,17 @@ local ServerStorage = game:GetService("ServerStorage")
 local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("FoliageDefs"))
 
-local AHEAD = 800
-local BEHIND = 220
+-- ── Job #113: the foliage window, and it is TIGHTER than the terrain one on purpose ──────────────
+-- Terrain now exists 2560 ahead / 1024 behind (`RiverBootstrap.AHEAD_CHUNKS`), and bare carved terrain
+-- with no trees on it reads worse than fog does — so this follows it up, not all the way.
+--
+-- 800 -> 1200 ahead, 220 -> 400 behind. Measured before the change: 3352 live foliage PARTS in the
+-- 1020-stud window. Parts scale ~linearly with the window, so 1600 studs is ~5300 — the number the
+-- start-up log line prints, so it is checked rather than assumed. Behind matters as much as ahead here:
+-- at 220 the trees vanished 6 seconds astern, which is what made the world feel like a moving circle.
+-- ⚠️ If a phone profile complains, cut BEHIND first (nobody drives backwards) and only then AHEAD.
+local AHEAD = 1200
+local BEHIND = 400
 local SEG = 40 -- studs of river per foliage segment
 local MAX_GROUND_Y = 27 -- keep foliage on the grassy banks, not up on the rock/snow
 -- ⚠️ MINIMUM ground height, and this is not a nicety — it is the fix for "why do we have rocks on water".

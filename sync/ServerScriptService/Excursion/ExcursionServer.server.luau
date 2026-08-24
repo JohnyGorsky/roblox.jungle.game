@@ -1949,7 +1949,7 @@ end
 
 -- 🔴 DO NOT BUILD A CAMP ON TERRAIN THAT DOES NOT EXIST YET.
 --
--- `RiverBootstrap` STREAMS the river: it keeps `AHEAD_CHUNKS` (~1800 studs) generated ahead of the boat
+-- `RiverBootstrap` STREAMS the river: it keeps `AHEAD_CHUNKS` (~2560 studs, Job #113) generated ahead of the boat
 -- and un-generates the rest. This script builds landing sites up to `CAMP_AHEAD` (1400) ahead, and the
 -- `ForceFirstCamp` admin helper builds the first one immediately — which can be ~1900 studs ahead, i.e.
 -- **beyond the generated window**.
