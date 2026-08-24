@@ -3,8 +3,11 @@
 -- allowlisted users. Pick a target (yourself or another player) and grant Gold / River Score / Salvage /
 -- all modules / max skills. The server re-checks the allowlist on every action.
 --
--- ⚠️ IDENTICAL COPY IN BOTH TREES — `sync/` and `lobby/sync/`. Edit one, copy to the other in the same
--- commit; `diff` between the two must be silent.
+-- ⚠️ THE TWO TREES HAVE DIVERGED, ON PURPOSE. This file and `lobby/sync/...` were once required to be
+-- byte-identical, but the GAME-ONLY actions landed here alone: `tpFirstCamp` (rewired in Job #107),
+-- the Job #112 cheat toggles, and `tpEndBase` (Job #114) all need `Workspace.EndBase` / the boat /
+-- the run, none of which exist in the lobby place. So the shared grants (gold, score, modules,
+-- skills) are the part that must stay in step — NEVER copy the lobby copy over this one wholesale.
 --
 -- Styled like everything else, but deliberately kept PLAIN: it is a dev tool, not a player-facing
 -- screen, so it gets the design system's components and none of its flourish — no burst, no toast, no
@@ -131,6 +134,9 @@ local actions: { AdminAction } = {
 	{ label = "Unlock ALL Modules", icon = "boat", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", icon = "star", kind = "maxSkills", amount = 0 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
+	-- Job #114: the other end of the run. Game-only (the lobby tree has no `Workspace.EndBase`), and
+	-- it force-starts the run on arrival so the extraction pad is actually live — see AdminServer.
+	{ label = "TP to Endgame", icon = "flag", action = "tpEndBase" },
 	-- Job #112 test switches. `godPlayer` follows the target selector above; the boat ones are global
 	-- because there is only ever one boat.
 	{ label = "God Mode — Character", icon = "heart", toggle = "godPlayer" },

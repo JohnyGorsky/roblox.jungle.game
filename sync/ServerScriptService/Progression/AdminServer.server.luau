@@ -223,6 +223,86 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 			plr.Name, math.floor((pos :: Vector3).X), math.floor((pos :: Vector3).Z),
 			tostring(startedRun), tostring(streamed)))
 		return { ok = true, startedRun = startedRun, streamed = streamed }
+	elseif action == "tpEndBase" then
+		-- ── self-teleport to the END ZONE's bunker spawn (game-only). Job #114 ───────────────────────
+		--
+		-- Sibling of `tpFirstCamp` above and deliberately a fraction of its length, because the thing
+		-- that makes that jump hard does not apply here: WHO OWNS THE GROUND. A camp is built on river
+		-- terrain that only exists inside the boat's generation window, so that jump has to move the boat
+		-- downstream first. The end zone is hand-built editor content past `RiverData.END_ZONE_Z_START`
+		-- (18 000) — its terrain, its bunker and its runway are in the place file, never generated and
+		-- never culled. So: no boat move, no build, no retry loop.
+		--
+		-- Three things DO still have to happen, and all three have been got wrong before:
+		--   1. THE RUN MUST BE RUNNING or the pad you came to test is inert — `EscapeServer`'s occupancy
+		--      loop only counts crew while `RunStarted` is set and `RunEnded` is not.
+		--   2. LEAVE THE SEAT FIRST. Before the run starts an admin is usually in the driver's seat, and
+		--      a seated character is WELDED to the boat: the CFrame write below moves nothing and the
+		--      button reads as broken.
+		--   3. PRE-STREAM. StreamingEnabled is on and this is ~18 000 studs from anywhere the client has
+		--      loaded, so ask for the region before arriving in it.
+		local endBase = Workspace:FindFirstChild("EndBase")
+		if not endBase then
+			return { error = "no-endbase" } -- lobby tree: there is no end zone there
+		end
+		-- BY NAME, recursively — the same contract every other editor-placed fitting in this game uses
+		-- (`EscapeServer` finds its own `Escape` marker exactly this way), so re-parenting the marker
+		-- inside `EndBase` while dressing the scene does not break the jump.
+		local marker = endBase:FindFirstChild("SpawnPoint2", true)
+		if not (marker and marker:IsA("BasePart")) then
+			return { error = "no-spawnpoint" }
+		end
+		local markerPart = marker :: BasePart
+
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return { error = "no-char" }
+		end
+
+		local startedRun = false
+		if Workspace:GetAttribute("RunStarted") ~= true then
+			local forceStart = ServerStorage:FindFirstChild("ForceStartRun")
+			if forceStart then
+				-- Also releases the moor, so StagingServer stops steering the empty hull back to its berth.
+				startedRun = (forceStart :: BindableFunction):Invoke() == true
+			end
+		end
+
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum:IsA("Humanoid") and hum.SeatPart then
+			hum.Sit = false
+			task.wait(0.1) -- let the SeatWeld actually go before we move the root
+		end
+
+		-- Seat the arrival on what is UNDER the marker rather than at the marker's own Y: it is an
+		-- invisible 4x1x2 nub, and the same mistake in `EscapeServer` (trusting the marker's height) is
+		-- what buried that pad in the runway slab. Measured 2026-08-25: marker y 18.5, Terrain y 18.0.
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		local filter: { Instance } = { markerPart }
+		if char then
+			filter[#filter + 1] = char -- our own body, or the cast lands on us
+		end
+		params.FilterDescendantsInstances = filter
+		params.IgnoreWater = true
+		local landing = markerPart.Position
+		local hit = Workspace:Raycast(landing + Vector3.new(0, 60, 0), Vector3.new(0, -400, 0), params)
+		if hit then
+			landing = Vector3.new(landing.X, hit.Position.Y, landing.Z)
+		end
+		local dest = landing + Vector3.new(0, 4, 0)
+
+		-- Best-effort: a failure here means a slower arrival, not a broken one.
+		local streamed = pcall(function()
+			plr:RequestStreamAroundAsync(dest, 10)
+		end)
+
+		root.CFrame = CFrame.new(dest)
+		print(("[Admin] %s → end zone at %d,%d,%d (run started: %s, pre-streamed: %s)"):format(
+			plr.Name, math.floor(dest.X), math.floor(dest.Y), math.floor(dest.Z),
+			tostring(startedRun), tostring(streamed)))
+		return { ok = true, startedRun = startedRun, streamed = streamed }
 	elseif action == "cheats" then
 		-- read-back so the panel can label its toggles the moment it opens
 		local target = typeof(arg) == "table" and Players:GetPlayerByUserId(arg.targetUserId) or plr
