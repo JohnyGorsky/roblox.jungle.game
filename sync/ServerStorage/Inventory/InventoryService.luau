@@ -14,6 +14,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService") -- the held-weapon carry-pose re-solve; see updateHeldVisual
 
 local ServerStorage = game:GetService("ServerStorage")
 local WeaponAssets = require(script.Parent:WaitForChild("WeaponAssets"))
@@ -310,29 +311,51 @@ local function updateHeldVisual(player: Player)
 	-- pose and sits right; lose it and the weapon is solved against the arms-down rest pose and then the
 	-- carry pose rotates it ~90° — straight up, which is precisely what was reported.
 	--
-	-- ⚠️ THE FIX IS NOT "RE-SOLVE WHENEVER THE HAND MOVES". The arm also moves for walking, swimming and
-	-- every melee swing, and a weapon is SUPPOSED to swing with the arm — re-solving on those would bake a
-	-- mid-swing offset in permanently. So this fires at most once, only when the hand was still in the
-	-- arms-down pose at weld time, and only within a short window.
+	-- 🔴 AND THE TRIGGER IS "IS THE CARRY POSE ACTUALLY PLAYING YET", MEASURED ON THE ANIMATOR.
 	--
-	-- Detection is measured, not guessed: `WeaponAssets`' note records the posed hand reading
-	-- `UpVector = (0.21, 0.04, 0.98)` — nearly horizontal. Arms-down reads close to the torso's own up.
+	-- `HeldPose.local.luau` waits `task.wait(0.2)` for the default `Animate` script and then plays the pose
+	-- with a **0.15 s fade**, all on the client. This function runs on the server the instant the active
+	-- item changes — comfortably before any of that. Measured after a respawn: the weapon settled at
+	-- `dot-forward = +0.476`, i.e. **61.5° off**, identically on server and client (so this is not a
+	-- replication race — both ends agree, and both are wrong).
+	--
+	-- An earlier attempt gated on "does the hand look arms-down". That does not work and the measurement
+	-- says why: the default idle ALREADY poses the arm, so at weld time `handUp·rootUp` was nowhere near
+	-- the 0.9 it was tested against and the re-solve never fired. Asking the Animator directly is exact.
+	--
+	-- ⚠️ THIS MUST NOT BECOME "RE-SOLVE WHENEVER THE HAND MOVES". The arm also moves for walking and for
+	-- every melee swing, and a held weapon is SUPPOSED to swing with the arm — re-solving during one would
+	-- bake a mid-swing offset in permanently. So: at most once, and only while the character is standing
+	-- still, so the pose being solved against is the resting carry pose.
 	if art and art.holdInChar and root then
-		local restLike = hand.CFrame.UpVector:Dot(root.CFrame.UpVector) > 0.9
-		if restLike then
-			local offset = (art and art.gripOffset) or Vector3.zero
+		local wanted = tostring(ItemDefs.HOLD_ANIM):match("%d+")
+		local offset = (art and art.gripOffset) or Vector3.zero
+		local hum = char:FindFirstChildWhichIsA("Humanoid")
+		local animator = hum and hum:FindFirstChildWhichIsA("Animator")
+		if wanted and animator then
 			task.spawn(function()
-				local deadline = os.clock() + 3
+				local deadline = os.clock() + 4
 				while os.clock() < deadline do
 					RunService.Heartbeat:Wait()
-					-- Bail if anything re-equipped, respawned or re-welded in the meantime; that path has
-					-- already solved a fresh C0 of its own and must not be second-guessed.
+					-- Bail if anything re-equipped, respawned or re-welded meanwhile: that path solved a
+					-- fresh C0 of its own and must not be second-guessed.
 					if grip.Parent ~= hand or part.Parent ~= char or grip.Part1 ~= part then
 						return
 					end
-					if hand.CFrame.UpVector:Dot(root.CFrame.UpVector) <= 0.9 then
-						-- The pose has landed. `C0` is exactly `rot * CFrame.new(-offset)` — the hand's
-						-- POSITION cancels out, so this needs no reference to where the arm currently is.
+					-- The carry pose has to be up to full weight, and the player has to be standing still.
+					local posed = false
+					for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+						local id = t.Animation and t.Animation.AnimationId or ""
+						if id:match("%d+") == wanted and t.WeightCurrent > 0.9 then
+							posed = true
+							break
+						end
+					end
+					local still = (hum == nil) or (hum.MoveDirection.Magnitude < 0.1)
+					if posed and still then
+						-- `C0` is exactly `rot * CFrame.new(-offset)`: the hand's POSITION cancels out of
+						-- `hand.CFrame:ToObjectSpace(hand.CFrame * rot * CFrame.new(-offset))`, so this needs
+						-- no reference to where the arm currently is — only to how it is ROTATED.
 						local handRot = hand.CFrame - hand.CFrame.Position
 						local charRot = root.CFrame - root.CFrame.Position
 						local rot = handRot:Inverse() * charRot * art.holdInChar

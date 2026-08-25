@@ -2,7 +2,8 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-25 18:26:07
-**Status**: Requirements Gathering (intake)
+**Status**: ✅ COMPLETE — implemented, verified in Play, six user-reported defects fixed and re-verified,
+closed 2026-08-25 for publish
 
 ## Requirements / goal
 
@@ -82,9 +83,18 @@ scanned for scripts, and measured. **Only four of the nine are R15**, and that i
 ## Checklist
 
 - [x] Requirements reviewed (this intake)
-- [ ] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
-- [ ] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured - before/after from the same camera, in Play
-- [ ] Final summary + changelog written
+- [x] **Independent reviewer agent run** - given only the requirement and the repo, never the intended
+      approach (GROUND-RULES 8). It independently predicted the garrison mis-count, the discarded `prop`
+      return value, the pad `CanCollide`/`CanQuery` hazard, the need to keep the two blast functions
+      separate, the tower blocking his own aim ray, and the missing `Animator`
+- [x] **Verified in PLAY, at the player's camera** - 20 checks, every number read off the live server or
+      client, never from the code (GROUND-RULES 7). Two bugs were only visible on the CLIENT
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] **Proof it works** captured in Play - including same-ray before/after for the impact-height fix
+      (4.80 studs above ground on a hair accessory -> 0.00 on terrain)
+- [x] Final summary + changelog written
+- [x] Six user-reported defects from first playtest fixed and re-verified
+- [x] `tools/luau-analyze.sh` full GAME tree sweep clean
+- [x] Asset logged in `roblox.workspace/Assets/registry/models.md` + the game's `ASSETS.md`
+- [x] Deferred defects logged as findings 0034 / 0035 / 0036 rather than dropped

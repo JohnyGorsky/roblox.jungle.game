@@ -1,6 +1,7 @@
 # Job #119 — Final summary
 
-**Project**: `roblox.jungle` (GAME place) · **Status**: implemented, verified in Play 2026-08-25
+**Project**: `roblox.jungle` (GAME place) · **Status**: implemented, verified in Play 2026-08-25, then
+six user-reported defects fixed and re-verified the same day
 
 The Rocket Man: an army soldier who stands on the deep camp's watchtower and lobs the Bazooka's rocket at
 you every 20 seconds. See [intake.md](intake.md) for the request and the eleven decisions,
@@ -70,6 +71,76 @@ or client rather than from the code.
 | 18 | Falloff curve is right | ✅ a guard at 16.3 studs took `x0.93` — exactly `blastFactor` just outside the 15-stud inner radius |
 | 19 | 🔴 Guards still respawn with him alive | ✅ read straight off the garrison loop: `camp (501,1640) alive=0 target=2 timer=5 nextIn=169.77` while he stood 51 studs away at HP 110. **Would have read `alive=1` if the exclusion were missing** |
 | 20 | He is not in the garrison list | ✅ `[Garrison] registered near target=1 · deep target=2 · #garrisons=2` — two records, neither his |
+
+## Three more bugs, reported by the user after first playtest, all fixed
+
+Found by the user playing it, which is what a playtest is for. All three were in code this job touched
+except the last, which the job's own testing had walked straight past.
+
+### 4. 🔴 "he does not shoot if i am under tower but i was like 20 studs away"
+
+`minFireRange` was **48**, so between `meleeRange` (16) and 48 he did nothing at all — and since he stands
+~37 studs up, a player anywhere near the base is inside that band. **Walking up to the tower was a
+permanent safe spot**, i.e. the obvious counter-play switched him off instead of escalating him. The worst
+possible failure for this enemy.
+
+48 came from "keep the 30-stud crater off his own tower", and the geometry says that reasoning was simply
+wrong: at 37 studs up, a shell at the very foot of his tower is already **37 studs** from him — outside the
+30-stud radius at *any* horizontal distance. He could never have hit himself. Now **18**, two studs clear of
+`meleeRange`, and `Rocket.launchEnemy` is additionally told who fired and skips them — so the number is free
+to be chosen for how the fight reads rather than to protect the shooter.
+Verified: at the user's exact 20 studs (41.8 studs in 3D) he now fires; before, `41.8 < 48` → silent.
+
+### 5. 🔴 "red circle for shooter is up high it is not on the ground"
+
+The shell was aimed at the target's `HumanoidRootPart` with the target **not** excluded from the ray, so
+`resolveImpact` stopped on the player's own body — and the ring is drawn at the impact point, i.e. floating
+at chest height with the player standing inside it.
+
+Before/after on the same ray, same spot:
+
+| | Impact landed on | Height above ground |
+|---|---|---|
+| Before | `johnygorsky10.RainbowHairForRainbowPeopleCortez.Handle` | **4.80 studs** |
+| After | `Workspace.Terrain` | **0.00 studs** |
+
+It was stopping on the player's **hair accessory**. Now the aim point is dropped to the surface beneath the
+target first, and the target's character joins the tower and the shooter in the ray's ignore list. Live
+shells measured `gap = +0.000` against the terrain under them, and the ring reads as a decal on the grass.
+
+⚠️ The player's own Bazooka never hit this, which is why it was not inherited: `WeaponServer` excludes the
+SHOOTER, and for the player the shooter is who the ray starts inside. Here shooter and target are different
+characters.
+
+### 6. 🔴 "weapon is pointing up??" on the M16 *and* the Bazooka — pre-existing, not from this job
+
+Confirmed not mine first: `InventoryService`, `WeaponAssets`, `ItemDefs` and `WeaponClient` are all
+untouched by this job. Then measured — and the first theory was wrong, which is worth recording:
+
+- It is **not** a client/server replication race. Both ends agreed at `dot-forward = +0.476`, **61.5° off**.
+- It is a **pose-timing** race. `HeldPose.local.luau` (client) waits `task.wait(0.2)` for the default
+  `Animate` script and then plays the carry pose with a **0.15 s fade**. `updateHeldVisual` welds on the
+  server the instant the active item changes — well before any of that. The grip is solved correctly *for
+  the arm as it is at that moment*, then the carry pose rotates the forearm ~61° and the rigidly welded
+  weapon rotates with it.
+- A first attempt gated the re-solve on "does the hand look arms-down". Measured: it never fired, because
+  the default idle **already** poses the arm, so `handUp·rootUp` was nowhere near the tested 0.9.
+
+Fixed by asking the Animator directly: after welding, wait for the carry-pose track to reach weight > 0.9
+**and** the character to be standing still, then re-solve `C0` once. Guarded so it fires at most once and
+bails if anything re-equipped meanwhile — a held weapon is *supposed* to swing with the arm, so re-solving
+during a walk or a melee swing would bake that pose in permanently.
+
+Verified on the client, which is the only view that matters: Bazooka `+0.9999 / +0.62°`, M16
+`+0.9999 / +0.46°`, after a respawn `+1.0000 / -0.04°`, after fast slot-switching `+1.0000 / +0.26°`.
+
+⚠️ **One thing left standing, and it is worth knowing.** The carry pose plays at `AnimationPriority.Idle`,
+which is the same priority as the default R15 idle — measured, both at weight 1.00, so they blend **50/50**
+and the carry pose is only half applied. That is how Roblox's own `Animate` script does it, so it is left
+alone; but it means the resting arm still sways slightly with the idle loop, and a rigid weld cannot track
+that. The residual is a couple of degrees, not 61. Raising the pose's priority above `Idle` would make it
+stable and fully applied — but `HeldPose`'s header warns every hold angle is solved against that exact pose,
+so it is a deliberate follow-up, not a drive-by.
 
 ## Three real bugs found and fixed during verification
 
