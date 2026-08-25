@@ -509,5 +509,6 @@ shortens the 2 s lockout to 1.40 s at level 10 and overlaps two bursts — so it
   Keeps the burst length exact and honours "shoot faster" literally, but raises peak burst damage from
   280 to ~392 on a weapon that is already the §10 risk.
 
-I will implement **A** unless you say otherwise, and record whichever you pick in `SkillDefs`' own comment
-so the next person does not read the blurb and assume it applies to everything.
+**DECIDED: A — the M16 is exempt.** Recorded in `SkillDefs`' own comment so the next person does not read
+the blurb and assume it applies to everything, and verified in Play (13 trigger pulls at `SkillGun = 10`
+spent exactly one round). Plan agreed and implemented — see `final-summary.md`.
