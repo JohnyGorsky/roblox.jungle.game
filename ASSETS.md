@@ -856,16 +856,24 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | `Cosmetics.png` | ~~Cosmetic Bundle (249 R$)~~ | game pass | `1918077339` | `130780112255781` | `95212286807985` | <span style="color:#b0472f">⛔ REMOVED from the in-game shop (Job #067)</span> |
 | `SelfRevive` | Self Revive (20 R$) | dev product | `3612677893` | — | **`131281323216251`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 | — | Extra Inventory Slots (149 R$) | game pass | `1935044952` | `130798210334331` | **`130798210334331`** *(same id — this Hub upload has alpha)* | <span style="color:#2e9c3f">✅ live + wired</span> |
-| `RobloxPassM16.png` | **Lifetime M16 (150 R$)** | game pass | `1954603618` | `118709115773836` | **none — uses `Theme.icon.rifle` `87494055704448`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
-| — | **M16 (one run, 30 R$)** | dev product | `3709767395` | — | **none — uses `Theme.icon.rifleAmmo` `134307949592665`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
+| `RobloxPassM16.png` | **Lifetime M16 (150 R$)** | game pass | `1954603618` | `118709115773836` | **`99770814546746`** *(the pass store image, user-supplied)* | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
+| — | **M16 (one run, 30 R$)** | dev product | `3709767395` | — | **none — uses `Theme.icon.rifle` `87494055704448`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
 | — | ~~Bazooka lifetime (250 R$)~~ | game pass | `1956512376` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
 | — | ~~Bazooka (one run, 80 R$)~~ | dev product | `3709767468` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
 
-> 🔴 **The two M16 rows are the first that deliberately use NO store art.** `RobloxPassM16.png` is
-> **1254×1254 RGB with no alpha channel** — checked in the PNG's own IHDR, not assumed — i.e. exactly the
-> opaque Hub matte the rule below is about. So the M16 rows draw the transparent `assault-rifle` / `bullet`
-> glyphs from `Theme.icon` via `productFallbackIcon` instead, and that is the *final* intent, not a
-> placeholder waiting for a transparent re-upload. **Do not "upgrade" them to `118709115773836`.**
+> 🔴 **The M16 rows are split on purpose: the PASS row shows the product artwork, the ONE-RUN row shows
+> the weapon.** Set by the user after comparing both on screen (2026-08-25): *"For Lifetime use pass icon,
+> and one time use rifle icon"*. The two rows sit adjacent and both titles start with "M16", so they have
+> to be tellable apart at badge size, and two variations on a gun did not do that.
+>
+> ⚠️ **Three different images are in play for this one pass — do not substitute them for each other.**
+> `RobloxPassM16.png` → `118709115773836` is the **source art** (1254×1254, RGB, **no alpha**, read from the
+> PNG's own IHDR) and is for the Hub listing only. `99770814546746` is the **store image the user supplied
+> for in-game use**, and is what `Theme.productIcon.m16Lifetime` points at. `87494055704448`
+> (`assault-rifle`) is the **glyph**, used by the one-run row and the hotbar.
+>
+> `Theme.icon.rifleAmmo` (`bullet`, `134307949592665`) is consequently **registered but unused** — kept as
+> the natural glyph for an M16 ammo row if the trading post ever sells rifle rounds.
 >
 > ⚠️ **The Bazooka's four ids are recorded here and wired NOWHERE.** They exist on the Creator Hub (created
 > alongside the M16's) and Job #117 built `MonetizationDefs.RunGrants` generically so the Bazooka is one
@@ -962,9 +970,10 @@ the game sold for Robux.
 | `Rifle.glb` | `Scene` | Model | `84134973846203` | → `ServerStorage.AssetLibrary.Weapons.M16` (see below) |
 | — | `output_unwrapped` | Mesh | `101680702520520` | the MeshPart inside that model |
 | `rifle_shoot.mp3` | `rifle_shoot` | Audio | `138005496001979` | `WeaponAssets.ART.M16.sound.fire` — see §3.2 |
-| `assault-rifle.png` | `assault-rifle` | Image | `87494055704448` | `Theme.icon.rifle` — hotbar slot + the Lifetime M16 shop row |
-| `bullet.png` | `bullet` | Image | `134307949592665` | `Theme.icon.rifleAmmo` — the "M16 (one run)" shop row |
-| `RobloxPassM16.png` | `RobloxPassM16` | Image | `118709115773836` | **Creator Hub pass listing only** — never in-game (§5.1) |
+| `assault-rifle.png` | `assault-rifle` | Image | `87494055704448` | `Theme.icon.rifle` — hotbar slot + the **"M16 (one run)"** shop row |
+| `bullet.png` | `bullet` | Image | `134307949592665` | `Theme.icon.rifleAmmo` — **registered, currently unused** (see §5.1) |
+| `RobloxPassM16.png` | `RobloxPassM16` | Image | `118709115773836` | Creator Hub pass listing **source art only** (§5.1) |
+| — | `Developer Product Image Asset` | Image | `99770814546746` | `Theme.productIcon.m16Lifetime` — the in-game **"Lifetime M16"** row |
 
 **Placed in the GAME place 2026-08-25**, scanned (**0 scripts**), Meshy `Scene` wrapper deleted, matched to
 the other two guns (`CollisionFidelity = Box`, `RenderFidelity = Automatic` — a held item has

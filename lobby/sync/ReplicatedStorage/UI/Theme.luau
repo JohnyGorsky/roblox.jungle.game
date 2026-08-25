@@ -165,13 +165,13 @@ Theme.icon = {
 
 	-- ── Job #117: the M16 ────────────────────────────────────────────────────────────────────────
 	-- User's own uploads, delivered with the job (`assets/Enemies/M16/assault-rifle.png` and
-	-- `bullet.png`). Both are 512x512 **RGBA** — checked in the PNG headers, which matters here: the
-	-- third file in that folder, `RobloxPassM16.png`, is 1254x1254 **RGB with no alpha** and is the
-	-- Creator Hub pass listing art. It is deliberately NOT registered anywhere in this file — §5.1 of
-	-- ASSETS.md is explicit that a matted Hub thumbnail renders as a white blob inside these round
-	-- badges. `productFallbackIcon` below points the two M16 shop rows at these two glyphs instead.
-	rifle = "rbxassetid://87494055704448", -- assault-rifle — hotbar slot + the Lifetime M16 row
-	rifleAmmo = "rbxassetid://134307949592665", -- bullet — the per-run "M16 (one run)" row
+	-- `bullet.png`). Both are 512x512 **RGBA** — checked in the PNG headers.
+	rifle = "rbxassetid://87494055704448", -- assault-rifle — hotbar slot + BOTH M16 shop rows' fallback
+	-- ⚠️ CURRENTLY UNUSED, kept on purpose. It was the "M16 (one run)" row's badge until the user asked
+	-- for the rifle there instead (see productIcon below). Left registered because it is the natural glyph
+	-- for an M16 ammo row if the trading post ever sells rifle rounds — the same slot `pistolAmmo` and
+	-- `shotgunAmmo` fill. Delete it if that never happens.
+	rifleAmmo = "rbxassetid://134307949592665", -- bullet (three rifle rounds)
 }
 
 -- Which §075 keys are still awaiting art. Delete a row when its id lands above.
@@ -267,6 +267,15 @@ Theme.productIcon = {
 	-- uploads are matted onto an opaque disc and render as white blobs in these round badges) — but this
 	-- one carries alpha, verified in Play 2026-08-02, so it needs no transparent re-upload.
 	extraSlots = "rbxassetid://130798210334331", -- Game Pass Icon (uploaded 2026-08-02)
+	-- ── Job #117 — the Lifetime M16 row shows the PASS ARTWORK, on the user's explicit call ──────
+	-- The two M16 rows sit next to each other and both titles start with "M16", so they have to be
+	-- tellable apart at badge size. The user's split (2026-08-25): *"For Lifetime use pass icon, and one
+	-- time use rifle icon"* — the PASS row reads as a product, the ONE-RUN row reads as the weapon.
+	--
+	-- ⚠️ THIS IS THE STORE-LISTING IMAGE THE USER SUPPLIED FOR THE PASS (`99770814546746`), NOT the raw
+	-- `RobloxPassM16.png` upload (`118709115773836`) — that one is 1254x1254 RGB with no alpha and is the
+	-- source art for the Hub listing only. Do not substitute one for the other.
+	m16Lifetime = "rbxassetid://99770814546746", -- the pass's store image
 	-- `cosmeticBundle` art removed in Job 067 along with the pass itself — it was live and delivered
 	-- nothing. Its id stays recorded in registry images.md in case the bundle is ever actually built.
 }
@@ -277,14 +286,14 @@ Theme.productIcon = {
 Theme.productFallbackIcon = {
 	extraSlots = "crate", -- carrying more
 	selfRevive = "medkit", -- getting back up
-	-- ── Job #117 — and these are NOT placeholders awaiting store art ─────────────────────────────
-	-- Both M16 rows are driven from here BY CHOICE. The uploaded pass art (`118709115773836`) is the
-	-- opaque Hub matte this file's `productIcon` note warns about, so the transparent glyphs are the
-	-- better art, not a stand-in for it. Do not "upgrade" these to the Hub id.
-	-- The pass gets the rifle; the one-run charge gets the clip — so the two rows are distinguishable
-	-- at a glance, which is the whole job of a row badge when the titles both start with "M16".
+	-- ── Job #117 ─────────────────────────────────────────────────────────────────────────────────
+	-- The one-run charge gets the RIFLE glyph and has no `productIcon` entry, so this is what it draws —
+	-- not a placeholder. The lifetime pass gets its real Hub artwork from `productIcon` above; `rifle`
+	-- stays listed for it purely as the safety net if that image ever fails to load.
+	-- Split this way on the user's call (2026-08-25): the pass row reads as a PRODUCT, the one-run row
+	-- reads as the WEAPON.
 	m16Lifetime = "rifle",
-	m16 = "rifleAmmo",
+	m16 = "rifle",
 }
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────
