@@ -214,6 +214,106 @@ EnemyAssets.ART = {
 		},
 	} :: CreatureArt,
 
+	-- ── RocketMan — the army soldier on the camp watchtower (Job #119) ───────────────────────────
+	-- Creator Store `11927692797` "US Army Soldier", free, **0 scripts**. Chosen over eight other free
+	-- soldier models for one reason that outranks looks: it is **R15**. Five of the nine candidates were
+	-- R6, and an R6 rig in this file has no animations at all — it goes down the hand-swung `joints` path
+	-- the Wolf and Boar use — which fails the owner's requirement of *"you need animations for that rocket
+	-- man - for close combat"* outright. R15 + 15 Motor6D is the exact shape the Bandit path already
+	-- drives, so every id below is a clip this game has already proven on a rig.
+	--
+	-- ⚠️ **THE MODEL IS STRIPPED AT IMPORT, NOT AT RUNTIME.** As it arrives it is 122 parts, of which a
+	-- **37-part Mk18 EoTech carbine** is welded to `RightHand` — with its own `SurfaceGui` sight and 11
+	-- gun-mechanism Sounds. He carries a Bazooka, so that subtree is deleted when the model is filed into
+	-- `AssetLibrary.Enemies.ArmySoldier`, taking him to **85 parts** and taking the GUI and the sounds with
+	-- it. The 39-part helmet and 30-part plate carrier are KEPT: they are most of what makes him read as
+	-- "army" rather than as a man in green. If a real device ever complains, the helmet is the lever.
+	--
+	-- ⚠️ Its inner model ships named `" "` — a single space. It is renamed `ArmySoldier` on import, because
+	-- resolution here is by NAME.
+	RocketMan = {
+		model = "ArmySoldier",
+		-- 1.0: he is a human and 5.77 studs tall is already right — the same call the Bandit's entry makes,
+		-- and the reason his hitbox was measured from the rig rather than inherited.
+		scale = nil,
+		-- 0, MEASURED not guessed: the rig's `HumanoidRootPart.CFrame.LookVector` reads (0, 0, -1) at
+		-- identity, and -Z is our forward. Do not "fix" this from a screenshot (see the crocodile's note).
+		yawOffset = 0,
+		-- 🔴 NO GLOWING EYES, for exactly the Bandit's two reasons: he is a PERSON, and he carries no
+		-- `EyeLeft`/`EyeRight` attachments, so leaving it on sends `addEyes` down its hitbox fallback and
+		-- puts two red orbs somewhere around his knees.
+		eyes = false,
+		-- ── The animation set, Job #119. EVERY ID IS ALREADY OWNED — nothing was sourced. ───────────
+		-- `EnemyRig` reuses the rig's own Animator when the model ships one (it does), because adding a
+		-- second Animator alongside it silently plays nothing.
+		anim = {
+			-- ── 🔴 NO IDLE CLIP, AND THAT IS A MEASURED FIX, NOT AN OMISSION ─────────────────────────
+			--
+			-- This was `ItemDefs.HOLD_ANIM` (507768375), the player's own tool-carry pose. Measured in Play
+			-- on 2026-08-25 it put the launcher **88° off — pointing at the sky**, and only on the CLIENT:
+			--
+			--                 RightHand (rel. root)        launcher pitch
+			--   SERVER        (0.31,  0.01, -0.97)         +0.0°   dot-forward  1.00
+			--   CLIENT        (0.31,  1.60, -0.78)         +88.0°  dot-forward -0.04
+			--
+			-- The cause is the one thing about NPCs that differs from players, and it is worth writing down
+			-- because nothing else in this codebase hits it. `InventoryService` solves a held weapon's grip
+			-- from the LIVE POSED HAND, and its comment explains why that works: *"The server sees the POSED
+			-- hand (the owning client replicates its animated CFrames back)"*. **An NPC has no owning
+			-- client.** The server-side Animator reports every track at weight 0.00 and holds the authored
+			-- rest pose, while each client evaluates the clip and renders the raised forearm — so a grip
+			-- solved server-side is solved against a pose no player ever sees. This is precisely the failure
+			-- `WeaponAssets`' header describes ("the carry pose rotates the forearm ~90°, so anything
+			-- authored against the old arms-down stance broke... both guns aimed ~80° off").
+			--
+			-- ⚠️ AND THE FIX IS NOT TO CHASE IT WITH AN OFFSET. This rig is a soldier who was published
+			-- CARRYING AN M4 — its authored rest pose IS an arms-forward, two-handed weapon grip, which is
+			-- exactly why the server reading is a perfect +0.0°. Playing a generic Roblox carry pose on top
+			-- of it fights a pose that was already right. With no idle clip, client and server agree and the
+			-- launcher sits level along his facing on both.
+			--
+			-- He is a sentry on a tower, so dead-still is a fair read. If he ever wants breathing, the clip
+			-- must be one authored for a rifle carry — anything that moves the arms re-opens the above.
+			idle = "",
+			-- ⚠️ NO `move`, DELIBERATELY. He does not walk (see `EnemyDefs.RocketMan`), so a walk cycle would
+			-- only ever play as a man jogging on the spot. `tickRocketMan` holds him on "idle" always.
+			-- ── close combat: TWO swings, alternated ─────────────────────────────────────────────────
+			-- This is the requirement-6 deliverable. Defender's `axeSlash` pair, which `MeleeServer` already
+			-- alternates for the player's own swings "so repeated swings do not look canned" — the same
+			-- trick, for the same reason, on the other side of the fight.
+			attack = "rbxassetid://567480700",
+			attack2 = "rbxassetid://567479941",
+			-- ── 🔴 THE FIRE SLOT IS DELIBERATELY EMPTY. THIS IS THE ONE THING STILL MISSING. ─────────
+			-- It briefly held Defender's `hitAnimation1` (80792212061667) as a stand-in recoil. That clip is
+			-- a PUNCH: it swings the arm through roughly the same arc as the two melee slashes below, which
+			-- on the arm holding a 6.5-stud shoulder launcher reads as him throwing the weapon rather than
+			-- firing it. GROUND-RULES §4 is explicit that an empty slot beats a wrong one, because a wrong
+			-- asset is much harder to notice than a missing one.
+			--
+			-- Nothing is lost by leaving it out: the launch is already carried by the rocket itself, the red
+			-- ring, the whistle and the fire sound, all of which come from the player's own Bazooka.
+			--
+			-- What to source: a STANDING SHOULDER-FIRE / RPG RECOIL R15 clip, ~0.6-1.2 s, ONE-SHOT (not
+			-- looped), that moves the torso and not the arms. Drop the id on this line; nothing else changes.
+			fire = "",
+			-- No death clip. The Bandit has none either; `EnemyRig.die` handles the fall-back.
+			death = "",
+		},
+		-- The Bandit's own bundled set, shared deliberately: a human raider's voice on a human raider, and
+		-- the registry's dedupe-by-id rule. ⚠️ His OWN 11 sounds are all gun-mechanism noises (bolt, mag,
+		-- safety) attached to the carbine that gets stripped, so they leave with it — there is nothing of
+		-- his to reuse.
+		sound = {
+			idle = { id = "", volume = 0.3, min = 12, max = 70, looped = false },
+			-- Widest rolloff of the set on purpose: this is the "he has seen you" cue, and it has to carry
+			-- across a 160-stud basin before the first shell lands.
+			aggro = { id = "rbxassetid://1454256125", volume = 0.65, min = 25, max = 180 },
+			attack = { id = "rbxassetid://6108540937", volume = 0.55, min = 15, max = 90 },
+			hurt = { id = "rbxassetid://9125652432", volume = 0.5, min = 12, max = 80 },
+			death = { id = "rbxassetid://9125652949", volume = 0.6, min = 15, max = 100 },
+		},
+	} :: CreatureArt,
+
 	-- ── Piranha — sea, and the one that spawns in NUMBERS ────────────────────────────────────────
 	-- ⚠️ Its VFX are deliberately the thinnest of any creature. `EnemyServer` allows up to 9 sea enemies
 	-- at once and the piranha is the most heavily weighted of the three, so whatever it emits is emitted

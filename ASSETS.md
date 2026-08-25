@@ -666,7 +666,10 @@ board on posts with a `SurfaceGui` on both faces (the billboard was `AlwaysOnTop
 the terrain) · `GoldNugget` Neon cube → the real mesh (⚠️ it is a bare **MeshPart**, not a Model) ·
 `CarriedCrate` → a scaled `Barrel` · `DockServer` plank Deck → `Dock` (the old `Deck` survives as an
 INVISIBLE anchor so `TieSpot`/rope/prompt geometry is unchanged) · `SandbagWall` ×3 as cover ·
-`RangerTower` at each landing.
+`RangerTower` at each landing. ⚠️ **Job #119: TWO per landing now** — `CampDefs.KIND.deep.tower` was turned on so the
+deep camp has a tower for the RocketMan to stand on; the near camp keeps its (unmanned) one as the
+silhouette you see from the water. Both towers carry an `AmmoBox` salvage chest (45–70) on their
+`InnerPlace` pad. That is **+257 parts per live landing site** (tower 128 + soldier 85 + 2 chests 44).
 
 **Measured cost: 880 BaseParts per landing site.** Part counts are BasePart counts — do NOT re-derive
 them from `#model:GetDescendants()`, which runs 2–6× higher (`AmmoBox` is 22 parts but 140 descendants;
@@ -805,6 +808,7 @@ Re-dressing it to feel like a destination rather than a repeat is open work.
 | **Piranha** (sea) | 2×1.2×4 | <span style="color:#2e9c3f">✅ Meshy, imported</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ model done</span> · **deliberately SILENT** (see below) |
 | **RiverHippo** (sea) | 8×5×12 | <span style="color:#2e9c3f">✅ Meshy, imported</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ DONE</span> — shares the Crocodile's 5 sounds |
 | **Boar** (land) | 4×3×7 | <span style="color:#2e9c3f">✅ reused from **roblox.defender**</span> | procedural joint swing | <span style="color:#2e9c3f">✅ DONE</span> — rig + 3 bundled sounds, 0 credits |
+| **RocketMan** (land, camp watchtower) | 4×5.8×3 | <span style="color:#2e9c3f">✅ `ArmySoldier` — Store **11927692797** (free, 0 scripts)</span> | R15, 15 Motor6D — owned clip ids, **no idle clip on purpose** | <span style="color:#2e9c3f">✅ DONE (Job #119)</span> — stripped 122→85 parts (a 37-part M4 removed), holds the Bazooka, 2 alternating melee swings, Bandit's 5 sounds. ⚠️ **`fire` animation slot is EMPTY** — wants a standing shoulder-fire R15 clip |
 | Anaconda | TBD | Meshy M6 | slither + strike | ▫ later — **new enemy, needs stats + spawn rules first** |
 
 Concept art on disk: `assets/Enemies/{Crocodile,Hippo,Anaconda,Puma}.png`. ⚠️ There is art for **Puma**

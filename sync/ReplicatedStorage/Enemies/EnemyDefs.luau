@@ -141,6 +141,47 @@ EnemyDefs.Defs = {
 		color = Color3.fromRGB(96, 78, 58),
 		size = Vector3.new(5, 4, 11), -- ⚠️ unchanged from the Panther: Job #058 tuning depends on it
 	},
+	-- land: the ROCKET MAN — Job #119. An army soldier who stands on a camp watchtower's top platform
+	-- and lobs the Bazooka's rocket at you every 20 seconds.
+	--
+	-- 🔴 HE DOES NOT WALK, AND THAT IS THE DESIGN, NOT A LIMITATION.
+	-- He is spawned on the `Defender` marker pad 36 studs up (`ExcursionServer.spawnRocketMan`) and holds
+	-- it for his whole life: `tickRocketMan` only ever YAWS him. `tickGuard`'s movement block re-measures
+	-- ground height as a guard walks and would re-seat him onto the dirt under the tower on its first
+	-- frame; and because the AI has no pathfinding and the rig is kinematic (`PivotTo`), a rocket man told
+	-- to reach a player on the ground walks THROUGH the platform railing, misses the floor raycast, and
+	-- snaps 36 studs down in one frame. Holding the tower sidesteps both, and is what the owner asked for:
+	-- *"if you get close to enemy, you go into close combat"* — you climb to him.
+	--
+	-- ⚠️ `size` IS NOT THE BANDIT'S 5 x 4 x 11. That box is the old Panther's, kept only because Job #058's
+	-- crew-size scaling is tuned against it, and it is 11 studs DEEP — on a 20x20 tower platform it would
+	-- overhang the railing on both sides and let you bite him from outside the deck. This is the measured
+	-- box of the actual rig (4.996 x 5.773 x 2.854, Studio, 2026-08-25). He is a new enemy with no #058
+	-- history, so he gets an honest hitbox.
+	--
+	-- ⚠️ `aggroRadius` 160 against every other land creature's 90-95, on the owner's call. He is 36 studs
+	-- up with a clear view and a 300-stud weapon; 95 would put every shot inside his own 30-stud blast plus
+	-- your 4-second escape run, which reads as unfair rather than telegraphed. 160 is "you are properly in
+	-- the basin, heading for the deep camp", and keeps the moored boat comfortably out of range.
+	--
+	-- ⚠️ `biteDamage` is Bandit-grade ON PURPOSE — the ROCKET is his threat, not his fists. Like every camp
+	-- guard he is NOT scaled by `strengthFor` (see the two-bite-paths note above), so this is flat day and
+	-- night: 10.8 x DAMAGE_SCALE = 5.53 per swing, the same as the guards standing below him.
+	RocketMan = {
+		name = "RocketMan",
+		category = "land", -- so `EnemyRig`'s "stand a land creature on its feet" seating applies
+		hp = 110, -- double a Bandit (owner's call): the climb is the fight, so he must survive the climb
+		-- 🔴 ZERO, and not "slow". `tickRocketMan` never calls the movement block, so this is only ever
+		-- read if a future edit routes him through `tickGuard`'s steering by mistake — in which case a 0
+		-- makes that a visible no-op instead of a soldier quietly strolling off a 36-stud platform.
+		speed = 0,
+		aggroRadius = 160,
+		biteRange = 14, -- "you are on the platform with me" — a shade over the Bandit's 12
+		biteDamage = 10.8,
+		biteCooldown = 1.4,
+		color = Color3.fromRGB(74, 82, 62), -- greybox fallback only; the real art is the ArmySoldier rig
+		size = Vector3.new(4, 5.8, 3),
+	},
 	-- land: fast pack hunter; charges from the bank in numbers
 	--
 	-- ⚠️ Job #086: HP 40 → 50, and the reason is worth keeping. Wolf left the riverbank pool for the

@@ -19,6 +19,10 @@ local Theme = require(ReplicatedStorage:WaitForChild("UI"):WaitForChild("Theme")
 local EnemyDefs = require(ReplicatedStorage:WaitForChild("Enemies"):WaitForChild("EnemyDefs"))
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
+-- Job #119: the Rocket Man holds the SAME Bazooka the player does, welded with the SAME grip maths —
+-- scale, `holdInChar` and `gripOffset` all come from this table rather than being re-derived. Its header
+-- records three separate occasions when a weapon's orientation was guessed wrong.
+local WeaponAssets = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("WeaponAssets"))
 local ServerScriptService = game:GetService("ServerScriptService")
 local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Profiles")) :: any
 local Hints = require(ServerScriptService:WaitForChild("Progression"):WaitForChild("Hints"))
@@ -36,6 +40,11 @@ local RewardFeed = require(ServerScriptService:WaitForChild("Economy"):WaitForCh
 local Campfire = require(ServerScriptService:WaitForChild("World"):WaitForChild("Campfire"))
 local CampAmbience = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampAmbience"))
 local EnemyRig = require(ServerScriptService:WaitForChild("Enemies"):WaitForChild("EnemyRig"))
+-- Job #119: the Rocket Man fires the SAME rocket the player's Bazooka does — same module, same
+-- `RocketLaunched` broadcast, so `RocketFx` draws an incoming shell exactly like one of your own and this
+-- feature needs no client code at all. `Ballistics` resolves where it lands, shared with the client's ring.
+local Rocket = require(ServerScriptService:WaitForChild("Combat"):WaitForChild("Rocket"))
+local Ballistics = require(ReplicatedStorage:WaitForChild("Combat"):WaitForChild("Ballistics"))
 -- Models AND single parts: `GoldNugget` is a bare MeshPart (see `prop`).
 local campFloraLib: { [string]: PVInstance } = {}
 local openShop = ReplicatedStorage:WaitForChild("OpenShop") :: RemoteEvent -- village trading post (Job 023)
@@ -151,6 +160,28 @@ type GuardState = {
 	-- Per-guard sight override. The Bandit def aggros at ~95 studs; an ambusher with that much sight
 	-- walks out to meet you long before you reach the village, which is the opposite of waiting.
 	aggroRadius: number?,
+	-- ── Job #119: the Rocket Man on the watchtower ───────────────────────────────────────────────
+	--
+	-- 🔴 `pin` IS NOT A PERCH, AND IT MUST NOT BECOME ONE.
+	--
+	-- The obvious way to keep an enemy on a 36-stud platform is to reuse `perch` above. That is wrong on
+	-- both halves of what `perch` does:
+	--   · Its release is PERMANENT and by design (`perch/perchAt/perchModel` are nil'd and `seatY` is
+	--     cleared) — because a hut ambusher is SUPPOSED to come down the stairs. A rocket man never
+	--     descends, so the first frame its 4-stud floor ray misses (over the stair well, past the
+	--     railing) he is dropped to terrain height **for good**: a 36-stud fall with no way back.
+	--   · Its own header says a radius cannot describe a rectangular floor, and it costs a raycast per
+	--     perched guard per frame.
+	--
+	-- `pin` is the simpler and stricter thing: the ONE world position this guard occupies, forever. It is
+	-- re-asserted every frame from a stored Vector3 with no raycast and nothing to drift, so there is no
+	-- release condition to get wrong. `tickGuard` returns early for a pinned guard before it reaches any
+	-- of the seat/step/leash logic — which is what actually keeps him up there.
+	pin: Vector3?,
+	pinYaw: number?, -- the facing he returns to with no target, so he watches the approach, not the sky
+	tower: Model?, -- the placed tower clone: excluded from his own aim ray so he cannot shell his railing
+	fireTimer: number?, -- seconds since his last shot; his 20 s cycle
+	swingFlip: boolean?, -- alternates `attack`/`attack2` so close combat does not look canned
 }
 local guardState: { [Model]: GuardState } = {}
 
@@ -1156,6 +1187,232 @@ local function spawnGuard(
 	return guard
 end
 
+-- ── Putting the Bazooka in his hands (Job #119, requirement 2) ───────────────────────────────────
+-- 🔴 THE POSE IS SOLVED AGAINST THE **POSED** HAND, AND THAT IS COPIED FROM `InventoryService`,
+-- NOT INVENTED HERE. `WeaponAssets`' header records THREE separate failed attempts at storing a
+-- hand-relative angle instead — averaging across the ±180° wrap, a term silently vanishing on read-back,
+-- and a value that round-tripped at 0.00° error and was still ~67° off. Its conclusion is that each weapon
+-- declares the orientation it wants in CHARACTER space and the hand-relative offset is derived at weld
+-- time from the live hand:
+--       rot = handRotation⁻¹ · characterRotation · holdInChar
+--
+-- ⚠️ WHICH IS WHY THIS CANNOT BE BAKED INTO THE LIBRARY MODEL. `idle` for the Rocket Man is
+-- `ItemDefs.HOLD_ANIM` — the same carry pose that "rotates the forearm ~90°, so anything authored against
+-- the old arms-down stance broke the moment it went in". A C0 measured on the rest pose is wrong the
+-- instant that clip starts. So it waits for the animation to actually pose the rig, then solves.
+--
+-- 🔴 AND A MOTOR6D, NOT A WELDCONSTRAINT — Job #084 shipped that bug and wrote it down: *"weapon and lamp
+-- flys away from boat when move, they are like drifting"*. `RightHand` is an ANIMATED limb driven by the
+-- Animator's Motor6Ds; a WeldConstraint is a physics constraint forever chasing a limb whose motion comes
+-- from elsewhere. A Motor6D IS a rig joint, transformed alongside the limb. It is also exactly how a
+-- Roblox `Tool` attaches its Handle.
+local function equipBazooka(guard: Model)
+	local art = WeaponAssets.ART.Bazooka
+	local lib = ServerStorage:FindFirstChild("AssetLibrary")
+	local weapons = lib and lib:FindFirstChild("Weapons")
+	local source = weapons and weapons:FindFirstChild(art.model or "Bazooka")
+	if not (source and source:IsA("BasePart")) then
+		warn("[RocketMan] AssetLibrary.Weapons.Bazooka missing — he will shell you empty-handed")
+		return
+	end
+	local visual = guard:FindFirstChild("Visual")
+	local hand = visual and visual:FindFirstChild("RightHand", true)
+	local root = visual and visual:FindFirstChild("HumanoidRootPart", true)
+	if not (hand and hand:IsA("BasePart") and root and root:IsA("BasePart")) then
+		warn("[RocketMan] rig has no RightHand/HumanoidRootPart — no launcher welded")
+		return
+	end
+
+	local clone = (source :: BasePart):Clone()
+	clone.Name = "HeldItem"
+	-- Matches what `EnemyRig` did to every other part of this rig: unanchored + massless so the joint
+	-- carries it and it cannot sag the rig, non-colliding and non-queryable so it neither shoves the
+	-- player nor blocks anyone's bullets, and shadow-free like the tower it stands on.
+	clone.Anchored = false
+	clone.Massless = true
+	clone.CanCollide = false
+	clone.CanQuery = false
+	clone.CastShadow = false
+	if art.scale and math.abs(art.scale - 1) > 1e-3 then
+		clone.Size *= art.scale -- 5.548 → a 6.50-stud launcher, longer than the M16 on purpose
+	end
+
+	local rot: CFrame
+	if art.holdInChar then
+		local handRot = hand.CFrame - hand.CFrame.Position
+		local charRot = root.CFrame - root.CFrame.Position
+		rot = handRot:Inverse() * charRot * art.holdInChar
+	else
+		rot = CFrame.Angles(0, math.rad(art.yawOffset or 0), 0)
+	end
+	local grip = art.gripOffset or Vector3.zero
+	-- ⚠️ Rotation BEFORE the grip translation: `-grip` is expressed in the ROTATED frame, which is what
+	-- keeps the model's grip point in the fist however it is angled. Swap the order and it slides out.
+	clone.CFrame = hand.CFrame * rot * CFrame.new(-grip.X, -grip.Y, -grip.Z)
+	clone.Parent = visual
+
+	local joint = Instance.new("Motor6D")
+	joint.Name = "HeldGrip"
+	joint.Part0 = hand
+	joint.Part1 = clone
+	-- Preserve the pose solved above EXACTLY: Part0.CFrame * C0 == Part1.CFrame * C1 with C1 identity.
+	joint.C0 = hand.CFrame:ToObjectSpace(clone.CFrame)
+	joint.Parent = hand
+end
+
+-- ── The Rocket Man — Job #119 ─────────────────────────────────────────────────────────────────────
+-- *"Each camp will have one new enemie. This will be rocket man, who fires with bazooka… he shoots with
+-- 20 s intervals… You have some seconds to escape red circle… if you get close to enemy, you go into
+-- close combat… rocket mans only spawn at tower top."*
+--
+-- He is built through `spawnGuard` like every other camp guard, and that is deliberate: it is what gets
+-- him the `CampGuard` TAG, and the tag is what makes the player's four damage paths able to touch him at
+-- all — `WeaponServer` (handheld hitscan), `GunServer` (the boat turret), `MeleeServer` (the axe) and
+-- `Rocket.TARGET_TAGS` (your own bazooka), plus his health bar (`EnemyHealthBars`). A bespoke tag would
+-- have meant editing all five and hoping none was missed.
+--
+-- 🔴 AND THEN HE IS EXEMPTED FROM ALMOST EVERYTHING THAT TAG NORMALLY IMPLIES:
+--   · `tickGuard` returns early for him before any seat/step/leash/chase-slot logic runs (see there).
+--   · He is NOT appended to `garrisons`, so he never respawns — the owner's call, and the same
+--     deliberate omission `placeHutBandits` documents. Nothing to do; just do not add it.
+--   · The garrison respawn loop SKIPS him when it counts a camp's strength. Without that he inflates the
+--     deep camp's garrison by one for as long as he lives — and then, the moment you kill him, the count
+--     drops and the loop sends a Bandit up to replace him, which is the exact opposite of "kill him once
+--     and the tower is yours".
+--
+-- ⚠️ `padPos` MUST BE READ FROM THE PLACED CLONE, NEVER COMPUTED FROM THE LIBRARY MODEL.
+-- `prop` multiplies the tower's scale by `CampDefs.SCALE.RangerTower` (0.85) BEFORE `PivotTo`, and
+-- `Model:ScaleTo` moves part POSITIONS about the pivot as well as resizing them — so the pad's 43.69
+-- studs above the base become ~37.1, and its (-0.91, -8.09) offset becomes (-0.77, -6.88). Then
+-- `faceTo = firePos` ROTATES that offset, and `seatOnGround`'s 0.3-stud sink drops the lot again. Every
+-- hardcoded number about these pads is wrong at runtime. The caller hands us the live CFrame.
+local function spawnRocketMan(
+	pad: BasePart,
+	tower: Model,
+	parent: Instance,
+	strength: number?,
+	campPos: Vector3?
+): Model?
+	local R = CampDefs.TOWER.rocketMan
+	local def = EnemyDefs.Defs[R.type]
+	if not def then
+		warn(("[Excursion] no EnemyDefs entry %q — no rocket man on this tower"):format(R.type))
+		return nil
+	end
+	local padTop = pad.Position + Vector3.new(0, pad.Size.Y / 2, 0)
+	-- `spawnGuard` seats on TERRAIN (`groundAt`), i.e. on the dirt 36 studs below the deck — exactly the
+	-- problem `placeHutBandits` has with hut floors. Built there, then lifted onto the platform.
+	local guard = spawnGuard(Vector3.new(padTop.X, padTop.Y, padTop.Z), parent, strength, R.type, campPos)
+	local st = guardState[guard]
+	if not st then
+		return nil -- `spawnGuard` always registers state; this only fires if that ever changes
+	end
+
+	local stand = Vector3.new(padTop.X, padTop.Y + def.size.Y / 2, padTop.Z)
+	-- Face the way the pad faces. The owner placed the pad out by the railing, so its own forward is the
+	-- direction that looks over the camp — better than guessing at the approach, and it means moving the
+	-- pad in the editor re-aims him with no code change.
+	local yaw = math.atan2(pad.CFrame.LookVector.X, pad.CFrame.LookVector.Z)
+	guard:PivotTo(CFrame.new(stand) * CFrame.Angles(0, yaw, 0))
+
+	st.anchor = stand
+	st.pin = stand -- 🔴 the one position he ever occupies. See `GuardState.pin` for why this is not a perch
+	st.pinYaw = yaw
+	st.tower = tower
+	st.fireTimer = 0
+	st.aggroRadius = def.aggroRadius
+	-- 🔴 THE ATTRIBUTE IS THE SWITCH, and it is on the MODEL rather than in `guardState` on purpose:
+	-- `tickGuard` runs off the `CampGuard` tag, and the garrison respawn loop counts off that tag too —
+	-- neither has a `guardState` handle at the point it needs to ask "is this the rocket man?".
+	guard:SetAttribute("RocketMan", true)
+
+	-- ⚠️ THE LAUNCHER IS WELDED LATE, ON PURPOSE. See `equipBazooka`: the grip is solved against the hand
+	-- as the `idle` carry clip poses it, and that clip is only started by `tickRocketMan`'s first
+	-- `setMotion`, which happens on the next Heartbeat. Welding here would measure the rest pose and put
+	-- the launcher wherever the arms-down stance had the wrist.
+	task.spawn(function()
+		for _ = 1, 8 do
+			RunService.Heartbeat:Wait() -- a few frames for the Animator to actually move the arm
+		end
+		if guard.Parent then -- the landing site can be culled mid-wait
+			equipBazooka(guard)
+		end
+	end)
+
+	print(("[RocketMan] posted at %s (deck y=%.2f, %.0f studs up)"):format(
+		tostring(stand), padTop.Y, padTop.Y - (groundAt(padTop.X, padTop.Z) or padTop.Y)))
+	return guard
+end
+
+-- Put a prop on a tower pad: on the DECK, at the pad, not on the ground under it.
+--
+-- ⚠️ IT CANNOT GO THROUGH `prop()`. That function ends with
+-- `FoliageDefs.seatOnGround(clone, groundAt(x, z), …)` — it would drop the crate 36 studs down onto the
+-- terrain beneath the tower, which is where a chest placed "at the tower" would silently end up.
+local function placeOnPad(modelName: string, pad: BasePart, parent: Instance, scale: number?): PVInstance?
+	local source = campFloraLib[modelName]
+	if not source then
+		warn(("[Excursion] AssetLibrary has no %q — tower pad left empty"):format(modelName))
+		return nil
+	end
+	local clone = source:Clone()
+	local parts = clone:GetDescendants()
+	table.insert(parts, clone) -- a MeshPart source IS the part
+	for _, d in ipairs(parts) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = true -- you walk around it on a 20x20 deck
+			d.CastShadow = false -- the tower itself is placed shadow-off; a crate on it should match
+		end
+	end
+	local s = (CampDefs.SCALE[modelName] or 1) * (scale or 1)
+	if math.abs(s - 1) > 1e-3 then
+		if clone:IsA("Model") then
+			clone:ScaleTo(clone:GetScale() * s) -- RELATIVE: the importer bakes a scale into these models
+		elseif clone:IsA("BasePart") then
+			clone.Size *= s
+		end
+	end
+	-- Sit its own measured bottom on the pad's top face, and face it the way the pad faces.
+	local padTopY = pad.Position.Y + pad.Size.Y / 2
+	local yaw = math.atan2(pad.CFrame.LookVector.X, pad.CFrame.LookVector.Z)
+	clone:PivotTo(CFrame.new(pad.Position.X, pad.Position.Y, pad.Position.Z) * CFrame.Angles(0, yaw, 0))
+	local bottom = FoliageDefs.worldBottom(clone)
+	if bottom then
+		clone:PivotTo(clone:GetPivot() + Vector3.new(0, padTopY - bottom, 0))
+	end
+	clone.Parent = parent
+	return clone
+end
+
+-- The two marker pads inside a placed tower, made safe and handed back.
+--
+-- 🔴 THE `CanCollide`/`CanQuery` WRITES ARE A BUG FIX, NOT TIDINESS.
+-- The owner authored both pads `Transparency = 1`, but `prop` applies `d.CanCollide = o.collide == true`
+-- to EVERY BasePart in the clone and the tower is placed with `collide = true` (you climb it). So without
+-- this they arrive as **invisible collidable slabs** standing 1 stud proud of the deck. `CanQuery` is a
+-- separate and less obvious hazard: `GroundRing`'s header lists four unrelated systems a stray queryable
+-- part breaks, and one of them is `HudState`'s 8-stud downward "am I aboard?" probe, which would read a
+-- pad underfoot as ground.
+local function towerPads(tower: Model): (BasePart?, BasePart?)
+	local P = CampDefs.TOWER.pad
+	-- Searched recursively (`true`): the pads live inside the model's `Tower` child, and a later editor
+	-- re-organise must not silently un-man every tower in the game.
+	local defender = tower:FindFirstChild(P.defender, true)
+	local chest = tower:FindFirstChild(P.chest, true)
+	for _, p in ipairs({ defender, chest }) do
+		if p and p:IsA("BasePart") then
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Transparency = 1 -- re-asserted: these are markers, never geometry
+			p.CastShadow = false
+		end
+	end
+	return (if defender and defender:IsA("BasePart") then defender else nil),
+		(if chest and chest:IsA("BasePart") then chest else nil)
+end
+
 -- The `LootPrompt` wiring, identical for every kind of crate. Name, hold duration, activation distance
 -- and the `Triggered` → `pickupLoot` connection are all exactly what the greybox had — only the object
 -- the prompt hangs off changed.
@@ -1202,7 +1459,14 @@ local function buildCampAt(
 	kind: CampDefs.CampKind,
 	approach: Vector3,
 	rng: Random,
-	strength: number? -- per-village HP/bite multiplier; nil = 1 (village 1)
+	strength: number?, -- per-village HP/bite multiplier; nil = 1 (village 1)
+	-- Job #119: is this the TUTORIAL landing? Only `CampDefs.TOWER.rocketMan.skipFirstLanding` reads it.
+	-- ⚠️ It exists because Job #102 hardcoded landing 1 to 1 near / 2 deep guards for an ONBOARDING reason
+	-- that is written out in full at that override — *"first time players just confused when 2 attack same
+	-- time"*, "first contact has to be legible". A ranged attacker who shells you from a tower before you
+	-- have learned that going ashore is a thing at all is squarely inside that concern, so the tutorial
+	-- landing gets no rocket man by default. Flip the flag in `CampDefs` to put one there.
+	firstLanding: boolean?
 ): Garrison
 	-- ⚠️ Job #100 — the layout is GENERATED now, not read from one fixed table.
 	--
@@ -1306,7 +1570,44 @@ local function buildCampAt(
 	local towerSlot = L.tower
 	if kind.tower and towerSlot then
 		local t = at(towerSlot)
-		prop(CampDefs.MODEL.tower, t.X, t.Z, parent, { collide = true, shadow = false, faceTo = firePos })
+		-- 🔴 Job #119: THE RETURN VALUE IS KEPT NOW. It used to be discarded, and two things need it:
+		--   1. the `Defender`/`InnerPlace` marker pads live inside THIS clone, and their world CFrames are
+		--      the only honest source of where the deck is (scale, sink and yaw all move them);
+		--   2. the tower must be excluded from the Rocket Man's own aim ray, or `Ballistics.resolveImpact`
+		--      returns the first thing the ray hits — which, firing down at someone near the base, is his
+		--      own railing, floor edge or stairs. `prop` set all 128 of those parts `CanCollide = true`
+		--      and left `CanQuery` alone, so every one of them is a ray-blocker.
+		local towerInst = prop(CampDefs.MODEL.tower, t.X, t.Z, parent, { collide = true, shadow = false, faceTo = firePos })
+		local tower = if towerInst and towerInst:IsA("Model") then towerInst :: Model else nil
+		if tower then
+			local defenderPad, chestPad = towerPads(tower)
+
+			-- The loot chest, on EVERY tower (owner's call) — the reward for a 36-stud climb.
+			if chestPad then
+				local C = CampDefs.TOWER.chest
+				local crate = placeOnPad(C.model, chestPad, parent, C.scale)
+				if crate then
+					crate.Name = "LootCrate"
+					crate:SetAttribute("Kind", "Salvage")
+					crate:SetAttribute("Amount", rng:NextInteger(C.salvage[1], C.salvage[2]))
+					lootPrompt(crate, "Search")
+				end
+			else
+				warn(("[Excursion] tower has no %q pad — no chest on this platform")
+					:format(CampDefs.TOWER.pad.chest))
+			end
+
+			-- The Rocket Man, on this camp kind only — which is what makes it ONE per landing site.
+			local R = CampDefs.TOWER.rocketMan
+			if kind.name == R.onKind and not (R.skipFirstLanding and firstLanding) then
+				if defenderPad then
+					spawnRocketMan(defenderPad, tower, parent, strength, campPos)
+				else
+					warn(("[Excursion] tower has no %q pad — no rocket man on this tower")
+						:format(CampDefs.TOWER.pad.defender))
+				end
+			end
+		end
 	end
 
 	-- Loose dressing so the camp isn't only functional objects. Non-colliding: a firefight in a camp
@@ -2176,8 +2477,8 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	local deepApproach = (deepPos - nearPos) * Vector3.new(1, 0, 1)
 	deepApproach = if deepApproach.Magnitude > 0.01 then deepApproach.Unit else nearApproach
 
-	local nearGarrison = buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng, strength) -- 2 gas → a haul can fund skipping a stop (Job 054)
-	local deepGarrison = buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng, strength)
+	local nearGarrison = buildCampAt(nearPos, model, nearGuards, { "Gasoline", "Gasoline" }, CampDefs.KIND.near, nearApproach, rng, strength, index == 1) -- 2 gas → a haul can fund skipping a stop (Job 054)
+	local deepGarrison = buildCampAt(deepPos, model, deepGuards, { "Metal", "Ammo" }, CampDefs.KIND.deep, deepApproach, rng, strength, index == 1)
 
 	-- village trading post (Job 023): between the shore and the first camp, reached on foot after tying up
 	--
@@ -2294,6 +2595,147 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	end
 end
 
+-- ── The Rocket Man's tick — Job #119 ─────────────────────────────────────────────────────────────
+-- Runs INSTEAD of `tickGuard`'s body (see the branch below), not alongside it.
+--
+-- 🔴 WHY IT REPLACES `tickGuard` RATHER THAN EXTENDING IT.
+-- Six separate things in that function assume a guard stands on terrain and walks:
+--   · `seatY` is re-derived from `groundAt`, which filters to Terrain ONLY and additionally throws away
+--     any hit above `CLEAR_Y + BASIN_RISE` as a leftover stump — so it can never return a deck height,
+--     and its failure path returns `CLEAR_Y + 2.5`. A tower guard is re-seated onto the dirt inside one
+--     frame, and every frame after.
+--   · movement is XZ-only with a horizontal stop distance, so a player 40 studs out horizontally reads as
+--     40 studs away and he walks at the railing at full speed. `CanCollide` is false on the whole rig, so
+--     the railing does not stop him.
+--   · the bite gate is 3D, so from 36 studs up he could never reach anyone anyway — he would stand at the
+--     edge in a run-in-place animation forever.
+--   · the chase-slot budget is 2 per camp and a slot is held for as long as a guard has a target. A
+--     stationary sniper with 160 studs of sight holds one from the moment you enter the camp until he
+--     dies, halving the ground pressure the rest of the garrison can apply.
+--   · the leash clamp is a hard reposition, not a speed limit.
+--   · `setMotion("move")` would play the Bandit's RUN clip on a man holding a position.
+-- Every one of those is avoided by not running any of it.
+local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardState, dt: number)
+	local R = CampDefs.TOWER.rocketMan
+	local pin = st.pin
+	if not pin then
+		return -- not actually posted (should not happen); do nothing rather than guess a position
+	end
+	-- ⚠️ Distances below are measured from `pin`, NOT from `body.Position`. They are the same value by
+	-- construction (the pin is re-asserted every frame), and using the pin means the reads cannot be
+	-- perturbed by a frame in which something else has moved the rig.
+	local alerted = (st.alertUntil ~= nil) and (os.clock() < (st.alertUntil :: number))
+
+	-- ── acquire ───────────────────────────────────────────────────────────────────────────────────
+	-- ⚠️ BOUNDED EVEN WHEN ALERTED, and that is deliberately unlike `tickGuard`. There, being alerted sets
+	-- the search distance to `math.huge` — fine for a guard that then has to run to you, incoherent for a
+	-- man with a 300-stud weapon, who would otherwise shell someone 900 studs downriver who shot him once.
+	-- Alerted widens his sight to the weapon's own reach and no further.
+	local sight = if alerted then R.range else (st.aggroRadius or def.aggroRadius)
+	local target: BasePart? = nil
+	local bestD = sight
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		-- Skips a DOWNED player for the same reason `tickGuard` does: they are out of the fight, and
+		-- `PlayerCombat` pins their WalkSpeed to 0 — a downed crewmate cannot leave a red circle, so
+		-- shelling them would be the one case where the telegraph is impossible to answer.
+		if root and char and not char:GetAttribute("Downed") then
+			local d = (root.Position - pin).Magnitude
+			if d <= bestD then
+				target, bestD = root, d
+			end
+		end
+	end
+
+	-- ── hold the post ─────────────────────────────────────────────────────────────────────────────
+	-- The ONLY thing he ever writes is his yaw. Position is re-asserted from `pin` every frame, so there
+	-- is nothing to drift and no raycast to miss. With no target he returns to the pad's own facing, which
+	-- the owner aimed over the camp when they placed it.
+	local yaw = st.pinYaw or 0
+	if target then
+		local flat = Vector3.new(target.Position.X - pin.X, 0, target.Position.Z - pin.Z)
+		if flat.Magnitude > 0.01 then
+			yaw = math.atan2(flat.Unit.X, flat.Unit.Z)
+		end
+	end
+	guard:PivotTo(CFrame.new(pin) * CFrame.Angles(0, yaw, 0))
+
+	-- He never walks, so he is never in the `move` clip. `EnemyAssets.RocketMan` sets no `move` id at all.
+	EnemyRig.setMotion(guard, "idle")
+	if target and not st.roared then
+		st.roared = true
+		EnemyRig.playSound(guard, "aggro") -- the "he has seen you" cue, BEFORE the first shell
+	elseif not target then
+		st.roared = false
+	end
+
+	if not target then
+		st.fireTimer = 0 -- no banking a shot while nobody is in sight, so arriving is never punished instantly
+		return
+	end
+
+	-- ── close combat (requirement 5) ──────────────────────────────────────────────────────────────
+	-- 3D distance, so "close" means ON THE PLATFORM WITH HIM, not 16 studs below his feet.
+	if bestD <= R.meleeRange then
+		-- ⚠️ The fire timer is HELD, not reset: backing off the platform must not buy you a fresh 20 s.
+		st.biteTimer += dt
+		if st.biteTimer >= def.biteCooldown then
+			st.biteTimer = 0
+			-- Two swings, alternated — the same trick `MeleeServer` uses on the player's own melee "so
+			-- repeated swings do not look canned". This is requirement 6.
+			st.swingFlip = not st.swingFlip
+			EnemyRig.playOnce(guard, if st.swingFlip then "attack" else "attack2")
+			EnemyRig.playSound(guard, "attack")
+			local char = target.Parent
+			if char and char:IsA("Model") then
+				local bite = ((guard:GetAttribute("BiteDamage") :: number?) or def.biteDamage) * EnemyDefs.DAMAGE_SCALE
+				-- 🔴 POST-REVIVE GRACE. Same check, same reason, same clock as `tickGuard`'s bite: there is
+				-- NO single chokepoint for player damage, so every site that writes a player's `HP` has to
+				-- re-check this or it punches a hole in the invincibility window.
+				if Workspace:GetServerTimeNow() >= (((char:GetAttribute("InvincibleUntil") :: number?)) or 0) then
+					char:SetAttribute("HP", math.max(0, ((char:GetAttribute("HP") :: number?) or 0) - bite))
+				end
+			end
+		end
+		return -- 🔴 in melee he does NOT also shell his own feet
+	end
+
+	-- ── the 20-second shell (requirement 4) ───────────────────────────────────────────────────────
+	st.fireTimer = (st.fireTimer or 0) + dt
+	if st.fireTimer < R.fireInterval then
+		return
+	end
+	-- 🔴 TOO CLOSE TO FIRE. The blast radius is 30 and friendly fire is ON, so without this floor he drops
+	-- a crater on the foot of his own tower — hitting the guards below him and, because he wears the
+	-- `CampGuard` tag himself, potentially his own HP.
+	if bestD < R.minFireRange then
+		return -- hold the shot (and the accumulated timer): he fires the moment you back off
+	end
+
+	-- The muzzle: chest height at the pad, not the hitbox centre, so the shell leaves the man rather than
+	-- his shins and the ray starts above the deck's own floor.
+	local origin = pin + Vector3.new(0, def.size.Y * 0.25, 0)
+	-- ⚠️ HIS OWN RIG **AND** THE TOWER GO IN `ignore`. `Ballistics.resolveImpact` returns the FIRST thing
+	-- the ray meets, and `prop` made all 128 tower parts collidable while leaving them queryable — so
+	-- firing down at someone near the base otherwise detonates on his own railing or the stair well.
+	local ignore: { Instance } = { guard }
+	if st.tower then
+		table.insert(ignore, st.tower :: Instance)
+	end
+	local impact = Ballistics.resolveImpact(origin, target.Position, R.range, ignore)
+
+	st.fireTimer = 0
+	EnemyRig.playOnce(guard, "fire")
+	EnemyRig.playSound(guard, "attack")
+	-- Same module and same broadcast as the player's own Bazooka, so the red warning ring, the 4-second
+	-- arc, the whistle and both impact clips all arrive with no client code. `launchEnemy` (NOT `launch`)
+	-- is what makes the crater hit players, the boat and his own side — see `Rocket.luau`.
+	Rocket.launchEnemy(origin, impact, R.blast)
+	print(("[RocketMan] FIRE at %s (%.0f studs)%s"):format(
+		tostring(impact), bestD, if alerted then " [alerted]" else ""))
+end
+
 -- guard AI: chase the nearest on-foot player, leashed to the camp; bite = damage player HP
 local function tickGuard(guard: Model, dt: number)
 	-- Job #086: read the per-guard type (Bandit or Wolf). Falls back to Bandit so a guard built before
@@ -2315,6 +2757,18 @@ local function tickGuard(guard: Model, dt: number)
 		guardState[guard] = nil
 		EnemyRig.playSound(guard, "death")
 		EnemyRig.destroy(guard) -- NOT :Destroy() — the rig holds AnimationTracks
+		return
+	end
+	-- 🔴 Job #119 — THE ROCKET MAN BRANCHES OUT HERE, AND THE POSITION OF THIS LINE MATTERS.
+	--
+	-- It is placed AFTER the `def` lookup, the no-state destroy and the DEATH block above — all of which
+	-- he wants and all of which are correct for him (his death frees no chase slot because he never takes
+	-- one, and `EnemyRig.destroy` is what releases his AnimationTracks). It is placed BEFORE `st.biteTimer`
+	-- and everything below, because from here down the function assumes a guard that stands on terrain and
+	-- walks toward its target — see `tickRocketMan`'s header for the six ways that breaks a man on a
+	-- 36-stud platform. He owns his own bite timing.
+	if guard:GetAttribute("RocketMan") == true then
+		tickRocketMan(guard, def, st, dt)
 		return
 	end
 	st.biteTimer += dt
@@ -2571,6 +3025,21 @@ task.spawn(function()
 			end
 			local alive = 0
 			for _, guard in CollectionService:GetTagged("CampGuard") do
+				-- 🔴 Job #119 — THE ROCKET MAN IS NOT PART OF THE GARRISON, AND SKIPPING HIM FIXES TWO BUGS.
+				--
+				-- This count is a PROXY for camp membership: "any `CampGuard` within GUARD_COUNT_RANGE (90)
+				-- studs of the camp centre". The tower slot is `LAYOUT.tower` = {-44, -26}, i.e. ~51 studs
+				-- out — and `CampLayout` can push it to ~70. Either way, comfortably inside 90. So without
+				-- this line:
+				--   1. while he is alive `alive` is inflated by one, `alive >= g.target` holds, `g.timer` is
+				--      reset every tick, and the deep camp NEVER re-garrisons for the whole run;
+				--   2. and the moment you kill him `alive` drops below target, so the loop sends a BANDIT up
+				--      to replace him — the exact opposite of the owner's "kill him once and the tower is
+				--      yours", and it would look like the rocket man respawning as the wrong enemy.
+				-- He is deliberately absent from `garrisons` for the same reason; this is the other half.
+				if guard:GetAttribute("RocketMan") == true then
+					continue
+				end
 				if guard:IsA("Model") and guard.Parent then
 					local body = guard.PrimaryPart
 					if body and ((guard:GetAttribute("HP") :: number?) or 0) > 0 then

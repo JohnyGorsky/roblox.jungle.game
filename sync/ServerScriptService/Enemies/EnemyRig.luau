@@ -245,6 +245,80 @@ function EnemyRig.build(def: EnemyDefs.EnemyDef, pos: Vector3, parent: Instance)
 
 		local vparts = visual:GetDescendants()
 		table.insert(vparts, visual) -- a MeshPart source IS the part; it has no BasePart descendants
+
+		-- 🔴 Job #119 — WELD NESTED ACCESSORY PARTS TO THEIR BODY PART **BEFORE** UNANCHORING THEM.
+		--
+		-- A published character rig often carries its gear as loose parts nested under a body part —
+		-- `Head > Model > …` for a helmet, `UpperTorso > Model > …` for a plate carrier — held in place by
+		-- nothing but `Anchored = true`. That is fine in ServerStorage and fine for a static prop, and it
+		-- is a disaster two lines below: the moment a Humanoid rig unanchors everything but its root, those
+		-- parts are free bodies with no joint. They drop off the model, fall past
+		-- `Workspace.FallenPartsDestroyHeight` (-500) and are DESTROYED BY THE ENGINE.
+		--
+		-- ⚠️ AND THE SYMPTOM DOES NOT LOOK LIKE A BUG. Nothing errors, nothing warns, the creature still
+		-- walks and fights and animates — it has just quietly undressed. Measured on the Job #119
+		-- `ArmySoldier`: the library model is 85 parts, the live rig was **17**, and the 68 that vanished
+		-- were the entire helmet and vest, i.e. everything that made him read as a soldier rather than as a
+		-- man in a green shirt. It took a part-count comparison against the library to see it at all.
+		--
+		-- 🔴 A `Weld`, NOT A `WeldConstraint`, AND THAT IS JOB #084's FINDING REUSED.
+		-- The host here is an ANIMATED limb, driven every frame by the Animator's Motor6Ds. #084 shipped a
+		-- `WeldConstraint` onto `RightHand` and it was reported in play as *"weapon and lamp flys away from
+		-- boat when move, they are like drifting"* — a physics constraint is forever chasing a limb whose
+		-- motion comes from somewhere else. A `Weld` is a JointInstance, in the same family as the Motor6D
+		-- driving the limb, and is transformed alongside it.
+		--
+		-- Existing rigs are UNAFFECTED: measured, `WesternBandit`, `Wolf` and `Boar` have zero parts nested
+		-- under another part, so this pass finds nothing to do on them.
+		if humanoid then
+			-- Every part already spoken for by some joint — those are the rig's own limbs, and re-welding
+			-- one to its neighbour would fight the animation.
+			local jointed: { [BasePart]: true } = {}
+			for _, j in ipairs(vparts) do
+				if j:IsA("JointInstance") or j:IsA("WeldConstraint") then
+					local any = j :: any
+					if any.Part0 then
+						jointed[any.Part0] = true
+					end
+					if any.Part1 then
+						jointed[any.Part1] = true
+					end
+				end
+			end
+			-- The host is the NEAREST BasePart ANCESTOR, so a part buried three Models deep inside a
+			-- helmet still welds to the Head rather than to the Model in between (which has no CFrame).
+			local function hostOf(part: BasePart): BasePart?
+				local cur: Instance? = part.Parent
+				while cur and cur ~= visual do
+					if cur:IsA("BasePart") then
+						return cur
+					end
+					cur = cur.Parent
+				end
+				return nil
+			end
+			local welded = 0
+			for _, d in ipairs(vparts) do
+				if d:IsA("BasePart") and d ~= rootPart and not jointed[d] then
+					local host = hostOf(d)
+					if host then
+						local w = Instance.new("Weld")
+						w.Name = "AccessoryWeld"
+						w.Part0 = host
+						w.Part1 = d
+						-- Captures the pose EXACTLY as authored: Part0.CFrame * C0 == Part1.CFrame * C1.
+						w.C0 = host.CFrame:ToObjectSpace(d.CFrame)
+						w.Parent = host
+						welded += 1
+					end
+				end
+			end
+			if welded > 0 then
+				print(("[EnemyRig] %s: welded %d loose accessory part(s) to their body parts (they would "
+					.. "otherwise have fallen off and been destroyed)"):format(def.name, welded))
+			end
+		end
+
 		for _, d in ipairs(vparts) do
 			if d:IsA("BasePart") then
 				d.Anchored = if humanoid then (d == rootPart) else true

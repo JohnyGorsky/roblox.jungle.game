@@ -511,6 +511,11 @@ CampDefs.SOUND = {
 -- Same code path, different table — which is how a trading village reads as a different KIND of place
 -- rather than the same camp with an extra building.
 export type CampKind = {
+	-- Job #119: which kind this IS, so a caller can gate on it. Added because the Rocket Man goes on the
+	-- DEEP camp's tower only, and `buildCampAt` receives the kind TABLE with nothing on it to test.
+	-- ⚠️ A named field rather than `kind == CampDefs.KIND.deep`: table identity holds today (both call
+	-- sites pass these very tables) but breaks silently the first time anyone builds a camp from a copy.
+	name: string,
 	hut: string,
 	extraDressing: number,
 	sandbags: boolean,
@@ -518,8 +523,117 @@ export type CampKind = {
 }
 
 CampDefs.KIND = {
-	near = { hut = CampDefs.MODEL.hut, extraDressing = 1, sandbags = true, tower = true } :: CampKind,
-	deep = { hut = CampDefs.MODEL.hutAlt, extraDressing = 2, sandbags = true, tower = false } :: CampKind,
+	near = { name = "near", hut = CampDefs.MODEL.hut, extraDressing = 1, sandbags = true, tower = true } :: CampKind,
+	-- ⚠️ Job #119: `deep.tower` was FALSE. Turned on so the deep camp has a watchtower for the Rocket Man
+	-- to stand on — the owner's call was one rocket man per landing site, at the FAR camp, where the Metal
+	-- and Ammo crates are, so the shelling guards the good loot. The near camp keeps its (now unmanned)
+	-- tower because it is the tall silhouette you see from the water when you arrive.
+	-- 🔴 THIS IS THE COST OF THE JOB: a second 128-part tower per landing site. 1-2 sites are live at once.
+	deep = { name = "deep", hut = CampDefs.MODEL.hutAlt, extraDressing = 2, sandbags = true, tower = true } :: CampKind,
+}
+
+-- ── The watchtower's top platform — Job #119 ──────────────────────────────────────────────────────
+-- The owner edited `AssetLibrary.Structures.RangerTower` by hand and put two invisible 4x1x2 marker pads
+-- inside its `Tower` child, both **0.69 studs above the platform floor's top face**. This table is the one
+-- place their names and everything hanging off them is written down; `ExcursionServer` reads it and owns no
+-- decision about what a tower contains.
+--
+-- 🔴 BOTH PADS MUST BE MADE INTANGIBLE WHEN THE TOWER IS PLACED, AND THAT IS A BUG FIX, NOT TIDINESS.
+-- `prop()` applies `d.CanCollide = o.collide == true` to EVERY BasePart in the clone, and the tower is
+-- placed with `collide = true` (you climb it). So as authored these two pads arrive in the world as
+-- **invisible collidable slabs** on the deck. `CanQuery` matters separately and for a different reason:
+-- `GroundRing`'s header lists four unrelated systems a stray queryable part breaks — other players'
+-- bullets, the boat camera, the bazooka's own aim ray, and `HudState`'s 8-stud "am I aboard?" probe, which
+-- would read a pad underfoot as ground.
+CampDefs.TOWER = {
+	-- Marker pad names, as the owner named them inside `RangerTower.Tower`.
+	pad = {
+		defender = "Defender", -- out near the railing: where the Rocket Man stands and fires
+		chest = "InnerPlace", -- inboard: where the loot chest sits
+	},
+
+	-- ── The loot chest, on BOTH towers (owner's call) ─────────────────────────────────────────────
+	-- ⚠️ `AmmoBox` rather than `Barrel` or `CrateWood`, and the choice is not arbitrary: it is the military
+	-- crate (22 parts) the camps already use for weapon caches, so it reads as belonging on a ranger tower
+	-- instead of looking like the sixth identical barrel in the camp. `CrateWood` would have been the
+	-- "hero" read at **66 parts**, and there are two of these per landing site on top of two towers.
+	--
+	-- ⚠️ 45-70 salvage against a village hut stash's 25-40 and a yard barrel's 12-22. Higher because the
+	-- reward has to pay for a 36-stud climb, and at the deep tower for killing the Rocket Man first. Two
+	-- chests per site therefore add ~90-140 salvage to a run; the run economy is tuned against 4 resource
+	-- crates per site, and this is SALVAGE (spent at the trading post), not carried cargo, so it does not
+	-- touch the one-at-a-time carry loop.
+	--
+	-- ⚠️ AND IT IS NOT AMMO, despite the model. Making it top up Bazooka rockets was considered and
+	-- rejected: `ItemDefs.Bazooka` has NO `ammoPerCrate` on purpose, and that absence is the only thing
+	-- holding 6 rockets as a hard per-run cap on a 250 R$ purchase (see MonetizationDefs).
+	chest = {
+		model = "AmmoBox",
+		salvage = { 45, 70 },
+		scale = 0.85, -- the platform is 20x20 and the crate shares it with a soldier
+	},
+
+	-- ── The Rocket Man ───────────────────────────────────────────────────────────────────────────
+	-- ⚠️ `onKind` is what makes "one enemy per landing site" true: only the camp of this kind gets one, so
+	-- the near camp's tower stays empty. Change this string to `"near"` to move him, or drop the check to
+	-- have one on every tower.
+	rocketMan = {
+		onKind = "deep",
+		type = "RocketMan", -- the `EnemyDefs` def, and therefore the `EnemyAssets.ART` entry
+
+		-- ── ⚠️ THE ONE OPEN QUESTION IN THIS FEATURE, AND IT IS A ONE-WORD ANSWER ─────────────────
+		-- `false` = EVERY landing site gets a rocket man, including the FIRST one. That is the literal ask
+		-- ("each camp will have one new enemie"), so it is the default: narrowing the owner's scope on our
+		-- own initiative is not ours to do.
+		--
+		-- 🔴 BUT IT COLLIDES WITH A DOCUMENTED DECISION, so read that before leaving it. Job #102 hardcodes
+		-- landing 1 to 1 near / 2 deep guards, and its comment block gives the reason as ONBOARDING, not
+		-- difficulty: *"first camp has too many enemies when i land"*, *"first time players just confused
+		-- when 2 attack same time"*, "first contact has to be legible". A ranged attacker who opens fire
+		-- from 160 studs away, before the player has learned that going ashore is a thing at all, is
+		-- squarely inside that concern — and unlike a guard you cannot walk away from him.
+		--
+		-- Set to `true` to exempt the tutorial landing and leave every later one shelled.
+		skipFirstLanding = false,
+
+		-- 🔴 20 SECONDS BETWEEN SHOTS — the owner's number, verbatim. For scale, the PLAYER's Bazooka
+		-- reload is 5 s, so he fires at a quarter of your rate; the threat is that you cannot shoot back
+		-- from where his shells land.
+		fireInterval = 20,
+
+		-- 🔴 HE WILL NOT FIRE AT A TARGET CLOSER THAN THIS, AND THE NUMBER IS DERIVED.
+		-- The blast radius is 30. Without a floor he drops a 30-stud crater on the foot of his own tower —
+		-- and because friendly fire is on and he wears the `CampGuard` tag, on HIMSELF and on every guard
+		-- standing under him. 48 puts the crater's rim ~18 studs clear of the tower base.
+		minFireRange = 48,
+
+		-- How close a player has to get before he stops shelling and starts swinging. Deliberately just
+		-- over `EnemyDefs.RocketMan.biteRange` (14) so there is no dead band where he neither fires nor
+		-- fights: inside `meleeRange` he is in close combat, outside it he is a mortar.
+		meleeRange = 16,
+
+		-- ── What his shell does. NOT `ItemDefs.Bazooka`'s numbers. ─────────────────────────────────
+		-- The player's rocket does **300** in the same radius, which one-shots every land threat in the
+		-- game. Pointed at a 100-HP player that is not a weapon, it is a delete button — so the owner set
+		-- these independently: 40 across the inner 15 studs, falling to 10 at the rim.
+		--
+		-- For scale: a camp guard bites for 5.53, so ignoring the ring costs about seven bites at once. A
+		-- walking player covers 64 studs in the 4 s flight against a 30-stud radius, so MOVING AT ALL
+		-- clears it and standing still is the only thing that gets punished. That is the mechanic.
+		blast = {
+			flightTime = 4.0, -- matches the player's rocket, so the 4 s of whistle audio still lines up
+			blastDamage = 40,
+			blastRadius = 30,
+			blastInner = 0.5, -- the inner 15 studs take the full 40
+			blastMinFactor = 0.25, -- and the rim takes 10
+		},
+
+		-- Max distance the shot itself can reach, handed to `Ballistics.resolveImpact`. Left at the
+		-- Bazooka's 300 rather than lowered to his 160-stud sight: sight is what he acquires you at, range
+		-- is how far the shell flies, and clamping range below sight would make him fire at a point short
+		-- of the target he is looking at.
+		range = 300,
+	},
 }
 
 -- ── Tags ──────────────────────────────────────────────────────────────────────────────────────────

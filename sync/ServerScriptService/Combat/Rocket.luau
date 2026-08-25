@@ -18,6 +18,7 @@
 -- Streaming — a locally-created part cannot stream out from under its own flight.
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players") -- Job #119: the enemy blast damages players; the player's never does
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
@@ -180,6 +181,152 @@ function Rocket.launch(player: Player, def: ItemDefs.ItemDef, origin: Vector3, i
 	local name = player.Name
 	task.delay(flight, function()
 		blast(name, player, impact, def)
+	end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════════════════════════
+-- THE ENEMY-FIRED ROCKET — Job #119 (the Rocket Man on the camp watchtower)
+-- ══════════════════════════════════════════════════════════════════════════════════════════════════
+--
+-- 🔴 WHY THIS LIVES IN THIS FILE, AND WHY IT IS A SECOND FUNCTION RATHER THAN A FLAG.
+--
+-- It is HERE because the `RocketLaunched` RemoteEvent is *created* above, by this module. A separate
+-- module creating its own would hand every client two remotes and half the rockets would go undrawn; a
+-- separate module `WaitForChild`-ing this one would add a server-module load-order dependency for no
+-- benefit. One file owns the rocket.
+--
+-- It is a SEPARATE FUNCTION because the two blasts want **opposite** target sets, and the header at the
+-- top of this file spends fifteen lines explaining that the player's blast is safe *by construction* —
+-- it iterates three tags rather than filtering players out, precisely so that a later edit cannot
+-- quietly drop the filter. Merging these two behind a `hitsPlayers` boolean throws that away: it is
+-- exactly the shape in which the PLAYER's rocket eventually learns to kill the crew and sink the boat.
+-- Two functions, two target sets, no shared branch.
+--
+--            │ `blast` (player-fired)        │ `enemyBlast` (rocket-man-fired)
+--   ─────────┼───────────────────────────────┼──────────────────────────────────────────
+--   players  │ NEVER                         │ yes — the owner's call
+--   the boat │ NEVER                         │ yes — the owner's call
+--   the tags │ yes                           │ yes (friendly fire — his shell hurts his own camp)
+--   reward   │ credited to the shooter       │ NONE — nobody fired it
+--
+-- ⚠️ THE MISSING `KillReward` IS A DECISION, NOT AN OVERSIGHT. `onEnemyDamaged` needs a Player, and there
+-- is no player here — but more importantly, paying out for tower-inflicted kills would hand the player a
+-- strategy of standing next to the garrison and letting the tower farm it for them.
+--
+-- The two share `Ballistics.blastFactor`, so the falloff curve — and therefore the promise the red ring
+-- makes about its own rim — stays one calculation for both sides of the fight.
+
+export type BlastSpec = {
+	flightTime: number,
+	blastDamage: number,
+	blastRadius: number,
+	blastInner: number,
+	blastMinFactor: number,
+}
+
+-- 🔴 EVERY SITE THAT WRITES A PLAYER'S `HP` MUST RE-CHECK THESE TWO. There is no chokepoint.
+-- `tickGuard`'s bite says so in as many words, and Job #103 shipped the bug this prevents: a revive puts
+-- the player back on the spot they went down with everything that killed them still adjacent, so without
+-- the grace window they are re-downed on the frame they stand up. A live 30-stud crater is the worst
+-- possible place for that, because the rocket lands 4 s after anyone could have reacted to it.
+local function canHurtPlayer(char: Model): boolean
+	if char:GetAttribute("Downed") == true then
+		return false -- already out of the fight; do not re-damage a downed crewmate
+	end
+	return Workspace:GetServerTimeNow() >= (((char:GetAttribute("InvincibleUntil") :: number?)) or 0)
+end
+
+-- Like `blast`, EVERY TARGET IS FOUND AT IMPACT TIME AND NOTHING IS CAPTURED AT LAUNCH — the reasoning in
+-- `blast`'s header applies unchanged (4 s is long enough for the whole landing site to be culled, and the
+-- first `SetAttribute` on a destroyed instance throws and aborts the rest of the crater).
+local function enemyBlast(impact: Vector3, spec: BlastSpec)
+	local radius, damage = spec.blastRadius, spec.blastDamage
+	if damage <= 0 or radius <= 0 then
+		return
+	end
+	local inner, minFactor = spec.blastInner, spec.blastMinFactor
+	local hits = 0
+
+	local function apply(what: Instance, name: string, pos: Vector3)
+		local dist = (pos - impact).Magnitude
+		local factor = Ballistics.blastFactor(dist, radius, inner, minFactor)
+		if factor <= 0 then
+			return
+		end
+		local before = (what:GetAttribute("HP") :: number?) or 0
+		if before <= 0 then
+			return -- already dead/wrecked and awaiting its reaper
+		end
+		local dealt = damage * factor
+		local after = math.max(0, before - dealt)
+		what:SetAttribute("HP", after)
+		hits += 1
+		print(string.format(
+			"[EnemyRocket] BLAST %s  %.1f studs  x%.2f  HP %.1f -> %.1f%s",
+			name, dist, factor, before, after, if after <= 0 then "  (DOWN)" else ""
+		))
+	end
+
+	-- 1. PLAYERS. Measured from `HumanoidRootPart`, the same part `tickGuard` measures a target from, so
+	--    "am I in the ring" means the same thing to the shell as it does to the guards.
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if char and root and char:IsDescendantOf(Workspace) and canHurtPlayer(char) then
+			apply(char, player.Name, root.Position)
+		end
+	end
+
+	-- 2. THE BOAT. `EnemyServer` keeps the hull's health in the same `HP` attribute the creatures use, so
+	--    nothing special is needed — but it is found by name here rather than captured, because the boat
+	--    is rebuilt on respawn (`BoatServer:80` destroys the old one).
+	local boat = Workspace:FindFirstChild("Boat")
+	if boat and boat:IsA("Model") then
+		local hull = boat.PrimaryPart or boat:FindFirstChild("Hull")
+		if hull and hull:IsA("BasePart") then
+			apply(boat, "Boat", hull.Position)
+		end
+	end
+
+	-- 3. FRIENDLY FIRE. The same three tags the player's rocket uses — enemies, camp guards and generators
+	--    — because the owner's call was that his shell hurts whatever is in the crater. ⚠️ Including the
+	--    rocket man himself, who wears the `CampGuard` tag: that is why `tickRocketMan` refuses to fire at
+	--    anything closer than `MIN_FIRE_RANGE`, which puts the crater rim clear of his own tower.
+	local seen: { [Model]: true } = {}
+	for _, tag in ipairs(TARGET_TAGS) do
+		for _, inst in ipairs(CollectionService:GetTagged(tag)) do
+			if not inst:IsA("Model") or seen[inst] then
+				continue
+			end
+			if inst.Parent == nil or not inst:IsDescendantOf(Workspace) then
+				continue
+			end
+			local ok, pivot = pcall(function()
+				return inst:GetPivot().Position
+			end)
+			if ok then
+				seen[inst] = true
+				apply(inst, inst.Name, pivot)
+			end
+		end
+	end
+
+	print(string.format("[EnemyRocket] impact at %s — %d target(s)", tostring(impact), hits))
+end
+
+-- `impact` has already been resolved by the caller through `Ballistics.resolveImpact`, so the point the
+-- clients draw and the point the blast goes off at are the same value rather than two computations of it.
+--
+-- ⚠️ IT BROADCASTS ON THE SAME REMOTE AS THE PLAYER'S ROCKET, AND THAT IS THE WHOLE TRICK.
+-- `RocketFx.local.luau` is a pure listener that knows nothing about who fired — so the red warning ring,
+-- the 4-second arc, the whistle, the shockwave and the two impact clips all arrive for free, and an
+-- incoming shell looks and sounds exactly like one of your own. Zero client-side work for this feature.
+function Rocket.launchEnemy(origin: Vector3, impact: Vector3, spec: BlastSpec)
+	local flight = spec.flightTime
+	local arc = Ballistics.arcHeightFor((impact - origin).Magnitude)
+	remote:FireAllClients(origin, impact, flight, arc, spec.blastRadius)
+	task.delay(flight, function()
+		enemyBlast(impact, spec)
 	end)
 end
 
