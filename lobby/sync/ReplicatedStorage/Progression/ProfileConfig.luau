@@ -40,6 +40,12 @@ ProfileConfig.DATA_VERSION = 1
 
 ProfileConfig.GOLD_ATTRIBUTE = "Gold" -- server mirrors gold to this player attribute (auto-replicates)
 
+-- Job #117: which `runGrants` keys `Profiles._publish` mirrors to `RunGrant_<key>` player attributes.
+-- ⚠️ LIVES HERE, NOT IN `MonetizationDefs`, so `Profiles.luau` does not have to require the monetization
+-- catalog just to publish a number. Keep it in step with `MonetizationDefs.RunGrants` by hand — one added
+-- row that is missing here simply never replicates, which shows up as a shop row that never updates.
+ProfileConfig.RUN_GRANT_KEYS = { "m16" }
+
 -- A fresh profile. Stats mirror Job 020 §7.1 (the fields we already know we'll persist).
 function ProfileConfig.default(): any
 	return {
@@ -56,6 +62,13 @@ function ProfileConfig.default(): any
 		weekly = { finish = 0, travel = 0, zone = 0 }, -- weekly objective progress
 		weeklyClaimed = {}, -- { [objId] = true }
 		purchaseIds = {}, -- ARRAY of granted developer-product PurchaseIds, FIFO-capped (Job 027, reshaped 089)
+		-- Job #117: UNSPENT per-run loadout charges — { [key] = count }, e.g. { m16 = 1 }.
+		-- ⚠️ A COUNT, NOT A BOOLEAN, and that is a real-money decision rather than a style one: a boolean
+		-- set twice silently swallows the second purchase. A count carries the extra charge into the next
+		-- run instead, which is the only outcome that is honest to someone who paid twice.
+		-- Persistent because the whole point is surviving a lobby → game teleport, and a player who buys a
+		-- charge and then logs off for a week must still have it. See MonetizationDefs.RunGrants.
+		runGrants = {},
 		-- Job #098: one-shot onboarding hints already shown to this player — { [hintId] = true }.
 		-- Persistent on purpose: these teach a mechanic ONCE, so a veteran on their 50th run is never
 		-- taught to carry a crate again. Lives on the profile rather than in the session for that reason.
@@ -117,6 +130,12 @@ function ProfileConfig.migrate(data: any): any
 	-- Job #098. Additive like every check above: an older profile simply arrives without it.
 	if type(data.seen) ~= "table" then
 		data.seen = {}
+	end
+	-- Job #117. Additive too. ⚠️ It MUST be here as well as in `default()`: every already-saved profile
+	-- predates this field, so a field with only a default reads `nil` for every existing player and the
+	-- first `runGrants[key]` index throws.
+	if type(data.runGrants) ~= "table" then
+		data.runGrants = {}
 	end
 	-- ⚠️ Job 089 changed the SHAPE of this from a dict `{[purchaseId] = true}` to an ARRAY of ids, so
 	-- ProfileStore's official receipt pattern (FIFO-capped at 100, `table.find`) can use it. A dict

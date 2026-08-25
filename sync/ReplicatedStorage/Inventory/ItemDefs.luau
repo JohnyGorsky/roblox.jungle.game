@@ -19,6 +19,11 @@ export type ItemDef = {
 	pellets: number?, -- rays per shot (shotgun spread)
 	spread: number?, -- cone half-angle in radians for extra pellets
 	fireInterval: number?, -- min seconds between shots
+	-- ── burst guns (Job #117) ───────────────────────────────────────────────────────────────────
+	-- PRESENCE of `burstDuration` is what makes a gun a burst gun. Nothing branches on the item id, so
+	-- a second burst weapon is data only.
+	burstDuration: number?, -- seconds of continuous fire from ONE trigger pull, costing ONE round
+	burstInterval: number?, -- seconds between bullets inside the burst
 	ammoOnLoot: number?, -- ammo granted when you first loot the gun
 	ammoPerCrate: number?, -- ammo granted per ammo pickup
 	-- melee-only fields:
@@ -117,6 +122,38 @@ ItemDefs.Items = {
 		fireInterval = 0.7,
 		ammoOnLoot = 8,
 		ammoPerCrate = 6,
+	},
+	-- ── M16 — Job #117. The first weapon sold for Robux, and the first BURST gun ─────────────────
+	-- One trigger pull = 2 s of continuous fire = 20 bullets = ONE round. 30 rounds means 30 bursts.
+	--
+	-- 🔴 `fireInterval` IS NOT THE LOCKOUT, AND MUST NOT BE TREATED AS ONE.
+	-- `WeaponServer` scales it by `0.965 ^ SkillGun` (Gun Discipline), so at MAX_LEVEL 10 a 2.0 here
+	-- becomes 1.401 s — two bursts overlapping for 0.6 s, ~6 extra bullets, ~84 extra damage, silently,
+	-- on the most expensive weapon in the game. The real lockout is a burst-owned latch in
+	-- `WeaponServer`; this value only makes the cheap pre-burst gate reject a mashed trigger.
+	-- ⚠️ The M16 is EXEMPT from Gun Discipline by decision (Job #117) — see the note in `SkillDefs`.
+	--
+	-- Damage is per BULLET: 14 x 20 = 280 a burst, 140 dps against the Shotgun's 206 (at 95 studs) and
+	-- the Pistol's 91 (at 220). It wins on range and on not having to close, not on raw dps.
+	M16 = {
+		name = "M16",
+		kind = "Gun",
+		color = Color3.fromRGB(52, 56, 50), -- greybox fallback only; the real art is a MeshPart
+		ammoAttr = "AmmoM16",
+		damage = 14,
+		range = 250,
+		pellets = 1,
+		-- A little scatter, deliberately. 20 rays down an identical vector is a laser beam, and reads as
+		-- one — far tighter than the shotgun's 0.14 cone, wide enough that a 2 s burst looks like a burst.
+		spread = 0.012,
+		fireInterval = 2.0, -- see the 🔴 above: a cheap pre-gate, NOT the lockout
+		burstDuration = 2.0,
+		burstInterval = 0.10, -- -> 20 bullets
+		ammoOnLoot = 30, -- one "round" = one 2 s burst, so this is 30 BURSTS
+		-- ⚠️ NO `ammoPerCrate`, AND THAT ABSENCE IS THE FEATURE. That field is what prices a gun's ammo
+		-- at the trading post (`ShopDefs.perBox`) and what a camp ammo crate tops up. Leaving it unset is
+		-- what makes 30 bursts a hard per-run cap with no way to buy more — the only thing holding the
+		-- line on a `power = true` purchase (see MonetizationDefs). Do not add it without re-reading that.
 	},
 } :: { [string]: ItemDef }
 

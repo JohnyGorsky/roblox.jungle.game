@@ -1,7 +1,14 @@
 --!strict
 -- AdminServer.server.luau — allowlisted admin grants (Job 031). Supersedes the Studio-only DevGrant: works
 -- live, grants to yourself OR a chosen player. EVERY action re-checks the allowlist server-side. Grants
--- persist via the profile. Actions are printed (simple audit). IDENTICAL copy in both trees.
+-- persist via the profile. Actions are printed (simple audit).
+--
+-- ⚠️ THE HEADER USED TO SAY "IDENTICAL copy in both trees". IT WAS NOT TRUE, and Job #117 corrected it
+-- rather than leaving a claim that invites someone to "restore" byte-identity by copying one over the
+-- other. The GAME copy carries ~280 lines the lobby place cannot support — `tpFirstCamp` (Job #107),
+-- `tpEndBase` (Job #114) and the Job #112 cheat toggles all need `Workspace.EndBase`, the boat, or the
+-- run. What MUST stay in step is the SHARED GRANTS: gold, river score, salvage, modules, skills, and the
+-- Job #117 `m16Charge`. Never copy either file over the other wholesale.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -57,6 +64,16 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 					prof.skills[id] = SkillDefs.MAX_LEVEL
 				end
 			end
+		elseif kind == "m16Charge" then
+			-- Job #117: bank a per-run M16 charge, exactly as a 30 R$ receipt would.
+			--
+			-- ⚠️ THIS EXISTS BECAUSE THE PURCHASE PATH CANNOT BE TESTED. `Profiles.recordPurchase` refuses
+			-- unless `Profiles.isPersisting` is true, and `MarketplaceService` prompts never complete in
+			-- Studio at all — so without this button the whole lobby → run half of the feature (buy a
+			-- charge here, receive the gun over there) would ship having never once been exercised.
+			-- SHARED, therefore, and present in both trees: banking it in the LOBBY and then launching is
+			-- precisely the path that needs proving.
+			Profiles.addRunGrant(target, "m16", math.max(1, amount))
 		else
 			return { error = "bad-kind" }
 		end

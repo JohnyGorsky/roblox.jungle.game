@@ -3,6 +3,10 @@
 -- ProcessReceipt grants Gold for gold-pack developer products (idempotent, persisted). Game-pass ownership
 -- (Armored Boat, cosmetics) is checked on join + on purchase → an "Owns_<key>" player attribute the game
 -- reads. Guarded against unset IDs (0). IDENTICAL copy in both trees (dev products purchasable anywhere).
+--
+-- Job #117 added a THIRD receipt route: per-run loadout charges (MonetizationDefs.RunGrants), which land on
+-- the profile rather than going through the GrantProduct hook. The long note at that branch explains why —
+-- read it before adding a fourth route, because the obvious choice there is the wrong one.
 
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -52,6 +56,33 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	if gold then
 		local ok = Profiles.recordPurchase(plr, info.PurchaseId, function()
 			Profiles.addGold(plr, gold)
+		end)
+		return if ok
+			then Enum.ProductPurchaseDecision.PurchaseGranted
+			else Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	-- ── per-run loadout charge (M16) — Job #117 ─────────────────────────────────────────────────
+	-- Granted straight onto the profile, exactly like a gold pack, and NOT through the `GrantProduct`
+	-- hook below. Two reasons, both load-bearing:
+	--
+	--   1. THE HOOK HAS ONE OWNER. `PlayerCombat` assigns `OnInvoke` outright for `selfRevive`. A second
+	--      claimant replaces it silently, load order is undefined, and the loser returns false forever →
+	--      NotProcessedYet → Roblox re-delivers that receipt on every join. Copying the selfRevive
+	--      pattern here would have broken PAID SELF-REVIVE with no diagnostic anywhere.
+	--   2. THE HOOK IS THE WRONG SHAPE FOR THIS. It exists so a place that CANNOT honour a product
+	--      declines it and lets Roblox retry elsewhere. But a charge bought in the LOBBY is meant to be
+	--      honoured later, by a place that does not exist yet — so "decline and hope Roblox retries while
+	--      they happen to be in the game place" is not a mechanism, it is a coin flip. A durable profile
+	--      field makes the lobby purchase and the crash-site purchase the SAME code path.
+	--
+	-- ⚠️ `addRunGrant` is called INSIDE the closure on purpose — see its own header. That is what puts the
+	-- write under `recordPurchase`'s yield-until-`LastSavedData`, which is what survives the session steal
+	-- that the lobby → game teleport performs on every single run.
+	local runKey = MonetizationDefs.runGrantForProduct(info.ProductId)
+	if runKey then
+		local ok = Profiles.recordPurchase(plr, info.PurchaseId, function()
+			Profiles.addRunGrant(plr, runKey, 1)
 		end)
 		return if ok
 			then Enum.ProductPurchaseDecision.PurchaseGranted

@@ -6,6 +6,11 @@
 -- hits. Which gun fires (and its damage/range/spread/ammo) is decided SERVER-SIDE from the shooter's
 -- ActiveItem — you can only fire a gun you've looted into a slot and equipped. Ammo is PER-PLAYER,
 -- PER-GUN (Job 015): the mounted turret (GunServer) still uses the shared boat pool. Rate-limited.
+--
+-- ── Job #117: BURST weapons ───────────────────────────────────────────────────────────────────────
+-- The M16 fires 20 bullets over 2 s from one trigger pull, for one round. The SERVER owns that clock:
+-- the client cannot lengthen a burst, shorten the gap between bullets, or fire two at once. A gun is a
+-- burst gun purely by having `burstDuration` in `ItemDefs` — nothing here branches on an item id.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +27,67 @@ remote.Parent = ReplicatedStorage
 
 local lastShot: { [Player]: number } = {}
 local rng = Random.new()
+
+-- ── burst state (Job #117) ───────────────────────────────────────────────────────────────────────
+-- 🔴 `burstUntil` IS THE LOCKOUT, AND IT IS DELIBERATELY NOT `lastShot` + `fireInterval`.
+-- The rate limiter below multiplies `fireInterval` by `0.965 ^ SkillGun` (Gun Discipline). On a burst
+-- weapon that is a silent bug: a 2.0 s `fireInterval` becomes **1.401 s at SkillGun 10**, so two bursts
+-- overlap for 0.6 s — ~6 extra bullets and ~84 extra damage, with no error and nothing in the log. It is
+-- also invisible in testing, because Studio dev profiles start empty (`ProfileConfig`) and the usual way
+-- to fix that is the admin panel's one-click "MAX ALL Skills" — i.e. the tester is *in* the broken case.
+-- The M16 is exempt from Gun Discipline by decision (Job #117; see `SkillDefs`), so the latch is a flat
+-- `burstDuration` for everybody.
+local burstUntil: { [Player]: number } = {}
+-- Bumped to cancel a burst already in flight. A `task.spawn`ed loop cannot be killed from outside, so it
+-- checks its own token every bullet and stops when it stops matching.
+local burstToken: { [Player]: number } = {}
+
+-- Live aim during a burst. Unreliable on purpose — the same shape as the turret's `GunAim`: these are
+-- fire-and-forget position updates where the newest wins and a dropped one costs nothing.
+--
+-- ⚠️ THIS IS NOT A NEW TRUST HOLE. The server still re-raycasts from the shooter's OWN root, capped at
+-- the gun's own `range`, exactly as the single-shot path does with the aim point on `FireWeapon`. A
+-- client that lies here can only lie about where it is pointing, which it could already do. If updates
+-- stop arriving the burst simply stays pinned to the aim it started with.
+local aimRemote = Instance.new("UnreliableRemoteEvent")
+aimRemote.Name = "AimWeapon"
+aimRemote.Parent = ReplicatedStorage
+
+local latestAim: { [Player]: Vector3 } = {}
+aimRemote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
+	if typeof(aimPoint) == "Vector3" then
+		latestAim[player] = aimPoint
+	end
+end)
+
+-- ── held-item audio ──────────────────────────────────────────────────────────────────────────────
+-- 🔴 RE-FOUND ON EVERY CALL, NEVER CAPTURED. `InventoryService.updateHeldVisual` DESTROYS and rebuilds
+-- `HeldItem` on every equip and every respawn, so a `Sound` captured at trigger time can be an orphan a
+-- fraction of a second later. That was survivable when every cue was a one-shot; it is not survivable for
+-- the M16, whose fire clip is 3.888 s of sustained auto-fire that we must be able to STOP at 2 s.
+-- Switching slots mid-burst would otherwise leave it playing to the end, from a part no longer in the
+-- world. (It also quietly fixes the shotgun's delayed `pump`, which had the same latent problem.)
+local function heldSound(player: Player, name: string): Sound?
+	local char = player.Character
+	local held = char and char:FindFirstChild("HeldItem")
+	local s = held and held:FindFirstChild(name)
+	return if s and s:IsA("Sound") then s :: Sound else nil
+end
+
+local function cue(player: Player, name: string)
+	local s = heldSound(player, name)
+	if s then
+		s.TimePosition = 0
+		s:Play()
+	end
+end
+
+local function stopCue(player: Player, name: string)
+	local s = heldSound(player, name)
+	if s then
+		s:Stop()
+	end
+end
 
 local function enemyFrom(inst: Instance?): Model?
 	local cur: Instance? = inst
@@ -113,21 +179,153 @@ local function fireRay(char: Model, origin: Vector3, dir: Vector3, range: number
 	return false
 end
 
+-- ── one volley: the pellet loop, shared by the single shot and by every bullet of a burst ────────
+-- `jitter` is what makes a burst weapon's `spread` mean anything. The loop below only jitters pellets
+-- 2..n, so a gun with `pellets = 1` — the Pistol AND the M16 — never jitters at all. That is right for a
+-- semi-auto sidearm and wrong for 20 rounds of automatic fire, which would otherwise travel down one
+-- exact line and read as a laser beam. So a burst passes `jitter = true` from its SECOND bullet on: the
+-- first round is dead-on where you aimed, the rest bloom.
+local function volley(
+	char: Model,
+	root: BasePart,
+	def: ItemDefs.ItemDef,
+	aimPoint: Vector3,
+	tally: Tally,
+	jitter: boolean
+)
+	local origin = root.Position
+	local baseDelta = aimPoint - origin
+	if baseDelta.Magnitude < 0.1 then
+		return
+	end
+	local baseDir = baseDelta.Unit
+	local range = def.range or 220
+	local damage = def.damage or 20
+	local pellets = def.pellets or 1
+	local spread = def.spread or 0
+
+	for i = 1, pellets do
+		local dir = baseDir
+		if spread > 0 and (jitter or i > 1) then
+			-- jitter the direction within the spread cone
+			dir = (baseDir + Vector3.new(
+				rng:NextNumber(-spread, spread),
+				rng:NextNumber(-spread, spread),
+				rng:NextNumber(-spread, spread)
+			)).Unit
+		end
+		fireRay(char, origin, dir * range, range, damage, tally)
+	end
+end
+
+-- Announce what the tally has collected and empty it. (Clearing keys during `for k in t` traversal is
+-- explicitly allowed in Lua; only ADDING keys is undefined.)
+local function flush(tally: Tally)
+	for enemy, entry in tally do
+		CombatFx.hit(entry.pos, entry.amount, "deal")
+		tally[enemy] = nil
+	end
+end
+
+-- ── the burst (Job #117) ─────────────────────────────────────────────────────────────────────────
+-- ⚠️ WHY THE DAMAGE NUMBERS ARE WINDOWED rather than sent per bullet or summed to the end.
+-- `CombatFx`'s header forbids per-pellet events — *"a shotgun is 6 pellets at 0.7 s and a full crew is 6
+-- players; per-pellet events would be 36 remotes"* — and 20 bullets is far worse: six players bursting
+-- would be ~120 `FireAllClients` a second. But one summed number at the end is no good either, because
+-- `CombatFeedback`'s labels live 0.9 s, so a 2 s-late number arrives detached from the shot that caused
+-- it. Windowing gives an enemy under sustained fire a rising ticker of ~6 numbers.
+local FLUSH_WINDOW = 0.3
+
+local function runBurst(player: Player, def: ItemDefs.ItemDef, itemId: string, firstAim: Vector3)
+	local token = (burstToken[player] or 0) + 1
+	burstToken[player] = token
+	latestAim[player] = firstAim
+
+	local step = def.burstInterval or 0.1
+	local shots = math.max(1, math.floor((def.burstDuration or 1) / step + 0.5))
+
+	-- ONCE, not per bullet: the M16 clip is 3.888 s of sustained auto-fire (see `WeaponAssets.M16`).
+	cue(player, "fire")
+
+	task.spawn(function()
+		local tally: Tally = {}
+		local lastFlush = time()
+
+		for i = 1, shots do
+			-- 🔴 RE-CHECKED EVERY BULLET, NOT ONCE AT THE TRIGGER PULL.
+			-- Two seconds is long enough to be downed, killed, seated at the helm or the turret, handed a
+			-- cargo crate (`Busy`), to switch slots, or to leave the server — and none of those may leave
+			-- a gun firing on its own. It is not hypothetical: `RunServer` destroys a dead character 1.5 s
+			-- after death, which lands INSIDE this window.
+			if burstToken[player] ~= token then
+				break -- superseded by a newer burst, or cancelled (PlayerRemoving)
+			end
+			local char = player.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if
+				player.Parent == nil
+				or player:GetAttribute("ActiveItem") ~= itemId
+				or not char
+				or not hum
+				or not (root and root:IsA("BasePart"))
+				or hum.Health <= 0
+				-- ⚠️ BURST-ONLY, and deliberately not pushed onto the single-shot path. The existing
+				-- semi-auto guns do not check `Downed`; changing that is a balance decision for another
+				-- job. But a 2 s automatic burst that keeps firing while its owner collapses is absurd on
+				-- screen in a way that one pistol shot is not.
+				or char:GetAttribute("Downed") == true
+				or not canShoot(player)
+			then
+				break
+			end
+
+			volley(char, root :: BasePart, def, latestAim[player] or firstAim, tally, i > 1)
+
+			local now = time()
+			if now - lastFlush >= FLUSH_WINDOW then
+				lastFlush = now
+				flush(tally)
+			end
+			if i < shots then
+				task.wait(step)
+			end
+		end
+
+		flush(tally) -- whatever the final window collected, however the burst ended
+		-- Only if we are still the current burst: a newer one is already playing its own clip, and
+		-- stopping it here would silence the shot the player just fired.
+		if burstToken[player] == token then
+			stopCue(player, "fire")
+		end
+	end)
+end
+
 remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 	if typeof(aimPoint) ~= "Vector3" then
 		return
 	end
 
 	-- which gun? decided server-side from what the player has equipped (can't fire an unlooted gun)
-	local def = ItemDefs.get(player:GetAttribute("ActiveItem") :: string?)
+	local itemId = player:GetAttribute("ActiveItem") :: string?
+	local def = ItemDefs.get(itemId)
 	if not def or def.kind ~= "Gun" or not def.ammoAttr then
 		return
 	end
 
-	-- Gun Discipline (Job 029): faster fire rate (shrinks the interval between shots)
+	local now = time()
+
+	-- 🔴 THE BURST LATCH IS CHECKED FIRST, AND NOTHING SCALES IT. See its declaration for why this is
+	-- not folded into the `interval` test below.
+	if (burstUntil[player] or 0) > now then
+		return
+	end
+
+	-- Gun Discipline (Job 029): faster fire rate (shrinks the interval between shots).
+	-- ⚠️ On a BURST gun this is only a cheap pre-gate against a mashed trigger; the lockout that actually
+	-- matters is the latch above, which this multiplier must never touch (Job #117).
 	local gunSkill = (player:GetAttribute("SkillGun") :: number?) or 0
 	local interval = (def.fireInterval or 0.22) * (0.965 ^ gunSkill)
-	local now = time()
 	local last = lastShot[player]
 	if last and now - last < interval then
 		return
@@ -142,75 +340,55 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 	-- rate-limited after putting it down. The clock should measure shots fired, not shots attempted.
 	lastShot[player] = now
 
-	-- ── Job #079: the gun you can hear ──────────────────────────────────────────────────────────
-	-- `gun_shot` has been uploaded and owned since 2026-08-02 and was never wired (ASSETS.md §3.2
-	-- deferred it: *"this will be a separate task"*). This is that task.
-	--
-	-- ⚠️ ONE Sound on the barrel, RESTARTED — never a new Sound per bullet. The pistol fires every
-	-- 0.22 s; an instance per shot is the stacking mistake `GameSoundscape`'s header documents with the
-	-- cicadas, where a clip fired faster than its own length layered six copies into noise.
-	-- `player.Character` directly: the local `char` is declared further down, after the ammo gate.
-	local heldChar = player.Character
-	local held = heldChar and heldChar:FindFirstChild("HeldItem")
-	local function cue(name: string)
-		local s = held and held:FindFirstChild(name)
-		if s and s:IsA("Sound") then
-			s.TimePosition = 0
-			s:Play()
-		end
-	end
-
 	-- per-player, per-gun ammo (Job 015)
 	local ammo = (player:GetAttribute(def.ammoAttr) :: number?) or 0
 	if ammo <= 0 then
-		cue("empty") -- dry-fire click, so an empty gun tells you WHY nothing happened
+		cue(player, "empty") -- dry-fire click, so an empty gun tells you WHY nothing happened
 		return -- out of ammo for this gun
-	end
-	player:SetAttribute(def.ammoAttr, ammo - 1)
-	cue("fire")
-	-- the pump is the shotgun's follow-through; it has no meaning on a semi-auto pistol
-	if held and held:FindFirstChild("pump") then
-		task.delay(0.18, function()
-			cue("pump")
-		end)
 	end
 
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not char or not root then
+		return -- Job #117: checked BEFORE the ammo is spent, so a shot with no body to fire it is free
+	end
+
+	-- ⚠️ ONE ROUND PER TRIGGER PULL, burst or not. A burst aborted part-way is NOT refunded: the round is
+	-- spent at the pull, exactly as it is for every other gun in the game.
+	player:SetAttribute(def.ammoAttr, ammo - 1)
+
+	-- ── burst weapons (Job #117) ────────────────────────────────────────────────────────────────
+	-- Presence of `burstDuration` is the only test. The server owns the clock from here.
+	if def.burstDuration then
+		burstUntil[player] = now + def.burstDuration
+		runBurst(player, def, itemId :: string, aimPoint)
 		return
 	end
 
-	local origin = root.Position
-	local baseDelta = aimPoint - origin
-	if baseDelta.Magnitude < 0.1 then
-		return
+	-- ── the single shot, unchanged (Pistol / Shotgun) ───────────────────────────────────────────
+	-- ⚠️ ONE Sound on the barrel, RESTARTED — never a new Sound per bullet. The pistol fires every
+	-- 0.22 s; an instance per shot is the stacking mistake `GameSoundscape`'s header documents with the
+	-- cicadas, where a clip fired faster than its own length layered six copies into noise.
+	cue(player, "fire")
+	-- the pump is the shotgun's follow-through; it has no meaning on a semi-auto pistol
+	if heldSound(player, "pump") then
+		task.delay(0.18, function()
+			cue(player, "pump")
+		end)
 	end
-	local baseDir = baseDelta.Unit
-	local range = def.range or 220
-	local damage = def.damage or 20
-	local pellets = def.pellets or 1
-	local spread = def.spread or 0
 
-	local tally: Tally = {}
-	for i = 1, pellets do
-		local dir = baseDir
-		if i > 1 and spread > 0 then
-			-- jitter the pellet direction within the spread cone
-			dir = (baseDir + Vector3.new(
-				rng:NextNumber(-spread, spread),
-				rng:NextNumber(-spread, spread),
-				rng:NextNumber(-spread, spread)
-			)).Unit
-		end
-		fireRay(char, origin, dir * range, range, damage, tally)
-	end
 	-- one burst + one number per enemy struck by this shot, however many pellets found it
-	for _, entry in tally do
-		CombatFx.hit(entry.pos, entry.amount, "deal")
-	end
+	local tally: Tally = {}
+	volley(char, root, def, aimPoint, tally, false)
+	flush(tally)
 end)
 
 Players.PlayerRemoving:Connect(function(p)
 	lastShot[p] = nil
+	-- Job #117: a burst is a `task.spawn`ed loop and cannot be killed from outside, so it is cancelled by
+	-- invalidating the token it compares against every bullet. Clearing `lastShot` alone — all this used to
+	-- do — would leave that loop raycasting from a stale character after the player had gone.
+	burstUntil[p] = nil
+	burstToken[p] = nil
+	latestAim[p] = nil
 end)

@@ -1,7 +1,14 @@
 --!strict
 -- AdminServer.server.luau — allowlisted admin grants (Job 031). Supersedes the Studio-only DevGrant: works
 -- live, grants to yourself OR a chosen player. EVERY action re-checks the allowlist server-side. Grants
--- persist via the profile. Actions are printed (simple audit). IDENTICAL copy in both trees.
+-- persist via the profile. Actions are printed (simple audit).
+--
+-- ⚠️ THE HEADER USED TO SAY "IDENTICAL copy in both trees". IT WAS NOT TRUE, and Job #117 corrected it
+-- rather than leaving a claim that invites someone to "restore" byte-identity by copying one over the
+-- other. The GAME copy carries ~280 lines the lobby place cannot support — `tpFirstCamp` (Job #107),
+-- `tpEndBase` (Job #114) and the Job #112 cheat toggles all need `Workspace.EndBase`, the boat, or the
+-- run. What MUST stay in step is the SHARED GRANTS: gold, river score, salvage, modules, skills, and the
+-- Job #117 `m16Charge`. Never copy either file over the other wholesale.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +20,11 @@ local Profiles = require(ServerScriptService:WaitForChild("Progression"):WaitFor
 local AdminDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("AdminDefs")) :: any
 local ModuleDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("ModuleDefs")) :: any
 local SkillDefs = require(ReplicatedStorage:WaitForChild("Progression"):WaitForChild("SkillDefs")) :: any
+-- Job #117. ⚠️ GAME TREE ONLY — `ServerStorage` is not mapped in `lobby/default.project.json`, so the
+-- lobby copy of this file must never require it. Server-side `require` is cached, so this is the SAME
+-- module instance `InventoryServer` and `ExcursionServer` use, not a second copy with its own state.
+local InventoryService = require(ServerStorage:WaitForChild("Inventory"):WaitForChild("InventoryService"))
+local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 
 local rf = Instance.new("RemoteFunction")
 rf.Name = "Admin"
@@ -126,6 +138,31 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 					prof.skills[id] = SkillDefs.MAX_LEVEL
 				end
 			end
+		elseif kind == "m16" then
+			-- Job #117: the immediate grant — the gun in your hands now, for testing the BURST.
+			-- Sibling of `m16Charge` below, which tests the PURCHASE path instead. Deliberately bypasses
+			-- `Granted_m16` (the shop's "already had it this run" flag) so it can be pressed repeatedly to
+			-- top the rounds back up mid-test.
+			if not InventoryService.grant(target, "M16") then
+				return { error = "loadout-full" }
+			end
+			local def = ItemDefs.get("M16")
+			if def and def.ammoAttr then
+				local want = if amount > 0 then amount else (def.ammoOnLoot or 30)
+				if ((target:GetAttribute(def.ammoAttr) :: number?) or 0) < want then
+					target:SetAttribute(def.ammoAttr, want)
+				end
+			end
+		elseif kind == "m16Charge" then
+			-- Job #117: bank a per-run M16 charge, exactly as a 30 R$ receipt would.
+			--
+			-- ⚠️ THIS EXISTS BECAUSE THE PURCHASE PATH CANNOT BE TESTED. `Profiles.recordPurchase` refuses
+			-- unless `Profiles.isPersisting` is true, and `MarketplaceService` prompts never complete in
+			-- Studio at all — so without this button the whole lobby → run half of the feature (buy a
+			-- charge here, receive the gun over there) would ship having never once been exercised.
+			-- SHARED, therefore, and present in both trees: banking it in the LOBBY and then launching is
+			-- precisely the path that needs proving.
+			Profiles.addRunGrant(target, "m16", math.max(1, amount))
 		else
 			return { error = "bad-kind" }
 		end

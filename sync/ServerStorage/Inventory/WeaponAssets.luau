@@ -155,6 +155,49 @@ WeaponAssets.ART = {
 		},
 	} :: HeldArt,
 
+	-- ── M16 — Job #117 ──────────────────────────────────────────────────────────────────────────
+	-- 🔴 EVERY NUMBER BELOW WAS MEASURED, and the header above records the three separate times guessing
+	-- these got it wrong. Measured how: `AssetService:CreateEditableMeshAsync` on mesh 101680702520520,
+	-- then all **29 264 vertices** bucketed into 12 slices along the model's long axis (Studio, Edit,
+	-- 2026-08-25). Height/thickness per slice:
+	--
+	--   slice  x-centre  height  thick  verts
+	--     1    -0.1610   0.0521  0.0243  2707   <- butt plate
+	--     3    -0.1024   0.0281  0.0177   362      stock neck / buffer tube
+	--     6    -0.0146   0.1171  0.0213  4434   <- TALLEST: carry handle over magazine + grip
+	--     8    +0.0439   0.0245  0.0256  3591      barrel
+	--    11    +0.1317   0.0429  0.0211  2490   <- front sight post / gas block
+	--    12    +0.1610   0.0094  0.0094  1537   <- MUZZLE (tapers to 0.0094)
+	--
+	-- So the barrel runs along **X with the muzzle at +X**, same as the Pistol and Shotgun — but asserted
+	-- from this profile rather than inherited from them, because "the other Meshy guns are +X" is exactly
+	-- the kind of assumption this file exists to stop.
+	M16 = {
+		model = "M16",
+		-- Source MeshPart is 0.3512 x 0.1200 x 0.0286 — a Meshy import a third of a stud long, hence the
+		-- unusually large factor. 0.3512 * 14.237 = 5.00 studs held: a little longer than the Shotgun's
+		-- 4.80, which is right — a rifle IS longer than a sawn-off shotgun.
+		scale = 14.237,
+		yawOffset = BARREL_X_TO_MINUS_Z, -- kept for the record; `holdInChar` supersedes it
+		holdInChar = BARREL_FORWARD,
+		-- The firing hand grips where the profile jumps to 0.081-0.117 (slices 4-6, the magazine well and
+		-- pistol grip), i.e. native x ~ -0.05 -> -0.7 studs at final scale.
+		-- ⚠️ ABSOLUTE STUDS, applied AFTER `Size *= scale`, so it does NOT ride the scale for free — the
+		-- same trap the Shotgun's own gripOffset comment documents.
+		gripOffset = Vector3.new(-0.7, -0.30, 0),
+		anim = {},
+		sound = {
+			-- 🔴 THIS CLIP IS 3.888 s OF SUSTAINED AUTO-FIRE, not a single shot — measured live via
+			-- `Sound.TimeLength` in Studio, not assumed from the file name. So `WeaponServer` plays it
+			-- ONCE at the start of a burst and `:Stop()`s it at the end. It must never be restarted per
+			-- bullet: that would relaunch a 3.9 s clip 20 times inside 2 s, which is the exact
+			-- cicada-stacking mistake `GameSoundscape`'s header documents.
+			fire = { id = "rbxassetid://138005496001979", volume = 0.55, min = 12, max = 220 },
+			-- shared dry-fire click, same asset the Pistol and Shotgun use
+			empty = { id = "rbxassetid://75733077651437", volume = 0.4, min = 6, max = 40 },
+		},
+	} :: HeldArt,
+
 	-- ── Torch ───────────────────────────────────────────────────────────────────────────────────
 	-- ⚠️ NO `model` ON PURPOSE — the torch is BUILT (stick + flame, `WeaponAssets.TORCH` below), so it
 	-- goes down `updateHeldVisual`'s greybox branch. This entry exists ONLY to carry `holdInChar`, which

@@ -3,8 +3,14 @@
 -- allowlisted users. Pick a target (yourself or another player) and grant Gold / River Score / Salvage /
 -- all modules / max skills. The server re-checks the allowlist on every action.
 --
--- ⚠️ IDENTICAL COPY IN BOTH TREES — `sync/` and `lobby/sync/`. Edit one, copy to the other in the same
--- commit; `diff` between the two must be silent.
+-- ⚠️ THIS CLAIMED "IDENTICAL COPY IN BOTH TREES" UNTIL JOB #117, AND IT WAS ALREADY FALSE.
+-- The GAME copy (`sync/...`) has diverged ON PURPOSE and documents why in its own header: `tpFirstCamp`
+-- (Job #107), `tpEndBase` (Job #114) and the Job #112 cheat toggles all need `Workspace.EndBase`, the boat
+-- or the run, none of which exist in this place. The stale instruction was actively dangerous, because
+-- this is the header you read if you open the LOBBY file first — and "copy to the other" in this
+-- direction deletes ~280 lines of game-only tooling.
+-- What must stay in step is the SHARED GRANTS: gold, river score, salvage, modules, skills, and the
+-- Job #117 `m16Charge`. Nothing else.
 --
 -- Styled like everything else, but deliberately kept PLAIN: it is a dev tool, not a player-facing
 -- screen, so it gets the design system's components and none of its flourish — no burst, no toast, no
@@ -123,6 +129,10 @@ local actions: { AdminAction } = {
 	{ label = "+1000 Salvage (in-run)", icon = "salvage", kind = "salvage", amount = 1000 },
 	{ label = "Unlock ALL Modules", icon = "boat", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", icon = "star", kind = "maxSkills", amount = 0 },
+	-- Job #117. The LOBBY half of testing the M16: bank a per-run charge on the profile, launch a run, and
+	-- check the gun arrives on the other side. There is deliberately no "give M16 now" here — this place
+	-- has no loadout to put it in (see AdminServer: the lobby copy must not require InventoryService).
+	{ label = "Bank M16 charge (next run)", icon = "rifle", kind = "m16Charge", amount = 1 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 }
 

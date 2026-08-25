@@ -515,6 +515,12 @@ clock and the lobby is frozen at 16:10.
 |---|---|---|---|
 | `gun_shot` | `138178318678571` | <span style="color:#2e9c3f">✅ **wired** (Job #079)</span> | **Deliberately deferred.** Uploaded while Job #073 (ambient) was open; the user's call was *"Do not add sound yet, because this will be seperate task, just list it in file."* It belongs with the weapon/turret work — `sync/ServerScriptService/Combat/GunServer.server.luau` and `WeaponServer` — not with an ambient job. Wants to be **positional on the barrel**, with a fire-rate-aware cooldown so sustained fire doesn't stack one `Sound` per bullet |
 
+**Wired by Job #117:** `rifle_shoot` **`138005496001979`** — the M16. ⚠️ **3.888 s of SUSTAINED
+AUTO-FIRE**, not a single shot (measured live via `Sound.TimeLength`, Studio 2026-08-25 — *not* inferred
+from the file name). It is therefore played **once per burst and `:Stop()`ed at burst end**, never
+restarted per bullet: at `burstInterval` 0.10 s that would relaunch a 3.9 s clip 20 times inside 2 s,
+which is the cicada-stacking mistake below. The M16 reuses the shared `empty_gun` dry-fire click.
+
 **Also wired by Job #079:** `empty_gun` `75733077651437` (dry-fire, was already in inventory) ·
 `shotgun fire high quality` `129597576449946` + `shotgun-pump` `113837896417526` (Creator Store, free) ·
 and the axe set reused from roblox.defender — `AxeSwing` `210946558`, `AxeChop` `8936215056`,
@@ -850,6 +856,21 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | `Cosmetics.png` | ~~Cosmetic Bundle (249 R$)~~ | game pass | `1918077339` | `130780112255781` | `95212286807985` | <span style="color:#b0472f">⛔ REMOVED from the in-game shop (Job #067)</span> |
 | `SelfRevive` | Self Revive (20 R$) | dev product | `3612677893` | — | **`131281323216251`** | <span style="color:#2e9c3f">✅ live + wired</span> |
 | — | Extra Inventory Slots (149 R$) | game pass | `1935044952` | `130798210334331` | **`130798210334331`** *(same id — this Hub upload has alpha)* | <span style="color:#2e9c3f">✅ live + wired</span> |
+| `RobloxPassM16.png` | **Lifetime M16 (150 R$)** | game pass | `1954603618` | `118709115773836` | **none — uses `Theme.icon.rifle` `87494055704448`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
+| — | **M16 (one run, 30 R$)** | dev product | `3709767395` | — | **none — uses `Theme.icon.rifleAmmo` `134307949592665`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
+| — | ~~Bazooka lifetime (250 R$)~~ | game pass | `1956512376` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
+| — | ~~Bazooka (one run, 80 R$)~~ | dev product | `3709767468` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
+
+> 🔴 **The two M16 rows are the first that deliberately use NO store art.** `RobloxPassM16.png` is
+> **1254×1254 RGB with no alpha channel** — checked in the PNG's own IHDR, not assumed — i.e. exactly the
+> opaque Hub matte the rule below is about. So the M16 rows draw the transparent `assault-rifle` / `bullet`
+> glyphs from `Theme.icon` via `productFallbackIcon` instead, and that is the *final* intent, not a
+> placeholder waiting for a transparent re-upload. **Do not "upgrade" them to `118709115773836`.**
+>
+> ⚠️ **The Bazooka's four ids are recorded here and wired NOWHERE.** They exist on the Creator Hub (created
+> alongside the M16's) and Job #117 built `MonetizationDefs.RunGrants` generically so the Bazooka is one
+> data row plus one `ItemDefs` entry later. Until someone does that work it is **not purchasable**, and
+> these rows exist so nobody re-creates the products.
 
 > **Why two:** Creator Hub mattes its thumbnails onto an opaque square/disc, so those ids render as a
 > white blob inside the round row badges. The transparent re-uploads (2026-07-31, `*_transparent`) fixed
@@ -930,6 +951,34 @@ icons*; `Theme.icon` keys are `pistolAmmo` / `shotgunAmmo`.
 
 ⚠️ **Not** `ammoBox` — that crate is the boat turret's ammo (cargo chip, gunner readout, "Turret Ammo"
 row). The two pools are separate and must not share a glyph; conflating them is the reported bug.
+
+## 5.2c M16 weapon set — ✅ DELIVERED 2026-08-25 (Job #117)
+
+All five files supplied by the user in `assets/Enemies/M16/` and uploaded the same day. The first weapon in
+the game sold for Robux.
+
+| File | Uploaded as | Type | ID | Wired as |
+|---|---|---|---|---|
+| `Rifle.glb` | `Scene` | Model | `84134973846203` | → `ServerStorage.AssetLibrary.Weapons.M16` (see below) |
+| — | `output_unwrapped` | Mesh | `101680702520520` | the MeshPart inside that model |
+| `rifle_shoot.mp3` | `rifle_shoot` | Audio | `138005496001979` | `WeaponAssets.ART.M16.sound.fire` — see §3.2 |
+| `assault-rifle.png` | `assault-rifle` | Image | `87494055704448` | `Theme.icon.rifle` — hotbar slot + the Lifetime M16 shop row |
+| `bullet.png` | `bullet` | Image | `134307949592665` | `Theme.icon.rifleAmmo` — the "M16 (one run)" shop row |
+| `RobloxPassM16.png` | `RobloxPassM16` | Image | `118709115773836` | **Creator Hub pass listing only** — never in-game (§5.1) |
+
+**Placed in the GAME place 2026-08-25**, scanned (**0 scripts**), Meshy `Scene` wrapper deleted, matched to
+the other two guns (`CollisionFidelity = Box`, `RenderFidelity = Automatic` — a held item has
+`CanCollide`/`CanQuery` false, so precise collision geometry is never consulted and would only cost memory).
+⚠️ `AssetLibrary` is **not Rojo-synced** — save the place or it vanishes.
+
+> **Orientation and scale were MEASURED, not guessed** — `WeaponAssets`' header records three separate
+> occasions when guessing these was wrong. Method: `AssetService:CreateEditableMeshAsync` on the mesh, then
+> all **29 264 vertices** bucketed into 12 slices along the long axis. Butt plate at −X (height 0.052),
+> tallest slice mid-body at 0.117 (carry handle over magazine + grip), front sight post bump at +0.132, and
+> the muzzle tapering to **0.0094 at +X**. So the barrel runs along **X, muzzle at +X** — the same
+> convention as the Pistol and Shotgun, but *asserted for this mesh* rather than inherited.
+> Source `0.3512 × 0.1200 × 0.0286` → `scale = 14.237` for a 5.00-stud held rifle (the Shotgun is 4.80; a
+> rifle should be longer than a sawn-off). The full slice table is in `WeaponAssets.ART.M16`.
 
 ## 5.3 In-run HUD sounds — **SOURCING LIST, Job #075** (added 2026-08-02)
 

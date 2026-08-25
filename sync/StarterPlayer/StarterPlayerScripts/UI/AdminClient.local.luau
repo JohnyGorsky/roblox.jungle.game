@@ -133,6 +133,12 @@ local actions: { AdminAction } = {
 	{ label = "+1000 Salvage (in-run)", icon = "salvage", kind = "salvage", amount = 1000 },
 	{ label = "Unlock ALL Modules", icon = "boat", kind = "allModules", amount = 0 },
 	{ label = "MAX ALL Skills", icon = "star", kind = "maxSkills", amount = 0 },
+	-- Job #117 - the M16, in two halves, because they test different things and both need testing:
+	--   - "Give M16" arms the gun NOW, for the burst itself (2 s of fire, one round, the 2 s lockout).
+	--   - "Bank M16 charge" fakes the 30 R$ receipt, for the LOBBY -> RUN handover. Real Robux prompts do
+	--     not complete in Studio, so without this the purchase half is untestable - see AdminServer.
+	{ label = "Give M16 + 30 rounds", icon = "rifle", kind = "m16", amount = 30 },
+	{ label = "Bank M16 charge (next run)", icon = "rifle", kind = "m16Charge", amount = 1 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 	-- Job #114: the other end of the run. Game-only (the lobby tree has no `Workspace.EndBase`), and
 	-- it force-starts the run on arrival so the extraction pad is actually live — see AdminServer.

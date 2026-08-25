@@ -88,6 +88,16 @@ function Profiles._publish(player: Player)
 	-- Chosen hull livery (Job 067). Published as an attribute so it replicates to every client for free —
 	-- the boat builders and the lobby picker both read it here rather than round-tripping the profile.
 	player:SetAttribute("BoatPaint", entry.data.paint or "olive")
+	-- Job #117: unspent per-run loadout charges (MonetizationDefs.RunGrants), mirrored per key.
+	-- An attribute for the same reason `BoatPaint` is one: both Robux shops need to know "has this player
+	-- already bought a charge" with no round-trip, and the game place's grant needs to react the INSTANT a
+	-- receipt lands mid-run rather than polling the profile.
+	-- ⚠️ Publishes 0 rather than nil for a key with no charge, so a reader can compare a number without
+	-- first proving the attribute exists.
+	local grants = entry.data.runGrants
+	for _, key in ipairs(ProfileConfig.RUN_GRANT_KEYS) do
+		player:SetAttribute("RunGrant_" .. key, (type(grants) == "table" and grants[key]) or 0)
+	end
 	local ls = player:FindFirstChild("leaderstats")
 	if ls then
 		local g = ls:FindFirstChild("Gold")
@@ -292,6 +302,59 @@ function Profiles.recordPurchase(player: Player, purchaseId: any, grant: () -> b
 	end
 
 	return false -- session ended before the grant was stored; the receipt stays unconsumed
+end
+
+-- ── per-run loadout charges (Job #117) ────────────────────────────────────────────────────────────
+-- One charge = one run's worth of a Robux-bought weapon. `MonetizationServer` grants them,
+-- `Inventory/RifleGrant` (GAME place only) spends them.
+--
+-- 🔴 `addRunGrant` MUST BE CALLED FROM INSIDE THE `grant` CLOSURE PASSED TO `recordPurchase`, never after
+-- it returns. That closure is the ONLY place a write is covered by `recordPurchase`'s
+-- yield-until-`LastSavedData`; anything written after it returns is an ordinary unflushed write, and
+-- `Profiles.save` does not yield (see its own header). The lobby → game handover is a ProfileStore SESSION
+-- STEAL on every single run (see `load`'s SESSION_STEAL note), and an unflushed charge crossing that steal
+-- is simply gone — the player paid Robux and receives nothing. This is a real-money path; treat the
+-- placement of the call as part of the contract, not as style.
+function Profiles.addRunGrant(player: Player, key: string, amount: number): number
+	local e = cache[player]
+	if not e then
+		return 0
+	end
+	if type(e.data.runGrants) ~= "table" then
+		e.data.runGrants = {}
+	end
+	local next_ = math.max(0, ((e.data.runGrants[key] :: number?) or 0) + amount)
+	e.data.runGrants[key] = next_
+	Profiles._publish(player)
+	return next_
+end
+
+-- Spend one charge. Returns true ONLY if there was one to spend, so the caller can gate the grant on it
+-- rather than checking and then spending in two steps.
+--
+-- ⚠️ Deliberately NOT wrapped in a save-and-wait, and that asymmetry is correct: losing a CONSUME to a
+-- crash leaves the player still holding the charge, which is the harmless direction. Losing a GRANT loses
+-- their money, which is why only `addRunGrant` carries the warning above.
+function Profiles.takeRunGrant(player: Player, key: string): boolean
+	local e = cache[player]
+	if not e or type(e.data.runGrants) ~= "table" then
+		return false
+	end
+	local have = (e.data.runGrants[key] :: number?) or 0
+	if have <= 0 then
+		return false
+	end
+	e.data.runGrants[key] = have - 1
+	Profiles._publish(player)
+	return true
+end
+
+function Profiles.getRunGrant(player: Player, key: string): number
+	local e = cache[player]
+	if not e or type(e.data.runGrants) ~= "table" then
+		return 0
+	end
+	return (e.data.runGrants[key] :: number?) or 0
 end
 
 function Profiles.getGold(player: Player): number

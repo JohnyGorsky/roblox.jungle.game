@@ -162,6 +162,16 @@ Theme.icon = {
 	-- up buying turret belts for the gun in their hand — which is the bug this job exists to fix.
 	pistolAmmo = "rbxassetid://98656594796808", -- clip — Pistol Ammo row
 	shotgunAmmo = "rbxassetid://107222226747372", -- bullets — Shotgun Ammo row (two shells)
+
+	-- ── Job #117: the M16 ────────────────────────────────────────────────────────────────────────
+	-- User's own uploads, delivered with the job (`assets/Enemies/M16/assault-rifle.png` and
+	-- `bullet.png`). Both are 512x512 **RGBA** — checked in the PNG headers, which matters here: the
+	-- third file in that folder, `RobloxPassM16.png`, is 1254x1254 **RGB with no alpha** and is the
+	-- Creator Hub pass listing art. It is deliberately NOT registered anywhere in this file — §5.1 of
+	-- ASSETS.md is explicit that a matted Hub thumbnail renders as a white blob inside these round
+	-- badges. `productFallbackIcon` below points the two M16 shop rows at these two glyphs instead.
+	rifle = "rbxassetid://87494055704448", -- assault-rifle — hotbar slot + the Lifetime M16 row
+	rifleAmmo = "rbxassetid://134307949592665", -- bullet — the per-run "M16 (one run)" row
 }
 
 -- Which §075 keys are still awaiting art. Delete a row when its id lands above.
@@ -229,6 +239,7 @@ Theme.itemIcon = {
 	Torch = "spotlight", -- a carried lamp; the searchlight glyph is the closest in the set
 	Pistol = "pistol",
 	Shotgun = "shotgun",
+	M16 = "rifle", -- Job #117
 }
 
 -- boat station / role id -> icon key (RoleServer's four stations + the Medic added in Job 057)
@@ -266,6 +277,14 @@ Theme.productIcon = {
 Theme.productFallbackIcon = {
 	extraSlots = "crate", -- carrying more
 	selfRevive = "medkit", -- getting back up
+	-- ── Job #117 — and these are NOT placeholders awaiting store art ─────────────────────────────
+	-- Both M16 rows are driven from here BY CHOICE. The uploaded pass art (`118709115773836`) is the
+	-- opaque Hub matte this file's `productIcon` note warns about, so the transparent glyphs are the
+	-- better art, not a stand-in for it. Do not "upgrade" these to the Hub id.
+	-- The pass gets the rifle; the one-run charge gets the clip — so the two rows are distinguishable
+	-- at a glance, which is the whole job of a row badge when the titles both start with "M16".
+	m16Lifetime = "rifle",
+	m16 = "rifleAmmo",
 }
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────

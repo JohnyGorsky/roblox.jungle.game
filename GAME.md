@@ -366,6 +366,22 @@ solo advantage — the same social logic that makes Dead Rails' economy feel fai
 **This does not set a precedent.** Nothing else we sell may be `power = true`. Every other Robux item is
 convenience or cosmetic: hull liveries, extra loadout slots, self-revive.
 
+### 🔴 The M16 is the SECOND `power = true` item, and it did not earn it the way the boat did (Job #117)
+
+Recorded honestly rather than folded into the table as if it were routine. The Armored Boat's exemption
+rests on one specific argument — **the buff is crew-wide**, so it reads as *"someone brought good gear"*.
+**The M16 has no such argument.** It is a solo weapon in one buyer's hands, it is the best sustained gun a
+player can carry (140 dps at 250 studs, against the Pistol's 91 at 220), and it cannot be earned at any
+price in Salvage or loot.
+
+That objection was put to the owner in Job #117's plan (§10) and **they chose to ship it.** So this is a
+deliberate decision, not drift — and it is *not* a licence for a third.
+
+What actually holds the line, and it is the only thing that does: **30 bursts per run with no way to buy
+more.** There is no camp crate, no trading-post row, and `ItemDefs.M16` deliberately has no `ammoPerCrate`
+(the field that would price ammo at the trading post). If it plays badly, the lever is bursts-per-run
+(`ammoOnLoot`), **not** damage.
+
 ### What we actually sell (Job 067)
 
 | Item | Type | Effect | Fair? |
@@ -375,6 +391,8 @@ convenience or cosmetic: hull liveries, extra loadout slots, self-revive.
 | **Boat Paint Pack** | Pass, 99 R$ | 5 hull liveries (olive is free for everyone) | cosmetic |
 | **Extra Inventory Slots** | Pass, 149 R$ | 4 → 6 loadout slots | convenience |
 | **Self Revive** | Dev product, 20 R$ | Get up while downed, at bandage-revive HP | convenience |
+| **Lifetime M16** | Pass, 150 R$ | The M16 + 30 bursts, **every run, forever** | ⚠️ power — see above |
+| **M16 (one run)** | Dev product, 30 R$ | The M16 + 30 bursts, **one run only**; one per run | ⚠️ power — see above |
 
 **Cosmetic Bundle (249 R$) was removed from the in-game shop in Job 067.** It was live and delivered
 nothing — trails, wake FX and an emote were all unbuilt, and no code ever read `Owns_cosmeticBundle`. If

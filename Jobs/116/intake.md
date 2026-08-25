@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-25 11:36:42
-**Status**: Implementation plan written — awaiting agreement
+**Status**: ✅ Completed (see final-summary.md)
 
 ## Requirements / goal
 
@@ -75,11 +75,14 @@ Workspace.EndBase.Bunker              Folder      <- the parent; also called "Bu
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] **Independent reviewer agent run** — this session is instructed not to call the Agent tool unless
-      asked; to be recorded in `final-summary.md` if it stays unrun
+- [x] Requirements reviewed (this intake)
+- [ ] **Independent reviewer agent run** — NOT run: this session is instructed not to call the Agent tool
+      unless asked, which overrides GROUND-RULES §8. Recorded in `final-summary.md` rather than skipped
+      quietly; the six bugs were caught by read-back + screenshot in Play instead
 - [x] N/A — new feature. Ground truth measured in Edit first (see above)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured in PLAY — generators killed, alarm heard, doors down, gold taken
-- [ ] Final summary + changelog written
+- [x] Implementation plan created & agreed (wizard, 2026-08-25)
+- [x] Implementation completed
+- [x] **Proof it works better** captured in PLAY — 2 of 3 generators moved the doors 0.000; the third
+      fired the alarm, flipped the lamp green and dropped the doors 13.863 studs over 10 s; the share
+      paid Gold 163→166 and Salvage 150→300; a run reset put the doors back to 22.167 exactly
+- [x] Final summary + changelog written

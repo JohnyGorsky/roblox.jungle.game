@@ -195,6 +195,77 @@ for _, gp in ipairs(MonetizationDefs.GamePasses) do
 	end
 end
 
+-- ── Per-run charges (Job #117) ───────────────────────────────────────────────────────────────────
+-- The LIFETIME M16 needs no code here at all: it is a game pass, so the loop above already renders it
+-- with live pricing and OWNED state. This section is the other half — buy the same gun for ONE run.
+--
+-- 🔴 THIS LOOPS `RunGrants`, NOT `Products`, AND THAT IS NOT ARBITRARY.
+-- Neither shop has ever rendered `MonetizationDefs.Products`, deliberately: those are consumables with
+-- their own contextual buy points. Reaching for the obvious `for _, p in ipairs(Products)` here would put
+-- **Self Revive, 20 R$, on a shelf, buyable at full health** — which that table's own comment says must
+-- never happen, and whose grant closure returns false forever, so Roblox would re-deliver the receipt on
+-- every join. `RunGrants` exists partly so that mistake is not reachable from this file.
+--
+-- ⚠️ NO EXTRA CONFIRM POPUP, same as every other Robux row: MarketplaceService shows Roblox's own dialog.
+header("Buy for one run")
+for _, g in ipairs(MonetizationDefs.RunGrants) do
+	local live = g.productId > 0
+	local row = offer(g.key, g.name, g.blurb, g.robux, live, function()
+		MarketplaceService:PromptProductPurchase(player, g.productId)
+	end)
+
+	if live then
+		-- ── the three ways this row goes dead, and why each is a DIFFERENT word ──────────────────
+		-- Gold packs are excluded from owned-state above because "owned" is meaningless for a repeatable
+		-- product. This one is repeatable too, but it is *one per run* — so it needs states that say WHICH
+		-- run, or the player cannot tell "you already have it" from "you already paid for the next one".
+		--
+		--   OWNED    — they hold the lifetime pass. Never sell a per-run charge to someone who gets it free
+		--              every run; `passKey` in the def is what links the two rows.
+		--   THIS RUN — `Granted_<key>`, set by `Inventory/RifleGrant` when the gun actually reaches the
+		--              loadout. GAME PLACE ONLY (nothing sets it in the lobby, which is correct — there is
+		--              no run here to have used it up).
+		--   NEXT RUN — `RunGrant_<key>` > 0: paid for and banked on the profile, waiting for a run to
+		--              start. This is the normal state of a lobby purchase, and an honest label beats a
+		--              live button that would take the money a second time.
+		--
+		-- ⚠️ ENFORCEMENT IS DISABLING THE BUTTON BEFORE THE PROMPT, because refusing AFTER the money is
+		-- taken is not something MarketplaceService can do — the only lever is declining to consume the
+		-- receipt, and that makes Roblox re-deliver it forever rather than refund. A receipt that arrives
+		-- anyway is still honoured: it banks a charge for the next run (see MonetizationServer).
+		local attrPass = if g.passKey then "Owns_" .. tostring(g.passKey) else nil
+		local attrGranted = "Granted_" .. g.key
+		local attrBanked = "RunGrant_" .. g.key
+
+		-- ONE function that re-decides from scratch, exactly like the pass rows above. Three async inputs
+		-- land here in any order — the pass check, the profile publish, and the Hub price lookup — and a
+		-- handler that wrote the button directly could overwrite a settled state with a stale one.
+		local function refresh()
+			if attrPass and player:GetAttribute(attrPass) == true then
+				row.action.setText("OWNED")
+				row.action.setEnabled(false)
+			elseif player:GetAttribute(attrGranted) == true then
+				row.action.setText("THIS RUN")
+				row.action.setEnabled(false)
+			elseif ((player:GetAttribute(attrBanked) :: number?) or 0) > 0 then
+				row.action.setText("NEXT RUN")
+				row.action.setEnabled(false)
+			else
+				row.action.setText(priceText(g.key, g.robux))
+				row.action.setEnabled(true)
+			end
+		end
+
+		refresh()
+		if attrPass then
+			player:GetAttributeChangedSignal(attrPass):Connect(refresh)
+		end
+		player:GetAttributeChangedSignal(attrGranted):Connect(refresh)
+		player:GetAttributeChangedSignal(attrBanked):Connect(refresh)
+		fetchPrice(g.key, g.productId, Enum.InfoType.Product, refresh)
+	end
+end
+
 -- ── open routes ───────────────────────────────────────────────────────────────────────────────────
 -- 1) kiosk: the server fires OpenRobuxShop when a player uses the crash-site kiosk (StartShopServer).
 --    Difference 1 from the lobby — this place has its own remote and its own single station.
