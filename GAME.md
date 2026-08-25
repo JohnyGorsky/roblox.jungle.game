@@ -382,6 +382,31 @@ more.** There is no camp crate, no trading-post row, and `ItemDefs.M16` delibera
 (the field that would price ammo at the trading post). If it plays badly, the lever is bursts-per-run
 (`ammoOnLoot`), **not** damage.
 
+### 🔴 The Bazooka is the THIRD, and the paragraph above said there should not be one (Job #118)
+
+So it is recorded here rather than folded into the table, because the honest thing to do with a rule you
+have just broken a second time is to write down that you broke it.
+
+The same objection was put to the owner and **they chose to ship it again** (2026-08-25). Unlike the M16 it
+does pay two costs that everyone else on the boat can see:
+
+- a **4-second flight**, telegraphed the whole way by a red ground marker the entire crew can see, so it
+  cannot delete something the instant you decide to; and
+- a **5-second reload**, the longest cycle of any weapon in the game.
+
+That is a real argument and it is **not** the Armored Boat's crew-wide argument, and must not be read as
+one. 300 damage across a 30-stud radius one-shots every land threat in the game and a generator, and it
+cannot be earned at any price in Salvage or loot.
+
+What holds the line is unchanged and is still the only thing that does: **6 rockets per run, with no way to
+get more** — no camp crate, no trading-post row, and `ItemDefs.Bazooka` deliberately has no `ammoPerCrate`.
+If it plays badly the lever is rockets-per-run (`ammoOnLoot`), **not** `blastDamage`.
+
+⚠️ **The blast damages enemies, camp guards and generators only** — never a player, a crewmate or the boat.
+That is an owner decision and it is enforced structurally (the blast iterates three CollectionService tags,
+which no character or boat carries) rather than by a filter a later edit could drop. **A fourth
+`power = true` item needs a better argument than "there are already three."**
+
 ### What we actually sell (Job 067)
 
 | Item | Type | Effect | Fair? |
@@ -393,6 +418,8 @@ more.** There is no camp crate, no trading-post row, and `ItemDefs.M16` delibera
 | **Self Revive** | Dev product, 20 R$ | Get up while downed, at bandage-revive HP | convenience |
 | **Lifetime M16** | Pass, 150 R$ | The M16 + 30 bursts, **every run, forever** | ⚠️ power — see above |
 | **M16 (one run)** | Dev product, 30 R$ | The M16 + 30 bursts, **one run only**; one per run | ⚠️ power — see above |
+| **Lifetime Bazooka** | Pass, 250 R$ | The Bazooka + 6 rockets, **every run, forever** | ⚠️ power — see above |
+| **Bazooka (one run)** | Dev product, 80 R$ | The Bazooka + 6 rockets, **one run only**; one per run | ⚠️ power — see above |
 
 **Cosmetic Bundle (249 R$) was removed from the in-game shop in Job 067.** It was live and delivered
 nothing — trails, wake FX and an emote were all unbuilt, and no code ever read `Owns_cosmeticBundle`. If

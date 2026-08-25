@@ -314,13 +314,36 @@ launched.OnClientEvent:Connect(function(origin: Vector3, impact: Vector3, flight
 			conn = nil
 		end
 	end
-	conn = RunService.RenderStepped:Connect(function()
+
+	-- 🔴 THE BLAST IS ON ITS OWN TIMER, NOT ON THE FRAME LOOP -- and that is a real fix, found by
+	-- measuring rather than by reasoning. During verification the client reported Heartbeat = 60/s and
+	-- **RenderStepped = 0/s**: the Studio window was not rendering. Anything driven off the frame loop
+	-- simply stops in that state. A player who alt-tabs, minimises, or is occluded for the two seconds a
+	-- rocket is in the air would have had the explosion NEVER HAPPEN on their screen -- no flash, no
+	-- shockwave, no sound -- while the server dealt 300 damage regardless. `task.delay` runs on the task
+	-- scheduler and does not care whether a frame was drawn.
+	local blown = false
+	local function detonate()
+		if blown then
+			return
+		end
+		blown = true
+		stop()
+		rocket:Destroy()
+		marker.destroy()
+		blastFx(impact, radius)
+	end
+	task.delay(flight, detonate)
+
+	-- ⚠️ HEARTBEAT, NOT RENDERSTEPPED, FOR THE FLIGHT ITSELF, for the same measurement.
+	-- RenderStepped is the right choice for camera-locked work; this rocket is a world-space anchored
+	-- part, so it gains nothing from running before the render and loses the guarantee of running at all.
+	-- On Heartbeat a player who alt-tabs mid-flight comes back to a rocket that is where it should be,
+	-- rather than one frozen in mid-air that then jumps.
+	conn = RunService.Heartbeat:Connect(function()
 		local alpha = (os.clock() - t0) / flight
 		if alpha >= 1 then
-			stop()
-			rocket:Destroy()
-			marker.destroy()
-			blastFx(impact, radius)
+			detonate()
 			return
 		end
 		local pos = Ballistics.pointAt(origin, impact, arc, alpha)
@@ -337,8 +360,12 @@ launched.OnClientEvent:Connect(function(origin: Vector3, impact: Vector3, flight
 
 	-- A safety net, not the normal path: if RenderStepped stops arriving (the window loses focus, the
 	-- player is teleported out mid-flight) the rocket must not become a permanent ornament.
+	-- Last resort. `detonate` above already covers the normal path and the alt-tab path; this only
+	-- catches a rocket whose detonate somehow never ran (the player teleported out mid-flight and the
+	-- scheduler dropped the delay), so that it can never become a permanent ornament in the sky.
 	task.delay(flight + 3, function()
-		if conn then
+		if not blown then
+			blown = true
 			stop()
 			rocket:Destroy()
 			marker.destroy()

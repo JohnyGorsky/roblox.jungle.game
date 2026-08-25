@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-25 14:27:49
-**Status**: Requirements Gathering (intake)
+**Status**: ✅ COMPLETE — implemented and verified in Play 2026-08-25 (see `final-summary.md`)
 
 ## Requirements / goal
 
@@ -44,10 +44,21 @@ NOTE: this is the THIRD deliberate 'power = true' exception. GAME.md's monetizat
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
-- [ ] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured - before/after from the same camera, in Play
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] **Independent reviewer agent run** - given the requirement and the repo, NOT my approach (GROUND-RULES 8)
+      -> found 8 things the plan did not have, including that a radius scan on the `HP` attribute would
+      have killed the whole crew and the boat (player and boat HP share the enemies' attribute name).
+      Every claim re-verified in the file before acting on it. See `final-summary.md` §1.
+- [n/a] **Symptom reproduced in PLAY before any fix** (GROUND-RULES 7) — no symptom: this is a new
+      feature, not a fix. The equivalent discipline was applied to the two defects found DURING the
+      work: the non-rendering-client blast bug was measured live (`Heartbeat 60/s` vs
+      `RenderStepped 0/s`) before being changed, and the over-heavy ground ring was corrected from a
+      screenshot rather than from an opinion.
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [~] **Proof it works** — 25 numbered checks in Play, each stating its own failure condition
+      (`final-summary.md` §6), including the arc measured against the straight line frame by frame.
+      ⚠️ **NO before/after SCREENSHOT was captured**: `screen_capture` timed out repeatedly because
+      the Studio window kept losing rendering. Two stills exist (the held weapon + hotbar, and the
+      shop showing OWNED); the arc and the blast were verified NUMERICALLY, not photographed.
+- [x] Final summary + changelog written

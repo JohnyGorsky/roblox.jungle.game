@@ -521,6 +521,38 @@ from the file name). It is therefore played **once per burst and `:Stop()`ed at 
 restarted per bullet: at `burstInterval` 0.10 s that would relaunch a 3.9 s clip 20 times inside 2 s,
 which is the cicada-stacking mistake below. The M16 reuses the shared `empty_gun` dry-fire click.
 
+**Wired by Job #118 — the Bazooka, six clips.** All lengths **measured** with `Sound.TimeLength` in
+Studio after `IsLoaded`, never inferred from a filename (that rule exists because of the M16 above).
+
+| Clip | ID | Measured | Role |
+|---|---|---|---|
+| `bazooka_shoot` | `135920240434402` | **5.094 s** | fire variant A — a long take with a rolling tail |
+| `bazoka_shoot` | `122026452986070` | **1.440 s** | fire variant B — short and punchy |
+| `rocket_whistle` | `138261119768443` | **3.840 s** | starts at t = 0.16 s so it **ends on the blast** |
+| `rocket_loop` | `73214531471418` | **1.848 s** | looped on the moving rocket |
+| `rocket_impact` | `73027674412530` | **2.112 s** | the blast heard from a distance — 3D at the impact point |
+| `rocket_impact_near` | `108549200090609` | **4.776 s** | the blast on top of you — **played 2D**, and debounced |
+
+> ⚠️ **The two fire takes are spelled differently on purpose** (`bazooka_` / `bazoka_`) — that is how the
+> user named the files. `WeaponServer.cueRandom` picks one at random per shot.
+>
+> 🔴 **`impact` and `impactNear` cannot both be positional Sounds.** A 3D Sound has no per-listener
+> branch, so making both positional would play **both** to everyone at different volumes. Each client
+> picks exactly one from its own camera distance (~70 studs), which is what lets six players hear one
+> explosion correctly from six positions.
+>
+> ⚠️ `impactNear` is **4.776 s against a 5 s reload**, so a player shelling their own feet on cooldown
+> would keep it almost continuously running and a crew would stack it — the cicada failure in miniature.
+> It is debounced in `RocketFx`.
+>
+> ⚠️ The rocket's clips are listed in `WeaponAssets.ROCKET` but **played from
+> `StarterPlayerScripts/Combat/RocketFx.local.luau`, which holds its own copy of the four ids** — the
+> client cannot read ServerStorage. Same constraint that put `ItemDefs.HOLD_ANIM` in ReplicatedStorage.
+> Keep the two in step.
+>
+> ⚠️ **The Bazooka has no `empty` dry-fire click, deliberately** — a launcher with no rocket loaded has
+> no firing pin to click. The reticle goes red and the UI `emptyClick` plays instead.
+
 **Also wired by Job #079:** `empty_gun` `75733077651437` (dry-fire, was already in inventory) ·
 `shotgun fire high quality` `129597576449946` + `shotgun-pump` `113837896417526` (Creator Store, free) ·
 and the axe set reused from roblox.defender — `AxeSwing` `210946558`, `AxeChop` `8936215056`,
@@ -858,8 +890,8 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 | — | Extra Inventory Slots (149 R$) | game pass | `1935044952` | `130798210334331` | **`130798210334331`** *(same id — this Hub upload has alpha)* | <span style="color:#2e9c3f">✅ live + wired</span> |
 | `RobloxPassM16.png` | **Lifetime M16 (150 R$)** | game pass | `1954603618` | `118709115773836` | **`99770814546746`** *(the pass store image, user-supplied)* | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
 | — | **M16 (one run, 30 R$)** | dev product | `3709767395` | — | **none — uses `Theme.icon.rifle` `87494055704448`** | <span style="color:#2e9c3f">✅ live + wired (Job #117)</span> |
-| — | ~~Bazooka lifetime (250 R$)~~ | game pass | `1956512376` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
-| — | ~~Bazooka (one run, 80 R$)~~ | dev product | `3709767468` | — | — | <span style="color:#b0472f">⛔ created on the Hub, **NOT sold in-game**</span> |
+| `RobloxPassBazooka.png` | **Lifetime Bazooka (250 R$)** | game pass | `1956512376` | `78985801749301` | **none — uses `Theme.icon.bazooka` `76642882799637`** | <span style="color:#2e9c3f">✅ live + wired (Job #118)</span> |
+| — | **Bazooka (one run, 80 R$)** | dev product | `3709767468` | — | **none — uses `Theme.icon.rocketAmmo` `100284588876499`** | <span style="color:#2e9c3f">✅ live + wired (Job #118)</span> |
 
 > 🔴 **The M16 rows are split on purpose: the PASS row shows the product artwork, the ONE-RUN row shows
 > the weapon.** Set by the user after comparing both on screen (2026-08-25): *"For Lifetime use pass icon,
@@ -875,10 +907,24 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 > `Theme.icon.rifleAmmo` (`bullet`, `134307949592665`) is consequently **registered but unused** — kept as
 > the natural glyph for an M16 ammo row if the trading post ever sells rifle rounds.
 >
-> ⚠️ **The Bazooka's four ids are recorded here and wired NOWHERE.** They exist on the Creator Hub (created
-> alongside the M16's) and Job #117 built `MonetizationDefs.RunGrants` generically so the Bazooka is one
-> data row plus one `ItemDefs` entry later. Until someone does that work it is **not purchasable**, and
-> these rows exist so nobody re-creates the products.
+> ✅ **The Bazooka is wired as of Job #118 (2026-08-25)** — it had been live on the Hub and connected to
+> nothing since the M16 shipped, which meant the 250 R$ pass was buyable from the experience store page
+> and delivered nothing. That is closed. And Job #117's bet paid off: `RunGrants` really was generic, so
+> the whole selling half was **two data rows** (`RunGrants` + `GamePasses`) plus one key in
+> `ProfileConfig.RUN_GRANT_KEYS` — neither shop file, `MonetizationServer` nor `RifleGrant` changed a line.
+>
+> 🔴 **NEITHER BAZOOKA ROW USES THE HUB ART IN-GAME, AND THAT IS DELIBERATE.**
+> `RobloxPassBazooka.png` → `78985801749301` is **1254×1254 RGB with NO alpha** (PNG IHDR colour type 2,
+> read from the file), exactly like `RobloxPassM16.png`. The M16 pass row only got a clean round badge
+> because the user supplied a *second*, transparent store image; **no such image exists for the Bazooka**,
+> so pointing `productIcon` at the Hub art would render a white square inside the circular badge.
+>
+> Instead the two rows are split **by meaning**, which also solves the "two adjacent rows both starting
+> with Bazooka" problem the M16 rows had: the **lifetime** row shows the launcher (`bazooka`) because you
+> are buying the weapon forever, and the **one-run** row shows a single rocket (`rocketAmmo`) because you
+> are buying one run's ammunition. *If you would rather the pass row show your artwork, the fix is a
+> transparent (RGBA) re-upload of that same PNG plus a `Theme.productIcon.bazookaLifetime` entry — not a
+> different icon.*
 
 > **Why two:** Creator Hub mattes its thumbnails onto an opaque square/disc, so those ids render as a
 > white blob inside the round row badges. The transparent re-uploads (2026-07-31, `*_transparent`) fixed
@@ -988,6 +1034,59 @@ the other two guns (`CollisionFidelity = Box`, `RenderFidelity = Automatic` — 
 > convention as the Pistol and Shotgun, but *asserted for this mesh* rather than inherited.
 > Source `0.3512 × 0.1200 × 0.0286` → `scale = 14.237` for a 5.00-stud held rifle (the Shotgun is 4.80; a
 > rifle should be longer than a sawn-off). The full slice table is in `WeaponAssets.ART.M16`.
+
+## 5.2d Bazooka weapon set — ✅ DELIVERED 2026-08-25 (Job #118)
+
+All eleven files supplied by the user in `assets/Enemies/Bazooka/` and uploaded the same day. The second
+weapon sold for Robux, and the **first projectile weapon in the game**.
+
+| File | Uploaded as | Type | ID | Wired as |
+|---|---|---|---|---|
+| `RocketLauncher.glb` | `Scene` | Model | `77785381227207` | → `ServerStorage.AssetLibrary.Weapons.Bazooka` |
+| — | `output_unwrapped` | Mesh | `135181183468020` | the MeshPart inside that model |
+| `Rocket.glb` | `Scene` | Model | `132252898028958` | → `ServerStorage.AssetLibrary.Weapons.Rocket` — the **projectile** |
+| — | `output_unwrapped` | Mesh | `87692913599759` | the MeshPart inside that model |
+| `bazooka_shoot.mp3` | `bazooka_shoot` | Audio | `135920240434402` | `WeaponAssets.ART.Bazooka.sound.fire` — §3.2 |
+| `bazoka_shoot.mp3` | `bazoka_shoot` | Audio | `122026452986070` | `…sound.fire2` — §3.2 |
+| `rocket_whistle.mp3` | `rocket_whistle` | Audio | `138261119768443` | `WeaponAssets.ROCKET.whistle` — §3.2 |
+| `rocket_loop.mp3` | `rocket_loop` | Audio | `73214531471418` | `WeaponAssets.ROCKET.loop` — §3.2 |
+| `rocket_impact.mp3` | `rocket_impact` | Audio | `73027674412530` | `WeaponAssets.ROCKET.impact` — §3.2 |
+| `rocket_impact_near.mp3` | `rocket_impact_near` | Audio | `108549200090609` | `WeaponAssets.ROCKET.impactNear` — §3.2 |
+| `bazooka_icon.png` | `bazooka_icon` | Image | `76642882799637` | `Theme.icon.bazooka` — hotbar slot + the **"Lifetime Bazooka"** shop row |
+| `missile.png` | `missile` | Image | `100284588876499` | `Theme.icon.rocketAmmo` — the **"Bazooka (one run)"** shop row |
+| `RobloxPassBazooka.png` | `RobloxPassBazooka` | Image | `78985801749301` | Creator Hub pass listing **source art only** — see §5.1 |
+
+**Placed in the GAME place 2026-08-25**, both scanned (**0 scripts** — MeshPart + SurfaceAppearance only),
+Meshy `Scene` wrappers deleted, matched to the other guns (`CollisionFidelity = Box`,
+`RenderFidelity = Automatic`, `Anchored`, `CanCollide`/`CanQuery`/`CanTouch` false).
+⚠️ `AssetLibrary` is **not Rojo-synced** — save the place or both vanish.
+
+> 🔴 **THE WRAPPER DELETION IS NOT COSMETIC.** `InventoryService` indexes only children of
+> `AssetLibrary.Weapons` that `IsA("BasePart")`, so a Meshy `Model` wrapper is **skipped in silence** and the
+> weapon falls back to the grey greybox box — which, on a 250 R$ purchase, looks like a broken purchase
+> rather than a missing unwrap step. Job #118 added a startup `warn` in `InventoryService` that names any
+> weapon whose `WeaponAssets.model` has no usable library entry, and says whether it found a wrapper.
+>
+> ⚠️ **`Rocket` is in `AssetLibrary.Weapons` but is NOT a held weapon** — it is the projectile. The server
+> republishes a clone into `ReplicatedStorage.CombatArt.Rocket` at startup, because the projectile is drawn
+> **client-side** and no client can read ServerStorage.
+
+> **Orientation was measured TWO ways and they agree**, because `WeaponAssets`' header records three
+> separate occasions when guessing it was wrong.
+> 1. `AssetService:CreateEditableMeshAsync`, all vertices bucketed into 12 slices along the long axis —
+>    **3 859** for the launcher, **14 216** for the rocket. The launcher is tall-and-thin at −X (sight and
+>    pistol grip, height 0.062→0.087 against a 0.029 thickness) and round at +X (the tube, flaring to its
+>    widest 0.0627 at the very end). The rocket's widest slice by far is at −X (0.258 — the fin span) and it
+>    is a plain round body toward +X.
+> 2. Both rendered side-on against a matte backdrop with neon axis markers and read off the capture: the
+>    launcher's grip and trigger hang toward **−Y**, its open tube is at **+X**; the rocket's fins are at
+>    **−X** and its nose at **+X**.
+>
+> So **muzzle and nose both at +X, +Y up** — the same convention as the other three guns, but *asserted for
+> these meshes*. Launcher source `1.1716 × 0.4800 × 0.2507` → `scale = 5.548` for a **6.50-stud** held
+> weapon (deliberately longer than the M16's 5.00 and the Shotgun's 4.80 — a shoulder-fired launcher that
+> reads the same size as a rifle reads as a mistake). The projectile is scaled at runtime to **4.00 studs**
+> from its own live size, so a re-import at a different scale cannot silently produce a 40-stud rocket.
 
 ## 5.3 In-run HUD sounds — **SOURCING LIST, Job #075** (added 2026-08-02)
 

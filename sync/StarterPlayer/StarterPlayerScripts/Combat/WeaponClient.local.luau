@@ -393,7 +393,12 @@ local function syncAimRing()
 	-- Sized to the REAL blast radius, so the circle is the actual footprint rather than a decoration.
 	local ring = GroundRing.new(def.blastRadius or 30, RING_READY)
 	aimRing = ring
-	aimConn = RunService.RenderStepped:Connect(function()
+	-- ⚠️ HEARTBEAT, NOT RENDERSTEPPED. Measured during verification: a Studio client that is not
+	-- rendering (window minimised or occluded) reports Heartbeat = 60/s and RenderStepped = **0/s**,
+	-- and the ring simply stopped updating -- it sat at the world origin. The ring is a world-space
+	-- anchored part with no camera-locked geometry, so it gains nothing from running before the render
+	-- and loses the guarantee of running at all. Same change was made to the rocket in `RocketFx`.
+	aimConn = RunService.Heartbeat:Connect(function()
 		local d = projectileGun()
 		if not d then
 			return -- the equip watcher will tear this down; just do nothing this frame
