@@ -226,6 +226,21 @@ for _, g in ipairs(MonetizationDefs.RunGrants) do
 		-- ONE function that re-decides from scratch, exactly like the pass rows above. Three async inputs
 		-- land here in any order — the pass check, the profile publish, and the Hub price lookup — and a
 		-- handler that wrote the button directly could overwrite a settled state with a stale one.
+		-- 🔴 Job #118: A FOURTH STATE, AND IT IS THE OPPOSITE DEFAULT TO THE PASS ROWS ABOVE.
+		-- The pass rows deliberately start BUYABLE while `Owns_<key>` is in flight, and their comment
+		-- explains why that is the safe way round: buying a pass you already own is refused by Roblox
+		-- itself, so the worst case costs nobody anything.
+		--
+		-- **A PER-RUN CHARGE HAS NO SUCH BACKSTOP.** `MonetizationServer.checkPasses` waits up to 20 s
+		-- for the profile before it even asks Roblox, so for those 20 s a lifetime-pass owner would see a
+		-- live buy button here — and if they press it, `RifleGrant` prefers the free pass grant and
+		-- **never spends or refunds the charge**. It sits on the profile forever. Money taken, nothing
+		-- delivered, nothing logged.
+		--
+		-- So this row waits. `PassesChecked` is set once, after the whole ownership loop, and is the only
+		-- honest signal that "not owned" means "not owned" rather than "not asked yet".
+		-- ⚠️ Only rows that HAVE a `passKey` wait — a charge with no lifetime equivalent has nothing to
+		-- find out and must not be held back.
 		local function refresh()
 			if attrPass and player:GetAttribute(attrPass) == true then
 				row.action.setText("OWNED")
@@ -236,6 +251,12 @@ for _, g in ipairs(MonetizationDefs.RunGrants) do
 			elseif ((player:GetAttribute(attrBanked) :: number?) or 0) > 0 then
 				row.action.setText("NEXT RUN")
 				row.action.setEnabled(false)
+			elseif attrPass and player:GetAttribute("PassesChecked") ~= true then
+				-- Checked AFTER the three definite states: "already granted" and "already banked" are
+				-- known facts that do not depend on the pass lookup, and holding those behind it would
+				-- show CHECKING over an answer we already have.
+				row.action.setText("CHECKING")
+				row.action.setEnabled(false)
 			else
 				row.action.setText(priceText(g.key, g.robux))
 				row.action.setEnabled(true)
@@ -243,6 +264,7 @@ for _, g in ipairs(MonetizationDefs.RunGrants) do
 		end
 
 		refresh()
+		player:GetAttributeChangedSignal("PassesChecked"):Connect(refresh)
 		if attrPass then
 			player:GetAttributeChangedSignal(attrPass):Connect(refresh)
 		end

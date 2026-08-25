@@ -50,6 +50,34 @@ do
 			end
 		end
 	end
+
+	-- ── Job #118: say so when a weapon's art is missing ──────────────────────────────────────────
+	-- 🔴 THE `IsA("BasePart")` TEST ABOVE SKIPS A `Model` WRAPPER IN SILENCE, and every Meshy import
+	-- arrives as exactly that — a `Model` called X containing a `MeshPart` called X. Unwrapping it is a
+	-- Studio-side step that is easy to forget and impossible to see in the diff, because `AssetLibrary`
+	-- is not Rojo-synced. Forget it and the weapon still "works": it just draws the grey greybox box,
+	-- which for a 250 R$ purchase looks like a bug in the purchase rather than a missing unwrap.
+	--
+	-- So the fallback stays silent for a weapon that never asked for a model (the Torch), and complains
+	-- loudly for one that did. The distinction is `art.model` being set.
+	local missing: { string } = {}
+	for id, art in pairs(WeaponAssets.ART) do
+		local wanted = (art :: any).model
+		if type(wanted) == "string" and not weaponLibrary[wanted] then
+			local found = grp and grp:FindFirstChild(wanted)
+			table.insert(missing, ("%s wants %q (%s)"):format(
+				id,
+				wanted,
+				if found
+					then "found, but it is a " .. found.ClassName .. " — unwrap it to a bare MeshPart"
+					else "not in AssetLibrary.Weapons at all"
+			))
+		end
+	end
+	if #missing > 0 then
+		warn(("[Inventory] %d weapon(s) will draw the GREYBOX because their art is unusable: %s")
+			:format(#missing, table.concat(missing, "; ")))
+	end
 end
 
 -- Positional world audio on the item itself, per the `GameSoundscape` rule.

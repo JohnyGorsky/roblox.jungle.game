@@ -133,6 +133,9 @@ local actions: { AdminAction } = {
 	-- check the gun arrives on the other side. There is deliberately no "give M16 now" here — this place
 	-- has no loadout to put it in (see AdminServer: the lobby copy must not require InventoryService).
 	{ label = "Bank M16 charge (next run)", icon = "rifle", kind = "m16Charge", amount = 1 },
+	-- Job #118. ⚠️ Only the CHARGE half is here: there is no loadout in the lobby to grant a weapon into,
+	-- and the game tree's "Give Bazooka" needs a ServerStorage this place does not map.
+	{ label = "Bank Bazooka charge (next run)", icon = "rocketAmmo", kind = "bazookaCharge", amount = 1 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 }
 

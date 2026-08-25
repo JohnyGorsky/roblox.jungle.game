@@ -21,12 +21,21 @@ SkillDefs.Defs = {
 	repair = { name = "Field Repair", group = "Crew", per = 5, unit = "% repair speed", blurb = "Repair the hull faster." },
 	refuel = { name = "Fuel Handling", group = "Crew", per = 5, unit = "% refuel speed", blurb = "Refuel faster." },
 	medic = { name = "Combat Medic", group = "Crew", per = 4, unit = "% revive speed", blurb = "Revive teammates faster." },
-	-- ⚠️ Job #117 — THIS SKILL DOES NOT APPLY TO THE M16, and the blurb is therefore slightly generous.
-	-- Deliberate, and the user's call. `WeaponServer` multiplies a gun's `fireInterval` by `0.965 ^ level`;
-	-- on a BURST weapon that shortens the 2 s lockout to 1.401 s at level 10 and overlaps two bursts
-	-- (~6 extra bullets, ~84 extra damage, silently). Rather than stack a paid skill on top of a paid
-	-- weapon, the M16 keeps a flat 2 s burst latch for everyone. Pistol, Shotgun and the turret are
-	-- unchanged. If a later burst weapon is added it inherits the same exemption by construction.
+	-- ⚠️ Job #117 / #118 — THIS SKILL DOES NOT APPLY TO EITHER PAID WEAPON, and the blurb is therefore
+	-- slightly generous. Deliberate, and the user's call both times.
+	--
+	-- `WeaponServer` multiplies a gun's `fireInterval` by `0.965 ^ level`. On a weapon whose cycle IS its
+	-- design that is a silent bug, not a buff:
+	--   · M16     — the 2 s burst lockout becomes 1.401 s at level 10, overlapping two bursts
+	--               (~6 extra bullets, ~84 extra damage, nothing in the log).
+	--   · Bazooka — the 5 s reload would become 3.503 s, against a requirement of "a hard 5-second
+	--               reload, identical for every player".
+	-- Rather than stack a paid skill on top of a paid weapon, both keep a flat latch for everyone
+	-- (`WeaponServer.lockUntil`, which nothing scales). Pistol, Shotgun and the turret are unchanged.
+	--
+	-- ⚠️ It is exactly the kind of bug that survives testing: Studio dev profiles start empty by decision
+	-- (`ProfileConfig`), and the usual fix for that is the admin panel's one-click "MAX ALL Skills" — so
+	-- the tester is *guaranteed* to be in the broken case and unlikely to notice.
 	gun = { name = "Gun Discipline", group = "Crew", per = 3.5, unit = "% faster fire", blurb = "Shoot faster (guns & turret)." },
 	scavenge = { name = "Scavenger's Instinct", group = "Crew", per = 3, unit = "% loot", blurb = "More loot & nugget luck." },
 } :: { [string]: SkillDef }

@@ -111,6 +111,21 @@ end
 MarketplaceService.ProcessReceipt = processReceipt
 
 -- ── game-pass ownership → Owns_<key> attribute ──────────────────────────────────────────────────
+--
+-- 🔴 Job #118: THE RESULT IS PUBLISHED EITHER WAY, AND A `PassesChecked` FLAG SAYS WHEN IT IS SETTLED.
+-- This used to write `Owns_<key>` ONLY when the answer was true, which left no way to tell *"they don't
+-- own it"* from *"we haven't asked yet"* — and the wait above is up to 20 SECONDS long. Both shops
+-- therefore rendered a per-run charge as a live buy button to somebody who owns the lifetime pass
+-- (`RobuxShop` says so in its own comment), and `RifleGrant` then prefers the free pass grant and
+-- **never spends or refunds that charge**. A pass owner could pay for something that can never be
+-- delivered, and nothing anywhere logged it.
+--
+-- ⚠️ Publishing `false` is safe: every consumer in both trees tests `== true` (`ItemDefs.slotsFor`,
+-- `RifleGrant`, both `RobuxShop`s, `BoatModules`) — checked by grep before changing this, because an
+-- `~= nil` test somewhere would have silently flipped to "owns everything".
+--
+-- ⚠️ `PassesChecked` is set ONCE, AFTER the whole loop, and never reset. A per-pass flag would let a row
+-- settle while a later pass in the list is still in flight, which is the same race in a smaller window.
 local function checkPasses(plr: Player)
 	local t = 0
 	while not Profiles.isReady(plr) and t < 20 do
@@ -122,10 +137,18 @@ local function checkPasses(plr: Player)
 			local ok, owns = pcall(function()
 				return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, gp.gamePassId)
 			end)
-			if ok and owns then
-				plr:SetAttribute("Owns_" .. gp.key, true)
+			-- A FAILED call is not a "no". `UserOwnsGamePassAsync` throws on a web hiccup, and writing
+			-- false there would tell the shop "definitely not owned" on the strength of a network error.
+			-- Left unset instead, so the row stays disabled rather than becoming wrongly buyable.
+			if ok then
+				plr:SetAttribute("Owns_" .. gp.key, owns == true)
+			else
+				warn(("[Monetization] pass check failed for %s / %s — left unknown"):format(plr.Name, gp.key))
 			end
 		end
+	end
+	if plr.Parent then
+		plr:SetAttribute("PassesChecked", true)
 	end
 end
 

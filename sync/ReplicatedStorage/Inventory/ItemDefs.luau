@@ -24,6 +24,15 @@ export type ItemDef = {
 	-- a second burst weapon is data only.
 	burstDuration: number?, -- seconds of continuous fire from ONE trigger pull, costing ONE round
 	burstInterval: number?, -- seconds between bullets inside the burst
+	-- ── projectile guns (Job #118) ──────────────────────────────────────────────────────────────
+	-- PRESENCE of `flightTime` is what makes a gun fire a PROJECTILE instead of a hitscan ray. As with
+	-- burst above, nothing branches on the item id, so a second rocket weapon is data only.
+	flightTime: number?, -- seconds from the trigger to the blast, ALWAYS the same whatever the distance
+	cooldown: number?, -- the reload. 🔴 NOT `fireInterval` — see the Bazooka's note on why
+	blastDamage: number?, -- damage at the centre of the blast (NOT `damage`, and see the Bazooka's note)
+	blastRadius: number?, -- studs
+	blastInner: number?, -- fraction of the radius that takes FULL damage (0.5 = the inner half)
+	blastMinFactor: number?, -- fraction of blastDamage still dealt at the very rim
 	ammoOnLoot: number?, -- ammo granted when you first loot the gun
 	ammoPerCrate: number?, -- ammo granted per ammo pickup
 	-- melee-only fields:
@@ -154,6 +163,49 @@ ItemDefs.Items = {
 		-- at the trading post (`ShopDefs.perBox`) and what a camp ammo crate tops up. Leaving it unset is
 		-- what makes 30 bursts a hard per-run cap with no way to buy more — the only thing holding the
 		-- line on a `power = true` purchase (see MonetizationDefs). Do not add it without re-reading that.
+	},
+	-- ── Bazooka — Job #118. The first PROJECTILE weapon in the game ─────────────────────────────
+	-- One trigger pull = one rocket = one round. It flies a visible arc and lands on the point you
+	-- marked after EXACTLY 4 seconds, whatever the distance, then blasts a 30-stud radius.
+	--
+	-- 🔴 THE BLAST NUMBER IS `blastDamage`, AND `damage` IS DELIBERATELY ABSENT.
+	-- `WeaponServer`'s single-shot path is a fall-through: any `kind == "Gun"` that no earlier branch
+	-- claims ends up in hitscan `volley()`, which reads `def.damage` and `def.range`. Put 300 in `damage`
+	-- and the day someone moves, reorders or forgets the projectile branch, this ships as a **300-damage
+	-- instant-hit 300-stud sniper rifle** — which looks exactly like the weapon working, so nobody finds
+	-- it. With `damage` unset that same mistake produces `volley`'s default of 20: still broken, but
+	-- obviously and cheaply broken. The failure mode is chosen rather than left to luck.
+	--
+	-- 🔴 AND THE RELOAD IS `cooldown`, NOT `fireInterval`, FOR THE REASON THE M16 ABOVE DOCUMENTS.
+	-- `WeaponServer` scales `fireInterval` by `0.965 ^ SkillGun`, so a 5.0 there would quietly become
+	-- **3.503 s at SkillGun 10** against a requirement of "a hard 5-second reload, identical for every
+	-- player". Rather than carry the same number in two fields and let them drift, `fireInterval` is
+	-- simply not set: the unscaled latch in `WeaponServer` reads `cooldown`, and the cheap anti-mash
+	-- pre-gate falls back to its 0.22 s default, which is harmless because the latch is checked first and
+	-- is five seconds long. ⚠️ Exempt from Gun Discipline by decision — see `SkillDefs`.
+	--
+	-- Balance: 300 in a 30-stud radius one-shots every land threat in the game (Piranha 15 … RiverHippo
+	-- 120) and a Generator (150) — and still does at the rim, where 25% is 75. What it costs is TIME: a
+	-- 4 s flight the whole crew can see coming, and a 5 s reload, the longest cycle of any weapon here.
+	Bazooka = {
+		name = "Bazooka",
+		kind = "Gun",
+		color = Color3.fromRGB(64, 68, 58), -- greybox fallback only; the real art is a MeshPart
+		ammoAttr = "AmmoBazooka",
+		range = 300, -- max target distance; aiming past it clamps the impact point to 300 studs
+		pellets = 1,
+		spread = 0,
+		flightTime = 4.0, -- presence of this is what makes it a projectile
+		cooldown = 5.0,
+		blastDamage = 300,
+		blastRadius = 30,
+		blastInner = 0.5, -- the inner 15 studs take the full 300
+		blastMinFactor = 0.25, -- and the rim still takes 75
+		ammoOnLoot = 6, -- ROCKETS. `RifleGrant`'s startup check fails loudly if the shop disagrees
+		-- ⚠️ NO `ammoPerCrate`, for exactly the reason the M16 has none. That field is what would price
+		-- rockets at the trading post and let a camp crate top them up; its absence is the entire reason
+		-- 6 rockets is a hard per-run cap, and that cap is the only thing holding the line on a third
+		-- `power = true` purchase. Do not add it without re-reading MonetizationDefs.
 	},
 } :: { [string]: ItemDef }
 

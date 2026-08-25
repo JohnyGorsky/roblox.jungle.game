@@ -8,11 +8,17 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+-- Job #118: the projectile maths, shared with `WeaponServer` and `RocketFx` so the preview ring, the
+-- flight and the blast cannot disagree about where a rocket lands.
+local Combat = ReplicatedStorage:WaitForChild("Combat")
+local Ballistics = require(Combat:WaitForChild("Ballistics"))
+local GroundRing = require(Combat:WaitForChild("GroundRing"))
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("FireWeapon") :: RemoteEvent
@@ -132,33 +138,21 @@ muzzle.Parent = muzzlePart
 -- the muzzle is the one furthest along the direction you are shooting. That is correct for the +X meshes
 -- AND for the -Z box, and stays correct for any weapon added later, whatever axis it is modelled on.
 -- ⚠️ `WeaponAssets` cannot help here — it is ServerStorage, unreachable from the client.
--- Where the bullet leaves the gun, in world space. Job #118 pulled this out of `muzzleFlash` so the
+-- Where the bullet leaves the gun, in world space. Job #117 pulled this out of `muzzleFlash` so the
 -- TRACER can start from the same place — they were disagreeing, and that disagreement is what produced
 -- the "big yellow square" (see `tracer`).
+--
+-- 🔴 THE GEOMETRY ITSELF MOVED TO `ReplicatedStorage/Combat/Ballistics.luau` IN JOB #118, and the reason
+-- is not tidiness: the SERVER now needs the same answer, because that is where a Bazooka rocket is
+-- launched from. Two copies would let the rocket appear somewhere the muzzle flash is not. This wrapper
+-- keeps the "no held part → nil" behaviour the callers here rely on.
 local function muzzleWorld(aimDir: Vector3): Vector3?
 	local char = player.Character
 	local held = char and char:FindFirstChild("HeldItem")
 	if not (held and held:IsA("BasePart")) then
 		return nil
 	end
-	local cf = held.CFrame
-	local half = held.Size / 2
-	local bestOffset, bestReach = Vector3.zero, -math.huge
-	for _, pair in ipairs({
-		{ cf.RightVector, half.X },
-		{ cf.UpVector, half.Y },
-		{ cf.LookVector, half.Z },
-	}) do
-		local dir: Vector3, extent: number = pair[1] :: Vector3, pair[2] :: number
-		for _, sign in ipairs({ 1, -1 }) do
-			local offset = dir * (extent * sign)
-			local reach = offset:Dot(aimDir)
-			if reach > bestReach then
-				bestReach, bestOffset = reach, offset
-			end
-		end
-	end
-	return (cf + bestOffset).Position
+	return Ballistics.muzzleWorld(held :: BasePart, aimDir)
 end
 
 local function muzzleFlash(aimDir: Vector3)
@@ -235,14 +229,24 @@ end
 
 -- One shot's worth of local FX, for the trigger pull AND for every bullet of a burst (Job #117).
 -- Both are drawn on the shot, never on the hit: a miss has to look like a shot too.
-local function shotFx(aim: Vector3)
+--
+-- 🔴 `withTracer` IS FALSE FOR A PROJECTILE WEAPON, AND IT IS NOT A COSMETIC PREFERENCE (Job #118).
+-- A tracer is a HITSCAN idea: "the bullet is already there". The Bazooka's rocket takes four seconds to
+-- arrive, so drawing a yellow beam from the muzzle to the landing spot at t=0 would (a) instantly spoil
+-- the arc the whole feature is built around, (b) show every other player precisely where the rocket is
+-- going four seconds before it does, and (c) in first person put a 300-stud Neon slab through the camera
+-- — the "big yellow square" family of bug this very file was fixed for. The muzzle flash stays: a
+-- launcher firing should still flash.
+local function shotFx(aim: Vector3, withTracer: boolean)
 	local shooter = player.Character
 	local origin = shooter and (shooter:FindFirstChild("HumanoidRootPart") :: BasePart?)
 	local aimDir = if origin and (aim - origin.Position).Magnitude > 0.1
 		then (aim - origin.Position).Unit
 		else Workspace.CurrentCamera.CFrame.LookVector
 	muzzleFlash(aimDir) -- aim direction, so it can pick the barrel end rather than assume an axis
-	tracer(muzzleWorld(aimDir), aim) -- same origin as the flash; nil falls back inside `tracer`
+	if withTracer then
+		tracer(muzzleWorld(aimDir), aim) -- same origin as the flash; nil falls back inside `tracer`
+	end
 end
 
 -- ── the three reasons a gun won't fire, kept APART ────────────────────────────────────────────────
@@ -279,6 +283,20 @@ local function haveAmmo(): boolean
 	return ((player:GetAttribute(def.ammoAttr) :: number?) or 0) > 0
 end
 
+-- 🔴 `lockedUntil` COVERS THE BAZOOKA'S RELOAD TOO, AND THAT IS LOAD-BEARING (Job #118).
+-- It used to be `burstingUntil`, armed ONLY by a weapon with `burstDuration` -- so for every other
+-- weapon the guard below was dead code. Give the Bazooka a 5-second server-side lockout and leave
+-- this alone, and every click during those 5 seconds would draw a muzzle flash for a shot the server
+-- has already thrown away, with the rocket counter frozen: about ten flashes and no rocket. That is
+-- precisely the "the gun does not fire" confusion the Job #084 notes in this file were written to
+-- eliminate, and it would be worse here because this cooldown is more than twice the M16's.
+local lockedUntil = 0
+-- When the current reload ends, and how long it was. Only the RETICLE and the aim ring read these:
+-- they are what turn a dead five seconds into visible feedback rather than a weapon that feels
+-- broken. `reloadFor` is kept so the ring can show PROGRESS, not just a binary state.
+local reloadUntil = 0
+local reloadFor = 0
+
 local function updateCrosshair()
 	dot.Visible = reticleShown()
 	-- The trigger follows the reticle exactly: if there is nothing to aim, there is nothing to fire, and
@@ -288,8 +306,14 @@ local function updateCrosshair()
 	TouchFire.setVisible("WeaponClient", reticleShown())
 	-- yellow outranks the ammo colour: with your hands full the ammo count is not why you can't shoot,
 	-- and showing red there would send the player hunting for ammo they already have.
+	--
+	-- Job #118 inserts RELOADING between them, and the order matters: a Bazooka that has just fired
+	-- its last rocket is both reloading AND empty, and "reloading" is the useful half to say first --
+	-- red would send the player looking for ammo during a wait that is about to end anyway. It turns
+	-- red when the reload finishes and there is genuinely nothing left.
 	dot.BackgroundColor3 = if blockedByCarry()
 		then Theme.color.yellow
+		elseif os.clock() < reloadUntil then Theme.color.metal
 		elseif haveAmmo() then Theme.color.cream
 		else Theme.color.red
 end
@@ -318,10 +342,106 @@ local function pulseBlocked()
 	grow:Play()
 end
 
+-- ── the impact ring (Job #118) ─────────────────────────────────────────────────
+-- YOUR OWN preview of where the rocket would land, following your aim. The public warning marker that
+-- appears once you actually fire is drawn by `RocketFx` from the server's broadcast -- this one is
+-- local, unreplicated and seen by nobody else.
+--
+-- 🔴 IT RESOLVES THE IMPACT POINT THROUGH THE SAME `Ballistics.resolveImpact` THE SERVER USES.
+-- Not a similar calculation: the same function, from the same module, with the same arguments. If this
+-- ring and the real impact ever disagreed, the weapon would be lying to the player about where 300
+-- damage is going -- and it would do it silently, because both halves would look correct on their own.
+--
+-- ⚠️ The ring is also the RELOAD indicator, which is why it fades from grey back to red rather than
+-- simply switching on. A five-second wait with no on-screen change is indistinguishable from a broken
+-- weapon; a ring visibly recovering its colour tells you both THAT you are reloading and HOW FAR IN.
+local RING_READY = Theme.color.red
+local RING_RELOADING = Color3.fromRGB(116, 120, 110)
+
+local aimRing: GroundRing.Ring? = nil
+local aimConn: RBXScriptConnection? = nil
+
+local function projectileGun(): ItemDefs.ItemDef?
+	local def = activeGun()
+	return if def and def.flightTime then def else nil
+end
+
+local function stopAimRing()
+	if aimConn then
+		aimConn:Disconnect()
+		aimConn = nil
+	end
+	if aimRing then
+		aimRing.destroy()
+		aimRing = nil
+	end
+end
+
+-- Connected only while a projectile weapon is actually equipped, and torn down the moment it is not.
+-- An always-on RenderStepped would be nearly free, but it would also leave a stray part in Workspace
+-- for every player who has never bought the weapon.
+local function syncAimRing()
+	local def = projectileGun()
+	if not def then
+		stopAimRing()
+		return
+	end
+	if aimConn then
+		return -- already running for this weapon
+	end
+
+	-- Sized to the REAL blast radius, so the circle is the actual footprint rather than a decoration.
+	local ring = GroundRing.new(def.blastRadius or 30, RING_READY)
+	aimRing = ring
+	aimConn = RunService.RenderStepped:Connect(function()
+		local d = projectileGun()
+		if not d then
+			return -- the equip watcher will tear this down; just do nothing this frame
+		end
+		-- Hidden for the same three reasons the reticle hides or goes yellow. A ring on the ground while
+		-- you are seated at the helm or carrying a crate would promise a shot that cannot happen.
+		if not reticleShown() or blockedByCarry() or not haveAmmo() then
+			ring.setVisible(false)
+			return
+		end
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not (char and root) then
+			ring.setVisible(false)
+			return
+		end
+
+		-- ⚠️ TOUCH AIMS ALONG THE RETICLE, NEVER THE FINGER. On a phone the thumb is parked on the fire
+		-- button in the bottom-right corner (`TouchFire`), so sampling the pointer would peg the ring to
+		-- the corner of the screen. Same rule the trigger itself already follows.
+		local aim = if TouchFire.isActive() then reticleAim() else livePointerAim()
+		local delta = aim - root.Position
+		local aimDir = if delta.Magnitude > 0.1
+			then delta.Unit
+			else Workspace.CurrentCamera.CFrame.LookVector
+		-- Launched from the barrel, exactly as the server will launch it (`Ballistics.muzzleWorld`).
+		local origin = muzzleWorld(aimDir) or (root.Position + Vector3.new(0, 1.5, 0))
+
+		local ignore: { Instance } = { char }
+		local boat = Workspace:FindFirstChild("Boat")
+		if boat then
+			table.insert(ignore, boat)
+		end
+		ring.setAt(Ballistics.resolveImpact(origin, aim, d.range or 300, ignore))
+
+		local now = os.clock()
+		if now < reloadUntil and reloadFor > 0 then
+			ring.setColor(RING_RELOADING:Lerp(RING_READY, 1 - (reloadUntil - now) / reloadFor))
+		else
+			ring.setColor(RING_READY)
+		end
+		ring.setVisible(true)
+	end)
+end
+
 -- ── the burst (Job #117) ─────────────────────────────────────────────────────────────────────────
 -- The SERVER owns the burst clock and the damage; this loop only draws it and feeds the aim. Both sides
 -- read `burstInterval` from `ItemDefs`, so neither hand-copies the other's number.
-local burstingUntil = 0
 local IDLE_DOT = UDim2.fromOffset(7, 7)
 local BURST_DOT = UDim2.fromOffset(13, 13) -- a bloom while it rips, so firing is visible at the reticle
 
@@ -341,7 +461,7 @@ local function fire(sample: () -> Vector3)
 	-- already discarded — ~10 flashes with the ammo counter frozen, which is precisely the "the gun does
 	-- not fire" confusion the Job #084 notes below were written to eliminate. On touch that is the common
 	-- case: `TouchFire` is one-shot-per-tap by design and no weapon has ever had a cooldown this long.
-	if os.clock() < burstingUntil then
+	if os.clock() < lockedUntil then
 		return
 	end
 	if blockedByCarry() then
@@ -360,14 +480,40 @@ local function fire(sample: () -> Vector3)
 	local def = activeGun()
 	local aim = sample()
 	remote:FireServer(aim)
-	shotFx(aim)
+	-- ⚠️ NO TRACER FOR A PROJECTILE WEAPON -- see `shotFx`. A beam drawn to the landing spot four
+	-- seconds before the rocket gets there spoils the arc, tells every other player exactly where it
+	-- is going, and in first person puts a 300-stud Neon slab through the camera.
+	shotFx(aim, def == nil or def.flightTime == nil)
+
+	-- ── projectile weapons (Job #118) ───────────────────────────────────────────
+	-- Nothing is drawn flying from here: `RocketFx` does that for EVERY player, this one included,
+	-- off the server's launch broadcast. All this owns is the local trigger lockout and the reticle,
+	-- so the 5 s reload reads on screen instead of the weapon feeling broken.
+	if def and def.flightTime then
+		local cool = def.cooldown or def.flightTime
+		lockedUntil = os.clock() + cool
+		reloadUntil = lockedUntil
+		reloadFor = cool
+		updateCrosshair()
+		task.delay(cool, function()
+			-- Guarded rather than cleared outright: this closure fires on a fixed delay, and a second
+			-- shot landing in between would have pushed `lockedUntil` further out. Clearing blindly
+			-- would end a reload that is genuinely still running.
+			if os.clock() >= lockedUntil then
+				lockedUntil = 0
+				reloadUntil = 0
+				updateCrosshair()
+			end
+		end)
+		return
+	end
 
 	local burst = def and def.burstDuration
 	if not burst then
 		return -- single-shot gun: exactly what this function did before Job #117
 	end
 
-	burstingUntil = os.clock() + burst
+	lockedUntil = os.clock() + burst
 	local step = (def and def.burstInterval) or 0.1
 	local shots = math.max(1, math.floor(burst / step + 0.5))
 	-- Skip the bloom if `pulseBlocked` happens to be mid-tween: it owns `dot.Size` for ~0.2 s and its
@@ -386,9 +532,9 @@ local function fire(sample: () -> Vector3)
 			end
 			local a = sample()
 			aimRemote:FireServer(a) -- what the server will aim the next round along
-			shotFx(a)
+			shotFx(a, true) -- a burst gun IS hitscan, so every bullet keeps its tracer
 		end
-		burstingUntil = 0
+		lockedUntil = 0
 		dot.Size = IDLE_DOT
 		updateCrosshair()
 	end)
@@ -443,6 +589,9 @@ end)
 -- keep the crosshair in sync with equip/ammo/busy/seat changes
 player:GetAttributeChangedSignal("Busy"):Connect(updateCrosshair)
 player:GetAttributeChangedSignal("ActiveItem"):Connect(updateCrosshair)
+-- Job #118: the ring lives and dies with the equipped weapon, so it is built when a projectile gun
+-- comes up and destroyed the instant anything else does.
+player:GetAttributeChangedSignal("ActiveItem"):Connect(syncAimRing)
 -- 🔴 Job #117: EVERY gun's ammo attribute, derived from the catalog — not two hand-written names.
 -- This was `AmmoPistol` and `AmmoShotgun` spelled out, and the asymmetry is what made it dangerous:
 -- `InventoryHud` builds the same connections correctly by looping `ItemDefs.Items`, so adding a gun and
@@ -457,9 +606,15 @@ local function onCharacter(char: Model)
 	local hum = char:WaitForChild("Humanoid") :: Humanoid
 	hum:GetPropertyChangedSignal("SeatPart"):Connect(updateCrosshair)
 	updateCrosshair()
+	-- Rebuilt per character: `HumanoidRootPart` and `HeldItem` are both new after a respawn, and a ring
+	-- left over from the previous body would sit wherever that body died.
+	stopAimRing()
+	syncAimRing()
+	hum.Died:Connect(stopAimRing)
 end
 if player.Character then
 	onCharacter(player.Character)
 end
 player.CharacterAdded:Connect(onCharacter)
 updateCrosshair()
+syncAimRing()

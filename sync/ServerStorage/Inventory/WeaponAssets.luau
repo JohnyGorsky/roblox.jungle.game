@@ -198,6 +198,58 @@ WeaponAssets.ART = {
 		},
 	} :: HeldArt,
 
+	-- ── Bazooka — Job #118 ──────────────────────────────────────────────────────────────────────
+	-- 🔴 ORIENTATION MEASURED TWO WAYS AND THEY AGREE, because this file's header records three separate
+	-- occasions when guessing it got it wrong.
+	--   1. `AssetService:CreateEditableMeshAsync` on mesh 135181183468020, all **3 859 vertices** bucketed
+	--      into 12 slices along the long axis (Studio, Edit, 2026-08-25). Extents 0.2929 x 0.1200 x 0.0627
+	--      — long axis **X**. Slices 1-3 are TALL and THIN (height 0.062→0.087, thickness 0.029→0.042):
+	--      the sight and the pistol grip. Slices 7-12 are ROUND (height ≈ thickness ≈ 0.055→0.063): the
+	--      tube, flaring to its widest at **+X**.
+	--   2. Rendered side-on against a matte backdrop with neon axis markers and read off the capture: the
+	--      grip and trigger hang toward **−Y**, the bipod and sight sit at −X, and the open tube end is at
+	--      **+X**.
+	-- So the muzzle is +X and up is +Y — the same convention as the other three guns, but asserted for
+	-- THIS mesh rather than inherited from them.
+	Bazooka = {
+		model = "Bazooka",
+		-- Source MeshPart is 1.1716 x 0.4800 x 0.2507. 1.1716 * 5.548 = 6.50 studs held — deliberately
+		-- longer than the M16's 5.00 and the Shotgun's 4.80, because a shoulder-fired launcher that reads
+		-- as the same size as a rifle reads as a mistake.
+		scale = 5.548,
+		yawOffset = BARREL_X_TO_MINUS_Z, -- kept for the record; `holdInChar` supersedes it
+		holdInChar = BARREL_FORWARD,
+		-- The firing hand takes the pistol grip, which the slice profile puts at native x ≈ −0.09..−0.06
+		-- (slices 2-3, where the shape is tall and thin) → about −0.5 studs at final scale.
+		-- ⚠️ ABSOLUTE STUDS, applied AFTER `Size *= scale`, so it does NOT ride the scale for free — the
+		-- same trap the Shotgun's and M16's gripOffset comments both document.
+		gripOffset = Vector3.new(-0.5, -0.30, 0),
+		anim = {},
+		sound = {
+			-- 🔴 TWO FIRE TAKES, PICKED AT RANDOM PER SHOT (`WeaponServer.cueRandom`), on the user's ask.
+			-- ⚠️ THEY ARE 3.5x DIFFERENT IN LENGTH — measured live via `Sound.TimeLength` in Studio, not
+			-- guessed from the filenames, which is the mistake the M16's note above exists to prevent:
+			--   fire  `bazooka_shoot` 5.094 s — a long take with a rolling tail; runs almost the whole
+			--                                  5 s reload, which is fine because it is a one-shot and
+			--                                  cannot stack, but it is why its volume is the lower of
+			--                                  the two.
+			--   fire2 `bazoka_shoot`  1.440 s — a short punchy take.
+			-- (The two uploads are spelled differently on purpose: that is how the user named the files.)
+			fire = { id = "rbxassetid://135920240434402", volume = 0.5, min = 15, max = 260 },
+			fire2 = { id = "rbxassetid://122026452986070", volume = 0.6, min = 15, max = 260 },
+			-- ⚠️ NO `empty` DRY-FIRE CLICK, and that is deliberate rather than an omission: a launcher
+			-- with no rocket loaded has no firing pin to click. The reticle already goes red and
+			-- `WeaponClient` plays the UI `emptyClick`, so the "why did nothing happen" question is
+			-- answered without pretending the weapon made a mechanical noise it does not have.
+			--
+			-- ⚠️ AND NO ROCKET SOUNDS HERE. `whistle`, `loop` and both impact clips belong to the
+			-- PROJECTILE, not to the launcher — see `ROCKET` below. Parenting them to the held item would
+			-- make them follow the player instead of the rocket, and `updateHeldVisual` DESTROYS and
+			-- rebuilds `HeldItem` on every equip and respawn, so a mid-flight slot switch would cut the
+			-- whistle off in mid-air.
+		},
+	} :: HeldArt,
+
 	-- ── Torch ───────────────────────────────────────────────────────────────────────────────────
 	-- ⚠️ NO `model` ON PURPOSE — the torch is BUILT (stick + flame, `WeaponAssets.TORCH` below), so it
 	-- goes down `updateHeldVisual`'s greybox branch. This entry exists ONLY to carry `holdInChar`, which
@@ -223,6 +275,40 @@ WeaponAssets.TURRET = {
 	-- click like a pistol.
 	empty = { id = "rbxassetid://135106168511714", volume = 0.45, min = 8, max = 60 },
 	reload = { id = "rbxassetid://134765294816468", volume = 0.5, min = 10, max = 80 }, -- gun_reload
+}
+
+-- ── The Bazooka's rocket — Job #118 ───────────────────────────────────────────────────────────────
+-- Not a held item, so it is not in `ART` — same reasoning as `TURRET` above: "the one place a weapon's
+-- sounds are listed" is the whole point of this file.
+--
+-- 🔴 THESE ARE READ BY THE **CLIENT**, WHICH CANNOT REACH SERVERSTORAGE — so unlike everything else in
+-- this file, the ids are ALSO written in `StarterPlayerScripts/Combat/RocketFx.local.luau`, which is the
+-- script that actually plays them. This table is the RECORD (and what a future server-side use would
+-- read); RocketFx's copy is the one that makes a noise. That duplication is deliberate and is called out
+-- in both files — the alternative is a second replicated module for four asset ids. It is the same
+-- constraint that put `ItemDefs.HOLD_ANIM` in ReplicatedStorage instead of here.
+--
+-- ⚠️ ALL FOUR LENGTHS WERE MEASURED with `Sound.TimeLength` in Studio after `IsLoaded`, not inferred
+-- from the filenames — the M16's "3.888 s of sustained auto-fire" note above is why that is a rule here.
+WeaponAssets.ROCKET = {
+	-- 3.840 s against a 4.000 s flight. ⚠️ RocketFx starts it at t = 0.16 s rather than t = 0, so it ENDS
+	-- on the blast instead of leaving 160 ms of silence in the worst possible place — the moment right
+	-- before impact. At the launch end 160 ms is inaudible under the fire clip.
+	whistle = { id = "rbxassetid://138261119768443", volume = 0.45, min = 20, max = 400 },
+	-- 1.848 s, looped on the moving rocket — so 2.16 iterations over a 4 s flight. If a seam is audible
+	-- at 1.85 s the lever is a fade, not a different clip.
+	loop = { id = "rbxassetid://73214531471418", volume = 0.35, min = 15, max = 250 },
+	-- 2.112 s. The blast as heard from a distance: a real 3D sound at the impact point.
+	impact = { id = "rbxassetid://73027674412530", volume = 0.7, min = 40, max = 700 },
+	-- 4.776 s. The blast that went off next to you.
+	-- ⚠️ PLAYED AS A **2D** SOUND, and that is the whole point of having two clips. "It went off on top of
+	-- me" is a subjective, concussive cue; a 3D sound five studs away does not read that way. Each client
+	-- picks ONE of these two by its own camera distance, so six players hear one explosion correctly from
+	-- six positions. Making both positional would play BOTH to everyone, just at different volumes.
+	-- ⚠️ It is 4.776 s against a 5 s reload, so a player shelling their own feet on cooldown would keep it
+	-- almost continuously going — RocketFx debounces it. That is the cicada-stacking failure
+	-- `GameSoundscape`'s header documents, in miniature.
+	impactNear = { id = "rbxassetid://108549200090609", volume = 0.65, min = 0, max = 0 },
 }
 
 -- ── Torch — BUILT, not sourced ────────────────────────────────────────────────────────────────────

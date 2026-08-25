@@ -74,6 +74,13 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 			-- SHARED, therefore, and present in both trees: banking it in the LOBBY and then launching is
 			-- precisely the path that needs proving.
 			Profiles.addRunGrant(target, "m16", math.max(1, amount))
+		elseif kind == "bazookaCharge" then
+			-- Job #118: the same thing for the Bazooka's 80 R$ charge, and shared for the same reason.
+			-- ⚠️ There is deliberately NO `bazooka` (grant-now) branch here, matching `m16`: it would need
+			-- `ServerStorage.Inventory.InventoryService`, and `lobby/default.project.json` maps no
+			-- ServerStorage at all, so it would silently never run. There is no loadout in the lobby to
+			-- grant into either.
+			Profiles.addRunGrant(target, "bazooka", math.max(1, amount))
 		else
 			return { error = "bad-kind" }
 		end

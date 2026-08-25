@@ -153,6 +153,25 @@ rf.OnServerInvoke = function(plr: Player, action: string?, arg: any)
 					target:SetAttribute(def.ammoAttr, want)
 				end
 			end
+		elseif kind == "bazooka" then
+			-- Job #118: the immediate grant — the launcher in your hands now, for testing the FLIGHT, the
+			-- ring, the blast and the 5 s reload. Same shape as `m16` above and the same deliberate
+			-- bypass of `Granted_bazooka`, so it can be pressed repeatedly to top the rockets back up.
+			if not InventoryService.grant(target, "Bazooka") then
+				return { error = "loadout-full" }
+			end
+			local def = ItemDefs.get("Bazooka")
+			if def and def.ammoAttr then
+				local want = if amount > 0 then amount else (def.ammoOnLoot or 6)
+				if ((target:GetAttribute(def.ammoAttr) :: number?) or 0) < want then
+					target:SetAttribute(def.ammoAttr, want)
+				end
+			end
+		elseif kind == "bazookaCharge" then
+			-- Job #118: bank a per-run Bazooka charge, exactly as an 80 R$ receipt would. Present in BOTH
+			-- trees for the reason `m16Charge` documents below — banking it in the lobby and then
+			-- launching is the half of the feature that no Studio purchase can ever exercise.
+			Profiles.addRunGrant(target, "bazooka", math.max(1, amount))
 		elseif kind == "m16Charge" then
 			-- Job #117: bank a per-run M16 charge, exactly as a 30 R$ receipt would.
 			--

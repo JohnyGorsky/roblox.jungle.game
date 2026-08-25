@@ -139,6 +139,11 @@ local actions: { AdminAction } = {
 	--     not complete in Studio, so without this the purchase half is untestable - see AdminServer.
 	{ label = "Give M16 + 30 rounds", icon = "rifle", kind = "m16", amount = 30 },
 	{ label = "Bank M16 charge (next run)", icon = "rifle", kind = "m16Charge", amount = 1 },
+	-- Job #118 - the Bazooka, split the same two ways and for the same two reasons:
+	--   - "Give Bazooka" arms it NOW, for the 4 s flight, the ground ring, the blast and the 5 s reload.
+	--   - "Bank Bazooka charge" fakes the 80 R$ receipt, for the LOBBY -> RUN handover.
+	{ label = "Give Bazooka + 6 rockets", icon = "bazooka", kind = "bazooka", amount = 6 },
+	{ label = "Bank Bazooka charge (next run)", icon = "rocketAmmo", kind = "bazookaCharge", amount = 1 },
 	{ label = "TP to First Camp", icon = "pin", action = "tpFirstCamp" }, -- self-teleport (no target); Job 053
 	-- Job #114: the other end of the run. Game-only (the lobby tree has no `Workspace.EndBase`), and
 	-- it force-starts the run on arrival so the extraction pad is actually live — see AdminServer.

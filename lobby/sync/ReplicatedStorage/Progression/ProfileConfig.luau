@@ -44,7 +44,13 @@ ProfileConfig.GOLD_ATTRIBUTE = "Gold" -- server mirrors gold to this player attr
 -- ⚠️ LIVES HERE, NOT IN `MonetizationDefs`, so `Profiles.luau` does not have to require the monetization
 -- catalog just to publish a number. Keep it in step with `MonetizationDefs.RunGrants` by hand — one added
 -- row that is missing here simply never replicates, which shows up as a shop row that never updates.
-ProfileConfig.RUN_GRANT_KEYS = { "m16" }
+--
+-- 🔴 A MISSING KEY BREAKS THREE THINGS AT ONCE, AND NONE OF THEM ERRORS.
+-- `RunGrant_<key>` never gets published, so (1) `RifleGrant`'s watcher never fires and the weapon arrives
+-- only on the lucky half of a profile race, (2) both shops' NEXT RUN state reads 0 forever so the row
+-- **stays buyable** and the same player can pay again and again, and (3) nothing appears in any log.
+-- That is a take-the-money-and-deliver-nothing path, from one forgotten string.
+ProfileConfig.RUN_GRANT_KEYS = { "m16", "bazooka" }
 
 -- A fresh profile. Stats mirror Job 020 §7.1 (the fields we already know we'll persist).
 function ProfileConfig.default(): any

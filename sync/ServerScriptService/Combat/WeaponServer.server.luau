@@ -11,6 +11,13 @@
 -- The M16 fires 20 bullets over 2 s from one trigger pull, for one round. The SERVER owns that clock:
 -- the client cannot lengthen a burst, shorten the gap between bullets, or fire two at once. A gun is a
 -- burst gun purely by having `burstDuration` in `ItemDefs` — nothing here branches on an item id.
+--
+-- ── Job #118: PROJECTILE weapons ──────────────────────────────────────────────────────────────────
+-- The Bazooka lobs a rocket that lands 4 s later and blasts a radius. Same principle: a gun is a
+-- projectile gun purely by having `flightTime`, and this file still only owns the TRIGGER — the flight
+-- and the blast live in `Combat/Rocket.luau`, the way a landed hit lives in `Combat/CombatFx.luau`.
+-- There are now three kinds of trigger and they are decided in a fixed order: burst, then projectile,
+-- then the original single shot as the fall-through.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +25,9 @@ local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
+local Ballistics = require(ReplicatedStorage:WaitForChild("Combat"):WaitForChild("Ballistics"))
 local CombatFx = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("CombatFx"))
+local Rocket = require(game:GetService("ServerScriptService"):WaitForChild("Combat"):WaitForChild("Rocket"))
 local KillReward = require(game:GetService("ServerScriptService"):WaitForChild("Economy"):WaitForChild("KillReward")) :: any
 
 local remote = Instance.new("RemoteEvent")
@@ -28,16 +37,24 @@ remote.Parent = ReplicatedStorage
 local lastShot: { [Player]: number } = {}
 local rng = Random.new()
 
--- ── burst state (Job #117) ───────────────────────────────────────────────────────────────────────
--- 🔴 `burstUntil` IS THE LOCKOUT, AND IT IS DELIBERATELY NOT `lastShot` + `fireInterval`.
--- The rate limiter below multiplies `fireInterval` by `0.965 ^ SkillGun` (Gun Discipline). On a burst
--- weapon that is a silent bug: a 2.0 s `fireInterval` becomes **1.401 s at SkillGun 10**, so two bursts
--- overlap for 0.6 s — ~6 extra bullets and ~84 extra damage, with no error and nothing in the log. It is
--- also invisible in testing, because Studio dev profiles start empty (`ProfileConfig`) and the usual way
--- to fix that is the admin panel's one-click "MAX ALL Skills" — i.e. the tester is *in* the broken case.
--- The M16 is exempt from Gun Discipline by decision (Job #117; see `SkillDefs`), so the latch is a flat
--- `burstDuration` for everybody.
-local burstUntil: { [Player]: number } = {}
+-- ── the weapon-owned lockout (Job #117, widened in #118) ─────────────────────────────────────────
+-- 🔴 `lockUntil` IS THE LOCKOUT, AND IT IS DELIBERATELY NOT `lastShot` + `fireInterval`.
+-- The rate limiter below multiplies `fireInterval` by `0.965 ^ SkillGun` (Gun Discipline). On a weapon
+-- whose cycle IS its design that is a silent bug, not a buff:
+--   · M16     — a 2.0 s `fireInterval` becomes **1.401 s at SkillGun 10**, so two bursts overlap for
+--               0.6 s: ~6 extra bullets, ~84 extra damage, no error, nothing in the log.
+--   · Bazooka — a 5 s reload would become **3.503 s**, against a requirement of "a hard 5-second reload,
+--               identical for every player".
+-- It is also invisible in testing, because Studio dev profiles start empty (`ProfileConfig`) and the
+-- usual way to fix that is the admin panel's one-click "MAX ALL Skills" — i.e. the tester is *in* the
+-- broken case. Both paid weapons are exempt from Gun Discipline by decision (see `SkillDefs`), so this
+-- latch is flat for everybody and NOTHING scales it.
+--
+-- ⚠️ RENAMED from `burstUntil` in Job #118. It was never really about bursts — it is "this weapon says
+-- you may not fire again until T", and the Bazooka's reload is the same idea with a different source
+-- number (`cooldown` rather than `burstDuration`). Leaving a reload running through something called
+-- `burstUntil` is how the next reader gets this wrong.
+local lockUntil: { [Player]: number } = {}
 -- Bumped to cancel a burst already in flight. A `task.spawn`ed loop cannot be killed from outside, so it
 -- checks its own token every bullet and stops when it stops matching.
 local burstToken: { [Player]: number } = {}
@@ -87,6 +104,31 @@ local function stopCue(player: Player, name: string)
 	if s then
 		s:Stop()
 	end
+end
+
+-- ── two fire clips, picked at random (Job #118) ──────────────────────────────────────────────────
+-- The Bazooka shipped with two takes and the user asked for them to alternate randomly, so one rocket
+-- does not sound like the last one. `InventoryService` already attaches EVERY key in a weapon's
+-- `sound` table, so `fire` and `fire2` arrive on the held part with no extra wiring.
+--
+-- ⚠️ THEY ARE TWO SEPARATE `Sound` INSTANCES, which matters if anyone ever adds a stop to this path:
+-- `cue`/`stopCue` look a Sound up BY NAME, so `stopCue(player, "fire")` would silence the wrong take
+-- half the time. The Bazooka's cues are one-shots and are never stopped, so it does not arise today.
+local FIRE_VARIANTS = { "fire", "fire2" }
+
+local function cueRandom(player: Player, names: { string })
+	-- Only offer variants that actually exist on the held part, so a weapon with one clip (or a missing
+	-- upload) still fires audibly instead of falling silent half the time.
+	local available = {}
+	for _, n in ipairs(names) do
+		if heldSound(player, n) then
+			table.insert(available, n)
+		end
+	end
+	if #available == 0 then
+		return
+	end
+	cue(player, available[rng:NextInteger(1, #available)])
 end
 
 local function enemyFrom(inst: Instance?): Model?
@@ -317,7 +359,7 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 
 	-- 🔴 THE BURST LATCH IS CHECKED FIRST, AND NOTHING SCALES IT. See its declaration for why this is
 	-- not folded into the `interval` test below.
-	if (burstUntil[player] or 0) > now then
+	if (lockUntil[player] or 0) > now then
 		return
 	end
 
@@ -360,8 +402,49 @@ remote.OnServerEvent:Connect(function(player: Player, aimPoint: any)
 	-- ── burst weapons (Job #117) ────────────────────────────────────────────────────────────────
 	-- Presence of `burstDuration` is the only test. The server owns the clock from here.
 	if def.burstDuration then
-		burstUntil[player] = now + def.burstDuration
+		lockUntil[player] = now + def.burstDuration
 		runBurst(player, def, itemId :: string, aimPoint)
+		return
+	end
+
+	-- ── projectile weapons (Job #118) ───────────────────────────────────────────────────────────
+	-- Presence of `flightTime` is the only test. Nothing here knows the word "Bazooka".
+	--
+	-- 🔴 THIS BRANCH MUST STAY ABOVE THE SINGLE-SHOT FALL-THROUGH BELOW. If it is ever moved, reordered
+	-- or lost, a projectile weapon silently becomes an INSTANT-HIT gun using `def.damage` and
+	-- `def.range` — and looks, from the outside, exactly like a weapon that works. `ItemDefs.Bazooka`
+	-- deliberately leaves `damage` unset so that failure degrades to a 20-damage pistol shot instead of
+	-- a 300-damage sniper rifle, but do not rely on that: keep the branch here.
+	if def.flightTime then
+		lockUntil[player] = now + (def.cooldown or def.flightTime)
+
+		-- The rocket leaves the BARREL, not the chest. Shared with the client's muzzle flash through
+		-- `Ballistics.muzzleWorld` so the two cannot disagree about where the shot came from; falls back
+		-- to just above the root when there is no held part (the greybox path).
+		local aimDelta = aimPoint - root.Position
+		local aimDir = if aimDelta.Magnitude > 0.1 then aimDelta.Unit else root.CFrame.LookVector
+		local held = char:FindFirstChild("HeldItem")
+		local origin = if held and held:IsA("BasePart")
+			then Ballistics.muzzleWorld(held :: BasePart, aimDir)
+			else root.Position + Vector3.new(0, 1.5, 0)
+
+		-- 🔴 THE SERVER RESOLVES THE IMPACT POINT, NOT THE CLIENT — and then hands the SAME Vector3 to
+		-- both the flight broadcast and the blast. The client's preview ring runs the identical
+		-- `Ballistics.resolveImpact`, so the two normally agree to the stud; where they cannot (the
+		-- client has not streamed in a hillside the server has), this value wins. The client is never
+		-- trusted for where 300 damage lands — it only says where it was pointing, which it could
+		-- already do through `FireWeapon`.
+		-- Built explicitly rather than as `{ char, Workspace:FindFirstChild("Boat") }`: that expression is
+		-- `{ Instance | nil }` before a boat exists, and the array silently collapses to one element.
+		local ignore: { Instance } = { char }
+		local boatModel = Workspace:FindFirstChild("Boat")
+		if boatModel then
+			table.insert(ignore, boatModel)
+		end
+		local impact = Ballistics.resolveImpact(origin, aimPoint, def.range or 300, ignore)
+
+		cueRandom(player, FIRE_VARIANTS)
+		Rocket.launch(player, def, origin, impact)
 		return
 	end
 
@@ -388,7 +471,7 @@ Players.PlayerRemoving:Connect(function(p)
 	-- Job #117: a burst is a `task.spawn`ed loop and cannot be killed from outside, so it is cancelled by
 	-- invalidating the token it compares against every bullet. Clearing `lastShot` alone — all this used to
 	-- do — would leave that loop raycasting from a stale character after the player had gone.
-	burstUntil[p] = nil
+	lockUntil[p] = nil
 	burstToken[p] = nil
 	latestAim[p] = nil
 end)

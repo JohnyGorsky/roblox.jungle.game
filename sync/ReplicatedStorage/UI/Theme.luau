@@ -172,6 +172,19 @@ Theme.icon = {
 	-- for an M16 ammo row if the trading post ever sells rifle rounds — the same slot `pistolAmmo` and
 	-- `shotgunAmmo` fill. Delete it if that never happens.
 	rifleAmmo = "rbxassetid://134307949592665", -- bullet (three rifle rounds)
+
+	-- ── Job #118: the Bazooka ────────────────────────────────────────────────────────────────────
+	-- User's own uploads (`assets/Enemies/Bazooka/bazooka_icon.png` and `missile.png`), verified in
+	-- Studio via `GetProductInfo` → AssetTypeId 1 (Image), creator `johnygorsky10`. Both 512x512
+	-- **RGBA** — read from the PNG IHDR (colour type 6), not assumed.
+	--
+	-- ⚠️ THESE TWO ARE USED AS A PAIR AND MEAN DIFFERENT THINGS. `bazooka` is the WEAPON (hotbar slot,
+	-- and the lifetime pass row: you are buying the launcher forever). `rocketAmmo` is ONE ROCKET (the
+	-- one-run row: you are buying a run's worth of ammunition). The two shop rows sit adjacent and both
+	-- titles start with "Bazooka", so they have to be tellable apart at badge size — the same problem the
+	-- two M16 rows had, solved here with meaning rather than with a second upload.
+	bazooka = "rbxassetid://76642882799637", -- bazooka_icon — hotbar slot + the lifetime pass row
+	rocketAmmo = "rbxassetid://100284588876499", -- missile — the one-run charge row
 }
 
 -- Which §075 keys are still awaiting art. Delete a row when its id lands above.
@@ -240,6 +253,7 @@ Theme.itemIcon = {
 	Pistol = "pistol",
 	Shotgun = "shotgun",
 	M16 = "rifle", -- Job #117
+	Bazooka = "bazooka", -- Job #118
 }
 
 -- boat station / role id -> icon key (RoleServer's four stations + the Medic added in Job 057)
@@ -294,6 +308,21 @@ Theme.productFallbackIcon = {
 	-- reads as the WEAPON.
 	m16Lifetime = "rifle",
 	m16 = "rifle",
+	-- ── Job #118 — the Bazooka, and NEITHER row has a `productIcon` entry ────────────────────────
+	-- 🔴 THAT IS A DECISION, NOT AN OVERSIGHT. `RobloxPassBazooka.png` → `78985801749301` is
+	-- **1254x1254 RGB with NO alpha** (PNG IHDR colour type 2, read from the file). That is precisely the
+	-- `RobloxPassM16.png` situation, and the M16 pass row only got a clean round badge because the user
+	-- supplied a SECOND, transparent store image. No such image exists for the Bazooka, so pointing
+	-- `productIcon` at the Hub art would render a white square inside the circular badge.
+	--
+	-- The split is by MEANING instead, which also solves the "two adjacent rows both starting with
+	-- Bazooka" legibility problem the M16 rows had:
+	--   · the LIFETIME row shows the launcher — you are buying the weapon, forever
+	--   · the ONE-RUN row shows a single rocket — you are buying one run's ammunition
+	-- If you would rather the pass row show the artwork, the fix is a TRANSPARENT re-upload of that same
+	-- PNG and a `productIcon.bazookaLifetime` entry — not a different icon.
+	bazookaLifetime = "bazooka",
+	bazooka = "rocketAmmo",
 }
 
 -- ── Sounds (registry audio.md, verified 2026-07-30) ──────────────────────────────────────────────

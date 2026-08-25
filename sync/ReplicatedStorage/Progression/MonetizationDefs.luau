@@ -5,10 +5,15 @@
 -- breaks before publish. IDENTICAL copy in both trees.
 --
 -- ⚠️ THE RULE THIS FILE EXISTS TO KEEP (GAME.md): Robux buys CONVENIENCE AND COSMETICS, never raw power.
--- `power = true` is a red flag, not a category — see the Armored Boat and Job #117 M16 notes below. Before
--- adding anything here, ask whether a player who doesn't pay is now worse at the game. If yes, it doesn't
--- belong. TWO items now carry that flag; the second one did NOT earn it the way the first did, and its note
--- says so out loud rather than letting the exception look routine.
+-- `power = true` is a red flag, not a category — see the Armored Boat, the Job #117 M16 and the Job #118
+-- Bazooka notes below. Before adding anything here, ask whether a player who doesn't pay is now worse at
+-- the game. If yes, it doesn't belong.
+--
+-- 🔴 THREE items now carry that flag, and only the FIRST of them earned it on its own argument.
+-- The Armored Boat's exemption is "the buff is crew-wide". The M16 had no such argument and shipped
+-- anyway on the owner's explicit call (Job #117). The Bazooka is the third, on the same explicit call
+-- (Job #118). Each note below says so out loud rather than letting the exceptions look routine — and the
+-- rule in this header is still the rule. A FOURTH needs a better argument than "there are already three".
 
 local MonetizationDefs = {}
 
@@ -49,8 +54,14 @@ MonetizationDefs.Products = {
 -- `Products` to get the M16 onto a shelf would also list **Self Revive at 20 R$, buyable at full health**,
 -- and its own comment says that must never happen.
 --
--- Generic on purpose. The Bazooka already exists on the Hub (pass `1956512376`, product `3709767468`) and
--- becomes one row here plus one `ItemDefs` entry, with no new plumbing. ⚠️ It is NOT sold yet.
+-- ✅ Generic on purpose, AND THAT PAID OFF: Job #118 added the Bazooka as one row here plus one row in
+-- `GamePasses`, and neither shop file, `MonetizationServer` nor `RifleGrant` needed a single line changed.
+-- If a third weapon ever needs more than two data rows, something below it has stopped being generic.
+--
+-- ⚠️ ONE HAND-MAINTAINED PARALLEL LIST: every `key` here must also appear in
+-- `ProfileConfig.RUN_GRANT_KEYS`, or the charge never replicates to a `RunGrant_<key>` attribute — and
+-- then `RifleGrant`'s watcher never fires and both shops show the row as buyable forever. See that
+-- constant's own note.
 MonetizationDefs.RunGrants = {
 	{
 		key = "m16",
@@ -63,6 +74,18 @@ MonetizationDefs.RunGrants = {
 		-- this to flip the row to OWNED rather than each hard-coding the pass key.
 		passKey = "m16Lifetime",
 		blurb = "The M16 + 30 rounds, this run only",
+	},
+	-- ── Job #118 — the Bazooka. Created on the Hub alongside the M16's and LIVE but wired to nothing
+	-- since 2026-08-25; this row is what finally connects the money to a weapon.
+	{
+		key = "bazooka",
+		productId = 3709767468,
+		robux = 80,
+		name = "Bazooka (one run)",
+		itemId = "Bazooka",
+		rounds = 6, -- ROCKETS. `RifleGrant`'s startup check fails loudly if this drifts from ammoOnLoot
+		passKey = "bazookaLifetime",
+		blurb = "The Bazooka + 6 rockets, this run only",
 	},
 }
 
@@ -97,6 +120,22 @@ MonetizationDefs.GamePasses = {
 	-- — no camp crate, no trading-post row (see `ItemDefs.M16`'s deliberately absent `ammoPerCrate`).
 	-- If it plays badly the lever is `ammoOnLoot` (bursts per run), NOT `damage`.
 	{ key = "m16Lifetime", gamePassId = 1954603618, robux = 150, name = "Lifetime M16", power = true, blurb = "Start every run with the M16 + 30 rounds" },
+	-- ── Job #118 — the Bazooka, and the THIRD `power = true` item ────────────────────────────────
+	-- 🔴 ALSO AN EXPLICIT OWNER DECISION. The line above says "do not quietly add a third", and this is
+	-- a third — so it is not quiet. It was put to the owner with the same objection the M16 got and they
+	-- chose to ship it (Job #118 plan §8).
+	--
+	-- Unlike the M16 it does pay two costs that are visible to everyone else on the boat:
+	--   · a 4-SECOND FLIGHT, telegraphed by a ground marker the whole crew can see, so it cannot delete
+	--     something the moment you decide to; and
+	--   · a 5-SECOND RELOAD, the longest cycle of any weapon in the game.
+	-- That is a real argument, but it is NOT the Armored Boat's crew-wide argument, and it should not be
+	-- read as one. It is still the most powerful thing one player can buy for themselves.
+	--
+	-- What holds the line, unchanged from the M16 and still the ONLY thing that does: 6 rockets a run and
+	-- **no way to get more** — no camp crate, no trading-post row, no `ammoPerCrate` on `ItemDefs.Bazooka`.
+	-- If it plays badly the lever is `ammoOnLoot` (rockets per run), NOT `blastDamage`.
+	{ key = "bazookaLifetime", gamePassId = 1956512376, robux = 250, name = "Lifetime Bazooka", power = true, blurb = "Start every run with the Bazooka + 6 rockets" },
 }
 
 -- gold amount for a purchased developer product (or nil if not one of ours)
