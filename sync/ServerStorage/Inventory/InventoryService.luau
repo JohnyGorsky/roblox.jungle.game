@@ -294,6 +294,55 @@ local function updateHeldVisual(player: Player)
 	-- survives untouched.
 	grip.C0 = hand.CFrame:ToObjectSpace(part.CFrame)
 	grip.Parent = hand
+
+	-- ── 🔴 RE-SOLVE ONCE IF THE CARRY POSE HAD NOT ARRIVED YET ────────────────────────────────────
+	--
+	-- Reported: *"weapon is pointing up??"* on the M16 and the Bazooka, then *"now weapon is ok"* and
+	-- *"it was wrong first time"*. Intermittent, on the FIRST equip, and that is the tell.
+	--
+	-- Everything above is correct **for the hand pose that exists at the instant it runs** — the
+	-- `handRot:Inverse() * charRot * holdInChar` form guarantees that. What it cannot do is stay correct if
+	-- the hand MOVES afterwards, because `C0` is a fixed hand-relative offset and the weapon rides the limb.
+	--
+	-- And the hand does move: `ItemDefs.HOLD_ANIM` rotates the forearm ~90°, it is started by the CLIENT,
+	-- and the server only learns the posed limb CFrames when that client replicates them back (the note
+	-- above depends on exactly this). So there is a race. Win it and the weapon is solved against the carry
+	-- pose and sits right; lose it and the weapon is solved against the arms-down rest pose and then the
+	-- carry pose rotates it ~90° — straight up, which is precisely what was reported.
+	--
+	-- ⚠️ THE FIX IS NOT "RE-SOLVE WHENEVER THE HAND MOVES". The arm also moves for walking, swimming and
+	-- every melee swing, and a weapon is SUPPOSED to swing with the arm — re-solving on those would bake a
+	-- mid-swing offset in permanently. So this fires at most once, only when the hand was still in the
+	-- arms-down pose at weld time, and only within a short window.
+	--
+	-- Detection is measured, not guessed: `WeaponAssets`' note records the posed hand reading
+	-- `UpVector = (0.21, 0.04, 0.98)` — nearly horizontal. Arms-down reads close to the torso's own up.
+	if art and art.holdInChar and root then
+		local restLike = hand.CFrame.UpVector:Dot(root.CFrame.UpVector) > 0.9
+		if restLike then
+			local offset = (art and art.gripOffset) or Vector3.zero
+			task.spawn(function()
+				local deadline = os.clock() + 3
+				while os.clock() < deadline do
+					RunService.Heartbeat:Wait()
+					-- Bail if anything re-equipped, respawned or re-welded in the meantime; that path has
+					-- already solved a fresh C0 of its own and must not be second-guessed.
+					if grip.Parent ~= hand or part.Parent ~= char or grip.Part1 ~= part then
+						return
+					end
+					if hand.CFrame.UpVector:Dot(root.CFrame.UpVector) <= 0.9 then
+						-- The pose has landed. `C0` is exactly `rot * CFrame.new(-offset)` — the hand's
+						-- POSITION cancels out, so this needs no reference to where the arm currently is.
+						local handRot = hand.CFrame - hand.CFrame.Position
+						local charRot = root.CFrame - root.CFrame.Position
+						local rot = handRot:Inverse() * charRot * art.holdInChar
+						grip.C0 = rot * CFrame.new(-offset.X, -offset.Y, -offset.Z)
+						return
+					end
+				end
+			end)
+		end
+	end
 end
 
 -- refresh ActiveItem from the active slot + rebuild the held visual

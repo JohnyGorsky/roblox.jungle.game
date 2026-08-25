@@ -2716,14 +2716,45 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 	-- The muzzle: chest height at the pad, not the hitbox centre, so the shell leaves the man rather than
 	-- his shins and the ray starts above the deck's own floor.
 	local origin = pin + Vector3.new(0, def.size.Y * 0.25, 0)
-	-- ⚠️ HIS OWN RIG **AND** THE TOWER GO IN `ignore`. `Ballistics.resolveImpact` returns the FIRST thing
-	-- the ray meets, and `prop` made all 128 tower parts collidable while leaving them queryable — so
-	-- firing down at someone near the base otherwise detonates on his own railing or the stair well.
+
+	-- 🔴 AIM AT THE GROUND UNDER THE TARGET, NOT AT THE TARGET. AND EXCLUDE THE TARGET FROM THE RAY.
+	--
+	-- Reported: *"red circle for shooter is up high it is not on the ground"*. Both halves of that were
+	-- this block. `Ballistics.resolveImpact` returns the FIRST thing the ray meets, and a player's own
+	-- character is solid and queryable — so aiming at `HumanoidRootPart` made the ray STOP ON THEIR
+	-- TORSO. The impact point was therefore ~3 studs in the air, `GroundRing` drew a 60-stud disc at the
+	-- player's chest height, and the player stood inside it. Measured in the logs before the fix:
+	-- `BLAST johnygorsky10 1.7 studs` — the crater centre was 1.7 studs from the root it was aimed at,
+	-- i.e. on the body, where a ground impact would have read ~3.
+	--
+	-- ⚠️ THE PLAYER'S OWN BAZOOKA NEVER HIT THIS, which is why it was not inherited. `WeaponServer`
+	-- passes `ignore = { char, boat }` — it excludes the SHOOTER, and the shooter is who its ray starts
+	-- inside. Here the shooter and the target are different characters, so the target needs excluding too.
+	local charModel = target.Parent
 	local ignore: { Instance } = { guard }
+	if charModel then
+		table.insert(ignore, charModel :: Instance)
+	end
+	-- The tower as well: `prop` made all 128 of its parts collidable and left them queryable, so firing
+	-- down at someone near the base would otherwise detonate on his own railing or the stair well.
 	if st.tower then
 		table.insert(ignore, st.tower :: Instance)
 	end
-	local impact = Ballistics.resolveImpact(origin, target.Position, R.range, ignore)
+
+	-- Drop the aim point to the floor beneath the target, so the ring lies where a ring should lie even
+	-- when they are standing on a hut roof or the tower stairs rather than on terrain.
+	local aimAt = target.Position
+	do
+		local down = RaycastParams.new()
+		down.FilterType = Enum.RaycastFilterType.Exclude
+		down.FilterDescendantsInstances = ignore
+		down.IgnoreWater = false -- a rocket plumes off the river; it does not sink to the riverbed
+		local hit = Workspace:Raycast(target.Position, Vector3.new(0, -80, 0), down)
+		if hit then
+			aimAt = hit.Position
+		end
+	end
+	local impact = Ballistics.resolveImpact(origin, aimAt, R.range, ignore)
 
 	st.fireTimer = 0
 	EnemyRig.playOnce(guard, "fire")
@@ -2731,7 +2762,7 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 	-- Same module and same broadcast as the player's own Bazooka, so the red warning ring, the 4-second
 	-- arc, the whistle and both impact clips all arrive with no client code. `launchEnemy` (NOT `launch`)
 	-- is what makes the crater hit players, the boat and his own side — see `Rocket.luau`.
-	Rocket.launchEnemy(origin, impact, R.blast)
+	Rocket.launchEnemy(origin, impact, R.blast, guard)
 	print(("[RocketMan] FIRE at %s (%.0f studs)%s"):format(
 		tostring(impact), bestD, if alerted then " [alerted]" else ""))
 end

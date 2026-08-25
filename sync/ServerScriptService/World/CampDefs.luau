@@ -601,11 +601,23 @@ CampDefs.TOWER = {
 		-- from where his shells land.
 		fireInterval = 20,
 
-		-- 🔴 HE WILL NOT FIRE AT A TARGET CLOSER THAN THIS, AND THE NUMBER IS DERIVED.
-		-- The blast radius is 30. Without a floor he drops a 30-stud crater on the foot of his own tower —
-		-- and because friendly fire is on and he wears the `CampGuard` tag, on HIMSELF and on every guard
-		-- standing under him. 48 puts the crater's rim ~18 studs clear of the tower base.
-		minFireRange = 48,
+		-- 🔴 HE WILL NOT FIRE AT A TARGET CLOSER THAN THIS. **WAS 48, AND 48 WAS A BUG.**
+		--
+		-- Reported: *"he does not shoot if i am under tower but i was like 20 studs away"*. Dead right, and
+		-- it made walking up to the tower a permanent safe spot — the worst possible failure for this enemy,
+		-- because the obvious counter-play (close the distance) turned him off instead of escalating him.
+		--
+		-- 48 was chosen to keep the 30-stud crater off his own tower. **That reasoning was wrong, and the
+		-- geometry says so:** he stands ~37 studs above the ground, so a shell landing at the very foot of
+		-- his tower is already `sqrt(0^2 + 37^2)` = **37 studs** from him — outside the 30-stud radius with
+		-- 7 studs to spare, at ANY horizontal distance. He could never have hit himself. The 48 only ever
+		-- protected him from a crater he was never in, and the cost was a 32-stud ring
+		-- (`meleeRange` 16 → 48) in which he did nothing at all.
+		--
+		-- 18 leaves a 2-stud gap over `meleeRange` (16) — enough that a player straddling the boundary does
+		-- not flicker between shelling and melee, small enough that there is no longer anywhere to stand.
+		-- He is belt-and-braces safe regardless: `Rocket.launchEnemy` is now told who fired and skips him.
+		minFireRange = 18,
 
 		-- How close a player has to get before he stops shelling and starts swinging. Deliberately just
 		-- over `EnemyDefs.RocketMan.biteRange` (14) so there is no dead band where he neither fires nor

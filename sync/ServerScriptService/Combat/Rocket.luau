@@ -239,7 +239,14 @@ end
 -- Like `blast`, EVERY TARGET IS FOUND AT IMPACT TIME AND NOTHING IS CAPTURED AT LAUNCH — the reasoning in
 -- `blast`'s header applies unchanged (4 s is long enough for the whole landing site to be culled, and the
 -- first `SetAttribute` on a destroyed instance throws and aborts the rest of the crater).
-local function enemyBlast(impact: Vector3, spec: BlastSpec)
+-- `shooter` is the model that fired, and it is EXCLUDED from its own crater. That is not the same thing as
+-- the friendly fire the owner asked for: his shell hurting the guards beside him is friendly fire, his
+-- shell hurting HIM is suicide, and nothing in the design asked for a unit that can kill itself.
+--
+-- It also decouples the safety of the weapon from the tuning of `minFireRange`: with this, that number is
+-- free to be chosen for how the fight READS (see its note in `CampDefs`) instead of being held hostage to
+-- keeping the shooter out of its own blast radius.
+local function enemyBlast(impact: Vector3, spec: BlastSpec, shooter: Model?)
 	local radius, damage = spec.blastRadius, spec.blastDamage
 	if damage <= 0 or radius <= 0 then
 		return
@@ -295,7 +302,7 @@ local function enemyBlast(impact: Vector3, spec: BlastSpec)
 	local seen: { [Model]: true } = {}
 	for _, tag in ipairs(TARGET_TAGS) do
 		for _, inst in ipairs(CollectionService:GetTagged(tag)) do
-			if not inst:IsA("Model") or seen[inst] then
+			if not inst:IsA("Model") or seen[inst] or inst == shooter then
 				continue
 			end
 			if inst.Parent == nil or not inst:IsDescendantOf(Workspace) then
@@ -321,12 +328,15 @@ end
 -- `RocketFx.local.luau` is a pure listener that knows nothing about who fired — so the red warning ring,
 -- the 4-second arc, the whistle, the shockwave and the two impact clips all arrive for free, and an
 -- incoming shell looks and sounds exactly like one of your own. Zero client-side work for this feature.
-function Rocket.launchEnemy(origin: Vector3, impact: Vector3, spec: BlastSpec)
+function Rocket.launchEnemy(origin: Vector3, impact: Vector3, spec: BlastSpec, shooter: Model?)
 	local flight = spec.flightTime
 	local arc = Ballistics.arcHeightFor((impact - origin).Magnitude)
 	remote:FireAllClients(origin, impact, flight, arc, spec.blastRadius)
+	-- ⚠️ `shooter` is captured, but it is only ever COMPARED against live instances four seconds later —
+	-- never indexed, never assumed to still exist. A shooter killed mid-flight simply matches nothing, and
+	-- its rocket still lands: a fired rocket does not un-fire.
 	task.delay(flight, function()
-		enemyBlast(impact, spec)
+		enemyBlast(impact, spec, shooter)
 	end)
 end
 
