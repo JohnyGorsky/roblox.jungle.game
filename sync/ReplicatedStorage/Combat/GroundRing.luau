@@ -32,9 +32,20 @@ local GroundRing = {}
 -- small enough that it still reads as lying ON the ground rather than hovering.
 local LIFT = 0.15
 local THICKNESS = 0.08
--- Fraction of the outer radius that is hollow. 0.86 leaves a rim about a seventh of the radius wide,
--- which stays legible from 300 studs without becoming a filled dinner plate up close.
-local INNER_RATIO = 0.86
+-- Fraction of the outer radius that is hollow. 0.92 leaves a rim about a twelfth of the radius wide —
+-- ~2.5 studs on a 30-stud blast, which still reads at 300 studs.
+local INNER_RATIO = 0.92
+
+-- 🔴 THE FILL IS ALMOST INVISIBLE, AND THAT IS A CORRECTION MADE FROM A SCREENSHOT, NOT A PREFERENCE.
+-- First build: `Neon` at 0.82. Captured in Play it was unusable — the blast radius is 30 studs, so the
+-- disc is SIXTY studs across against a five-stud character, and the moment you aim at ground near your
+-- own feet you are standing inside it. Neon ignores lighting, so 0.82 transparency across that much
+-- screen read as "the ground is now red", not as a marker: the jungle, the river and the boat all went
+-- red and the rim was off-screen entirely.
+--
+-- So the RIM carries the information and the fill is only a hint that the interior belongs to it.
+-- `SmoothPlastic` rather than `Neon` for the same reason — a glowing floor is not a decal.
+local FILL_TRANSPARENCY = 0.93
 
 export type Ring = {
 	setVisible: (boolean) -> (),
@@ -60,9 +71,9 @@ function GroundRing.new(radius: number, color: Color3): Ring
 	disc.CanQuery = false -- 🔴 see the header
 	disc.CanTouch = false
 	disc.CastShadow = false
-	disc.Material = Enum.Material.Neon
+	disc.Material = Enum.Material.SmoothPlastic
 	disc.Color = color
-	disc.Transparency = 0.82
+	disc.Transparency = FILL_TRANSPARENCY
 	disc.Parent = Workspace
 
 	-- The RIM. A `CylinderHandleAdornment` has a real `InnerRadius`, so it draws a true annulus with no
@@ -74,7 +85,7 @@ function GroundRing.new(radius: number, color: Color3): Ring
 	rim.InnerRadius = r * INNER_RATIO
 	rim.Height = THICKNESS * 2
 	rim.Color3 = color
-	rim.Transparency = 0.15
+	rim.Transparency = 0.05 -- the rim is the marker; it should be unmistakable
 	rim.AlwaysOnTop = false -- occluded by terrain like a real decal; a marker seen through a hill lies
 	rim.ZIndex = 0
 	-- The adornment extrudes along the adornee's LOCAL Z. The disc's own local X is its cylinder axis
@@ -84,7 +95,7 @@ function GroundRing.new(radius: number, color: Color3): Ring
 
 	local self = {}
 	local alive = true
-	local baseTransparency = 0.82
+	local baseTransparency = FILL_TRANSPARENCY
 
 	function self.setVisible(on: boolean)
 		if not alive then
@@ -127,8 +138,8 @@ function GroundRing.new(radius: number, color: Color3): Ring
 			return
 		end
 		local info = TweenInfo.new(period / 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-		TweenService:Create(disc, info, { Transparency = math.max(0, baseTransparency - 0.35) }):Play()
-		TweenService:Create(rim, info, { Transparency = 0.55 }):Play()
+		TweenService:Create(disc, info, { Transparency = math.max(0, baseTransparency - 0.06) }):Play()
+		TweenService:Create(rim, info, { Transparency = 0.5 }):Play()
 	end
 
 	function self.destroy()
