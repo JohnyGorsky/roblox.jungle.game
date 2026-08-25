@@ -26,7 +26,14 @@ local rng = Random.new()
 local function enemyFrom(inst: Instance?): Model?
 	local cur: Instance? = inst
 	while cur and cur ~= Workspace do
-		if cur:IsA("Model") and (CollectionService:HasTag(cur, "Enemy") or CollectionService:HasTag(cur, "CampGuard")) then
+		-- Job #115: `Generator` is the third damageable tag. A destructible prop needs nothing from this
+		-- file but its place in this list — it carries `HP` like everything else here, and reacts by
+		-- watching that attribute (see `World/Generators.luau`).
+		if cur:IsA("Model") and (
+			CollectionService:HasTag(cur, "Enemy")
+			or CollectionService:HasTag(cur, "CampGuard")
+			or CollectionService:HasTag(cur, "Generator")
+		) then
 			return cur
 		end
 		cur = cur.Parent

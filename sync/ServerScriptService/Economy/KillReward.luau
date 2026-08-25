@@ -22,6 +22,8 @@
 --   · a `SalvageAwarded` marker on the model — belt and braces across the three separate call sites
 --     and across frames, e.g. two crew members firing into the same creature on the same tick.
 
+local CollectionService = game:GetService("CollectionService")
+
 local RewardFeed = require(script.Parent:WaitForChild("RewardFeed"))
 
 local KillReward = {}
@@ -30,12 +32,29 @@ local KillReward = {}
 -- bandage (50) and well under a loot crate (40-80), so fighting pays without out-earning raiding.
 local LAND_SALVAGE = 6
 
+-- Job #115: a destroyed generator pays the same as a land kill. It lands HERE rather than inside
+-- `Generators.luau` for the reason this file's header gives — the damage sites are the only place that
+-- knows WHO struck the killing blow, and all three already call this function on every hit.
+--
+-- ⚠️ Checked BEFORE the `Category` test below, not after: a generator is a prop, not a creature, so it
+-- has no `Category` and would be filtered out as if it were a fish.
+local GENERATOR_SALVAGE = 6
+
 -- ⚠️ Deliberately does NOT apply the Scavenger's Instinct bonus that `ExcursionServer.awardSalvage`
 -- adds. That skill is described as boosting the LOOTER's payout; a kill is not a loot pickup, and
 -- quietly folding combat into a looting skill would make the skill's own description wrong.
 function KillReward.onEnemyDamaged(player: Player, enemy: Model, before: number, after: number)
 	if before <= 0 or after > 0 then
 		return -- not the killing blow
+	end
+	if CollectionService:HasTag(enemy, "Generator") then
+		if enemy:GetAttribute("SalvageAwarded") == true then
+			return
+		end
+		enemy:SetAttribute("SalvageAwarded", true)
+		player:SetAttribute("Salvage", ((player:GetAttribute("Salvage") :: number?) or 0) + GENERATOR_SALVAGE)
+		RewardFeed.notify(player, "salvage", "Salvage", GENERATOR_SALVAGE)
+		return
 	end
 	if enemy:GetAttribute("Category") ~= "land" then
 		return -- sea creatures pay nothing

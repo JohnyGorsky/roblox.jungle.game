@@ -3,7 +3,8 @@
 --
 -- The client just requests a swing (no hit claim). The SERVER validates the swinger holds a Sword, isn't
 -- busy/downed, then hits the nearest enemy within a short range IN FRONT of them. Same enemy convention
--- as the guns: walk up to an "Enemy"/"CampGuard"-tagged Model, damage its HP attribute. Server-authoritative.
+-- as the guns: walk up to an "Enemy"/"CampGuard"/"Generator"-tagged Model, damage its HP attribute.
+-- Server-authoritative.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -144,6 +145,11 @@ remote.OnServerEvent:Connect(function(player: Player)
 		consider(m)
 	end
 	for _, m in CollectionService:GetTagged("CampGuard") do
+		consider(m)
+	end
+	-- Job #115: destructible props. `consider` already skips anything at HP <= 0, so a generator that
+	-- is already down never steals a swing from a bandit standing behind it.
+	for _, m in CollectionService:GetTagged("Generator") do
 		consider(m)
 	end
 

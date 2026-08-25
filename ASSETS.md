@@ -722,9 +722,15 @@ lobby** — no new sourcing was needed.
 | Camp dressing (tents, sandbags ×48, crates, barrels, rocks, logs, foliage) | — | reuse — carried over in the §1.7 / 3.x sets | <span style="color:#2e9c3f">✅ placed</span> | Rotated copies of the crash-site camp; the copy stripped `SpawnLocation`, `Plane`, `Dock.BoatPlace`, `Dock.PlacePlace` |
 | **Extraction pad** | 1 | **BUILD — generated at runtime** | <span style="color:#2e9c3f">✅ built</span> | `Workspace.ExtractionPad`, built by `EndZone/EscapeServer`. A part-for-part replica of the lobby launch pad (§1.4) measured off `PartyPad_Yellow`, recoloured **gold** (STYLEGUIDE §4 = progression), with a 14×34 beacon column instead of the lobby's 5×3.6 — it is the only wayfinding in the end zone and must read from the dock 219 studs away |
 | `Escape` marker | 1 | editor-placed (user) | <span style="color:#2e9c3f">✅ placed</span> | `EndBase.Objects.Plane.Escape` — invisible 4×1×2 nub at (390,21.6,18299). **Found BY NAME** by `EscapeServer`; the pad is generated onto it. Moving it moves the extraction |
+| **Generator** | 3 placed + 1 template | user Meshy/Store import | <span style="color:#2e9c3f">✅ placed + WIRED (Job #115)</span> | `EndBase.Bunker.Generator1/2/3`; template at `AssetLibrary/Structures/Generator`. One 8.96×8×5.31 MeshPart per model (`Generator3` is the same asset at **half scale**, up on a tower at y 63.5). **DESTRUCTIBLE** — 150 HP, electricity + hum while alive, smoke + "DISABLED" once dead. Found BY NAME (`Generator*`) under Workspace by `World/GeneratorServer`; anything tagged `Generator` is wired too, so a later job can spawn more |
+| Generator audio | 2 | user uploads 2026-08-25 | <span style="color:#2e9c3f">✅ wired (Job #115)</span> | `eletricity_going` **90617779140381** (3.94 s) — looped positional idle **and**, restarted + cut at 0.5 s, the hit zap; `generator_dead` **119782619832290** (1.10 s) — one-shot on death. Both resolved through `World/Generators.luau`'s own `SFX` table (the `GameSoundscape` convention), never inline |
 
 ⚠️ **Do not rename `Escape` or `EndBase`.** `EscapeServer` halts with a warning if either goes missing,
 and the run then has no win condition at all.
+
+⚠️ **The generators are found by the `Generator` NAME PREFIX, not by path** (Job #115). Renaming one to
+something that does not start with `Generator` silently un-wires it — no HP, no bar, no sound, and it
+stops being shootable. Adding a fourth is just placing a copy named `Generator4`.
 
 ⚠️ The end-zone camp is a rotated copy of the crash site, so it currently reads as *the same camp again*.
 Re-dressing it to feel like a destination rather than a repeat is open work.
