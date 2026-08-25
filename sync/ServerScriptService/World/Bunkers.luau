@@ -239,13 +239,30 @@ local function buildLamp(rig: Rig, marker: BasePart)
 	local unit = math.max(marker.Size.X, marker.Size.Y, marker.Size.Z)
 	local push = lampOffset(rig, marker)
 	local outward = -marker.CFrame.LookVector
+	local bulbPos = marker.Position + outward * push
 
-	-- A dark plate on the wall, at the marker itself — the mount stays where the user put it even when
-	-- the bulb has to stand off it.
+	-- Where the WALL actually is, measured back from the bulb rather than assumed to be at the marker.
+	-- ⚠️ `marker.CFrame * CFrame.new(0, 0, d)` walks the marker's local +Z, which is its BACK — the same
+	-- -Z convention that laid the hoard out backwards. The first version used it to "sink the plate into
+	-- the wall" and pushed it 0.9 studs out into open air instead. A ray cannot be held the wrong way
+	-- round.
+	local mountPos = marker.Position
+	do
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { rig.model }
+		params.RespectCanCollide = true
+		local hit = Workspace:Raycast(bulbPos, -outward * (push + unit * 2), params)
+		if hit then
+			mountPos = hit.Position
+		end
+	end
+
+	-- A dark plate on that wall, so the lamp reads as fitted rather than stuck on.
 	local housing = Instance.new("Part")
 	housing.Name = "LampHousing"
 	housing.Size = Vector3.new(unit * 1.25, unit * 0.5, unit * 1.25)
-	housing.CFrame = marker.CFrame * CFrame.new(0, 0, unit * 0.45)
+	housing.CFrame = CFrame.new(mountPos) * (marker.CFrame - marker.CFrame.Position)
 	housing.Anchored = true
 	housing.CanCollide = false
 	housing.CanQuery = false
@@ -255,12 +272,19 @@ local function buildLamp(rig: Rig, marker: BasePart)
 	housing.Parent = marker
 
 	-- ...and a bracket bridging the gap, so a stood-off bulb reads as mounted on an arm rather than
-	-- floating in front of the wall. Skipped when the bulb sits flush, where an arm would be a stub.
-	if push >= 0.4 then
+	-- floating in front of the wall.
+	--
+	-- ⚠️ `CFrame.lookAt` needs its two points to DIFFER. The first version aimed from
+	-- `marker + outward * (push/2)` at `marker + outward` — which are the same point whenever push is
+	-- exactly 2, and 2 is precisely what this bunker measures. The result was a NaN CFrame on a part that
+	-- existed on the server and NEVER REPLICATED: present in a server-side dump, absent from the client's.
+	-- Guarding on the real length makes the degenerate case impossible rather than unlikely.
+	local armLength = (bulbPos - mountPos).Magnitude
+	if armLength >= 0.4 then
 		local arm = Instance.new("Part")
 		arm.Name = "LampArm"
-		arm.Size = Vector3.new(unit * 0.22, unit * 0.22, push)
-		arm.CFrame = CFrame.lookAt(marker.Position + outward * (push / 2), marker.Position + outward)
+		arm.Size = Vector3.new(unit * 0.22, unit * 0.22, armLength)
+		arm.CFrame = CFrame.lookAt(mountPos:Lerp(bulbPos, 0.5), bulbPos)
 		arm.Anchored = true
 		arm.CanCollide = false
 		arm.CanQuery = false
@@ -274,7 +298,7 @@ local function buildLamp(rig: Rig, marker: BasePart)
 	bulb.Name = "LampBulb"
 	bulb.Shape = Enum.PartType.Ball
 	bulb.Size = Vector3.new(unit * 0.9, unit * 0.9, unit * 0.9)
-	bulb.CFrame = marker.CFrame + outward * push
+	bulb.CFrame = CFrame.new(bulbPos) * (marker.CFrame - marker.CFrame.Position)
 	bulb.Anchored = true
 	bulb.CanCollide = false
 	bulb.CanQuery = false
@@ -348,14 +372,35 @@ local function floorUnder(model: Model, pos: Vector3, up: number): number?
 	return hit and hit.Position.Y or nil
 end
 
--- Is this slot standing inside the bunker's geometry rather than on it?
-local function slotBlocked(model: Model, pos: Vector3, size: number): boolean
-	local params = OverlapParams.new()
+-- Ceiling over `pos`, same discipline as `floorUnder`. Used to size the chest against the room.
+local function ceilingOver(model: Model, pos: Vector3): number?
+	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { model }
 	params.RespectCanCollide = true
-	local parts = Workspace:GetPartBoundsInBox(CFrame.new(pos + Vector3.new(0, size * 0.6, 0)), Vector3.new(size, size, size), params)
-	return #parts > 0
+	local hit = Workspace:Raycast(pos + Vector3.new(0, 1, 0), Vector3.new(0, 60, 0), params)
+	return hit and hit.Position.Y or nil
+end
+
+-- Is this slot in the same open space as the chest, or behind a wall?
+--
+-- 🔴 THIS REPLACES A CHECK THAT COULD NOT FAIL, AND THE MISTAKE IS WORTH KEEPING. The first version asked
+-- `GetPartBoundsInBox` whether the slot overlapped the shell. A bunker is ONE concave MeshPart whose
+-- BOUNDING BOX is the whole 36.9 x 25 x 38.5 building — so every point in the room "overlapped", every
+-- slot was reported blocked, and every share silently took the fallback path. Measured in Play: the test
+-- returned a hit at the dead centre of the open interior. Bounds queries cannot see a concave mesh;
+-- rays can, because a raycast is resolved against the collision geometry itself.
+--
+-- Asking line-of-sight FROM THE CHEST is also a better question than "is this point solid": it says the
+-- share is reachable from the hoard, in the same room, rather than merely not inside a wall.
+local function slotSeenFromChest(model: Model, chest: Vector3, slot: Vector3): boolean
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { model }
+	params.RespectCanCollide = true
+	local a = chest + Vector3.new(0, 1.5, 0)
+	local b = slot + Vector3.new(0, 1.5, 0)
+	return Workspace:Raycast(a, b - a, params) == nil
 end
 
 -- Build the hoard: the chest as the thing you see when the doors drop, and one named share per crew member.
@@ -388,9 +433,19 @@ local function buildHoard(rig: Rig)
 	-- cannot disagree with the way the chest is pointing.
 	local base = marker.Position
 	local floorY = floorUnder(model, base, 8) or base.Y
+	local origin = Vector3.new(base.X, floorY, base.Z)
 	local flat = Vector3.new(doorPart.Position.X - base.X, 0, doorPart.Position.Z - base.Z)
 	local toDoors = if flat.Magnitude > 0.01 then flat.Unit else Vector3.new(0, 0, -1)
-	local frame = CFrame.lookAt(Vector3.new(base.X, floorY, base.Z), Vector3.new(base.X, floorY, base.Z) + toDoors)
+	local frame = CFrame.lookAt(origin, origin + toDoors)
+	-- 🔴 TAKEN AS EXPLICIT WORLD VECTORS, NOT AS LOCAL CFrame OFFSETS.
+	-- A `CFrame.lookAt` frame's LookVector is its **-Z** axis, so `frame * CFrame.new(0, 0, forward)`
+	-- with a positive `forward` walks AWAY from the thing you told it to look at. The first version did
+	-- exactly that and laid the whole hoard out behind the chest, into the 7.6-stud back wall instead of
+	-- the 40 studs of clear floor toward the doors — measured in Play: the share came out 16.3 studs from
+	-- the doors against the chest's 12.7, when it had to be the nearer of the two. Naming the axes kills
+	-- the sign error rather than fixing this one instance of it.
+	local ahead = frame.LookVector -- toward the doors
+	local across = frame.RightVector
 
 	-- ── the chest: dressing only, no prompt, no gold ───────────────────────────────────────────
 	local chestDepth = 6 -- fallback if the library is missing; overwritten from the real bounds below
@@ -398,10 +453,22 @@ local function buildHoard(rig: Rig)
 	if template and template:IsA("Model") then
 		local chest = (template :: Model):Clone()
 		chest.Name = "GoldChest"
-		chest:ScaleTo(CHEST_SCALE)
+
+		-- 🔴 SIZED AGAINST THE ROOM, NOT BY A SCALE FACTOR — and this is the second time this asset has
+		-- caught someone out. `Model:ScaleTo` is ABSOLUTE, not relative, and `GoldChest` arrives from the
+		-- 3D Importer with `GetScale() == 6`. So the obvious `ScaleTo(0.65)` — which is the number Job
+		-- #079 recorded, correctly, for a model then sitting at scale 1 — actually asks for 0.65/6 of the
+		-- authored size. Measured in Play: a **1.02 x 0.80 x 1.23** toy on the floor of a 37-stud bunker.
+		-- Multiplying the CURRENT scale by a ratio taken from the room's own headroom cannot be fooled by
+		-- a baked scale, and gives a differently-sized bunker a chest that fits it.
+		local _, raw = chest:GetBoundingBox()
+		local headroom = (ceilingOver(model, origin) or (floorY + rig.travel)) - floorY
+		if raw.Y > 0.01 and headroom > 0.5 then
+			chest:ScaleTo(chest:GetScale() * math.clamp(headroom * CHEST_HEIGHT_FRACTION, 0.5, raw.Y) / raw.Y)
+		end
 		local _, size = chest:GetBoundingBox()
 		chestDepth = size.Z
-		chest:PivotTo(frame * CFrame.new(0, size.Y / 2, 0))
+		chest:PivotTo(CFrame.new(origin + Vector3.new(0, size.Y / 2, 0)) * (frame - frame.Position))
 		for _, d in ipairs(chest:GetDescendants()) do
 			if d:IsA("BasePart") then
 				d.Anchored = true
@@ -432,14 +499,18 @@ local function buildHoard(rig: Rig)
 		local row = math.floor((i - 1) / SHARES_PER_ROW)
 		local forward = firstRow + row * rowGap
 
-		-- Validate the footprint, then nudge toward the doors (the only clear direction) if it is bad.
+		-- Validate each slot on its own floor, then nudge further toward the doors — the only direction
+		-- with room — if it lands somewhere the chest cannot see.
 		local found: Vector3? = nil
 		for attempt = 0, 3 do
-			local try = (frame * CFrame.new(col * colGap, 0, forward + attempt * 3)).Position
+			local try = origin + across * (col * colGap) + ahead * (forward + attempt * 3)
 			local y = floorUnder(model, try, 6)
-			if y and not slotBlocked(model, Vector3.new(try.X, y, try.Z), 2.5) then
-				found = Vector3.new(try.X, y, try.Z)
-				break
+			if y then
+				local seat = Vector3.new(try.X, y, try.Z)
+				if slotSeenFromChest(model, origin, seat) then
+					found = seat
+					break
+				end
 			end
 		end
 		if not found then
@@ -447,7 +518,7 @@ local function buildHoard(rig: Rig)
 		end
 		-- Never drop a player's share silently: an unplaceable slot falls back to the chest's own floor
 		-- line, which is measured ground, and the warning above says it happened.
-		local pos: Vector3 = found or (frame * CFrame.new(col * colGap, 0, forward)).Position
+		local pos: Vector3 = found or (origin + across * (col * colGap) + ahead * forward)
 
 		local nug = (nuggetTemplate :: BasePart):Clone()
 		nug.Name = "GoldShare"
