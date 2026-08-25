@@ -446,6 +446,9 @@ local function buildHoard(rig: Rig)
 	-- the sign error rather than fixing this one instance of it.
 	local ahead = frame.LookVector -- toward the doors
 	local across = frame.RightVector
+	-- The room's own headroom, measured once: it sizes the chest AND ranges the practical below. Falls
+	-- back to the door height, which is the only other thing here that is known to fit through the wall.
+	local headroomOf = (ceilingOver(model, origin) or (floorY + rig.travel)) - floorY
 
 	-- ── the chest: dressing only, no prompt, no gold ───────────────────────────────────────────
 	local chestDepth = 6 -- fallback if the library is missing; overwritten from the real bounds below
@@ -462,9 +465,8 @@ local function buildHoard(rig: Rig)
 		-- Multiplying the CURRENT scale by a ratio taken from the room's own headroom cannot be fooled by
 		-- a baked scale, and gives a differently-sized bunker a chest that fits it.
 		local _, raw = chest:GetBoundingBox()
-		local headroom = (ceilingOver(model, origin) or (floorY + rig.travel)) - floorY
-		if raw.Y > 0.01 and headroom > 0.5 then
-			chest:ScaleTo(chest:GetScale() * math.clamp(headroom * CHEST_HEIGHT_FRACTION, 0.5, raw.Y) / raw.Y)
+		if raw.Y > 0.01 and headroomOf > 0.5 then
+			chest:ScaleTo(chest:GetScale() * math.clamp(headroomOf * CHEST_HEIGHT_FRACTION, 0.5, raw.Y) / raw.Y)
 		end
 		local _, size = chest:GetBoundingBox()
 		chestDepth = size.Z
@@ -478,6 +480,35 @@ local function buildHoard(rig: Rig)
 	else
 		warn("[Bunker] ServerStorage.AssetLibrary.Props.GoldChest is missing — no hero prop, shares only")
 	end
+
+	-- ── one warm practical over the hoard ──────────────────────────────────────────────────────
+	-- Screenshotted from the doorway the moment the doors landed: the chest and the shares were legible
+	-- only as silhouettes, and the only thing actually readable was `LootGlow`'s outline. A bunker is a
+	-- windowless concrete box, so it is dark at NOON, not just at night — this is not a `NightLight` and
+	-- must not be tagged as one or `LightController` would switch the payoff off at dawn.
+	--
+	-- Gold, warm and small: it lights the hoard, not the room (STYLEGUIDE §8, "small pools of light").
+	-- It lives inside the hoard folder, so it is created and destroyed with the loot and costs nothing
+	-- for the whole run up to the moment the doors open.
+	local lampPost = Instance.new("Part")
+	lampPost.Name = "HoardLight"
+	lampPost.Size = Vector3.new(0.4, 0.4, 0.4)
+	lampPost.CFrame = CFrame.new(origin + Vector3.new(0, math.min(headroomOf, 6), 0))
+	lampPost.Anchored = true
+	lampPost.CanCollide = false
+	lampPost.CanQuery = false
+	lampPost.CanTouch = false
+	lampPost.Transparency = 1
+	lampPost.Parent = hoard
+
+	local hoardLight = Instance.new("PointLight")
+	hoardLight.Name = "HoardGlow"
+	hoardLight.Color = Theme.color.gold
+	hoardLight.Brightness = 2.2
+	hoardLight.Range = math.clamp(headroomOf * 1.6, 12, 26)
+	hoardLight.Shadows = false
+	hoardLight.Enabled = true
+	hoardLight.Parent = lampPost
 
 	-- ── the shares: one per player IN THE SERVER, reserved by UserId ───────────────────────────
 	-- Not "per living player": this game revives, and a pile stranded because its owner happened to be
@@ -752,11 +783,23 @@ function Bunkers.onOpened(fn: (Model) -> ())
 end
 
 --- Re-lock every bunker: doors shut, lamp red, hoard gone. Wired to `Workspace.RunStarted` by the boot.
+---
+--- ⚠️ RE-EVALUATED AFTER CLOSING, and that is deliberate. A bunker's state is a function of its keys and
+--- nothing else, so if the generators are STILL destroyed the bunker must open again rather than sit shut
+--- over three dead keys with no way for anyone to work out why. Measured: after a reset the generators
+--- keep `Disabled = true` (that is `Generators`' state to reset, not this file's), so this path warns and
+--- opens instead of quietly disagreeing with the world. A genuinely new run is a new server with live
+--- generators, where this re-check simply passes.
 function Bunkers.resetAll(): number
 	local n = 0
-	for model in pairs(rigs) do
+	for model, rig in pairs(rigs) do
 		Bunkers.close(model)
 		n += 1
+		if #rig.keys > 0 and keysDown(rig) >= #rig.keys then
+			warn(("[Bunker] %s re-locked, but all %d of its generators are still destroyed — reopening. "
+				.. "(Generators do not reset with the run; see findings.)"):format(model:GetFullName(), #rig.keys))
+			evaluate(rig)
+		end
 	end
 	return n
 end
