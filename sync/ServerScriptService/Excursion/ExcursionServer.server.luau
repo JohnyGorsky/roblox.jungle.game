@@ -32,6 +32,10 @@ local FoliageDefs = require(ServerScriptService:WaitForChild("World"):WaitForChi
 -- what the VFX/light budget is) live in CampDefs. Nothing in this file decides dressing.
 local CampDefs = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampDefs"))
 local CampLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("CampLayout"))
+-- Job #120: the physical-sign recipe used to be `buildShopSign` right here. It moved to a module so the
+-- river piers can stand the SAME sign (a "TIE BOAT" board) rather than growing a second copy of it.
+-- Nothing about the camp sign changed in the move — same size, same tokens, same both-faces SurfaceGui.
+local WorldSign = require(ServerScriptService:WaitForChild("World"):WaitForChild("WorldSign"))
 -- Job #108: `CampLayout` owns the inside of a camp; this owns the basin AROUND the two camps.
 local VillageLayout = require(ServerScriptService:WaitForChild("World"):WaitForChild("VillageLayout"))
 -- Job #109: "received X" feedback. See its header for why this is an explicit call per reward and not
@@ -1978,38 +1982,19 @@ end
 --
 -- Job #106: RETURNS THE BOARD, because the sign now carries a shop prompt of its own. See the note on
 -- `shopPrompt` in `buildTradingPost` for why there are two triggers.
+--
+-- Job #120: the recipe itself moved to `World/WorldSign.luau` so the river piers stand the same sign.
+-- This stays as the camp's named entry point — same board name, same geometry, same tokens, so the
+-- `ShopPrompt` that parents to the returned board is unaffected.
 local function buildShopSign(pos: Vector3, faceTo: Vector3, parent: Instance, ground: number): Part
-	local d = Vector3.new(faceTo.X - pos.X, 0, faceTo.Z - pos.Z)
-	local yaw = if d.Magnitude > 0.01 then math.atan2(d.X, d.Z) else 0
-	local base = CFrame.new(pos.X, ground, pos.Z) * CFrame.Angles(0, yaw, 0)
-
-	for _, dx in ipairs({ -3.4, 3.4 }) do
-		local post = block("Post", Vector3.new(0.5, 7, 0.5), Theme.color.woodDark, base * CFrame.new(dx, 3.5, 0), parent, Enum.Material.Wood)
-		post.CanCollide = false
-	end
-	local board = block("ShopSign", Vector3.new(8, 3, 0.4), Theme.color.wood, base * CFrame.new(0, 6.2, 0), parent, Enum.Material.WoodPlanks)
-	board.CanCollide = false
-
-	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
-		local sg = Instance.new("SurfaceGui")
-		sg.Face = face
-		sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		sg.PixelsPerStud = 50
-		sg.MaxDistance = 320 -- occluded correctly by the world, unlike the billboard it replaces
-		sg.Parent = board
-		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.fromScale(0.9, 0.8)
-		lbl.Position = UDim2.fromScale(0.05, 0.1)
-		lbl.BackgroundTransparency = 1
-		lbl.TextColor3 = Theme.color.cream -- never pure white (STYLEGUIDE §4)
-		lbl.TextStrokeColor3 = Theme.color.stroke
-		lbl.TextStrokeTransparency = 0.4
-		lbl.Font = Theme.font.sign -- SpecialElite — physical world signs only
-		lbl.TextScaled = true
-		lbl.Text = "TRADING POST"
-		lbl.Parent = sg
-	end
-
+	local board = WorldSign.build({
+		position = pos,
+		faceTo = faceTo,
+		parent = parent,
+		ground = ground,
+		text = "TRADING POST",
+		boardName = "ShopSign",
+	})
 	return board
 end
 

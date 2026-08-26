@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-26
-**Status**: Requirements Gathering (intake)
+**Status**: ✅ COMPLETE — implemented, verified in Play, closed 2026-08-26
 
 ## Requirements / goal
 
@@ -68,8 +68,8 @@ that boundary — it was, in the intake wizard above. Nothing about camp signs m
 
 - [x] Requirements reviewed (this intake)
 - [x] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
-- [ ] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured - before/after from the same camera, in Play
-- [ ] Final summary + changelog written
+- [x] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] **Proof it works better** captured - before/after from the same camera, in Play
+- [x] Final summary + changelog written
