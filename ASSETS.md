@@ -919,8 +919,10 @@ draws. Both verified in Studio (`GetProductInfo` → name + type match).
 > for in-game use**, and is what `Theme.productIcon.m16Lifetime` points at. `87494055704448`
 > (`assault-rifle`) is the **glyph**, used by the one-run row and the hotbar.
 >
-> `Theme.icon.rifleAmmo` (`bullet`, `134307949592665`) is consequently **registered but unused** — kept as
-> the natural glyph for an M16 ammo row if the trading post ever sells rifle rounds.
+> `Theme.icon.rifleAmmo` (`bullet`, `134307949592665`) was **registered but unused**, kept as the natural
+> glyph for an M16 ammo row *"if the trading post ever sells rifle rounds"*. ✅ **Job #123 is that job** —
+> the post now sells M16 bursts and Bazooka rockets for Salvage, so all four glyphs are live and this
+> job needed **no new art at all**.
 >
 > ✅ **The Bazooka is wired as of Job #118 (2026-08-25)** — it had been live on the Hub and connected to
 > nothing since the M16 shipped, which meant the 250 R$ pass was buyable from the experience store page
@@ -1031,8 +1033,8 @@ the game sold for Robux.
 | `Rifle.glb` | `Scene` | Model | `84134973846203` | → `ServerStorage.AssetLibrary.Weapons.M16` (see below) |
 | — | `output_unwrapped` | Mesh | `101680702520520` | the MeshPart inside that model |
 | `rifle_shoot.mp3` | `rifle_shoot` | Audio | `138005496001979` | `WeaponAssets.ART.M16.sound.fire` — see §3.2 |
-| `assault-rifle.png` | `assault-rifle` | Image | `87494055704448` | `Theme.icon.rifle` — hotbar slot + the **"M16 (one run)"** shop row |
-| `bullet.png` | `bullet` | Image | `134307949592665` | `Theme.icon.rifleAmmo` — **registered, currently unused** (see §5.1) |
+| `assault-rifle.png` | `assault-rifle` | Image | `87494055704448` | `Theme.icon.rifle` — hotbar slot + the **"M16 (one run)"** Robux row + the **"M16"** trading-post row (Job #123) |
+| `bullet.png` | `bullet` | Image | `134307949592665` | `Theme.icon.rifleAmmo` — the **"M16 Ammo"** trading-post row (Job #123) |
 | `RobloxPassM16.png` | `RobloxPassM16` | Image | `118709115773836` | Creator Hub pass listing **source art only** (§5.1) |
 | — | `Developer Product Image Asset` | Image | `99770814546746` | `Theme.productIcon.m16Lifetime` — the in-game **"Lifetime M16"** row |
 
@@ -1067,8 +1069,8 @@ weapon sold for Robux, and the **first projectile weapon in the game**.
 | `rocket_loop.mp3` | `rocket_loop` | Audio | `73214531471418` | `WeaponAssets.ROCKET.loop` — §3.2 |
 | `rocket_impact.mp3` | `rocket_impact` | Audio | `73027674412530` | `WeaponAssets.ROCKET.impact` — §3.2 |
 | `rocket_impact_near.mp3` | `rocket_impact_near` | Audio | `108549200090609` | `WeaponAssets.ROCKET.impactNear` — §3.2 |
-| `bazooka_icon.png` | `bazooka_icon` | Image | `76642882799637` | `Theme.icon.bazooka` — hotbar slot + the **"Lifetime Bazooka"** shop row |
-| `missile.png` | `missile` | Image | `100284588876499` | `Theme.icon.rocketAmmo` — the **"Bazooka (one run)"** shop row |
+| `bazooka_icon.png` | `bazooka_icon` | Image | `76642882799637` | `Theme.icon.bazooka` — hotbar slot + the **"Lifetime Bazooka"** Robux row + the **"Bazooka"** trading-post row (Job #123) |
+| `missile.png` | `missile` | Image | `100284588876499` | `Theme.icon.rocketAmmo` — the **"Bazooka (one run)"** Robux row + the **"Bazooka Ammo"** trading-post row (Job #123) |
 | `RobloxPassBazooka.png` | `RobloxPassBazooka` | Image | `78985801749301` | Creator Hub pass listing **source art only** — see §5.1 |
 
 **Placed in the GAME place 2026-08-25**, both scanned (**0 scripts** — MeshPart + SurfaceAppearance only),

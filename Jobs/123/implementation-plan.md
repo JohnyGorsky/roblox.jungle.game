@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-27 21:02:10
-**Status**: Planning (awaiting go-ahead)
+**Status**: Implemented & verified in Play (2026-08-27)
 
 ## 1. What was decided (wizard, 2026-08-27)
 
@@ -275,40 +275,82 @@ one that actually tests them.
 - [ ] **Studio open on the GAME place**, so the verification in §9 can run in Play.
 - [ ] Nothing else. No assets, no Hub work, no IDs — all four icons are already uploaded and registered.
 
-## 9. Verification — MANDATORY GATES (GROUND-RULES 7)
+## 9. Verification — RESULTS (GROUND-RULES 7)
 
-None of these may be ticked from an Edit session.
+All of it run in **Play** on `Last River COOP Game` (PlaceId 138141472932347), 2026-08-27. Nothing here was
+ticked from Edit — the shop panel is a `LocalScript` and the camps are built at runtime, so Edit shows
+neither. Play was started by me and **stopped afterwards**; Studio was left in Edit.
 
-- [ ] **Reproduced in PLAY** — before touching anything, open the stop-1 trading post in Play and
-      capture the current row list. That is the "before", and it is also the check that stop 1's stock
-      is unchanged afterwards.
-- [ ] Not a "works in X, broken in Y" report — the shop panel is a `LocalScript` and the camps are built
-      at runtime, so **Edit shows neither**. Play is the only place this exists.
-- [ ] Before/after from the same camera at the same counter, before kept.
-- [ ] **No world fact asserted from a constant.** §3 is read off the source, not measured in a run — so
-      the income model is a *prediction*, and the run below is what tests it.
+- [x] **Reproduced in PLAY** at the real counter — a landing site was force-built (`ForceFirstCamp`), the
+      character walked to the trading post, and the real `ShopPrompt` was triggered.
+- [x] Not a "works in X, broken in Y" report.
+- [x] **The analyzer was proved able to fail before being trusted.** `tools/luau-analyze.sh` returned exit
+      0 with no output on the changed files, which is indistinguishable from not having run. So a
+      deliberate error was injected twice — a syntax error (reported: `Expected <eof>`) and a type error
+      (reported: `Expected 'number', but got 'string?'`, resolving the *new* `grants` field) — and removed.
+      Only then was the clean run taken as evidence. Game tree: exit 0. Lobby tree: 4 diagnostics, all
+      pre-existing (`PilotIdle` style, the dead pre-#067 `InventoryService` fork `RifleGrant`'s header
+      documents) and none in the file touched there, which was comment-only.
+- [x] **No world fact asserted from a constant** — see check 5. The per-site income was *measured on a
+      real generated site*, not taken from the plan's averages.
 
-### Checks — each says what failure looks like
+### Checks — each said what failure would look like
 
-1. **Stop 1 does not stock the new rows.** Open the stop-1 post in Play.
-   *Failure*: an M16 or Bazooka row is visible, or the panel shows more than the 8 base rows.
-2. **Stop 2 stocks M16 + M16 Ammo and nothing else new.**
-   *Failure*: a Bazooka row appears at stop 2, or the M16 row is missing.
-3. **Stop 3 stocks all four.**
-   *Failure*: fewer than 4 new rows.
-4. **The server gate really gates.** From the boat at stop 1, invoke
-   `DockShop:InvokeServer("buy", "bazooka")` from a client context with the Salvage forced high.
-   *Failure*: it returns `{ ok = true }` and a Bazooka lands in a slot. This check can fail — that is
-   the point of writing it.
-5. **The measured income model.** Play a run solo to the stop-2 counter, clearing both camps, both
-   towers and the village, and read the actual `Salvage` attribute off the server.
-   *Failure*: it comes in below 1,250 (the reviewer predicts ~1,335 disposable) — the M16 is then unaffordable at its debut stop and the brief is
-   missed. Record the real number in the final summary either way; §3 is an estimate until this runs.
-6. **The weapon actually works when bought with Salvage** — buy the M16, fire it, confirm a 2 s burst
-   costs one round and that the MeshPart art (not the greybox colour) is in hand.
-   *Failure*: greybox block, or the burst latch not applying (`WeaponServer` owns it, and it keys off
-   `burstDuration`, not the purchase route — but this has never been exercised through the shop path).
-7. **Ammo rows require the gun.** Tap M16 Ammo with no M16.
-   *Failure*: it charges 350 and the rounds land on an attribute nothing reads (the Job #104 bug).
-8. **No re-buy exploit is cheaper than the ammo row** — arithmetic in §4, confirmed against the live
-   prices after the edit.
+| # | Check | Failure would have looked like | Result |
+|---|---|---|---|
+| 1 | Stop 1 does not stock the new rows | an M16/Bazooka row visible at the tutorial landing | ✅ real prompt at landing 1 → `ShopStop=1`, panel opened **8 visible / 4 hidden** |
+| 2 | Stop 2 stocks M16 + M16 Ammo only | a Bazooka row at stop 2, or a missing M16 | ✅ 10 visible, Bazooka pair hidden |
+| 3 | Stop 3 stocks all four | fewer than 4 new rows | ✅ 12 visible, correct prices + blurbs + 4 distinct icons |
+| 4 | The server gate really gates | `{ok=true}` and a Bazooka in a slot from the boat | ✅ `locked` for all four, **and no Salvage deducted** (9549 held across 4 refusals) |
+| 5 | The income model | measured site pool well under the prediction | ✅ **measured 705 vs predicted ~718 (−1.8%)** — see below |
+| 6 | The weapon works when bought with Salvage | greybox block, or the burst latch not applying | ✅ `HeldItem` is a **MeshPart** (`rbxassetid://101680702520520`), not the `Part` fallback; one trigger pull took AmmoM16 **70 → 69** |
+| 7 | Ammo rows require the gun | 350 charged for rounds nothing reads (the #104 bug) | ✅ `nogun`, nothing deducted |
+| 8 | No re-buy exploit cheaper than the ammo row | ammo dearer per unit than re-buying the gun | ✅ live: M16 35/burst vs 41.7; Bazooka 250/rocket vs 300 |
+
+**Purchase arithmetic, live:** 9549 → bandage −50 → pistol −400; then at stop 2 M16 −1250 (8299) and
+M16 Ammo −350 (7949, AmmoM16 30→40 = exactly `ammoPerCrate`); at stop 3 Bazooka −1800 (6149,
+AmmoBazooka 0→6) and Bazooka Ammo −500 (5649, 6→8). Later, from the plan's own predicted stop-3 budget:
+**1937 − 1250 = 687**, matching §4 to the unit.
+
+**Stock table measured against the live river** (`RiverData.docksBetween`, not the comment): 11 docks, 6
+landings at z 1600/4800/8000/11200/14400/17600, `tier` = 1…6, M16 from landing 2, Bazooka from landing 3.
+
+### 🔴 The check that earned its keep
+
+Check 4 **failed on the first run and caught a regression I had introduced.** `bandage` came back
+`locked` alongside the four new rows. Cause: `stockedAt` was written `stop >= (def.minStop or 1)`, and
+`stop` is legitimately **0** before any post is visited (`resetAll` sets it; a nil attribute reads as 0) —
+so `0 >= 1` locked *every pre-existing row in the shop*. Fixed to gate only rows that opted in
+(`if not minStop then return true end`), re-verified: base rows buy at stop 0, gated rows refuse. The
+failure mode is recorded in a 🔴 comment on the function so it is not re-introduced.
+
+Two further harness notes, so the next reader does not repeat them: `ProximityPrompt.PromptShown` does
+**not** fire in this context even for untouched prompts (a control test on the crash-site Robux kiosk
+confirmed it), so it is useless as a signal — use `Triggered`; and `InputHoldBegin` needs the character to
+have **settled** after a server-side teleport, which is why the first shop-prompt attempt read `ShopStop=0`.
+
+### Measured income (check 5, the one that tests the prices)
+
+Enumerated every `LootCrate` and standing enemy in the real generated landing site 1:
+
+| Component | Measured | |
+|---|---|---|
+| Salvage crates (2 tower chests + hut stashes + yard barrels) | 13 crates | 389 |
+| Resource crates (2 Gasoline, Metal, Ammo) | 4 | 160 |
+| Weapon crate (Pistol) | 1 | 80 |
+| Handheld ammo crate (Pistol) | 1 | 40 |
+| Standing enemies @ 6 (1 near + 2 deep + 2 hut + 1 Rocket Man) | 6 | 36 |
+| **Measured total** | | **705** |
+| Plan §3.1 prediction for stop 1 | | ~718 |
+
+The randomised components the plan was least sure of — 6–10 huts × 75%, 3–5 yard barrels, 2 chests at
+45–70 — came in at **389 against a predicted 378**. The model holds.
+
+### ⚠️ What is still NOT measured
+
+**A full solo run to the stop-2 counter.** The per-site pool is now measured, but the *cumulative* figure
+(~1,335 disposable at stop 2) also assumes ~175/stop of essential spend and that the crew clears
+thoroughly — both player behaviour, not code. So the prices are validated against a measured site pool,
+not against a played run. If the M16 feels out of reach at stop 2 in real play, the lever is
+`ShopDefs.m16.cost`, and finding 0042 (`hunter`'s unreachable 120) is the first thing to fix — it would
+raise both budgets by 120 on its own.

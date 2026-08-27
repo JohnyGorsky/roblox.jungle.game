@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-27 20:56:39
-**Status**: Requirements Gathering (intake)
+**Status**: DONE — implemented & verified in Play 2026-08-27
 
 ## Requirements / goal
 
@@ -10,10 +10,10 @@ Right now the M16 and the Bazooka can ONLY be bought with Robux. Make them earna
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
-- [ ] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured - before/after from the same camera, in Play
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
+- [x] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] **Proof it works better** captured - before/after from the same camera, in Play
+- [x] Final summary + changelog written

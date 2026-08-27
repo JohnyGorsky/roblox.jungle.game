@@ -194,12 +194,21 @@ end
 -- ⚠️ `stop` is the LANDING ordinal (1..6), i.e. `ExcursionServer`'s `tier`, NOT the dock ordinal.
 -- Landings are only the odd docks, so dock 3 is landing 2 — getting this wrong shifts the whole table by
 -- a stop and would put the M16 on sale at the tutorial landing.
+-- 🔴 AN UNGATED ROW IS STOCKED UNCONDITIONALLY — DO NOT REWRITE THIS AS `stop >= (def.minStop or 1)`.
+-- That was the first cut and it is wrong, caught in the Job #123 Play test: `stop` is legitimately **0**
+-- before the crew has touched any trading post (`SalvageServer.resetAll` sets it, and a nil attribute
+-- reads as 0), and `0 >= 1` is false — so every pre-existing row, the bandage included, came back
+-- `locked` from the server. The stop must gate ONLY the rows that opted into being gated.
 function ShopDefs.stockedAt(id: string, stop: number): boolean
 	local def = ShopDefs.Items[id]
 	if not def then
 		return false
 	end
-	return stop >= (def.minStop or 1)
+	local minStop = def.minStop
+	if not minStop then
+		return true -- no gate on this row, and no dependence on `stop` at all
+	end
+	return stop >= minStop
 end
 
 return ShopDefs
