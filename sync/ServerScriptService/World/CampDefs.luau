@@ -564,9 +564,13 @@ CampDefs.TOWER = {
 	-- crates per site, and this is SALVAGE (spent at the trading post), not carried cargo, so it does not
 	-- touch the one-at-a-time carry loop.
 	--
-	-- ⚠️ AND IT IS NOT AMMO, despite the model. Making it top up Bazooka rockets was considered and
-	-- rejected: `ItemDefs.Bazooka` has NO `ammoPerCrate` on purpose, and that absence is the only thing
-	-- holding 6 rockets as a hard per-run cap on a 250 R$ purchase (see MonetizationDefs).
+	-- ⚠️ AND IT IS NOT AMMO, despite the model. It stays Salvage — but note that Job #123 retired the
+	-- REASON originally recorded here. That reason was "`ItemDefs.Bazooka` has no `ammoPerCrate`, and that
+	-- absence is the only thing holding 6 rockets as a hard per-run cap"; rockets are now buyable at the
+	-- trading post from landing 3, so the cap is a price and the absence is gone.
+	-- What still holds, and is why this is unchanged: a tower chest is a **currency** drop like the village
+	-- stashes, not a loadout crate. Making it grant rockets would hand free ammo for a weapon most crews
+	-- do not own, at a fixed 2 chests per landing that no price gates.
 	chest = {
 		model = "AmmoBox",
 		salvage = { 45, 70 },

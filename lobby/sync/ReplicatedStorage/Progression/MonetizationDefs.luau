@@ -9,6 +9,11 @@
 -- Bazooka notes below. Before adding anything here, ask whether a player who doesn't pay is now worse at
 -- the game. If yes, it doesn't belong.
 --
+-- ⚠️ JOB #123 SOFTENED THIS WHOLE HEADER, so read the M16 note below before quoting it. The M16 and the
+-- Bazooka are now buyable with in-run Salvage at the camp trading posts, so Robux buys TIME rather than
+-- access, and the two-jobs-worth of recorded P2W objections no longer apply to them. The flags stay (the
+-- weapons are still strong) but a fourth `power = true` item still needs its own argument.
+--
 -- 🔴 THREE items now carry that flag, and only the FIRST of them earned it on its own argument.
 -- The Armored Boat's exemption is "the buff is crew-wide". The M16 had no such argument and shipped
 -- anyway on the owner's explicit call (Job #117). The Bazooka is the third, on the same explicit call
@@ -116,9 +121,18 @@ MonetizationDefs.GamePasses = {
 	-- in Salvage or loot. That objection was put to the user in Job #117's plan (§10); they chose to ship
 	-- it. Do not quietly add a third — the rule in this file's header is still the rule.
 	--
-	-- What holds the line, and it is the ONLY thing that does: 30 bursts a run and **no way to buy more**
-	-- — no camp crate, no trading-post row (see `ItemDefs.M16`'s deliberately absent `ammoPerCrate`).
-	-- If it plays badly the lever is `ammoOnLoot` (bursts per run), NOT `damage`.
+	-- 🔴 JOB #123 CHANGED WHAT THIS ROW SELLS, AND IT IS AN IMPROVEMENT — READ THIS BEFORE THE OBJECTION
+	-- ABOVE. The words *"it cannot be earned at any price in Salvage or loot"* were true when written and
+	-- are now false: the trading post sells the M16 for **1,250 Salvage from landing 2**. So what Robux
+	-- buys here is no longer exclusivity, it is TIME — the gun from the start of the run (through the
+	-- river legs and the first camp, when you are weakest and broke), every run, without the 1,250.
+	-- That is convenience, which is the rule this file's header defends. The `power = true` flag stays
+	-- because the weapon is still strong, but the P2W objection Job #117 recorded is retired.
+	--
+	-- What used to hold the line was "30 bursts a run and no way to buy more". Bursts are now buyable at
+	-- 350 Salvage for 10, so the line is held by a PRICE instead — see `ItemDefs.M16.ammoPerCrate` and
+	-- Job #123 §3 for the income measurement those numbers are derived from.
+	-- If it plays badly the lever is `ammoOnLoot` and the Salvage prices, NOT `damage`.
 	{ key = "m16Lifetime", gamePassId = 1954603618, robux = 150, name = "Lifetime M16", power = true, blurb = "Start every run with the M16 + 30 rounds" },
 	-- ── Job #118 — the Bazooka, and the THIRD `power = true` item ────────────────────────────────
 	-- 🔴 ALSO AN EXPLICIT OWNER DECISION. The line above says "do not quietly add a third", and this is
@@ -132,9 +146,10 @@ MonetizationDefs.GamePasses = {
 	-- That is a real argument, but it is NOT the Armored Boat's crew-wide argument, and it should not be
 	-- read as one. It is still the most powerful thing one player can buy for themselves.
 	--
-	-- What holds the line, unchanged from the M16 and still the ONLY thing that does: 6 rockets a run and
-	-- **no way to get more** — no camp crate, no trading-post row, no `ammoPerCrate` on `ItemDefs.Bazooka`.
-	-- If it plays badly the lever is `ammoOnLoot` (rockets per run), NOT `blastDamage`.
+	-- 🔴 AND JOB #123 APPLIES HERE TOO: the Bazooka is sold for **1,800 Salvage from landing 3**, with
+	-- rockets at 500 for 2. Same argument as the M16's block above and not repeated — Robux buys it from
+	-- the start of the run rather than buying the only access to it.
+	-- If it plays badly the lever is `ammoOnLoot` and the Salvage prices, NOT `blastDamage`.
 	{ key = "bazookaLifetime", gamePassId = 1956512376, robux = 250, name = "Lifetime Bazooka", power = true, blurb = "Start every run with the Bazooka + 6 rockets" },
 }
 

@@ -39,6 +39,15 @@ local ITEM_ICON: { [string]: string } = {
 	-- Job #104: their own glyphs, not `ammoBox` — see the note in `Theme.icon`
 	pistolAmmo = "pistolAmmo",
 	shotgunAmmo = "shotgunAmmo",
+	-- ── Job #123: all four already existed in `Theme.icon` — no new assets ─────────────────────────
+	-- `rifle`/`bazooka` are the WEAPONS, `rifleAmmo`/`rocketAmmo` are the rounds. That weapon-vs-round
+	-- split is the same one `Theme.productIcon` makes for the Robux rows, and `Theme.icon:172` was
+	-- already registered against the day this row existed: *"the natural glyph for an M16 ammo row if
+	-- the trading post ever sells rifle rounds"*.
+	m16 = "rifle",
+	m16Ammo = "rifleAmmo",
+	bazooka = "bazooka",
+	bazookaAmmo = "rocketAmmo",
 }
 
 -- ── Job #104: do I own the gun this row feeds ammo to? ───────────────────────────────────────────
@@ -123,9 +132,16 @@ layout.Parent = list
 
 -- ── rows ─────────────────────────────────────────────────────────────────────────────────────────
 
-type RowEntry = { row: Components.Row, cost: number, ammoFor: string? }
+type RowEntry = { row: Components.Row, id: string, cost: number, ammoFor: string? }
 local rows: { RowEntry } = {}
 local refreshAll: (bal: number) -> ()
+
+-- ── Job #123: which stop's stock this panel is showing ───────────────────────────────────────────
+-- The rows are built ONCE at startup (see the loop below), so a stop-gated row cannot be created on
+-- demand — it is created hidden and revealed. This holds the landing ordinal the server reported on the
+-- last open; 0 until the first one, which hides every gated row. Defaulting to 0 rather than 1 is the
+-- safe direction: an unknown stop shows less, never more.
+local shopStop = 0
 
 local function buy(id: string, entry: RowEntry)
 	-- No gun beats no money: telling someone they need 90 salvage for shells they could not fire is the
@@ -182,7 +198,7 @@ for order, id in ipairs(ShopDefs.Order) do
 			end,
 		})
 		row.instance.Size = UDim2.new(1, 0, 0, Theme.rowHeight)
-		entry = { row = row, cost = def.cost, ammoFor = def.ammoFor }
+		entry = { row = row, id = id, cost = def.cost, ammoFor = def.ammoFor }
 		table.insert(rows, entry)
 	end
 end
@@ -190,6 +206,17 @@ end
 refreshAll = function(bal: number)
 	balance.Text = ("SALVAGE  %d"):format(bal)
 	for _, entry in ipairs(rows) do
+		-- ── Job #123: is this post even stocking the row? ────────────────────────────────────────
+		-- HIDDEN, not muted. Muting is for "you can see why you can't buy this" (no gun, no money); a row
+		-- the post does not stock has no story to tell and a greyed-out Bazooka at the first landing just
+		-- advertises a wall. `Visible = false` also drops it out of the UIListLayout, so the panel is
+		-- genuinely 8 rows at stop 1 rather than 12 rows with 4 blanks — which matters on a phone, where
+		-- the list shows about three at a time.
+		local stocked = ShopDefs.stockedAt(entry.id, shopStop)
+		entry.row.instance.Visible = stocked
+		if not stocked then
+			continue -- nothing below this can matter for a row nobody can see
+		end
 		-- Affordable rows read as the obvious next tap; unaffordable ones are MUTED, not disabled.
 		-- `setEnabled(false)` would set `Active = false` and stop `Activated` firing — and then a hopeful
 		-- tap would get no flashFail, no `fail` cue and no explanation, which reads as a broken button.
@@ -213,6 +240,12 @@ openShop.OnClientEvent:Connect(function()
 	local ok, res = pcall(function()
 		return shopRF:InvokeServer("list")
 	end)
+	-- Job #123: the server reports the stop along with the balance. Read it BEFORE `refreshAll`, which is
+	-- what applies it to the rows. If the call failed, `shopStop` keeps its last value (0 on a first
+	-- open) and the gated rows stay hidden — a hidden row beats a visible one the server then refuses.
+	if ok and type(res) == "table" and typeof((res :: any).stop) == "number" then
+		shopStop = (res :: any).stop
+	end
 	refreshAll(if ok and type(res) == "table" and res.salvage then res.salvage else salvage())
 	panel.setOpen(true)
 end)

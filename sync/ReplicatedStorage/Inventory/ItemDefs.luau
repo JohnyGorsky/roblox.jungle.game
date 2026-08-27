@@ -159,10 +159,24 @@ ItemDefs.Items = {
 		burstDuration = 2.0,
 		burstInterval = 0.10, -- -> 20 bullets
 		ammoOnLoot = 30, -- one "round" = one 2 s burst, so this is 30 BURSTS
-		-- ⚠️ NO `ammoPerCrate`, AND THAT ABSENCE IS THE FEATURE. That field is what prices a gun's ammo
-		-- at the trading post (`ShopDefs.perBox`) and what a camp ammo crate tops up. Leaving it unset is
-		-- what makes 30 bursts a hard per-run cap with no way to buy more — the only thing holding the
-		-- line on a `power = true` purchase (see MonetizationDefs). Do not add it without re-reading that.
+		-- ── 🔴 Job #123: THIS FIELD USED TO BE ABSENT, AND ITS ABSENCE WAS THE POWER CAP ─────────────
+		-- Read this before tuning it. Until Job #123 there was no `ammoPerCrate` here, deliberately: it
+		-- is what prices a gun's ammo at the trading post (`ShopDefs.perBox`), so leaving it unset made
+		-- 30 bursts a hard per-run cap with **no way to buy more**, and that cap was the only thing
+		-- holding the line on a `power = true` Robux purchase (see MonetizationDefs).
+		--
+		-- Job #123 sells the M16 for Salvage at landing 2, so the cap is now a **PRICE, not an absence**.
+		-- 10 bursts a box at 350 Salvage = 35 a burst, which is 0.125 Salvage per damage (280 a burst)
+		-- against the Shotgun's 0.104 — dearer per damage, which is the intended shape for the premium
+		-- gun. ⚠️ It is also deliberately cheaper per burst than re-buying the 1,250 gun (41.7 a burst),
+		-- because `InventoryService.grant` tops up ammo on an owned gun — that is the Job #104 pistol
+		-- exploit, and it is priced out rather than blocked.
+		--
+		-- ⚠️ SO THE LEVER IS THIS PRICE (and `ShopDefs.m16Ammo.cost`), NOT `damage`. Unchanged from #117.
+		-- ⚠️ AND THIS DOES NOT PUT M16 AMMO IN CAMP CRATES. A camp `Kind == "Ammo"` crate reads
+		-- `ammoPerCrate` for its own `weaponId`, and that is only ever Pistol/Shotgun
+		-- (`ExcursionServer`'s `weaponId = if tier % 2 == 0 ...`). Checked, not assumed.
+		ammoPerCrate = 10, -- BURSTS per bought box — see above before changing
 	},
 	-- ── Bazooka — Job #118. The first PROJECTILE weapon in the game ─────────────────────────────
 	-- One trigger pull = one rocket = one round. It flies a visible arc and lands on the point you
@@ -202,10 +216,18 @@ ItemDefs.Items = {
 		blastInner = 0.5, -- the inner 15 studs take the full 300
 		blastMinFactor = 0.25, -- and the rim still takes 75
 		ammoOnLoot = 6, -- ROCKETS. `RifleGrant`'s startup check fails loudly if the shop disagrees
-		-- ⚠️ NO `ammoPerCrate`, for exactly the reason the M16 has none. That field is what would price
-		-- rockets at the trading post and let a camp crate top them up; its absence is the entire reason
-		-- 6 rockets is a hard per-run cap, and that cap is the only thing holding the line on a third
-		-- `power = true` purchase. Do not add it without re-reading MonetizationDefs.
+		-- ── 🔴 Job #123: ALSO PREVIOUSLY ABSENT, for exactly the reason the M16's was ────────────────
+		-- See the M16's block above — the whole argument applies here and is not repeated. 6 rockets was
+		-- a hard per-run cap because rockets could not be bought at any price; Job #123 sells the Bazooka
+		-- for Salvage at landing 3, so that cap is now a price.
+		--
+		-- 2 rockets a box at 500 Salvage = **250 a rocket, the most expensive shot in the game** — and
+		-- deliberately so, because this is the round that one-shots every land threat in a 30-stud radius.
+		-- Still under the 300-a-rocket cost of re-buying the 1,800 gun, which is what closes the Job #104
+		-- top-up exploit.
+		--
+		-- ⚠️ THE LEVER IS THIS PRICE, NOT `blastDamage`. Unchanged from #118.
+		ammoPerCrate = 2, -- ROCKETS per bought box — see above before changing
 	},
 } :: { [string]: ItemDef }
 

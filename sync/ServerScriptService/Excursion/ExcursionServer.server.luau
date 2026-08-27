@@ -2188,7 +2188,13 @@ end
 -- The invisible `Counter` part is LEFT IN PLACE but is now inert — grepped both trees, nothing outside
 -- this function reads it. Kept rather than deleted because removing an instance from every generated
 -- village is a content change this job was not asked to make; logged as todo 0060 instead.
-local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
+-- `stop` (Job #123) is the LANDING ordinal — 1 for the first landing, 2 for the second, … — i.e. the
+-- `tier` the caller has already computed. It decides what this post STOCKS: `ShopDefs.minStop` gates the
+-- M16 to landing 2 and the Bazooka to landing 3.
+--
+-- ⚠️ IT IS THE LANDING ORDINAL, NOT `index`. `index` is the DOCK ordinal and landings are only the odd
+-- docks, so passing `index` would put the M16 on sale at the tutorial landing (dock 3 = landing 2).
+local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3, stop: number)
 	local padGround = groundAt(pos.X, pos.Z) -- ONE measurement for the whole pad
 	-- `upright = true`: this model's pivot is rotated 90° while its parts are not, so without it the whole
 	-- kiosk is placed lying on its side. See `PropOpts.upright`.
@@ -2292,6 +2298,18 @@ local function buildTradingPost(pos: Vector3, parent: Instance, faceTo: Vector3)
 	prompt.MaxActivationDistance = reach
 	prompt.Parent = signBoard
 	prompt.Triggered:Connect(function(player: Player)
+		-- ── Job #123: publish which stop's stock this player may buy from ─────────────────────────
+		-- A HIGH-WATER MARK, not the current post. Two reasons:
+		--   · it is what the owner's "stocked from then on" decision actually means — reach landing 3 and
+		--     the Bazooka stays available at every later post;
+		--   · it cannot go stale. A plain assignment would have to be cleared when the player leaves the
+		--     camp, and there is no reliable "left the camp" event — a culled landing site (`CULL_BEHIND`)
+		--     destroys this prompt without firing anything.
+		-- Server-written only, which is what makes `SalvageServer`'s buy gate trustworthy.
+		local reached = (player:GetAttribute("ShopStop") :: number?) or 0
+		if stop > reached then
+			player:SetAttribute("ShopStop", stop)
+		end
 		openShop:FireClient(player)
 	end)
 end
@@ -2540,7 +2558,8 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	-- meander swings in — measured at 32 studs of solid ground in the river, then 77. The basin carve
 	-- ALREADY flattens everything from the bank to 400 studs inland, so the fix is to stand the post on
 	-- that rather than to make new ground: move it inland until it is on the carve.
-	buildTradingPost(postPos, model, shorePoint) -- faces back toward the water, so you see its front on landing
+	-- `tier` is the LANDING ordinal (computed above), which is what Job #123's stock gate keys on.
+	buildTradingPost(postPos, model, shorePoint, tier) -- faces back toward the water, so you see its front on landing
 
 	-- ── the outlying village goes up LAST (Job #108) ─────────────────────────────────────────────
 	-- After the camps, because each of those re-clears a 160-stud terrain footprint and calls

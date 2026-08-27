@@ -45,6 +45,11 @@ local function resetAll()
 	dripBaseline = (Workspace:GetAttribute("BoatDistance") :: number?) or 0
 	for _, p in ipairs(Players:GetPlayers()) do
 		setSalvage(p, 0)
+		-- Job #123: the shop-stock high-water mark resets with the currency it gates. Strictly this is
+		-- belt and braces — a game server hosts exactly one run (see `RifleGrant`'s header), so a Player
+		-- attribute is per-run for free. It is here because `NuggetsSpawned` is the one run-scoped value
+		-- that DOESN'T reset and that inconsistency is already logged as a todo; no need for a second.
+		p:SetAttribute("ShopStop", 0)
 	end
 end
 
@@ -101,10 +106,17 @@ local function applyItem(plr: Player, id: string, def: any): (boolean, string?)
 		plr:SetAttribute("Bandages", ((plr:GetAttribute("Bandages") :: number?) or 0) + 1)
 		RewardFeed.notify(plr, "resource", "Bandage", 1)
 		return true
-	elseif id == "pistol" or id == "shotgun" then
-		local grantId = id == "pistol" and "Pistol" or "Shotgun"
-		if InventoryService.grant(plr, grantId) then
-			RewardFeed.notify(plr, "weapon", grantId)
+	elseif def and def.grants then
+		-- ── Job #123: WEAPON ROWS, keyed off `grants` rather than an id list ──────────────────────
+		-- Was `id == "pistol" or id == "shotgun"` with the ItemDefs id derived by capitalising it. That
+		-- worked for exactly two rows and would have needed editing for the M16 and the Bazooka — the
+		-- same trap `ammoFor` was introduced to get out of in Job #104. Four weapon rows now, and this
+		-- branch did not have to learn about any of them.
+		--
+		-- ⚠️ CHECKED BEFORE THE `ammoFor` BRANCH BELOW so the ordering reads gun-then-ammo, but the two
+		-- are mutually exclusive in the catalog: no row sets both.
+		if InventoryService.grant(plr, def.grants) then
+			RewardFeed.notify(plr, "weapon", def.grants)
 			return true
 		end
 		return false, "invfull"
@@ -144,7 +156,12 @@ end
 
 shopRF.OnServerInvoke = function(plr: Player, action: string?, id: string?)
 	if action == "list" then
-		return { salvage = getSalvage(plr) }
+		-- Job #123: `stop` rides along so the panel can hide rows this post does not stock. The client
+		-- already invokes this on every open, so there is nothing to keep in sync — and deliberately NOT
+		-- passed as an argument on the `OpenShop` fire: one authority for the value, and it is this one.
+		-- If this call fails the client falls back to stop 1 and hides the locked rows, which is the safe
+		-- direction to fail in (a hidden row beats a visible row the server then refuses).
+		return { salvage = getSalvage(plr), stop = (plr:GetAttribute("ShopStop") :: number?) or 1 }
 	elseif action == "buy" then
 		if Workspace:GetAttribute("RunStarted") ~= true then
 			return { error = "norun" }
@@ -152,6 +169,19 @@ shopRF.OnServerInvoke = function(plr: Player, action: string?, id: string?)
 		local def = id and ShopDefs.get(id)
 		if not def or not id then
 			return { error = "unknown" }
+		end
+		-- ── 🔴 Job #123: IS THIS ROW EVEN STOCKED WHERE THIS PLAYER IS? ────────────────────────────
+		-- The client hides a locked row, and that is a suggestion, not the rule — this remote is callable
+		-- from anywhere at any time, so without this check the M16 is buyable from the boat before the
+		-- crew has ever seen a second landing. Exactly the reasoning the `ammoFor` "nogun" gate below
+		-- carries, and the same reason it is duplicated here rather than trusted to the UI.
+		--
+		-- `ShopStop` is written ONLY by the server (`ExcursionServer`, on a trading-post prompt) as the
+		-- highest landing this player has reached. A client can scribble on its own local copy of a
+		-- Player attribute, but that write never replicates — so what is read here is the server's value.
+		local stop = (plr:GetAttribute("ShopStop") :: number?) or 1
+		if not ShopDefs.stockedAt(id, stop) then
+			return { error = "locked", salvage = getSalvage(plr) }
 		end
 		if getSalvage(plr) < def.cost then
 			return { error = "poor", salvage = getSalvage(plr) }
