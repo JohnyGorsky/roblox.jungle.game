@@ -419,6 +419,31 @@ EnemyAssets.ART = {
 	} :: CreatureArt,
 } :: { [string]: CreatureArt }
 
+-- ── BanditBoss — the end-zone warlord (Job #121) ──────────────────────────────────────────────────
+-- 🔴 DERIVED FROM `Bandit` AT LOAD, NOT COPY-PASTED, AND THAT IS DELIBERATE.
+--
+-- He is the same `WesternBandit` rig wearing the same six sounds and the same four animation ids; the only
+-- thing that differs is how big he renders. Writing those tables out a second time would mean that the next
+-- time someone retunes a bandit scream or swaps his run clip, the boss keeps the old one and nobody notices
+-- for a month. `Bandit`'s entry is the single source; this is a shallow copy of it with `scale` overridden.
+--
+-- ⚠️ `scale = 1.6` and `EnemyRig` applies it as `visual:ScaleTo(visual:GetScale() * art.scale)` — RELATIVE,
+-- see that function's own note. So 1.6 means "1.6× however a bandit already looks", which is what makes it
+-- survive the model being re-imported at a different authored scale.
+--
+-- ⚠️ `Model:ScaleTo` moves Motor6D offsets and Attachments with the parts, which is why an R15 rig can be
+-- scaled and still animate — the clips are rotational. This is the supported path; do NOT reach for
+-- per-part `Size *=`, which would leave the joints where they were and tear the rig apart.
+--
+-- ⚠️ `eyes = false` comes along in the copy and must stay false, for the Bandit's own two reasons: he is a
+-- PERSON, and the rig carries no `EyeLeft`/`EyeRight` attachments, so enabling it sends `addEyes` down its
+-- hitbox fallback and puts two red orbs somewhere around his knees — now at 1.6× the size.
+do
+	local boss: CreatureArt = table.clone(EnemyAssets.ART.Bandit)
+	boss.scale = 1.6
+	EnemyAssets.ART.BanditBoss = boss
+end
+
 -- ── Glowing eyes (Job 039) ────────────────────────────────────────────────────────────────────────
 -- The eye system is ALREADY attachment-aware and needs no change: `addEyes` looks for `EyeLeft` and
 -- `EyeRight` Attachments anywhere in the model and places Neon spheres at their `WorldCFrame`, falling

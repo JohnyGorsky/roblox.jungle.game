@@ -26,6 +26,9 @@ local Workspace = game:GetService("Workspace")
 
 local ItemDefs = require(ReplicatedStorage:WaitForChild("Inventory"):WaitForChild("ItemDefs"))
 local Ballistics = require(ReplicatedStorage:WaitForChild("Combat"):WaitForChild("Ballistics"))
+-- Job #121: only for `END_ZONE_Z_START` — the boat is exempt from an ENEMY blast inside the end zone. See
+-- the note in `enemyBlast`.
+local RiverData = require(ReplicatedStorage:WaitForChild("River"):WaitForChild("RiverData"))
 local CombatFx = require(ServerScriptService:WaitForChild("Combat"):WaitForChild("CombatFx"))
 local KillReward = require(ServerScriptService:WaitForChild("Economy"):WaitForChild("KillReward")) :: any
 
@@ -287,10 +290,29 @@ local function enemyBlast(impact: Vector3, spec: BlastSpec, shooter: Model?)
 	-- 2. THE BOAT. `EnemyServer` keeps the hull's health in the same `HP` attribute the creatures use, so
 	--    nothing special is needed — but it is found by name here rather than captured, because the boat
 	--    is rebuilt on respawn (`BoatServer:80` destroys the old one).
+	--
+	-- 🔴 Job #121 — NOT INSIDE THE END ZONE, AND THIS IS A LOSE-ARM, NOT A NICETY.
+	--
+	-- Job #119's own verification measured it: `[EnemyRocket] BLAST Boat 11.8 studs x1.00 HP 100.0 -> 60.0`,
+	-- then 20, then 0, then `[Boat] DESTROYED — run over`. **Three shells.** The boat has 100 max HP
+	-- (`BoatServer:267`) and `Workspace.BoatDestroyed` is one of `RunServer`'s two LOSE arms.
+	--
+	-- That was survivable while rocket men only stood at river camps, because the crew is aboard and moving.
+	-- Job #121 puts three of them on the end zone's towers — two of which are ~65 studs from the mooring, so
+	-- inside their 160-stud sight and well outside `minFireRange` — at the one place in the game where the
+	-- crew MUST abandon the boat and fight ashore for minutes. Without this the reliable outcome is a run
+	-- LOST to the towers shelling an empty hull, after the crew had effectively arrived.
+	--
+	-- Job #111's own follow-up flagged the underlying hazard and left it standing: *"BoatDestroyed remains an
+	-- instant lose — including while the crew is already ashore walking to the plane."* This closes the half
+	-- of it that this job would otherwise have weaponised, and matches the exemption `EnemyServer.applyBite`
+	-- now applies to wildlife in the same water.
+	--
+	-- ⚠️ THE HULL ONLY. Players in the crater still take the full blast, in the end zone as everywhere else.
 	local boat = Workspace:FindFirstChild("Boat")
 	if boat and boat:IsA("Model") then
 		local hull = boat.PrimaryPart or boat:FindFirstChild("Hull")
-		if hull and hull:IsA("BasePart") then
+		if hull and hull:IsA("BasePart") and hull.Position.Z < RiverData.END_ZONE_Z_START then
 			apply(boat, "Boat", hull.Position)
 		end
 	end

@@ -186,6 +186,19 @@ type GuardState = {
 	tower: Model?, -- the placed tower clone: excluded from his own aim ray so he cannot shell his railing
 	fireTimer: number?, -- seconds since his last shot; his 20 s cycle
 	swingFlip: boolean?, -- alternates `attack`/`attack2` so close combat does not look canned
+	-- 🔴 Job #121 — HIS PHASE WITHIN THAT CYCLE, and it exists because THREE of them now share a field.
+	--
+	-- A camp has one rocket man, so it never mattered that `spawnRocketMan` starts every one of them at
+	-- `fireTimer = 0`. The end zone has three, spawned in one loop on one frame, all on the same interval,
+	-- all picking the NEAREST player, all aiming at the ground under them. They therefore fired on the same
+	-- frame at the same point: three overlapping 30-stud craters, 40 damage each at the inner radius =
+	-- **120 against a 100 HP player**. Job #119 verified the ring was escapable with ONE shell; three
+	-- simultaneous rings from three bearings is a different and unverified geometry.
+	--
+	-- ⚠️ IT IS ALSO WHERE `fireTimer` RESETS TO WHEN HE HAS NO TARGET, not 0 — otherwise all three re-sync
+	-- the instant they lose sight of you and reacquire, which is the common case (you walk into range of all
+	-- three at once) and would undo the stagger every time.
+	firePhase: number?,
 }
 local guardState: { [Model]: GuardState } = {}
 
@@ -217,6 +230,24 @@ local campChasers: { [string]: number } = {}
 
 local function campKey(camp: Vector3?): string
 	return if camp then ("%d:%d"):format(math.floor(camp.X), math.floor(camp.Z)) else "?"
+end
+
+-- ── Job #121: a per-area override on that budget ───────────────────────────────────────────────────
+-- Empty for every camp on the river, so `CAMP_MAX_CHASERS` = 2 remains the rule everywhere it always was.
+--
+-- The end zone registers 4 for its ten raiders, on the owner's call, and the reason is not "harder": a
+-- guard with no chase slot has its TARGET nil'd, and the bite is gated on having a target — so it will not
+-- swing at a player standing next to it. Two slots shared by ten raiders therefore leaves EIGHT of them as
+-- scenery you can walk through. (The warlord sidesteps this entirely by carrying his own key; see
+-- `EndGarrison.BOSS_CAMP`.)
+local campChaserCap: { [string]: number } = {}
+
+local function chaserCapFor(key: string): number
+	return campChaserCap[key] or CAMP_MAX_CHASERS
+end
+
+local function setChaserCap(camp: Vector3, cap: number)
+	campChaserCap[campKey(camp)] = cap
 end
 
 -- Wake the guards near the one that got hit. Job #090 added the camp-wide pull so a player could not
@@ -356,10 +387,42 @@ local function settleTerrain()
 	task.wait()
 end
 
+-- ── Job #121: surfaces that are NOT terrain but ARE floor ─────────────────────────────────────────
+-- Empty for every camp on the river, so camp behaviour is bit-identical to before this existed. The end
+-- zone registers exactly three models into it (`EndGarrison`, via the `addFloor` api) and here is why:
+--
+-- MEASURED 2026-08-27 in Edit: `EndBase.Objects.RunWay`'s slab top is **21.11**, the terrain under it is
+-- **18.00**, and the extraction pad sits ON that slab. `tickGuard` re-measures a walking guard's height
+-- with `groundAt` every `REMEASURE_STEP` studs — so a guard chasing a player toward the pad would walk at
+-- 18.00 across a surface topping out at 21.11 and stand **3.1 studs sunk into the concrete**. The end
+-- zone's boss is posted 46 studs from the pad with a 55-stud leash, so that is his whole beat, not an
+-- edge case.
+--
+-- ⚠️ REGISTER INDIVIDUAL SURFACES, NEVER A WHOLE FOLDER. `groundAt` returns the FIRST downward hit that
+-- looks like floor, so handing it `EndBase` would offer a tower platform (y = 61.7) and the plane's
+-- fuselage (y = 34.77) as candidates. Both happen to be rejected by the `CLEAR_Y + BASIN_RISE` = 23 clamp
+-- below — but the runway's 21.11 passes that clamp by 1.9 studs, which is exactly how little margin there
+-- is, and far too little to hand a subtree.
+local extraFloors: { Instance } = {}
+local floorFilter: { Instance } = { Terrain }
+
+local function addFloor(inst: Instance)
+	for _, e in ipairs(extraFloors) do
+		if e == inst then
+			return -- idempotent: a second run re-registers the same runways
+		end
+	end
+	table.insert(extraFloors, inst)
+	-- Rebuilt rather than mutated in place, so `groundAt` can never observe a half-written filter.
+	local next_: { Instance } = { Terrain }
+	table.move(extraFloors, 1, #extraFloors, 2, next_)
+	floorFilter = next_
+end
+
 local function groundAt(x: number, z: number): number
 	local rp = RaycastParams.new()
 	rp.FilterType = Enum.RaycastFilterType.Include
-	rp.FilterDescendantsInstances = { Terrain }
+	rp.FilterDescendantsInstances = floorFilter
 	rp.IgnoreWater = true
 
 	local function probe(px: number, pz: number): number?
@@ -2580,6 +2643,59 @@ local function buildLandingSite(dock: RiverData.Dock, index: number)
 	end
 end
 
+-- ── Job #122: who is standing on a watchtower right now ──────────────────────────────────────────
+-- 🔴 A GRENADIER MUST NOT SHELL A PLAYER WHO IS ON A **DIFFERENT** TOWER.
+--
+-- Reported: *"rocketmans cant shoot me while i am at tower, now i climb on tower, and other rocket man
+-- targets me"*. Job #119's design is that you answer a rocket man by CLIMBING to him — *"if you get close to
+-- enemy, you go into close combat"* — and the shell's counter-play is that a walking player covers 64 studs
+-- in its 4 s flight against a 30-stud blast, so **moving at all clears the ring**. On a 20×20 platform 44
+-- studs up there is nowhere to move to. The telegraph is unanswerable there, which makes the intended
+-- counter-play to one grenadier a death sentence delivered by another.
+--
+-- ⚠️ "A DIFFERENT tower" is the whole subtlety. The man on the platform you are standing on must still fight
+-- you — that is the fight you climbed for. He is already handled: `minFireRange`/`meleeRange` put him into
+-- melee rather than shelling his own deck. So this filter is keyed on `st.tower`, not applied to every
+-- grenadier.
+--
+-- Resolved ONCE PER FRAME for all players rather than per grenadier: `tickRocketMan` runs per guard per
+-- frame, and the end zone has three of them.
+--
+-- ⚠️ Detected by asking the FLOOR, not by a height threshold. A "y above the basin" test would also catch
+-- the runway, the extraction pad deck, a hut roof and any stump, and would need a different number for the
+-- end zone (deck y=62.19) than for a camp (deck y=54.26, because `prop` scales the tower by 0.85). One short
+-- downward ray answers it exactly, at any scale, for any tower the owner places later. Same reasoning as the
+-- perched-ambusher release in `tickGuard`.
+local towerRideParams = RaycastParams.new()
+towerRideParams.FilterType = Enum.RaycastFilterType.Exclude
+towerRideParams.IgnoreWater = true
+
+local onTower: { [Model]: Model } = {}
+
+local function refreshTowerRiders()
+	table.clear(onTower)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			-- Exclude the character itself so the ray does not stop on their own legs. 12 studs reaches the
+			-- deck from an HRP ~3 studs above the feet, and covers a jump.
+			towerRideParams.FilterDescendantsInstances = { char }
+			local hit = Workspace:Raycast(root.Position, Vector3.new(0, -12, 0), towerRideParams)
+			if hit then
+				local m = hit.Instance:FindFirstAncestorOfClass("Model")
+				while m do
+					if m.Name == CampDefs.MODEL.tower then
+						onTower[char] = m
+						break
+					end
+					m = m:FindFirstAncestorOfClass("Model")
+				end
+			end
+		end
+	end
+end
+
 -- ── The Rocket Man's tick — Job #119 ─────────────────────────────────────────────────────────────
 -- Runs INSTEAD of `tickGuard`'s body (see the branch below), not alongside it.
 --
@@ -2606,6 +2722,14 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 	if not pin then
 		return -- not actually posted (should not happen); do nothing rather than guess a position
 	end
+	-- Job #121: pick up this man's phase within the fire cycle, once. Read LAZILY rather than in
+	-- `spawnRocketMan` because the caller stamps the attribute after that function returns — a value
+	-- captured at spawn would always be the default. Camps set no attribute, so `firePhase` is 0 and every
+	-- camp rocket man behaves exactly as it did before this existed.
+	if st.firePhase == nil then
+		st.firePhase = (guard:GetAttribute("FirePhase") :: number?) or 0
+		st.fireTimer = st.firePhase
+	end
 	-- ⚠️ Distances below are measured from `pin`, NOT from `body.Position`. They are the same value by
 	-- construction (the pin is re-asserted every frame), and using the pin means the reads cannot be
 	-- perturbed by a frame in which something else has moved the rig.
@@ -2617,6 +2741,33 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 	-- man with a 300-stud weapon, who would otherwise shell someone 900 studs downriver who shot him once.
 	-- Alerted widens his sight to the weapon's own reach and no further.
 	local sight = if alerted then R.range else (st.aggroRadius or def.aggroRadius)
+	-- 🔴 Job #122 — AN OPTIONAL PER-GUARD CEILING, AND IT IS THE **ALERTED** BRANCH THAT NEEDED IT.
+	--
+	-- Reported after Job #121 shipped: *"also reduce how far they shoot"*. The obvious number to reach for is
+	-- `EnemyDefs.RocketMan.aggroRadius` (160) — and it is the wrong one. `alertUntil` is refreshed by ANY hit
+	-- landing within `ALERT_SPREAD` (70) of a guard and lasts `GUARD_ALERT_SECONDS` (15), so once a firefight
+	-- starts the tower crews are alerted essentially continuously, and this line hands them **`R.range` =
+	-- 300**. The end-zone airfield is only ~400 studs across. So in practice they were shelling from anywhere
+	-- on it, and lowering the 160 would have changed almost nothing.
+	--
+	-- Capping AFTER the branch is what makes that fixable with one number: it binds the alerted reach and the
+	-- unalerted reach together, so there is no second value to forget.
+	--
+	-- Measured in Edit, 2026-08-27 — grenadiers able to engage, by cap (pads sit ~44 studs up):
+	--                          160   130   110    90    70
+	--     boat mooring          2     2     2     2     0
+	--     field centre          3     3     3     1     0
+	--     extraction pad        1     1     1     1     0
+	--     warlord's post        3     1     1     1     1
+	-- 130 is the cliff that matters: it takes the WARLORD'S POST from three grenadiers to one, which is where
+	-- the boss fight happens, while leaving the open middle contested by all three. 110 is identical to 130 at
+	-- every measured spot, so there is nothing to buy below it until 90 (which also thins the middle to one).
+	--
+	-- No camp rocket man carries this attribute, so camps keep 160 / 300 exactly as before.
+	local sightMax = guard:GetAttribute("SightMax") :: number?
+	if sightMax then
+		sight = math.min(sight, sightMax)
+	end
 	local target: BasePart? = nil
 	local bestD = sight
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -2625,7 +2776,17 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 		-- Skips a DOWNED player for the same reason `tickGuard` does: they are out of the fight, and
 		-- `PlayerCombat` pins their WalkSpeed to 0 — a downed crewmate cannot leave a red circle, so
 		-- shelling them would be the one case where the telegraph is impossible to answer.
-		if root and char and not char:GetAttribute("Downed") then
+		--
+		-- Job #122 adds the SECOND case where it is impossible to answer: a player standing on ANOTHER
+		-- tower's platform. See `refreshTowerRiders` — 20×20 studs, 44 up, nothing to dodge to, and
+		-- climbing is the intended counter to a grenadier in the first place. `onTower[char] == st.tower`
+		-- means they have climbed to THIS man, who still fights them (in melee, not with a shell).
+		-- Both sides widened to `Instance?` before comparing: `onTower` yields `Model?` and `st.tower` is
+		-- `Model?`, and the strict solver refuses `Model ~= nil` once it has narrowed one side.
+		local riding: Instance? = onTower[char :: Model]
+		local myTower: Instance? = st.tower
+		local ridingOther = riding ~= nil and riding ~= myTower
+		if root and char and not char:GetAttribute("Downed") and not ridingOther then
 			local d = (root.Position - pin).Magnitude
 			if d <= bestD then
 				target, bestD = root, d
@@ -2656,7 +2817,10 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 	end
 
 	if not target then
-		st.fireTimer = 0 -- no banking a shot while nobody is in sight, so arriving is never punished instantly
+		-- No banking a shot while nobody is in sight, so arriving is never punished instantly. Job #121:
+		-- resets to his PHASE rather than to 0 — three men on one field would otherwise re-synchronise every
+		-- time they lost and reacquired a target, which is exactly when the player walks up to them.
+		st.fireTimer = st.firePhase or 0
 		return
 	end
 
@@ -2688,7 +2852,14 @@ local function tickRocketMan(guard: Model, def: EnemyDefs.EnemyDef, st: GuardSta
 
 	-- ── the 20-second shell (requirement 4) ───────────────────────────────────────────────────────
 	st.fireTimer = (st.fireTimer or 0) + dt
-	if st.fireTimer < R.fireInterval then
+	-- Job #121: a PER-GUARD cadence, with `CampDefs`' 20 s as the floor-plan. The end zone's three tower
+	-- grenadiers are stamped `FireInterval = 12` by `EndGarrison` on the owner's call ("faster cadence"),
+	-- and every camp on the river sets no attribute at all and therefore still fires at exactly 20.
+	--
+	-- ⚠️ Read every frame rather than cached into `st` at spawn: `spawnRocketMan` returns the rig and the
+	-- caller stamps the attribute AFTER it, so a value captured at spawn time would always be the default.
+	local interval = (guard:GetAttribute("FireInterval") :: number?) or R.fireInterval
+	if st.fireTimer < interval then
 		return
 	end
 	-- 🔴 TOO CLOSE TO FIRE. The blast radius is 30 and friendly fire is ON, so without this floor he drops
@@ -2815,7 +2986,7 @@ local function tickGuard(guard: Model, dt: number)
 	local ck = campKey(st.camp)
 	if target then
 		if not st.chasing then
-			if (campChasers[ck] or 0) < CAMP_MAX_CHASERS then
+			if (campChasers[ck] or 0) < chaserCapFor(ck) then
 				campChasers[ck] = (campChasers[ck] or 0) + 1
 				st.chasing = true
 			else
@@ -2926,6 +3097,20 @@ local function tickGuard(guard: Model, dt: number)
 			st.entryLeash = nil
 		end
 		local leash = if alerted then GUARD_LEASH_ALERT else (st.entryLeash or GUARD_LEASH)
+		-- 🔴 Job #121 — AN OPTIONAL PER-GUARD CEILING ON THAT, and it is what makes "he guards the pad" true.
+		--
+		-- `GUARD_LEASH_ALERT` is 250 studs, and the crew will be shooting constantly, so an alerted guard's
+		-- rope is effectively the whole map. For the end zone's warlord that is not a detail: his post is 46
+		-- studs from the extraction pad and 173 from the boat's mooring, so a 250-stud leash lets him be
+		-- pulled off the pad entirely — and the crew then walks past him to the thing he is supposed to be
+		-- blocking. 70 keeps him covering the pad and the near field and nothing else.
+		--
+		-- No camp guard carries this attribute, so the alert pull that Job #090 added is untouched for
+		-- every camp on the river.
+		local leashMax = guard:GetAttribute("LeashMax") :: number?
+		if leashMax then
+			leash = math.min(leash, leashMax)
+		end
 		if off.Magnitude > leash then
 			local c = st.anchor + off.Unit * leash
 			np = Vector3.new(c.X, footY, c.Z)
@@ -2965,6 +3150,9 @@ local function tickGuard(guard: Model, dt: number)
 end
 
 RunService.Heartbeat:Connect(function(dt: number)
+	-- Job #122: resolved once here, not inside `tickRocketMan`, because that runs per guard per frame and
+	-- the end zone has three grenadiers. Same once-per-frame reasoning as `EnemyServer`'s `refreshSwimmers`.
+	refreshTowerRiders()
 	for _, guard in CollectionService:GetTagged("CampGuard") do
 		if guard:IsA("Model") and guard.Parent then
 			tickGuard(guard, dt)
@@ -3235,6 +3423,107 @@ task.spawn(function()
 					offBoatSince[plr] = nil
 				end
 			end
+		end
+	end
+end)
+
+-- ── Job #121: manning the extraction end zone ─────────────────────────────────────────────────────
+--
+-- 🔴 THE END ZONE HAS TO BE BUILT FROM HERE, AND THAT IS NOT A CONVENIENCE.
+--
+-- `tickGuard`'s second line destroys any `CampGuard` with no entry in `guardState` — a local table in this
+-- script. So a rig spawned by a script in `EndZone/` is tagged, picked up by the Heartbeat loop above on
+-- its very next frame, found stateless, and **destroyed inside 16 ms**. Either the AI moves out of this
+-- file (≈700 lines of repeatedly-debugged code, and every camp on the river put at risk to add content to
+-- the end zone — offered to the owner and declined for this job), or the end zone is built through the
+-- same five functions the camps use.
+--
+-- So `EndGarrison` owns the PLACE — every position, every count, every number — and this hook lends it the
+-- BEHAVIOUR. Nothing about camps is reachable from that module: it cannot see `guardState`, `campChasers`,
+-- `garrisons` or the site-cull loop, and the three additions this job made to this file
+-- (`addFloor`/`floorFilter`, the `FireInterval` attribute, this hook) are all no-ops when nobody opts in.
+local EndGarrison = require(ServerScriptService:WaitForChild("EndZone"):WaitForChild("EndGarrison"))
+
+-- 🔴 Job #121 — TEARING GUARDS DOWN IS NOT `:Destroy()`, AND GETTING THAT WRONG BREAKS THE **NEXT** RUN.
+--
+-- Three pieces of state live outside the model and none of them is released by destroying it:
+--   1. `campChasers[campKey]` — decremented ONLY in `tickGuard`'s death path and the site-cull loop. Destroy
+--      two chasing guards from under it and the count stays pinned at `CAMP_MAX_CHASERS` forever, so after a
+--      reset **no end-zone guard can ever acquire a chase slot again**: a field of eleven statues.
+--   2. `guardState[guard]` — left keyed on a destroyed model.
+--   3. the rig's `AnimationTrack`s and `EnemyRig`'s own per-rig Heartbeat entry — this is exactly open
+--      finding **0035** (the site-cull loop does the same thing), which is why this goes through
+--      `EnemyRig.destroy` and not `Instance:Destroy`.
+--
+-- Mirrors the release the site-cull loop does, so the two paths cannot drift.
+local function disposeGuards(container: Instance): number
+	local n = 0
+	for _, d in ipairs(container:GetDescendants()) do
+		if d:IsA("Model") and CollectionService:HasTag(d, "CampGuard") then
+			local st = guardState[d]
+			if st then
+				if st.chasing then
+					local k = campKey(st.camp)
+					campChasers[k] = math.max((campChasers[k] or 1) - 1, 0)
+					st.chasing = false
+				end
+				guardState[d] = nil
+			end
+			EnemyRig.destroy(d) -- NOT :Destroy() — the rig holds AnimationTracks
+			n += 1
+		end
+	end
+	return n
+end
+
+local endGarrisonApi: EndGarrison.Api = {
+	spawnGuard = spawnGuard,
+	spawnRocketMan = spawnRocketMan,
+	towerPads = towerPads,
+	placeOnPad = placeOnPad,
+	lootPrompt = lootPrompt,
+	addFloor = addFloor,
+	disposeGuards = disposeGuards,
+	setChaserCap = setChaserCap,
+}
+
+-- 🔴 POLLED, NOT DRIVEN OFF `GetAttributeChangedSignal("RunStarted")`. THAT WAS A BUG, FOUND IN PLAY.
+--
+-- `StagingServer` sets `RunStarted = false` ONCE at boot and `true` when the run launches; nothing ever
+-- sets it back. `RunServer` sets `RunEnded = true` and nothing ever clears that either. So a second
+-- `RunStarted = true` — which is exactly what `AdminServer`'s force-start does — is not a CHANGE, the
+-- signal never fires, and a reset hung off it silently never runs. Measured: run 2 in the same server
+-- inherited run 1's depleted field (17 children down to 6) and a stale `EndBossAlive`.
+--
+-- Polling the STATE instead of listening for a transition cannot be fooled that way, and it is what the
+-- rest of this script already does (the landing-site loop below is a 0.5 s poll).
+--
+-- ⚠️ The teardown is on `RunEnded`, and that is the safety property that matters: the moment a run is over
+-- the warlord flag is cleared and the guards are released, so no later state can inherit an
+-- `EndBossAlive = true` from a boss who no longer exists — which `EscapeServer` would read as "not yet" and
+-- turn into an unwinnable run.
+--
+-- Two BUILD triggers, and the second one is not optional:
+--   1. the boat crossing `TRIGGER_Z` (900 studs upstream of the mouth) — so all fourteen rigs exist long
+--      before the airfield is in view and nothing pops in front of the player;
+--   2. any player already standing in the end zone — because `AdminServer.tpEndBase` jumps a tester there
+--      **without moving the boat**. Without this clause that button lands you in an empty airfield and the
+--      whole feature reads as broken. It is also how this job gets tested at all.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		local started = Workspace:GetAttribute("RunStarted") == true
+		local ended = Workspace:GetAttribute("RunEnded") == true
+		if ended then
+			if EndGarrison.isBuilt() then
+				EndGarrison.reset() -- releases chase slots + rigs, clears the boss flag
+			end
+		elseif
+			started
+			and not EndGarrison.isBuilt()
+			and (hull.Position.Z >= EndGarrison.TRIGGER_Z or EndGarrison.anyoneInEndZone())
+		then
+			EndGarrison.build(endGarrisonApi)
 		end
 	end
 end)

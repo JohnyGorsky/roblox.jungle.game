@@ -61,6 +61,52 @@ local IDLE_SOUND_MIN, IDLE_SOUND_MAX = 10, 22
 -- (The boat's HULL is fully safe while tied: wildlife is suppressed here, obstacles bail out on `Tied`
 -- in ObstacleServer:37, and guards only damage a player's HP. Nothing can damage a moored boat.)
 local TIED_SAFE_RADIUS = 55
+
+-- ── Job #121: THE FINAL APPROACH ──────────────────────────────────────────
+-- *"lot of sea creatures next to entrace to endgame, so last camp counts - how many bullets you have etc"*
+--
+-- Nothing escalated over the last stretch before this: `distFrac()` clamps at `ESCALATE_DISTANCE` (12 000),
+-- so the river from z = 12 000 to the mouth at 18 000 was flat in difficulty — a third of the run.
+--
+-- The window is the last 800 studs, which puts its start 400 studs UPSTREAM of the final landing camp
+-- (docks are every 1600 and landings on odd indices, so the last camp is z = 17 600). That ordering is the
+-- requirement: the surge has to begin far enough past the camp that you cannot see it before deciding how
+-- much ammo to buy, and close enough that the camp is obviously the place you should have bought it.
+local FINAL_SURGE_STUDS = 800
+local FINAL_SURGE_FROM = RiverData.END_ZONE_Z_START - FINAL_SURGE_STUDS -- z = 17 200
+-- ×3 on the owner's call. Derived from the existing formulas rather than asserted: the end-of-river cap is
+-- `floor((4 + 5) × 1.2)` = 10, +3 at night, then × `crewScale` — so in the surge a full crew faces 30 by
+-- day and 39 at night, and a solo player 16 / 21. Crocs, piranha and hippos are single MeshParts and the
+-- sea branch of `tickEnemy` casts no rays, so the cost of 39 is small; the DENSITY is the thing to judge.
+local FINAL_SURGE_MUL = 3
+
+-- 🔴 THE SURGE STOPS AT THE MOUTH, AND THIS IS NOT A ROUNDING CHOICE — IT IS A LOSE-ARM.
+--
+-- The boat has **100 max HP** (`BoatServer:267`) and `Workspace.BoatDestroyed` is one of `RunServer`'s two
+-- LOSE arms. A crocodile bites the hull for 4.10, or 6.14 at night. So an UNATTENDED, STATIONARY boat with
+-- ten crocodiles in bite range is dead in under four seconds — and the end zone is the one place in the
+-- game where the whole crew is *required* to walk 219 studs away from the boat and fight for minutes to
+-- reach the extraction pad.
+--
+-- Running a ×3 surge inside the basin would therefore have handed the player a run LOST to crocodiles
+-- eating an empty hull, after they had already arrived. The surge belongs to the APPROACH — which is
+-- exactly what "next to entrance to endgame" says — and the hull additionally goes immune to wildlife past
+-- the mouth (see `applyBite`). Creatures that chased you in are still there, still dangerous to SWIMMERS,
+-- and still worth shooting; they simply cannot decide the run from behind your back.
+local function inFinalSurge(z: number): boolean
+	return z >= FINAL_SURGE_FROM and z < RiverData.END_ZONE_Z_START
+end
+
+-- ── Job #121: spawning near the sculpted basin ─────────────────────────────
+-- Past the mouth the GENERATED-river formula stops describing the SCULPTED basin. `RiverData.lockFactor`
+-- pins `centerlineX` to 0 and `widthAt` to 300 for every z ≥ 18 000, but the real channel has curved east
+-- to x ∈ [50..150] by z = 18 300 (probed on a 50-stud grid, 2026-08-27). Spawning on the formula there puts
+-- a crocodile on a hillside at y = 43.
+local END_SPAWN_MAX_Z = RiverData.END_ZONE_Z_START + 150 -- beyond this the formula and the water diverge
+-- ⚠️ AND THE WATER TEST IS GATED TO THIS REGION ON PURPOSE. Applied river-wide it would suppress
+-- legitimate spawns whenever the chunk 320 studs ahead has not been generated yet — turning a safety check
+-- into a silent density regression. Upstream of here the channel is water by construction.
+local END_WATER_CHECK_FROM = RiverData.END_ZONE_Z_START - 200
 -- ───────────────────────────────────────────────────────────────────────────
 
 if not Workspace:GetAttribute("RiverReady") then
@@ -122,6 +168,21 @@ end
 
 local function boatAlive(): boolean
 	return hull.Parent ~= nil and ((boat:GetAttribute("HP") :: number?) or 1) > 0
+end
+
+-- 🔴 AND NOT WHILE THE BOAT IS TIED, WHICH IS NOT AN EDGE CASE — IT IS THE LAST CAMP.
+--
+-- The final landing is at z = 17 600, i.e. **400 studs inside** this window. `TIED_SAFE_RADIUS` (below)
+-- makes sea creatures neither approach nor bite anything within 55 studs of a tied hull — so a crew that
+-- moors at the last camp to stock up, which is precisely the behaviour requirement 1 is designed to
+-- encourage, would have the full 30-39 surge accumulate into an idle ring around them for the whole
+-- (minutes-long) camp stop, and then be released all at once the moment they untie. That is the
+-- "reinforcements arrive as a wall" anti-pattern Job #100 spent a whole job removing from the camps.
+--
+-- Holding the cap at its normal value while tied means the surge BUILDS over the run-in after you cast
+-- off, which is what a gauntlet should do. Anything already spawned stays; only the ceiling is held.
+local function surgeActive(): boolean
+	return inFinalSurge(hull.Position.Z) and boat:GetAttribute("Tied") ~= true
 end
 
 local function currentPhase(): string
@@ -362,7 +423,19 @@ local function applyBite(def: EnemyDefs.EnemyDef, pos: Vector3, canHitBoat: bool
 		if vroot then
 			CombatFx.hit(vroot.Position, before - after, "take") -- Job #084: RED, damage taken
 		end
-	elseif canHitBoat then
+	-- 🔴 Job #121 — THE HULL IS IMMUNE TO WILDLIFE INSIDE THE END BASIN. PLAYERS ARE NOT.
+	--
+	-- The end zone is the only place in the game where the crew is REQUIRED to leave the boat and stay away
+	-- from it: the extraction pad is 219 studs from the mooring, with a garrison and a 550 HP boss in
+	-- between. The boat has 100 max HP and `BoatDestroyed` is a LOSE arm, so a stationary unattended hull
+	-- with a handful of crocodiles on it is a run lost from behind the player's back, minutes after they had
+	-- effectively won. This is the same principle `TIED_SAFE_RADIUS` already encodes — a mooring is safe from
+	-- the river — applied to the one mooring that has no tie mechanic to trigger it.
+	--
+	-- ⚠️ THE HULL ONLY. The `victim` branch above is untouched: swimmers and anyone on deck are bitten
+	-- exactly as before, so the basin water is still no place to be. Camp guards and the end garrison are
+	-- likewise unaffected — they were never in this function.
+	elseif canHitBoat and hull.Position.Z < RiverData.END_ZONE_Z_START then
 		local hp = (boat:GetAttribute("HP") :: number?) or 0
 		local after = math.max(0, hp - dmg)
 		boat:SetAttribute("HP", after)
@@ -557,6 +630,11 @@ local function seaCap(): number
 	if currentPhase() == "night" then
 		c += 3 -- NIGHT SET-PIECE: the water surges (Job 035) — reach a dock and hold out
 	end
+	-- Job #121: the final approach. Multiplied BEFORE `crewScale` on purpose, so a solo player keeps their
+	-- 0.55 discount on the surge too — the gauntlet scales with the crew like everything else does.
+	if surgeActive() then
+		c *= FINAL_SURGE_MUL
+	end
 	return math.max(1, math.floor(c * crewScale()))
 end
 local function landCap(): number
@@ -592,20 +670,74 @@ end)
 local function spawnInterval(base: number, category: string): number
 	local dist = math.max(0, RiverData.worldToDistance(hull.Position.Z))
 	local ramp = base * (1 - 0.5 * math.clamp(dist / ESCALATE_DISTANCE, 0, 1))
-	return ramp / EnemyDefs.strengthFor(category, currentPhase())
+	local wait_ = ramp / EnemyDefs.strengthFor(category, currentPhase())
+	-- 🔴 Job #121 — CUTTING THE INTERVAL IS NOT OPTIONAL DRESSING ON THE ×3 CAP; WITHOUT IT THE CAP IS
+	-- UNREACHABLE AND THE SURGE IS A NUMBER WITH NO OBSERVABLE EFFECT.
+	--
+	-- Measured against the existing formulas: at the end of the river the sea interval is 2.0 s by day and
+	-- 1.33 s at night. The boat covers the 800-stud window in roughly 32 s at cruise. So the spawner gets
+	-- ~16-24 attempts in the whole gauntlet — it could never fill a cap of 30, let alone 39, and raising the
+	-- ceiling alone would have changed nothing a player could see. ÷3 puts it at 0.67 s / 0.44 s, which
+	-- fills in about the first third of the run-in.
+	if category == "sea" and surgeActive() then
+		wait_ /= FINAL_SURGE_MUL
+	end
+	return wait_
 end
+
+-- ── Job #121: is this point actually open water? ───────────────────────────────────────────────────
+-- Two rays down the same line: one that stops at the water surface, one that ignores water and stops at
+-- the riverbed. Over water the first lands ~`WATER_Y` and the second lands below it; over dry land both
+-- land on the same ground and the difference collapses to zero.
+--
+-- ⚠️ NO TERRAIN AT ALL reads as NOT water, which is the safe answer: it means either the chunk has not been
+-- generated or we are asking somewhere there is nothing. That conservatism is also why this is only ever
+-- consulted near the sculpted end basin (`END_WATER_CHECK_FROM`) — see that constant.
+local wetParams = RaycastParams.new()
+wetParams.FilterType = Enum.RaycastFilterType.Include
+wetParams.FilterDescendantsInstances = { Workspace.Terrain }
+wetParams.IgnoreWater = false
+local dryParams = RaycastParams.new()
+dryParams.FilterType = Enum.RaycastFilterType.Include
+dryParams.FilterDescendantsInstances = { Workspace.Terrain }
+dryParams.IgnoreWater = true
+
+local function isOpenWater(x: number, z: number): boolean
+	local from, dir = Vector3.new(x, WATER_Y + 60, z), Vector3.new(0, -160, 0)
+	local wet = Workspace:Raycast(from, dir, wetParams)
+	if not wet then
+		return false
+	end
+	local dry = Workspace:Raycast(from, dir, dryParams)
+	return (dry == nil) or (wet.Position.Y > dry.Position.Y + 0.5)
+end
+
+local endSpawnRejects = 0
 
 -- SEA spawner: a mix of crocs / piranha / (deep) hippos in the channel ahead
 task.spawn(function()
 	while true do
 		if Workspace:GetAttribute("RunStarted") and boatAlive() and countByCategory("sea") < seaCap() then
 			local def = pickType(SEA_POOL)
-			local z = hull.Position.Z + rng:NextNumber(SEA_AHEAD_MIN, SEA_AHEAD_MAX)
+			-- Job #121: never ask for a spawn point past where the generated formula still describes the
+			-- sculpted basin. `math.min` rather than a skip, so the mouth itself keeps being stocked as the
+			-- boat sails in — the pack that escorts you into the end zone.
+			local z = math.min(hull.Position.Z + rng:NextNumber(SEA_AHEAD_MIN, SEA_AHEAD_MAX), END_SPAWN_MAX_Z)
 			local x = RiverData.centerlineX(z) + rng:NextNumber(-1, 1) * RiverData.widthAt(z) * 0.35
-			local e = spawnEnemy(def, Vector3.new(x, WATER_Y, z), nil)
-			local st = state[e]
-			if st then
-				st.side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1 -- attack from left or right
+			if z < END_WATER_CHECK_FROM or isOpenWater(x, z) then
+				local e = spawnEnemy(def, Vector3.new(x, WATER_Y, z), nil)
+				local st = state[e]
+				if st then
+					st.side = if rng:NextNumber(-1, 1) >= 0 then 1 else -1 -- attack from left or right
+				end
+			else
+				-- Said out loud, throttled. A silent reject path is indistinguishable from a check that
+				-- never runs, and "zero rejections" is exactly the reading that would hide a broken guard.
+				endSpawnRejects += 1
+				if endSpawnRejects % 5 == 1 then
+					print(("[Enemy] end-zone spawn point rejected — not water at (%.0f, %.0f) [%d so far]")
+						:format(x, z, endSpawnRejects))
+				end
 			end
 		end
 		task.wait(spawnInterval(BASE_SEA_INTERVAL, "sea"))
@@ -621,6 +753,17 @@ task.spawn(function()
 			#LAND_POOL > 0
 			and Workspace:GetAttribute("RunStarted")
 			and boatAlive()
+			-- 🔴 Job #121 — NO RIVERBANK WILDLIFE PAST THE MOUTH. Owner's call.
+			--
+			-- Past z = 18 000 the "banks" this spawner computes are the sculpted end basin's, and it would
+			-- drop boars onto the airfield alongside the fourteen defenders `EndGarrison` places there. The
+			-- end-zone fight is meant to be a known quantity — three grenadiers, ten raiders, one warlord —
+			-- and a stream of boars wandering into it means the fight that was tuned is not the fight the
+			-- player gets.
+			--
+			-- ⚠️ Gates the SPAWNER only. Anything already alive keeps ticking and keeps being culled by
+			-- `CULL_BEHIND` as normal, so a boar that chased you to the mouth still has to be dealt with.
+			and hull.Position.Z < RiverData.END_ZONE_Z_START
 			and countByCategory("land") < landCap()
 		then
 			local def = pickType(LAND_POOL)

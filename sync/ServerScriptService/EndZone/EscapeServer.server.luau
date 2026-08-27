@@ -322,9 +322,37 @@ for _, plr in ipairs(Players:GetPlayers()) do
 	end)
 end
 
+-- ── Job #121: the warlord gates the extraction ──────────────────────────────────────────────────
+-- Owner's call. Before this, a player could sprint dock → pad past every defender in the end zone and win:
+-- the pad grants invincibility the moment you stand on it, so nothing on the airfield could touch them.
+-- The 550 HP boss holding the pad approach now has to die first, which is what makes his hit points mean
+-- something.
+--
+-- 🔴 A POSITIVE LIVENESS FLAG, AND THE DIRECTION IS THE WHOLE SAFETY ARGUMENT.
+--
+-- `RunServer`'s ONLY win arm is `Workspace.EscapeReached` (RunServer:255) — there is no other way out of a
+-- run except dying. Had this been written as "the win requires `EndBossKilled == true`", then every way the
+-- garrison can fail to appear — no `EndBase`, the boss's post failing to validate, `EndGarrison` erroring,
+-- the module missing from the sync — would produce an **unwinnable run**, presenting as a broken extraction
+-- pad rather than as a broken garrison.
+--
+-- Written this way round, all of those failures mean: no boss on the field, no gate, and a pad that behaves
+-- exactly as it did before this job. `EndGarrison` sets the attribute only when the rig actually spawns and
+-- clears it on his death, on his removal from the world, and on a new run starting.
+local BOSS_ALIVE_ATTR = "EndBossAlive"
+
+local function bossAlive(): boolean
+	return Workspace:GetAttribute(BOSS_ALIVE_ATTR) == true
+end
+
 -- ── extraction ──────────────────────────────────────────────────────────────────────────────────
 local function extract(reason: string)
 	if extracted then
+		return
+	end
+	-- The single chokepoint for the gate. Both callers below check it too — this is the one that cannot be
+	-- bypassed by a future third caller.
+	if bossAlive() then
 		return
 	end
 	extracted = true
@@ -345,7 +373,7 @@ local function extract(reason: string)
 end
 
 prompt.Triggered:Connect(function(plr)
-	if extracted or not onPad(plr) then
+	if extracted or bossAlive() or not onPad(plr) then
 		return
 	end
 	local crew = living()
@@ -370,11 +398,27 @@ while not extracted do
 	local runLive = Workspace:GetAttribute("RunStarted") == true and Workspace:GetAttribute("RunEnded") ~= true
 	if runLive then
 		local crew = living()
+		-- 🔴 Job #121 — COMPUTED BEFORE THE OCCUPANCY LOOP, AND THAT ORDERING IS A SOFTLOCK FIX.
+		--
+		-- The pad's invincibility stamp and the extraction gate are the two halves of a trap. `protect` is
+		-- re-stamped every TICK (0.25 s) with a 2 s deadline, and EVERY writer of a player's HP honours
+		-- `InvincibleUntil` — `EnemyServer`'s target selector, `tickGuard`'s bite, `tickRocketMan`'s bite,
+		-- and `Rocket.canHurtPlayer`. So a crew standing on the pad while the warlord is alive would have
+		-- been **invincible, unable to extract, and unable to die**: `RunServer`'s three end arms are
+		-- extraction (gated), `BoatDestroyed` and `alivePlayers() == 0`, and there is no timeout. The run
+		-- could never end.
+		--
+		-- So the pad is not a sanctuary until it is an exit. While the gate is shut, standing on it means
+		-- standing in the boss's reach like anywhere else — which is also the only reading under which
+		-- "he guards the pad" means anything.
+		local blocked = bossAlive()
 		local aboard: { Player } = {}
 		for _, plr in ipairs(crew) do
 			if onPad(plr) then
 				aboard[#aboard + 1] = plr
-				protect(plr, PAD_GRACE)
+				if not blocked then
+					protect(plr, PAD_GRACE)
+				end
 				if not wasAboard[plr] then
 					wasAboard[plr] = true
 					playAtPad("joinPad", 0.5)
@@ -386,10 +430,21 @@ while not extracted do
 		end
 
 		local n, total = #aboard, #crew
-		local canForce = total > 1 and n > 0 and n * 2 > total and n < total
+		-- Job #121: while the warlord lives, extraction is off and the SIGN SAYS SO. A pad that silently
+		-- refuses to fire with the whole crew standing on it is indistinguishable from a broken pad, and
+		-- a force-launch prompt you can hold to no effect is worse than no prompt at all.
+		-- (`blocked` is read above the occupancy loop — see the softlock note there.)
+		local canForce = (not blocked) and total > 1 and n > 0 and n * 2 > total and n < total
 		prompt.Enabled = canForce
 
-		if total > 0 and n >= total then
+		if blocked then
+			local names = {}
+			for i, plr in ipairs(aboard) do
+				names[i] = "• " .. plr.DisplayName
+			end
+			label.Text = ("<b>EXTRACTION LOCKED</b>\nKill the warlord first\n%d/%d aboard\n%s")
+				:format(n, total, table.concat(names, "\n"))
+		elseif total > 0 and n >= total then
 			extract(("full crew aboard (%d/%d)"):format(n, total))
 		else
 			local names = {}

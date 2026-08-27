@@ -141,6 +141,41 @@ EnemyDefs.Defs = {
 		color = Color3.fromRGB(96, 78, 58),
 		size = Vector3.new(5, 4, 11), -- ⚠️ unchanged from the Panther: Job #058 tuning depends on it
 	},
+	-- land: THE WARLORD — Job #121. The oversized raider who holds the extraction pad in the end zone.
+	--
+	-- *"one bigger and scaled bandit that is boss, he has x10 health"* — the owner's words, and both halves
+	-- are literal: `hp` is exactly Bandit's 55 × 10, and `EnemyAssets.BanditBoss` renders the same
+	-- `WesternBandit` rig at `scale = 1.6`.
+	--
+	-- ⚠️ `size` IS NOT THE BANDIT'S 5 x 4 x 11 SCALED BY 1.6, AND THAT IS THE POINT OF HAVING A NEW DEF.
+	-- The Bandit's box is the retired Panther's, kept only because Job #058's crew-size scaling is tuned
+	-- against it (see the Bandit entry). It is **11 studs deep** — a man wearing a bus. Multiplying it would
+	-- give a 17.6-stud-deep hitbox you could melee from two body-lengths behind him. `RocketMan` set the
+	-- precedent for this exact situation: a NEW enemy has no #058 history, so it gets an honest box. This is
+	-- the measured R15 human box (4 x 5.8 x 3, the same one the soldier uses) × 1.6.
+	--
+	-- ⚠️ `biteRange` 16, not the Bandit's 12, and not 12 × 1.6 either. `tickGuard` measures the bite from
+	-- the hitbox CENTRE, so a body 1.6× wider needs proportionally more reach or the boss stands inside the
+	-- player and swings at air. 16 also sits above `biteRange * 0.5` = 8 as the stop distance, which keeps
+	-- him from walking through you.
+	--
+	-- 🔴 `biteDamage` IS UNCHANGED FROM THE BANDIT, ON THE OWNER'S CALL. He is a wall of hit points, not a
+	-- damage spike: 10.8 × `DAMAGE_SCALE` = **5.53** per swing, identical to the raiders standing around
+	-- him. Do NOT reach for `spawnGuard`'s `strength` multiplier to give him his HP — that scales HP *and*
+	-- `BiteDamage` together, so a ×10 strength boss would hit for 55 per swing and delete a 100 HP player in
+	-- two. The HP lives here, in the def, precisely so the bite does not come with it.
+	BanditBoss = {
+		name = "BanditBoss",
+		category = "land",
+		hp = 550, -- 55 × 10
+		speed = 20, -- the Bandit's: big, not slow. He is a duellist, not a siege engine
+		aggroRadius = 95,
+		biteRange = 16,
+		biteDamage = 10.8,
+		biteCooldown = 1.4,
+		color = Color3.fromRGB(96, 78, 58), -- greybox fallback only; the real art is the scaled WesternBandit
+		size = Vector3.new(6.4, 9.3, 4.8),
+	},
 	-- land: the ROCKET MAN — Job #119. An army soldier who stands on a camp watchtower's top platform
 	-- and lobs the Bazooka's rocket at you every 20 seconds.
 	--

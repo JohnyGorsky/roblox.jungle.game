@@ -2,7 +2,7 @@
 
 **Project**: `roblox.jungle`
 **Created**: 2026-08-27 18:22:12
-**Status**: Requirements Gathering (intake)
+**Status**: ✅ COMPLETE — implemented, verified in Play, closed 2026-08-27 (see final-summary.md)
 
 ## Requirements / goal
 
@@ -10,10 +10,17 @@ The extraction end zone is empty of enemies. Add: (1) a surge of sea creatures o
 
 ## Checklist
 
-- [ ] Requirements reviewed (this intake)
-- [ ] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
-- [ ] **Symptom reproduced in PLAY**, at the player's camera, before any fix (GROUND-RULES 7)
-- [ ] Implementation plan created & agreed
-- [ ] Implementation completed
-- [ ] **Proof it works better** captured - before/after from the same camera, in Play
-- [ ] Final summary + changelog written
+- [x] Requirements reviewed (this intake)
+- [x] **Independent reviewer agent run** - given the symptom/requirement, NOT my theory (GROUND-RULES 8)
+- [~] **Symptom reproduced in PLAY** — confirmed instrumented (`CampGuards within 250 of END_CAMP = 0`,
+      no garrison folder, flag unset), but NOT from the player's camera: see the screenshot note below
+- [x] Implementation plan created & agreed
+- [x] Implementation completed
+- [x] **Proof it works better** — 14 instrumented checks, all passing (see implementation-plan.md).
+      ⚠️ **The before/after IMAGE pair was WAIVED by the owner, 2026-08-27**, not skipped: `screen_capture`
+      timed out on every attempt (client not rendering — Studio window not in the foreground), and their
+      ruling was *"close now — I'll judge it in play"*, on the grounds that what images would settle is
+      whether the field LOOKS right, which is a feel judgement made at the controls. Instrumented checks
+      cover counts, positions, seating heights, damage magnitudes and fire timings; they say nothing about
+      the look. If the field reads wrong in play, that is a new job.
+- [x] Final summary + changelog written

@@ -671,6 +671,16 @@ deep camp has a tower for the RocketMan to stand on; the near camp keeps its (un
 silhouette you see from the water. Both towers carry an `AmmoBox` salvage chest (45–70) on their
 `InnerPlace` pad. That is **+257 parts per live landing site** (tower 128 + soldier 85 + 2 chests 44).
 
+⚠️ **Job #121 — the END ZONE reuses the same three models, and its `AmmoBox` chests hold AMMO, not
+salvage.** `Workspace.EndBase.Objects` already contains **three editor-placed `RangerTower`s**, all with
+the `Defender` + `InnerPlace` pads. `EndGarrison` mans every one with an `ArmySoldier` and puts a
+`Kind = "Ammo"` `AmmoBox` on the inboard pad (Pistol / Shotgun / Pistol) — because there is no trading post
+past z = 17 600, so salvage there pays in a currency the run is about to end with. 🔴 **Never an M16 or
+Bazooka ammo chest:** `pickupLoot` falls back to 12 rounds when a weapon has no `ammoPerCrate`, and those
+two deliberately have none — that absence is the only thing capping their rounds against a paid purchase.
+End-zone cost is **one-off, not per-site**: 3 soldiers (255) + 3 chests (66) + 11 ground rigs. The towers
+themselves are already in the place file and are never culled.
+
 **Measured cost: 880 BaseParts per landing site.** Part counts are BasePart counts — do NOT re-derive
 them from `#model:GetDescendants()`, which runs 2–6× higher (`AmmoBox` is 22 parts but 140 descendants;
 `RangerTower` 128 vs 356). Camp clearing ring = ~80 cheap trees (`PalmCoconut`/`PalmLowPoly`/`BushPack`/
@@ -809,6 +819,7 @@ Re-dressing it to feel like a destination rather than a repeat is open work.
 | **RiverHippo** (sea) | 8×5×12 | <span style="color:#2e9c3f">✅ Meshy, imported</span> | **none needed** — water creature | <span style="color:#2e9c3f">✅ DONE</span> — shares the Crocodile's 5 sounds |
 | **Boar** (land) | 4×3×7 | <span style="color:#2e9c3f">✅ reused from **roblox.defender**</span> | procedural joint swing | <span style="color:#2e9c3f">✅ DONE</span> — rig + 3 bundled sounds, 0 credits |
 | **RocketMan** (land, camp watchtower) | 4×5.8×3 | <span style="color:#2e9c3f">✅ `ArmySoldier` — Store **11927692797** (free, 0 scripts)</span> | R15, 15 Motor6D — owned clip ids, **no idle clip on purpose** | <span style="color:#2e9c3f">✅ DONE (Job #119)</span> — stripped 122→85 parts (a 37-part M4 removed), holds the Bazooka, 2 alternating melee swings, Bandit's 5 sounds. ⚠️ **`fire` animation slot is EMPTY** — wants a standing shoulder-fire R15 clip |
+| **BanditBoss** (land, the end-zone warlord) | 6.4×9.3×4.8 | <span style="color:#2e9c3f">✅ `WesternBandit` at `scale = 1.6`</span> | R15 — **shares the Bandit's entry wholesale** (`table.clone(ART.Bandit)`) | <span style="color:#2e9c3f">✅ DONE (Job #121)</span> — **0 new assets.** 550 HP, gates the extraction. `Model:ScaleTo` moves the Motor6Ds with the parts, so the Bandit's four clips and six sounds all work at 1.6×. Retune a bandit scream and he inherits it |
 | Anaconda | TBD | Meshy M6 | slither + strike | ▫ later — **new enemy, needs stats + spawn rules first** |
 
 Concept art on disk: `assets/Enemies/{Crocodile,Hippo,Anaconda,Puma}.png`. ⚠️ There is art for **Puma**
